@@ -10,7 +10,6 @@ Clone the repository and navigate into it:
 git clone https://github.com/Data-insight-Platform/mdi-cli.git
 cd mdi-cli
 ```
-```
 
 Then, install the package using pip:
 
