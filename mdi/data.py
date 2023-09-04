@@ -134,18 +134,11 @@ def load_dataset(name, force_download=False, verbose=False):
         "token": credentials["session_token"],
     }
 
-    # use unittest patch to mock the __post_init__ method
-    # to make sure the "hf" key is never written
     with patch.object(DownloadConfig, "__post_init__", lambda a, b: None):
-        download_config = DownloadConfig(
-            storage_options=storage_options,
-            cache_dir=MDI_CACHE_DIR,
-            force_download=force_download,
-        )
-
         dataset = datasets.load_dataset(
             str(py_file_path.resolve()),
-            download_config=download_config,
+            storage_options=storage_options,
+            cache_dir=MDI_CACHE_DIR,
         )
 
     if verbose:
