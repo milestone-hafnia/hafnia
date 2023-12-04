@@ -22,7 +22,7 @@ def login():
 @click.option("--force", is_flag=True, help="Force re-download of the dataset.")
 def load_dataset(name, force):
     """Load a dataset from AWS S3 bucket."""
-    data_load_dataset(name, force=force)
+    data_load_dataset(name, force_redownload=force)
     click.echo(f"Dataset {name} downloaded successfully.")
 
 
