@@ -8,6 +8,7 @@ from datasets.download.download_config import DownloadConfig
 
 from .config import (
     MDI_API_DATASETS,
+    MDI_API_DATASETS_BY_ID,
     MDI_API_TEMP_CREDS,
     MDI_CACHE_DIR,
     MDI_CREDENTIALS,
@@ -51,7 +52,14 @@ def get_dataset_obj_from_name(api_key, name):
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         data = r.json()
-        return data[0]
+        dataset_id = data[0]["id"]
+    else:
+        r.raise_for_status()
+
+    url = MDI_API_DATASETS_BY_ID.format(id=dataset_id)
+    r = requests.get(url, headers=headers)
+    if r.status_code == 200:
+        return r.json()
     else:
         r.raise_for_status()
 
@@ -99,7 +107,7 @@ def download_dataset_py_file(
         raise RuntimeError("No py file found in bucket root.")
 
 
-def load_dataset(name, force_download=False, verbose=False):
+def load_dataset(name, force_redownload=False, verbose=False):
     """Load a dataset from AWS S3 bucket."""
     api_key = get_credentials()
     if not api_key:
@@ -134,11 +142,17 @@ def load_dataset(name, force_download=False, verbose=False):
         "token": credentials["session_token"],
     }
 
+    if force_redownload:
+        download_mode = datasets.DownloadMode.FORCE_REDOWNLOAD
+    else:
+        download_mode = datasets.DownloadMode.REUSE_DATASET_IF_EXISTS
+
     with patch.object(DownloadConfig, "__post_init__", lambda a, b: None):
         dataset = datasets.load_dataset(
             str(py_file_path.resolve()),
             storage_options=storage_options,
             cache_dir=MDI_CACHE_DIR,
+            download_mode=download_mode,
         )
 
     if verbose:

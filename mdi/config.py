@@ -5,6 +5,7 @@ MDI_API_TEMP_CREDS = (
     f"{MDI_API_URL}/api/v1/datasets/{{obj_id}}/get_temporary_credentials/"
 )
 MDI_API_DATASETS = f"{MDI_API_URL}/api/v1/datasets/?name__iexact={{name}}"
+MDI_API_DATASETS_BY_ID = f"{MDI_API_URL}/api/v1/datasets/{{id}}/"
 MDI_FOLDER_NAME = "mdi"
 MDI_HOME = xdg_data_home() / MDI_FOLDER_NAME
 MDI_CREDENTIALS = MDI_HOME / "credentials"
