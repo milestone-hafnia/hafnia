@@ -5,12 +5,12 @@ from .data import set_credentials
 
 
 @click.group()
-def cli():
+def cli() -> None:
     pass
 
 
 @cli.command()
-def login():
+def login() -> None:
     """Login command."""
     api_key = click.prompt("Please enter your API key")
     set_credentials(api_key)
@@ -20,7 +20,7 @@ def login():
 @cli.command()
 @click.option("--name", help="Name of the dataset to download.")
 @click.option("--force", is_flag=True, help="Force re-download of the dataset.")
-def load_dataset(name, force):
+def load_dataset(name: str, force: bool) -> None:
     """Load a dataset from AWS S3 bucket."""
     data_load_dataset(name, force_redownload=force)
     click.echo(f"Dataset {name} downloaded successfully.")

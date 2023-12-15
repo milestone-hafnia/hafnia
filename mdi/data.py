@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from unittest.mock import patch
 
 import boto3
@@ -16,7 +17,7 @@ from .config import (
 )
 
 
-def get_credentials():
+def get_credentials() -> Optional[str]:
     """Get the API key from the credentials file."""
     if MDI_CREDENTIALS.exists():
         with open(MDI_CREDENTIALS, "r") as f:
@@ -26,7 +27,7 @@ def get_credentials():
         return None
 
 
-def set_credentials(api_key):
+def set_credentials(api_key: str) -> None:
     """Set the API key in the credentials file."""
     credentials_folder = MDI_CREDENTIALS.parent
 
@@ -41,11 +42,11 @@ def set_credentials(api_key):
     os.chmod(MDI_CREDENTIALS, 0o600)
 
 
-def headers_from_api_key(api_key):
+def headers_from_api_key(api_key: str) -> dict[str, str]:
     return {"X-APIKEY": api_key}
 
 
-def get_dataset_obj_from_name(api_key, name):
+def get_dataset_obj_from_name(api_key: str, name: str) -> dict:
     """Get dataset id from name."""
     headers = headers_from_api_key(api_key)
     url = MDI_API_DATASETS.format(name=name)
@@ -64,7 +65,7 @@ def get_dataset_obj_from_name(api_key, name):
         r.raise_for_status()
 
 
-def get_temporary_credentials(api_key, obj_id):
+def get_temporary_credentials(api_key: str, obj_id: str) -> dict:
     """Fetch temporary AWS S3 credentials from the API."""
     headers = headers_from_api_key(api_key)
     url = MDI_API_TEMP_CREDS.format(obj_id=obj_id)
@@ -76,8 +77,12 @@ def get_temporary_credentials(api_key, obj_id):
 
 
 def download_dataset_py_file(
-    access_key, secret_key, session_token, bucket_name, local_folder
-):
+    access_key: str,
+    secret_key: str,
+    session_token: str,
+    bucket_name: str,
+    local_folder: str,
+) -> str:
     # Create a session using the temporary credentials
     session = boto3.Session(
         aws_access_key_id=access_key,
@@ -107,7 +112,9 @@ def download_dataset_py_file(
         raise RuntimeError("No py file found in bucket root.")
 
 
-def load_dataset(name, force_redownload=False, verbose=False):
+def load_dataset(
+    name: str, force_redownload: bool = False, verbose: bool = False
+) -> datasets.Dataset:
     """Load a dataset from AWS S3 bucket."""
     api_key = get_credentials()
     if not api_key:
