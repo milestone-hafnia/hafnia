@@ -4,17 +4,17 @@ A command-line tool and Python package to download and load datasets (Huggingfac
 
 ## Installation
 
-Clone the repository and navigate into it:
+With pip:
 
 ```bash
-git clone https://github.com/Data-insight-Platform/mdi-cli.git
-cd mdi-cli
+pip install git+https://github.com/Data-insight-Platform/mdi-cli.git@main
 ```
 
-Then, install the package using pip:
+With poetry, add it to the pyproject.toml file of your project:
 
-```bash
-pip install -e .
+```toml
+[tool.poetry.dependencies]
+mdi = { git = "https://github.com/mdi-developers/mdi-cli.git", branch = "main" }
 ```
 
 ## Usage
@@ -32,29 +32,29 @@ mdi login
 
 #### Load Dataset
 
-This command downloads a dataset from S3, if it's not already downloaded, and loads it into a PyTorch DataLoader. It has a `--force` option to force a re-download of the data.
+This command downloads a dataset from S3, if it's not already downloaded, and loads it as Huggingface Dataset. It has a `--force` option to force a re-download of the data.
 
 ```bash
-mdi load_dataset --name cats_and_dogs
+mdi load_dataset --name mnist
 ```
 
 To force a re-download of the data, use the --force option:
 
 ```bash
-mdi load_dataset --name cats_and_dogs --force
+mdi load_dataset --name mnist --force
 ```
 
 ### Python Package
 
 You can also use `mdi` as a Python package.
 
-Here's an example of how to download a dataset and load it into a PyTorch DataLoader:
+Here's an example of how to download a dataset and load it as Huggingface Dataset:
 
 ```python
 import mdi
 
-# Download the dataset and load it into a PyTorch DataLoader
-dataset = mdi.load_dataset("cats_and_dogs")
+# Download the dataset and load it as Huggingface Dataset
+dataset = mdi.load_dataset("mnist")
 
 # Use the dataset for training a model
 for images, labels in dataset["train"]:
@@ -62,8 +62,17 @@ for images, labels in dataset["train"]:
     pass
 ```
 
-## License
+## Installation Development Version
 
-### MIT
+Clone the repository and navigate into it:
 
-Please make sure to replace "username" with your actual GitHub username in the repository link. Also, you might want to add more information such as how to contribute to your project, code of conduct, etc., depending on the nature of your project.
+```bash
+git clone https://github.com/Data-insight-Platform/mdi-cli.git
+cd mdi-cli
+```
+
+Then, install the package using pip:
+
+```bash
+pip install -e .
+```
