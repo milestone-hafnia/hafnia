@@ -10,11 +10,13 @@ With pip:
 pip install git+https://github.com/Data-insight-Platform/mdi-cli.git@main
 ```
 
-With poetry, add it to the pyproject.toml file of your project:
+With poetry, add it to the `pyproject.toml` file of your project:
 
 ```toml
 [tool.poetry.dependencies]
+...
 mdi = { git = "https://github.com/mdi-developers/mdi-cli.git", branch = "main" }
+...
 ```
 
 ## Usage
