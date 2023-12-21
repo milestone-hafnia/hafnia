@@ -1,6 +1,6 @@
 # Milestone Data Insight Platform
 
-A command-line tool and Python package to download and load datasets from AWS S3.
+A command-line tool and Python package to download and load datasets (Huggingface format) from the MDI platform.
 
 ## Installation
 
