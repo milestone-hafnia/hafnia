@@ -7,7 +7,7 @@ A command-line tool and Python package to download and load datasets (Huggingfac
 With pip:
 
 ```bash
-pip install git+https://github.com/mdi-developers/mdi-cli.git@main
+pip install git+ssh://git@github.com/mdi-developers/mdi-cli.git@main
 ```
 
 With poetry, add it to the `pyproject.toml` file of your project:
