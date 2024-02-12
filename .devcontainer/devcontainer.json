@@ -5,7 +5,9 @@
       "ghcr.io/devcontainers-contrib/features/poetry:2": {
         "version": "1.5.1"
       },
-      "ghcr.io/devcontainers-contrib/features/pre-commit": { },
+      "ghcr.io/devcontainers-contrib/features/pre-commit": {},
+      "ghcr.io/devcontainers/features/aws-cli:1": {},
+      "ghcr.io/joshuanianji/devcontainer-features/aws-cli-persistence:1": {},
     },
     "customizations": {
       "vscode": {

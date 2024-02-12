@@ -1,9 +1,12 @@
 [tool.poetry]
-name = "mdi"
+name = "mdi-cli"
 version = "0.1.0"
 description = "A CLI tool to download and load datasets from S3."
 authors = ["Rasmus Jones <rasmus.jones@milestone.dk>"]
 readme = "README.md"
+packages = [
+    { include = "mdi" },
+]
 
 [tool.poetry.dependencies] # Relax package specific dependencies
 python = "^3.10.1"
