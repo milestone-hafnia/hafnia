@@ -1,9 +1,12 @@
 [tool.poetry]
-name = "mdi"
+name = "mdi-cli"
 version = "0.1.0"
 description = "A CLI tool to download and load datasets from S3."
 authors = ["Rasmus Jones <rasmus.jones@milestone.dk>"]
 readme = "README.md"
+packages = [
+    { include = "mdi" },
+]
 
 [tool.poetry.dependencies] # Relax package specific dependencies
 python = "^3.10.1"
@@ -25,6 +28,8 @@ flake8-annotations = "~3.0.1"
 flake8-black = "~0.3.6"
 ipykernel = "~6.25.1"
 matplotlib = "^3.8.2"
+# Using this fork because upstream dependencies are not compatible with Python 3.10+
+pypiprivate = {git = "https://github.com/rishabhj1717/pypiprivate.git", rev = "feature/support-python3.10"}
 
 [tool.poetry.scripts]
 mdi = 'mdi.__main__:cli'
