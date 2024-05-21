@@ -35,7 +35,7 @@ _config = read_config(MDI_CONFIG_FILE)
 
 MDI_API_URL = _get_config_value("api_url", _config)
 MDI_API_TEMP_CREDS = (
-    f"{MDI_API_URL}/api/v1/datasets/{{obj_id}}/get_temporary_credentials/"
+    f"{MDI_API_URL}/api/v1/datasets/{{obj_id}}/temporary-credentials/"
 )
 MDI_API_DATASETS = f"{MDI_API_URL}/api/v1/datasets/?name__iexact={{name}}"
 MDI_API_DATASETS_BY_ID = f"{MDI_API_URL}/api/v1/datasets/{{id}}/"

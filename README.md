@@ -7,7 +7,7 @@ A command-line tool and Python package to download and load datasets (Huggingfac
 With pip:
 
 ```bash
-pip install git+ssh://git@github.com/mdi-developers/mdi-cli.git@main
+pip install git+ssh://git@github.com/Data-insight-Platform/mdi-cli.git@main
 ```
 
 With poetry, add it to the `pyproject.toml` file of your project:
@@ -15,7 +15,7 @@ With poetry, add it to the `pyproject.toml` file of your project:
 ```
 [tool.poetry.dependencies]
 ...
-mdi = { git = "https://github.com/mdi-developers/mdi-cli.git", branch = "main" }
+mdi = { git = "https://github.com/Data-insight-Platform/mdi-cli.git", branch = "main" }
 ...
 ```
 
@@ -69,7 +69,7 @@ for images, labels in dataset["train"]:
 Clone the repository and navigate into it:
 
 ```bash
-git clone https://github.com/mdi-developers/mdi-cli.git
+git clone https://github.com/Data-insight-Platform/mdi-cli.git
 cd mdi-cli
 ```
 
