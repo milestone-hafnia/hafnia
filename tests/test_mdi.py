@@ -5,12 +5,23 @@ import pytest
 from botocore.stub import Stubber
 
 from mdi import data
-from mdi.config import MDI_CREDENTIALS
+from mdi.config import Config
+
+API_URL = "https://test.com"
+API_KEY = "test_api_key"
+CONFIG_FILE = f"""\
+[DEFAULT]
+current_profile = profile.default
+
+[profile.default]
+api_url = {API_URL}
+api_key = {API_KEY}
+"""
 
 
 @pytest.fixture
 def api_key():
-    return "test_api_key"
+    return API_KEY
 
 
 @pytest.fixture
@@ -18,17 +29,41 @@ def s3_client():
     return boto3.client("s3")
 
 
-def test_get_credentials(api_key):
-    with mock.patch("builtins.open", mock.mock_open(read_data=api_key)) as m:
-        credentials = data.get_credentials()
-        m.assert_called_once_with(MDI_CREDENTIALS.resolve(), "r")
-        assert credentials == api_key
+def test_config_read(tmp_path):
+    file_path = tmp_path / "config.ini"
+    # Write content to the config file.
+    file_path.write_text(CONFIG_FILE)
+    config = Config(file_path, tmp_path, tmp_path)
+    assert API_URL == config.get_api_url()
+    assert API_KEY == config.get_api_key()
 
 
-def test_set_credentials(api_key):
-    with mock.patch("builtins.open", mock.mock_open()) as m:
-        data.set_credentials(api_key)
-        m.assert_called_once_with(MDI_CREDENTIALS.resolve(), "w")
+def test_config_profile_actions(tmp_path):
+    file_path = tmp_path / "config.ini"
+    # Read in empty config file.
+    config = Config(file_path, tmp_path, tmp_path)
+    # Create profiles.
+    config.create_profile("first", "first_url", "first_key")
+    config.create_profile("second", "second_url", "second_key")
+    assert config.list_profiles() == {"first": "first_url", "second": "second_url"}
+    assert config.get_current_profile_name() is None
+    assert config.get_api_url() is None
+    assert config.get_api_key() is None
+    # Set one profile as current.
+    config.set_current_profile("second")
+    assert config.get_current_profile_name() == "second"
+    assert "second_url" == config.get_api_url()
+    assert "second_key" == config.get_api_key()
+    # Update the profile.
+    config.update_profile_values("second", {"api_url": "new_api_url", "api_key": "new_api_key"})
+    assert config.get_current_profile_name() == "second"
+    assert "new_api_url" == config.get_api_url()
+    assert "new_api_key" == config.get_api_key()
+    # Delete the current profile.
+    config.delete_profile("second")
+    assert config.get_current_profile_name() == None
+    assert config.get_api_url() is None
+    assert config.get_api_key() is None
 
 
 def test_get_temporary_credentials(api_key):

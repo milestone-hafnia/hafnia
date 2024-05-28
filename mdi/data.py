@@ -1,5 +1,3 @@
-import os
-from typing import Optional
 from unittest.mock import patch
 
 import boto3
@@ -7,39 +5,7 @@ import datasets
 import requests
 from datasets.download.download_config import DownloadConfig
 
-from .config import (
-    MDI_API_DATASETS,
-    MDI_API_DATASETS_BY_ID,
-    MDI_API_TEMP_CREDS,
-    MDI_CACHE_DIR,
-    MDI_CREDENTIALS,
-    MDI_MODULE_DIR,
-)
-
-
-def get_credentials() -> Optional[str]:
-    """Get the API key from the credentials file."""
-    if MDI_CREDENTIALS.exists():
-        with open(MDI_CREDENTIALS, "r") as f:
-            api_key = f.read().strip()
-        return api_key
-    else:
-        return None
-
-
-def set_credentials(api_key: str) -> None:
-    """Set the API key in the credentials file."""
-    credentials_folder = MDI_CREDENTIALS.parent
-
-    # Make sure the .mdi folder exists
-    if not credentials_folder.exists():
-        credentials_folder.mkdir(parents=True, exist_ok=True)
-
-    with open(MDI_CREDENTIALS, "w") as f:
-        f.write(api_key)
-
-    # Set the file permissions to 600
-    os.chmod(MDI_CREDENTIALS, 0o600)
+from .config import MDI_CACHE_DIR, config
 
 
 def headers_from_api_key(api_key: str) -> dict[str, str]:
@@ -49,7 +15,7 @@ def headers_from_api_key(api_key: str) -> dict[str, str]:
 def get_dataset_obj_from_name(api_key: str, name: str) -> dict:
     """Get dataset id from name."""
     headers = headers_from_api_key(api_key)
-    url = MDI_API_DATASETS.format(name=name)
+    url = f"{config.get_api_url()}/api/v1/datasets/?name__iexact={name}"
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         data = r.json()
@@ -57,7 +23,7 @@ def get_dataset_obj_from_name(api_key: str, name: str) -> dict:
     else:
         r.raise_for_status()
 
-    url = MDI_API_DATASETS_BY_ID.format(id=dataset_id)
+    url = f"{config.get_api_url()}/api/v1/datasets/{dataset_id}/"
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         return r.json()
@@ -68,7 +34,7 @@ def get_dataset_obj_from_name(api_key: str, name: str) -> dict:
 def get_temporary_credentials(api_key: str, obj_id: str) -> dict:
     """Fetch temporary AWS S3 credentials from the API."""
     headers = headers_from_api_key(api_key)
-    url = MDI_API_TEMP_CREDS.format(obj_id=obj_id)
+    url = f"{config.get_api_url()}/api/v1/datasets/{obj_id}/temporary-credentials/"
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         return r.json()
@@ -112,11 +78,9 @@ def download_dataset_py_file(
         raise RuntimeError("No py file found in bucket root.")
 
 
-def load_dataset(
-    name: str, force_redownload: bool = False, verbose: bool = False
-) -> datasets.Dataset:
+def load_dataset(name: str, force_redownload: bool = False, verbose: bool = False) -> datasets.Dataset:
     """Load a dataset from AWS S3 bucket."""
-    api_key = get_credentials()
+    api_key = config.get_api_key()
     if not api_key:
         raise ValueError("No API key found. Please login first.")
 
@@ -133,7 +97,7 @@ def load_dataset(
         raise RuntimeError("Failed to get temporary credentials.")
 
     # download py file
-    dataset_module_folder = MDI_MODULE_DIR / name
+    dataset_module_folder = config.get_module_dir() / name
     dataset_module_folder.mkdir(parents=True, exist_ok=True)
     py_file_path = download_dataset_py_file(
         credentials["access_key"],
