@@ -1,5 +1,5 @@
 import os
-from configparser import ConfigParser
+from configparser import ConfigParser, SectionProxy
 from pathlib import Path
 from typing import Optional
 
@@ -16,7 +16,7 @@ class Config:
     _KEY_CURRENT_PROFILE = "current_profile"
     _SECTION_PROFILE_PREFIX = "profile."
 
-    def __init__(self, config_file: Path, home_dir: Path, cache_dir: Path):
+    def __init__(self, config_file: Path, home_dir: Path, cache_dir: Path) -> None:
         self._config_file = config_file
         self._config = self._read_config(config_file, home_dir, cache_dir)
 
@@ -79,32 +79,32 @@ class Config:
 
         return name_urls
 
-    def has_profile(self, name: str) -> bool:
+    def get_profile(self, name: str) -> Optional[SectionProxy]:
         profile_section = self._profile_name_to_section(name)
         if profile_section in self._config:
-            return True
-        return False
+            return self._config[profile_section]
+        return None
 
     def update_profile_values(self, profile_name: str, key_vals: dict[str, str]) -> None:
-        if not self.has_profile(profile_name):
+        if not self.get_profile(profile_name):
             raise ValueError(f"profile with name '{profile_name}' does not exists")
 
         profile_section = self._profile_name_to_section(profile_name)
         for key, value in key_vals.items():
-            self._config[profile_section][key] = value
+            self._config.set(profile_section, key, value)
 
         self.save_config()
 
     def create_profile(self, name: str, api_url: str, api_key: str) -> None:
-        if self.has_profile(name):
+        if self.get_profile(name):
             raise ValueError(f"profile with name '{name}' already exists")
 
         profile_section = self._profile_name_to_section(name)
         self._config[profile_section] = {"api_url": api_url, "api_key": api_key}
         self.save_config()
 
-    def delete_profile(self, name: str):
-        if not self.has_profile(name):
+    def delete_profile(self, name: str) -> None:
+        if not self.get_profile(name):
             raise ValueError(f"profile '{name}' does not exists")
 
         profile_section = self._profile_name_to_section(name)
@@ -118,14 +118,14 @@ class Config:
         self.save_config()
 
     def set_current_profile(self, name: str) -> None:
-        if not self.has_profile(name):
+        if not self.get_profile(name):
             raise ValueError(f"profile '{name}' does not exist")
 
         profile_section = self._profile_name_to_section(name)
         self._config["DEFAULT"][self._KEY_CURRENT_PROFILE] = profile_section
         self.save_config()
 
-    def save_config(self):
+    def save_config(self) -> None:
         config_folder = self._config_file.parent
         # Make sure the .mdi folder exists
         if not config_folder.exists():

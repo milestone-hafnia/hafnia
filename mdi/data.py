@@ -78,7 +78,9 @@ def download_dataset_py_file(
         raise RuntimeError("No py file found in bucket root.")
 
 
-def load_dataset(name: str, force_redownload: bool = False, verbose: bool = False) -> datasets.Dataset:
+def load_dataset(
+    name: str, force_redownload: bool = False, verbose: bool = False
+) -> datasets.Dataset:
     """Load a dataset from AWS S3 bucket."""
     api_key = config.get_api_key()
     if not api_key:

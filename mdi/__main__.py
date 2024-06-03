@@ -25,8 +25,10 @@ def login() -> None:
     """Interactive login. Create a new login profile and set it as the current."""
     while True:
         profile_name = click.prompt("Profile name", default="default")
-        if config.has_profile(profile_name):
-            click.echo(f"A profile with name \"{profile_name}\" already exists, please provide a different name.")
+        if config.get_profile(profile_name):
+            click.echo(
+                f'A profile with name "{profile_name}" already exists, please provide a different name.'
+            )
         else:
             # If the profile name is unique, break the loop.
             break
@@ -62,13 +64,13 @@ def profile_ls() -> None:
         current_len = len(name)
         if current_len > max_len:
             # One is added because we will mark the current profile with an asterisk, that will increase the len by one.
-            max_len = current_len+1
+            max_len = current_len + 1
 
-    click.echo(f"{"Name":<{max_len}}\tURL")
+    click.echo(f"{'Name'.ljust(max_len)}\tURL")
     for name, url in name_urls.items():
         is_current = name == current_profile
-        prefixed_name = f"{"*" if is_current else ""}{name}"
-        click.echo(f"{prefixed_name:<{max_len}}\t{url}")
+        prefixed_name = f"*{name}" if is_current else name
+        click.echo(f"{prefixed_name.ljust(max_len)}\t{url}")
 
 
 @profile.command("create")
@@ -97,7 +99,7 @@ def profile_update(name: str, api_url: str, api_key: str) -> None:
         key_vals["api_key"] = api_key
 
     if not key_vals:
-        click.echo(f"At least one of the options (--api-url, --api-key) is required.")
+        click.echo("At least one of the options (--api-url, --api-key) is required.")
         sys.exit(1)
 
     try:
