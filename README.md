@@ -22,28 +22,30 @@ mdi = { git = "https://github.com/Data-insight-Platform/mdi-cli.git", branch = "
 ## Usage
 ### Command-Line Interface
 
-The `mdi` CLI has two commands: `login` and `load_dataset`.
+The `mdi` CLI has two main commands: `login` and `load-dataset`.
 
 #### Login
 
-This command prompts the user for an API key and stores it for future use:
+This is interactive command that prompts the user for an API key and stores it for future use:
 
 ```bash
 mdi login
 ```
+
+**Note:** for non interactive login and multiple login profiles support check: ```mdi profile --help```
 
 #### Load Dataset
 
 This command downloads a dataset from S3, if it's not already downloaded, and loads it as Huggingface Dataset. It has a `--force` option to force a re-download of the data.
 
 ```bash
-mdi load_dataset --name mnist
+mdi load-dataset --name mnist
 ```
 
 To force a re-download of the data, use the --force option:
 
 ```bash
-mdi load_dataset --name mnist --force
+mdi load-dataset --name mnist --force
 ```
 
 ### Python Package
@@ -73,8 +75,34 @@ git clone https://github.com/Data-insight-Platform/mdi-cli.git
 cd mdi-cli
 ```
 
-Then, install the package using pip:
+Initialize and activate virtual env:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+Then, install the package using poetry:
 
 ```bash
-pip install -e .
+poetry install
 ```
+
+To run the module use:
+```bash
+python -m mdi
+```
+
+To install the module with `pipx` use:
+```bash
+pipx install .
+```
+
+
+## Developments notes
+
+For easier development we have a devcontainers configuration located in `.devcontainer` directory. For better portability of the project, we are targeting an older version of Python (specified in the devcontainer config).
+
+When contributing, follow the best practices for the development of CLI tools. Some resources:
+- https://clig.dev
+- https://medium.com/@jdxcode/12-factor-cli-apps-dd3c227a0e46
+

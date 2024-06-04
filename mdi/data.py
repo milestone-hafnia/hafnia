@@ -126,6 +126,7 @@ def load_dataset(
             storage_options=storage_options,
             cache_dir=MDI_CACHE_DIR,
             download_mode=download_mode,
+            trust_remote_code=True,
         )
 
     if verbose:
