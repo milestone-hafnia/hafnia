@@ -55,7 +55,9 @@ def test_config_profile_actions(tmp_path):
     assert "second_url" == config.get_api_url()
     assert "second_key" == config.get_api_key()
     # Update the profile.
-    config.update_profile_values("second", {"api_url": "new_api_url", "api_key": "new_api_key"})
+    config.update_profile_values(
+        "second", {"api_url": "new_api_url", "api_key": "new_api_key"}
+    )
     assert config.get_current_profile_name() == "second"
     assert "new_api_url" == config.get_api_url()
     assert "new_api_key" == config.get_api_key()

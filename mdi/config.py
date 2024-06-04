@@ -7,7 +7,11 @@ from xdg_base_dirs import xdg_cache_home, xdg_config_home, xdg_data_home
 
 DEFAULT_API_URL = "https://api.mdi.milestonesys.com"
 MDI_FOLDER_NAME = "mdi"
-MDI_CONFIG_FILE = Path(os.environ.get("MDI_CONFIG_FILE", default=xdg_config_home() / MDI_FOLDER_NAME / "config.ini"))
+MDI_CONFIG_FILE = Path(
+    os.environ.get(
+        "MDI_CONFIG_FILE", default=xdg_config_home() / MDI_FOLDER_NAME / "config.ini"
+    )
+)
 MDI_HOME_DIR = xdg_data_home() / MDI_FOLDER_NAME
 MDI_CACHE_DIR = xdg_cache_home() / MDI_FOLDER_NAME
 
@@ -20,7 +24,9 @@ class Config:
         self._config_file = config_file
         self._config = self._read_config(config_file, home_dir, cache_dir)
 
-    def _read_config(self, config_path: Path, home_dir: Path, cache_dir: Path) -> ConfigParser:
+    def _read_config(
+        self, config_path: Path, home_dir: Path, cache_dir: Path
+    ) -> ConfigParser:
         config = ConfigParser()
         config.read_dict(self._default_config(home_dir, cache_dir))
         config.read(config_path)
@@ -58,7 +64,9 @@ class Config:
         return None
 
     def _get_config_value(self, key: str) -> str:
-        return os.environ.get(f"MDI_{key.upper()}", default=self._config["DEFAULT"].get(key))
+        return os.environ.get(
+            f"MDI_{key.upper()}", default=self._config["DEFAULT"].get(key)
+        )
 
     def _get_current_profile_value(self, key: str) -> Optional[str]:
         if value := os.environ.get(f"MDI_{key.upper()}"):
@@ -75,7 +83,9 @@ class Config:
         name_urls = {}
         for section in self._config:
             if section.startswith(self._SECTION_PROFILE_PREFIX):
-                name_urls[section.removeprefix(self._SECTION_PROFILE_PREFIX)] = self._config[section].get("api_url", "")
+                name_urls[
+                    section.removeprefix(self._SECTION_PROFILE_PREFIX)
+                ] = self._config[section].get("api_url", "")
 
         return name_urls
 
@@ -85,7 +95,9 @@ class Config:
             return self._config[profile_section]
         return None
 
-    def update_profile_values(self, profile_name: str, key_vals: dict[str, str]) -> None:
+    def update_profile_values(
+        self, profile_name: str, key_vals: dict[str, str]
+    ) -> None:
         if not self.get_profile(profile_name):
             raise ValueError(f"profile with name '{profile_name}' does not exists")
 
