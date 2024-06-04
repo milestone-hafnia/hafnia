@@ -61,15 +61,15 @@ def profile_ls() -> None:
     # We will align the output by the longest profile name.
     max_len = 0
     for name in name_urls:
-        current_len = len(name)
+        # 2 is added because we will mark the current profile with an asterisk and a space, that will increase the len by 2.
+        current_len = len(name) + 2
         if current_len > max_len:
-            # One is added because we will mark the current profile with an asterisk, that will increase the len by one.
-            max_len = current_len + 1
+            max_len = current_len
 
-    click.echo(f"{'Name'.ljust(max_len)}\tURL")
+    click.echo(f"{'  Name'.ljust(max_len)}\tURL")
     for name, url in name_urls.items():
         is_current = name == current_profile
-        prefixed_name = f"*{name}" if is_current else name
+        prefixed_name = f"* {name}" if is_current else f"  {name}"
         click.echo(f"{prefixed_name.ljust(max_len)}\t{url}")
 
 
