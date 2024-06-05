@@ -21,7 +21,7 @@ Pillow = "^10.0.0"
 
 [tool.poetry.group.dev.dependencies] # Use strict developer dependencies
 pytest = "~7.4.2"
-black = "~23.3.0"
+black = {extras = ["jupyter"], version = "^24.4.2"}
 isort = "~5.12.0"
 flake8 = "~6.0.0"
 flake8-annotations = "~3.0.1"
