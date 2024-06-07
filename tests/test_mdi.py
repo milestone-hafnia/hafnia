@@ -5,7 +5,7 @@ import pytest
 from botocore.stub import Stubber
 
 from mdi import data
-from mdi.config import KEY_STORE_CONFIG, KEY_STORE_KEYRING, Config
+from mdi.config import KEY_STORE_CONFIG, Config
 
 API_URL = "https://test.com"
 API_KEY = "test_api_key"
@@ -34,7 +34,7 @@ def test_config_read(tmp_path):
     file_path = tmp_path / "config.ini"
     # Write content to the config file.
     file_path.write_text(CONFIG_FILE)
-    config = Config(file_path, tmp_path, tmp_path)
+    config = Config(file_path, tmp_path)
     assert API_URL == config.get_api_url()
     assert API_KEY == config.get_api_key()
 
@@ -42,8 +42,8 @@ def test_config_read(tmp_path):
 def test_config_profile_actions(tmp_path):
     file_path = tmp_path / "config.ini"
     # Read in empty config file.
-    config = Config(file_path, tmp_path, tmp_path)
-    # Create profiles. We are using config as key store to avoid dependency on the system keyring.
+    config = Config(file_path, tmp_path)
+    # Create profiles. We are using KEY_STORE_CONFIG as the key store to avoid dependency on the system's keyring.
     config.create_profile("first", "first_url", "first_key", KEY_STORE_CONFIG)
     config.create_profile("second", "second_url", "second_key", KEY_STORE_CONFIG)
     assert config.list_profiles() == {"first": "first_url", "second": "second_url"}

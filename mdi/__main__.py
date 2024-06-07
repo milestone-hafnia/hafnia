@@ -24,8 +24,12 @@ def cli() -> None:
 @click.option("--force", is_flag=True, help="Force re-download of the dataset.")
 def load_dataset(name: str, force: bool) -> None:
     """Load a dataset from AWS S3 bucket."""
-    data_load_dataset(name, force_redownload=force)
-    click.echo(f"Dataset {name} downloaded successfully.", err=True)
+    try:
+        data_load_dataset(name, force_redownload=force)
+        click.echo(f"Dataset {name} downloaded successfully.", err=True)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @cli.command()
