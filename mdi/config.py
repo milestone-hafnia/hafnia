@@ -83,9 +83,9 @@ class Config:
         name_urls = {}
         for section in self._config:
             if section.startswith(self._SECTION_PROFILE_PREFIX):
-                name_urls[
-                    section.removeprefix(self._SECTION_PROFILE_PREFIX)
-                ] = self._config[section].get("api_url", "")
+                name_urls[section.removeprefix(self._SECTION_PROFILE_PREFIX)] = (
+                    self._config[section].get("api_url", "")
+                )
 
         return name_urls
 
