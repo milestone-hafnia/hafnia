@@ -26,7 +26,7 @@ The `mdi` CLI has two main commands: `login` and `load-dataset`.
 
 #### Login
 
-This is interactive command that prompts the user for an API key and stores it for the future use:
+This is an interactive command that prompts the user for an API key and stores it for the future use:
 
 ```bash
 mdi login
