@@ -7,7 +7,7 @@ import keyring
 from xdg_base_dirs import xdg_cache_home, xdg_config_home
 
 # Configurable ENV variables.
-# Note: the readme should the update in case we are adding/editing these variables.
+# Note: the readme should be updated if adding/editing these variables.
 MDI_API_KEY = "MDI_API_KEY"
 MDI_API_URL = "MDI_API_URL"
 MDI_CONFIG_FILE = "MDI_CONFIG_FILE"
@@ -26,7 +26,7 @@ MDI_CACHE_DIR = Path(
 DEFAULT_API_URL = "https://api.mdi.milestonesys.com"
 
 KEY_STORE_KEYRING = "keyring"
-KEY_STORE_CONFIG = "config"
+KEY_STORE_CONFIG = "config-file"
 ALLOWED_KEY_STORES = [KEY_STORE_KEYRING, KEY_STORE_CONFIG]
 
 

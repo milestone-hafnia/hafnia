@@ -105,20 +105,29 @@ def profile_ls() -> None:
 @profile.command("create")
 @click.argument("name", required=True)
 @click.option("--api-url", required=True, help="API URL", default=DEFAULT_API_URL)
-@click.option(
-    "--api-key-file", required=True, help="Path to the file containing the API key"
-)
+@click.option("--api-key-file", help="Path to the file containing the API key")
+@click.option("--api-key", help="API key")
 @click.option(
     "--key-store",
     help="API key store",
     default=KEY_STORE_KEYRING,
     type=click.Choice(ALLOWED_KEY_STORES),
 )
-def profile_create(name: str, api_url: str, api_key_file: str, key_store: str) -> None:
+def profile_create(
+    name: str, api_url: str, api_key_file: str, api_key: str, key_store: str
+) -> None:
     """Create a new profile."""
+    if not api_key and not api_key_file:
+        click.echo(
+            "Missing API key. Please use --api-key-file or --api-key option to provide it.",
+            err=True,
+        )
+        sys.exit(1)
+
     try:
-        with open(api_key_file) as f:
-            api_key = f.read().strip()
+        if not api_key:
+            with open(api_key_file) as f:
+                api_key = f.read().strip()
         config.create_profile(name, api_url, api_key, key_store)
         click.echo(
             f"The profile is stored successfully. The config file location: {MDI_CONFIG_FILE}",
@@ -141,11 +150,12 @@ def profile_create(name: str, api_url: str, api_key_file: str, key_store: str) -
 @click.argument("name", required=True)
 @click.option("--api-url")
 @click.option("--api-key-file", help="Path to the file containing the API key")
-def profile_update(name: str, api_url: str, api_key_file: str) -> None:
+@click.option("--api-key", help="API key")
+def profile_update(name: str, api_url: str, api_key_file: str, api_key: str) -> None:
     """Update a profile."""
-    if not api_url and not api_key_file:
+    if not api_url and not api_key_file and not api_key:
         click.echo(
-            "At least one of the options (--api-url, --api-key-file) is required.",
+            "At least one of the options (--api-url, --api-key-file, --api-key) is required.",
             err=True,
         )
         sys.exit(1)
@@ -156,6 +166,8 @@ def profile_update(name: str, api_url: str, api_key_file: str) -> None:
         if api_key_file:
             with open(api_key_file) as f:
                 api_key = f.read().strip()
+            config.update_profile_api_key(name, api_key)
+        if api_key:
             config.update_profile_api_key(name, api_key)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
