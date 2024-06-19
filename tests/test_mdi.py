@@ -5,7 +5,7 @@ import pytest
 from botocore.stub import Stubber
 
 from mdi import data
-from mdi.config import Config
+from mdi.config import KEY_STORE_CONFIG, Config
 
 API_URL = "https://test.com"
 API_KEY = "test_api_key"
@@ -15,6 +15,7 @@ current_profile = profile.default
 
 [profile.default]
 api_url = {API_URL}
+key_store = {KEY_STORE_CONFIG}
 api_key = {API_KEY}
 """
 
@@ -33,7 +34,7 @@ def test_config_read(tmp_path):
     file_path = tmp_path / "config.ini"
     # Write content to the config file.
     file_path.write_text(CONFIG_FILE)
-    config = Config(file_path, tmp_path, tmp_path)
+    config = Config(file_path, tmp_path)
     assert API_URL == config.get_api_url()
     assert API_KEY == config.get_api_key()
 
@@ -41,10 +42,10 @@ def test_config_read(tmp_path):
 def test_config_profile_actions(tmp_path):
     file_path = tmp_path / "config.ini"
     # Read in empty config file.
-    config = Config(file_path, tmp_path, tmp_path)
-    # Create profiles.
-    config.create_profile("first", "first_url", "first_key")
-    config.create_profile("second", "second_url", "second_key")
+    config = Config(file_path, tmp_path)
+    # Create profiles. We are using KEY_STORE_CONFIG as the key store to avoid dependency on the system's keyring.
+    config.create_profile("first", "first_url", "first_key", KEY_STORE_CONFIG)
+    config.create_profile("second", "second_url", "second_key", KEY_STORE_CONFIG)
     assert config.list_profiles() == {"first": "first_url", "second": "second_url"}
     assert config.get_current_profile_name() is None
     assert config.get_api_url() is None
@@ -55,9 +56,8 @@ def test_config_profile_actions(tmp_path):
     assert "second_url" == config.get_api_url()
     assert "second_key" == config.get_api_key()
     # Update the profile.
-    config.update_profile_values(
-        "second", {"api_url": "new_api_url", "api_key": "new_api_key"}
-    )
+    config.update_profile_api_url("second", "new_api_url")
+    config.update_profile_api_key("second", "new_api_key")
     assert config.get_current_profile_name() == "second"
     assert "new_api_url" == config.get_api_url()
     assert "new_api_key" == config.get_api_key()

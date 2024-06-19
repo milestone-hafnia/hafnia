@@ -1,8 +1,16 @@
 import sys
 
 import click
+import keyring.errors
 
-from .config import DEFAULT_API_URL, config
+from .config import (
+    ALLOWED_KEY_STORES,
+    DEFAULT_API_URL,
+    KEY_STORE_CONFIG,
+    KEY_STORE_KEYRING,
+    MDI_CONFIG_FILE,
+    config,
+)
 from .data import load_dataset as data_load_dataset
 
 
@@ -16,8 +24,12 @@ def cli() -> None:
 @click.option("--force", is_flag=True, help="Force re-download of the dataset.")
 def load_dataset(name: str, force: bool) -> None:
     """Load a dataset from AWS S3 bucket."""
-    data_load_dataset(name, force_redownload=force)
-    click.echo(f"Dataset {name} downloaded successfully.")
+    try:
+        data_load_dataset(name, force_redownload=force)
+        click.echo(f"Dataset {name} downloaded successfully.", err=True)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @cli.command()
@@ -27,23 +39,40 @@ def login() -> None:
         profile_name = click.prompt("Profile name", default="default")
         if config.get_profile(profile_name):
             click.echo(
-                f'A profile with name "{profile_name}" already exists, please provide a different name.'
+                f'A profile with name "{profile_name}" already exists, please provide a'
+                " different name.",
+                err=True,
             )
         else:
             # If the profile name is unique, break the loop.
             break
 
     api_url = click.prompt("API URL", default=DEFAULT_API_URL)
-    api_key = click.prompt("API key")
+    api_key = click.prompt("API key (hidden)", hide_input=True)
+    key_store = click.prompt(
+        "API key store",
+        default=KEY_STORE_KEYRING,
+        type=click.Choice(ALLOWED_KEY_STORES),
+    )
 
     try:
-        config.create_profile(profile_name, api_url, api_key)
+        config.create_profile(profile_name, api_url, api_key, key_store)
         config.set_current_profile(profile_name)
-    except Exception as e:
-        click.echo(f"Error: {e}")
+        click.echo(
+            f"Credentials stored successfully. The config file location: {MDI_CONFIG_FILE}",
+            err=True,
+        )
+    except keyring.errors.KeyringError as e:
+        click.echo(
+            "Error storing api key to the keyring. "
+            "In case your system does not support secure storage, "
+            f"you can use '{KEY_STORE_CONFIG}' as the key store option.\nError: {e}",
+            err=True,
+        )
         sys.exit(1)
-
-    click.echo("Credentials stored successfully.")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @cli.group("profile")
@@ -76,36 +105,72 @@ def profile_ls() -> None:
 @profile.command("create")
 @click.argument("name", required=True)
 @click.option("--api-url", required=True, help="API URL", default=DEFAULT_API_URL)
-@click.option("--api-key", required=True, help="API key")
-def profile_create(name: str, api_url: str, api_key: str) -> None:
+@click.option("--api-key-file", help="Path to the file containing the API key")
+@click.option("--api-key", help="API key")
+@click.option(
+    "--key-store",
+    help="API key store",
+    default=KEY_STORE_KEYRING,
+    type=click.Choice(ALLOWED_KEY_STORES),
+)
+def profile_create(
+    name: str, api_url: str, api_key_file: str, api_key: str, key_store: str
+) -> None:
     """Create a new profile."""
+    if not api_key and not api_key_file:
+        click.echo(
+            "Missing API key. Please use --api-key-file or --api-key option to provide it.",
+            err=True,
+        )
+        sys.exit(1)
+
     try:
-        config.create_profile(name, api_url, api_key)
+        if not api_key:
+            with open(api_key_file) as f:
+                api_key = f.read().strip()
+        config.create_profile(name, api_url, api_key, key_store)
+        click.echo(
+            f"The profile is stored successfully. The config file location: {MDI_CONFIG_FILE}",
+            err=True,
+        )
+    except keyring.errors.KeyringError as e:
+        click.echo(
+            "Error storing api key to the keyring. In case your system does not"
+            f" support secure storage, you can use '{KEY_STORE_CONFIG}' as the key"
+            f" store. Error: {e}",
+            err=True,
+        )
+        sys.exit(1)
     except Exception as e:
-        click.echo(f"Error: {e}")
+        click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 
 @profile.command("update")
 @click.argument("name", required=True)
 @click.option("--api-url")
-@click.option("--api-key")
-def profile_update(name: str, api_url: str, api_key: str) -> None:
+@click.option("--api-key-file", help="Path to the file containing the API key")
+@click.option("--api-key", help="API key")
+def profile_update(name: str, api_url: str, api_key_file: str, api_key: str) -> None:
     """Update a profile."""
-    key_vals = {}
-    if api_url:
-        key_vals["api_url"] = api_url
-    if api_key:
-        key_vals["api_key"] = api_key
-
-    if not key_vals:
-        click.echo("At least one of the options (--api-url, --api-key) is required.")
+    if not api_url and not api_key_file and not api_key:
+        click.echo(
+            "At least one of the options (--api-url, --api-key-file, --api-key) is required.",
+            err=True,
+        )
         sys.exit(1)
 
     try:
-        config.update_profile_values(name, key_vals)
+        if api_url:
+            config.update_profile_api_url(name, api_url)
+        if api_key_file:
+            with open(api_key_file) as f:
+                api_key = f.read().strip()
+            config.update_profile_api_key(name, api_key)
+        if api_key:
+            config.update_profile_api_key(name, api_key)
     except Exception as e:
-        click.echo(f"Error: {e}")
+        click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 
@@ -116,7 +181,7 @@ def profile_rm(name: str) -> None:
     try:
         config.delete_profile(name)
     except Exception as e:
-        click.echo(f"Error: {e}.")
+        click.echo(f"Error: {e}.", err=True)
         sys.exit(1)
 
 
@@ -127,7 +192,7 @@ def profile_use(name: str) -> None:
     try:
         config.set_current_profile(name)
     except Exception as e:
-        click.echo(f"Error: {e}.")
+        click.echo(f"Error: {e}.", err=True)
         sys.exit(1)
 
 
