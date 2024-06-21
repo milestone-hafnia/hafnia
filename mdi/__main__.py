@@ -1,3 +1,5 @@
+import json
+import os
 import sys
 
 import click
@@ -12,6 +14,9 @@ from .config import (
     config,
 )
 from .data import load_dataset as data_load_dataset
+from .data import list_training_runs, create_training_run
+
+_MODEL_UPLOAD_LIMIT_MB = 800
 
 
 @click.group()
@@ -27,6 +32,56 @@ def load_dataset(name: str, force: bool) -> None:
     try:
         data_load_dataset(name, force_redownload=force)
         click.echo(f"Dataset {name} downloaded successfully.", err=True)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.group("training-run")
+def training() -> None:
+    """Manage training runs."""
+    pass
+
+
+@training.command("ls")
+def training_ls() -> None:
+    """List training runs"""
+    try:
+        data = list_training_runs()
+        # json.dumps() is necessary to format the data as a valid json.
+        click.echo(json.dumps(data))
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@training.command("create")
+@click.option("--name", required=True, help="Name of the model.")
+@click.option("--file", required=True, help="Training scripts in .zip format.")
+@click.option("--description", help="Description of the model.")
+def training_create(name: str, file: str, description: str) -> None:
+    """Create a new training run."""
+    try:
+        size = os.path.getsize(file)
+        if size == 0:
+            click.echo(f"Training script {file} cannot be empty.", err=True)
+            sys.exit(1)
+        if size / 1024 / 1024 > _MODEL_UPLOAD_LIMIT_MB:
+            click.echo(
+                f"Provided file is too large. The maximum upload size is {_MODEL_UPLOAD_LIMIT_MB}MB",
+                err=True,
+            )
+            sys.exit(1)
+        if not file.lower().endswith(".zip"):
+            click.echo(f"Provided file is not in zip format.", err=True)
+            sys.exit(1)
+        if not os.path.isfile(file):
+            click.echo(f"Provided file must be a valid zip file.", err=True)
+            sys.exit(1)
+        with open(file, "rb") as f:
+            resp = create_training_run(name, description, f)
+            # json.dumps() is necessary to format the data as a valid json.
+            click.echo(json.dumps(resp))
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
