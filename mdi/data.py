@@ -82,10 +82,7 @@ def load_dataset(
     name: str, force_redownload: bool = False, verbose: bool = False
 ) -> datasets.Dataset:
     """Load a dataset from AWS S3 bucket."""
-    api_key = config.get_api_key()
-    if not api_key:
-        raise ValueError("No API key found. Please login first.")
-
+    api_key = _ensure_api_key()
     # get id from name
     dataset_obj = get_dataset_obj_from_name(api_key, name)
     dataset_obj_id = dataset_obj["id"]
@@ -143,9 +140,7 @@ def load_dataset(
 
 def list_training_runs():
     """List training runs."""
-    api_key = config.get_api_key()
-    if not api_key:
-        raise ValueError("No API key found. Please login first.")
+    api_key = _ensure_api_key()
     headers = headers_from_api_key(api_key)
     url = f"{config.get_api_url()}/api/v1/training-runs/"
     r = requests.get(url, headers=headers)
@@ -156,9 +151,7 @@ def list_training_runs():
 
 
 def create_training_run(name: str, description: str, file):
-    api_key = config.get_api_key()
-    if not api_key:
-        raise ValueError("No API key found. Please login first.")
+    api_key = _ensure_api_key()
     headers = headers_from_api_key(api_key)
     url = f"{config.get_api_url()}/api/v1/training-runs/"
     body = {"model_name": name, "description": description}
@@ -167,3 +160,10 @@ def create_training_run(name: str, description: str, file):
         return r.json()
     else:
         r.raise_for_status()
+
+
+def _ensure_api_key() -> str:
+    api_key = config.get_api_key()
+    if not api_key:
+        raise ValueError("No API key found. Please login first.")
+    return api_key
