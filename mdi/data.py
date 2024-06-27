@@ -82,14 +82,17 @@ def load_dataset(
     name: str, force_redownload: bool = False, verbose: bool = False
 ) -> datasets.Dataset:
     """Load a dataset from AWS S3 bucket."""
-    api_key = config.get_api_key()
-    if not api_key:
-        raise ValueError("No API key found. Please login first.")
-
+    api_key = _ensure_api_key()
     # get id from name
     dataset_obj = get_dataset_obj_from_name(api_key, name)
     dataset_obj_id = dataset_obj["id"]
+    if not dataset_obj_id:
+        raise ValueError(f"Unknown dataset {name}.")
     s3_bucket_name = dataset_obj["s3_bucket_name"]
+    if not s3_bucket_name:
+        raise ValueError(
+            f"Internal error, please contact support. Missing bucket for {name} dataset."
+        )
 
     # get temporary credentials
     try:
@@ -133,3 +136,34 @@ def load_dataset(
         print(f"Dataset {name} downloaded successfully.")
 
     return dataset
+
+
+def list_training_runs():
+    """List training runs."""
+    api_key = _ensure_api_key()
+    headers = headers_from_api_key(api_key)
+    url = f"{config.get_api_url()}/api/v1/training-runs/"
+    r = requests.get(url, headers=headers)
+    if r.status_code == 200:
+        return r.json()
+    else:
+        r.raise_for_status()
+
+
+def create_training_run(name: str, description: str, file):
+    api_key = _ensure_api_key()
+    headers = headers_from_api_key(api_key)
+    url = f"{config.get_api_url()}/api/v1/training-runs/"
+    body = {"model_name": name, "description": description}
+    r = requests.post(url, headers=headers, data=body, files=dict(recipe=file))
+    if r.status_code == 201:
+        return r.json()
+    else:
+        r.raise_for_status()
+
+
+def _ensure_api_key() -> str:
+    api_key = config.get_api_key()
+    if not api_key:
+        raise ValueError("No API key found. Please login first.")
+    return api_key
