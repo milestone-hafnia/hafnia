@@ -3,11 +3,11 @@
     "image": "mcr.microsoft.com/devcontainers/python:1-3.10-bullseye",
     "features": {
       "ghcr.io/devcontainers-contrib/features/poetry:2": {
-        "version": "1.5.1"
+        "version": "1.8.3"
       },
       "ghcr.io/devcontainers-contrib/features/pre-commit": {},
       "ghcr.io/devcontainers/features/aws-cli:1": {},
-      "ghcr.io/joshuanianji/devcontainer-features/aws-cli-persistence:1": {},
+      "ghcr.io/joshuanianji/devcontainer-features/aws-cli-persistence:1": {}
     },
     "customizations": {
       "vscode": {
@@ -34,7 +34,7 @@
             "editor.defaultFormatter": "ms-python.black-formatter",
             "editor.formatOnSave": true,
             "editor.codeActionsOnSave": {
-              "source.organizeImports": true
+              "source.organizeImports": "explicit"
             }
           },
           "editor.defaultFormatter": "ms-python.black-formatter",
