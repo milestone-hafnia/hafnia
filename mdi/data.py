@@ -15,7 +15,7 @@ def headers_from_api_key(api_key: str) -> dict[str, str]:
 def get_dataset_obj_from_name(api_key: str, name: str) -> dict:
     """Get dataset id from name."""
     headers = headers_from_api_key(api_key)
-    url = f"{config.get_api_url()}/api/v1/datasets/?name__iexact={name}"
+    url = f"{config.get_api_url()}/api/v1/datasets?name__iexact={name}"
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         data = r.json()
@@ -23,7 +23,7 @@ def get_dataset_obj_from_name(api_key: str, name: str) -> dict:
     else:
         r.raise_for_status()
 
-    url = f"{config.get_api_url()}/api/v1/datasets/{dataset_id}/"
+    url = f"{config.get_api_url()}/api/v1/datasets/{dataset_id}"
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         return r.json()
@@ -34,7 +34,7 @@ def get_dataset_obj_from_name(api_key: str, name: str) -> dict:
 def get_temporary_credentials(api_key: str, obj_id: str) -> dict:
     """Fetch temporary AWS S3 credentials from the API."""
     headers = headers_from_api_key(api_key)
-    url = f"{config.get_api_url()}/api/v1/datasets/{obj_id}/temporary-credentials/"
+    url = f"{config.get_api_url()}/api/v1/datasets/{obj_id}/temporary-credentials"
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         return r.json()
@@ -142,7 +142,7 @@ def list_training_runs():
     """List training runs."""
     api_key = _ensure_api_key()
     headers = headers_from_api_key(api_key)
-    url = f"{config.get_api_url()}/api/v1/training-runs/"
+    url = f"{config.get_api_url()}/api/v1/training-runs"
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         return r.json()
@@ -153,7 +153,7 @@ def list_training_runs():
 def create_training_run(name: str, description: str, file):
     api_key = _ensure_api_key()
     headers = headers_from_api_key(api_key)
-    url = f"{config.get_api_url()}/api/v1/training-runs/"
+    url = f"{config.get_api_url()}/api/v1/training-runs"
     body = {"model_name": name, "description": description}
     r = requests.post(url, headers=headers, data=body, files=dict(recipe=file))
     if r.status_code == 201:
