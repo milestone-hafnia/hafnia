@@ -5,7 +5,7 @@ description = "A CLI tool to download and load datasets from S3."
 authors = ["Rasmus Jones <rasmus.jones@milestone.dk>"]
 readme = "README.md"
 packages = [
-    { include = "mdi" },
+    { include = "mdi", from = "." },
 ]
 
 [tool.poetry.dependencies] # Relax package specific dependencies
@@ -20,6 +20,8 @@ s3fs = "^2023.6.0"
 Pillow = "^10.3.0"
 multidict = "^6.0.5"
 keyring = "^25.2.1"
+pydantic = "^2.8.2"
+pyarrow = "16.1.0"
 
 [tool.poetry.group.dev.dependencies] # Use strict developer dependencies
 pytest = "~7.4.2"
@@ -35,6 +37,8 @@ pypiprivate = {git = "https://github.com/rishabhj1717/pypiprivate.git", rev = "f
 
 [tool.poetry.scripts]
 mdi = 'mdi.__main__:cli'
+mdi_runc = "mdi_runc.cli.__runc__:main"
+mdi_convert = "mdi_runc.cli.__convert__:main"
 
 [build-system]
 requires = ["poetry-core"]
