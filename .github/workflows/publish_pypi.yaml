@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [s2m-merge]
+  pull_request:
 
 permissions:
   id-token: write
