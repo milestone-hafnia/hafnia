@@ -1,5 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+.ruff_cache
+.DS_Store
 *.py[cod]
 *$py.class
 
@@ -14,7 +16,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -162,3 +163,4 @@ cython_debug/
 /pypiprivate/
 /packaging/
 /data/
+*.zip
