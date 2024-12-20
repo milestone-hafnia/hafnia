@@ -143,12 +143,8 @@ class MDILogger:
     def post_log(self) -> None:
         if len(self.entities) != self.update_interval:
             return
-        prev = (
-            None if not self.log_file.exists() else pa.parquet.read_table(self.log_file)
-        )
-        log_batch = pa.Table.from_pylist(
-            [e.dict() for e in self.entities], schema=self.schema
-        )
+        prev = None if not self.log_file.exists() else pa.parquet.read_table(self.log_file)
+        log_batch = pa.Table.from_pylist([e.dict() for e in self.entities], schema=self.schema)
         next_table = log_batch if prev is None else pa.concat_tables([prev, log_batch])
         pa.parquet.write_table(next_table, self.log_file)
         self.entities = []

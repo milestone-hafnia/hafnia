@@ -16,13 +16,9 @@ MDI_CACHE_DIR = "MDI_CACHE_DIR"
 
 MDI_FOLDER_NAME = "mdi"
 MDI_CONFIG_FILE = Path(
-    os.environ.get(
-        MDI_CONFIG_FILE, default=xdg_config_home() / MDI_FOLDER_NAME / "config.ini"
-    )
+    os.environ.get(MDI_CONFIG_FILE, default=xdg_config_home() / MDI_FOLDER_NAME / "config.ini")
 )
-MDI_CACHE_DIR = Path(
-    os.environ.get(MDI_CACHE_DIR, default=xdg_cache_home() / MDI_FOLDER_NAME)
-)
+MDI_CACHE_DIR = Path(os.environ.get(MDI_CACHE_DIR, default=xdg_cache_home() / MDI_FOLDER_NAME))
 DEFAULT_API_URL = "https://api.mdi.milestonesys.com"
 
 KEY_STORE_KEYRING = "keyring"
@@ -104,9 +100,9 @@ class Config:
         name_urls = {}
         for section in self._config:
             if section.startswith(self._SECTION_PROFILE_PREFIX):
-                name_urls[section.removeprefix(self._SECTION_PROFILE_PREFIX)] = (
-                    self._config[section].get("api_url", "")
-                )
+                name_urls[section.removeprefix(self._SECTION_PROFILE_PREFIX)] = self._config[
+                    section
+                ].get("api_url", "")
 
         return name_urls
 

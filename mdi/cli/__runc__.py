@@ -25,9 +25,7 @@ class MDIStatus:
 
     def __repr__(self) -> str:
         key_width = max(len(key) for key in self.__dict__.keys())
-        value_width = max(
-            len(str(value)) for value in self.__dict__.values() if value is not None
-        )
+        value_width = max(len(str(value)) for value in self.__dict__.values() if value is not None)
         table_width = key_width + value_width + 7
         output = ["-" * table_width]
         for key in ("status", "python_path", "message"):
@@ -142,20 +140,14 @@ def create_parser() -> ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", help="Sub-command to run")
 
     status_parser = subparsers.add_parser(COMMAND.STATUS.value, help="Check the status")
-    status_parser.add_argument(
-        "--verbose", type=int, default=1, help="Print verbose output"
-    )
+    status_parser.add_argument("--verbose", type=int, default=1, help="Print verbose output")
     status_parser.set_defaults(func=handle_status)
 
-    mount_parser = subparsers.add_parser(
-        COMMAND.MOUNT_USER_SRC.value, help="Mount user source"
-    )
+    mount_parser = subparsers.add_parser(COMMAND.MOUNT_USER_SRC.value, help="Mount user source")
     mount_parser.add_argument("source", type=str, help="Source path to mount")
     mount_parser.set_defaults(func=handle_mount)
 
-    prepare_parser = subparsers.add_parser(
-        COMMAND.PREPARE.value, help="Prepare entrypoint."
-    )
+    prepare_parser = subparsers.add_parser(COMMAND.PREPARE.value, help="Prepare entrypoint.")
     prepare_parser.add_argument("source", type=str, help="Source path to the codebase.")
     prepare_parser.add_argument("exec_cmd", type=str, help="Command to run.")
     prepare_parser.set_defaults(func=handle_prepare)

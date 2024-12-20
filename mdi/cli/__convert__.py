@@ -11,9 +11,7 @@ def mdi_to_tboard(log_dir: Union[str, Path]) -> None:
         from torch.utils.tensorboard import SummaryWriter
 
     except ImportError:
-        raise ImportError(
-            "Please install tensorboard to use this function: `pip install torch`"
-        )
+        raise ImportError("Please install tensorboard to use this function: `pip install torch`")
     log_dir = Path(log_dir) if not isinstance(log_dir, Path) else log_dir
 
     exp_file = log_dir / "experiment.parquet"
@@ -96,12 +94,8 @@ def mdi_to_wb(log_dir: Union[str, Path], wb_config: Dict):
 
 def main():
     parser = ArgumentParser(description="Convert MDI logs to other formats")
-    parser.add_argument(
-        "log_dir", type=str, help="Path to the log directory from MDI experiment."
-    )
-    parser.add_argument(
-        "--format", type=str, default="tboard", help="Output format to convert to."
-    )
+    parser.add_argument("log_dir", type=str, help="Path to the log directory from MDI experiment.")
+    parser.add_argument("--format", type=str, default="tboard", help="Output format to convert to.")
     args = parser.parse_args()
     if args.format == "tboard":
         return mdi_to_tboard(args.log_dir)
