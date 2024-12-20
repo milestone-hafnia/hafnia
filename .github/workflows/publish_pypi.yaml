@@ -1,5 +1,6 @@
 name: Publish to AWS CodeArtifact
 on:
+  workflow_dispatch:
   push:
     branches: [s2m-merge]
 
