@@ -183,7 +183,7 @@ def run_eval(
 
         outputs = model(inputs)
         loss = criterion(outputs, targets)
-        
+
         epoch_loss += loss.item() * inputs.size(0)
         total_samples += inputs.size(0)
         metrics.update(outputs.softmax(dim=1), targets)

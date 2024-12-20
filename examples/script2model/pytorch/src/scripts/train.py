@@ -1,4 +1,3 @@
-import numpy as np  #  MKL_THREADING_LAYER=INTEL is incompatible with libgomp.so.1
 import argparse
 import os
 from pathlib import Path
