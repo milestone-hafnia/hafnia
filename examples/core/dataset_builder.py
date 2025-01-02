@@ -1,10 +1,7 @@
 # This should be moved to mdi-cli or a separate package
 import collections
-import copy
 import json
-import textwrap
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -15,24 +12,20 @@ import mdi
 
 ## from prettytable import PrettyTable
 
-CLASS_NAME = "class_name"
-CLASS_IDX = "class_idx"
-
 
 import inspect
 from functools import wraps
 
 # dataset = mdi.load_dataset("mnist")
 # dataset = mdi.load_dataset("[ADD SOME CUSTOM DATASET SPECIFICATION]")
+CLASS_NAME = "class_name"
+CLASS_IDX = "class_idx"
 
 
 def capture_init_args(init_func: callable) -> callable:
     @wraps(init_func)
     def wrapper(self: DatasetTransform, *args: Tuple, **kwargs: Dict) -> None:
-
-        args_with_self = (
-            inspect.signature(init_func).bind(self, *args, **kwargs).arguments
-        )
+        args_with_self = inspect.signature(init_func).bind(self, *args, **kwargs).arguments
         # Capture the arguments passed to the __init__ method
         self.set_init_args(args_with_self)
 
@@ -88,7 +81,6 @@ class CaptureInitArgsMixin:
 
 # Define an abstract base class
 class DatasetTransform(CaptureInitArgsMixin, metaclass=ABCMeta):
-
     @abstractmethod
     def __call__(self, dataset: DatasetDict) -> DatasetDict:
         pass
@@ -104,9 +96,7 @@ def dataset_builder_from_specs(
     cfg: str | tuple | list | DatasetBuilder,
 ) -> DatasetBuilder:
     if isinstance(cfg, str):
-        return MdiLoadDataset(
-            cfg
-        )  # We could make a auto-detection an appropriate loading function
+        return MdiLoadDataset(cfg)  # We could make a auto-detection an appropriate loading function
     if isinstance(cfg, tuple):
         return Concatenate(*cfg)
     if isinstance(cfg, list):
@@ -159,8 +149,7 @@ class LoadDatasetWithTransforms(DatasetBuilder):  # This is generated from a lis
         config_dict = cls.check_config(config_dict)
         dataset = creator_from_config(config_dict["dataset"])
         transforms = [
-            creator_from_config(transform_config)
-            for transform_config in config_dict["transforms"]
+            creator_from_config(transform_config) for transform_config in config_dict["transforms"]
         ]
         return cls(dataset, transforms)
 
@@ -177,9 +166,7 @@ class Concatenate(DatasetBuilder):  # This is generated from a tuple
         self,
         *creators: str | DatasetBuilder,
     ) -> None:
-        self.creators: List[DatasetBuilder] = [
-            dataset_builder_from_specs(cfg) for cfg in creators
-        ]
+        self.creators: List[DatasetBuilder] = [dataset_builder_from_specs(cfg) for cfg in creators]
 
     def to_config(self) -> Dict:
         creators = [dataset.to_config() for dataset in self.creators]
@@ -189,8 +176,7 @@ class Concatenate(DatasetBuilder):  # This is generated from a tuple
     def from_config(cls, config_dict: Dict) -> "Concatenate":
         config_dict = cls.check_config(config_dict)
         creators = [
-            creator_from_config(creator_config)
-            for creator_config in config_dict["creators"]
+            creator_from_config(creator_config) for creator_config in config_dict["creators"]
         ]
         return cls(*creators)
 
@@ -203,18 +189,14 @@ class Concatenate(DatasetBuilder):  # This is generated from a tuple
 
         dataset_splits = {}
         for split_name, datasets_in_split in dataset_splits_list.items():
-            dataset_splits[split_name] = datasets.concatenate_datasets(
-                datasets_in_split
-            )
+            dataset_splits[split_name] = datasets.concatenate_datasets(datasets_in_split)
 
         return datasets.DatasetDict(dataset_splits)
 
 
 class MdiLoadDataset(DatasetBuilder):
     @capture_init_args
-    def __init__(
-        self, name: str, force_redownload: bool = False, verbose: bool = False
-    ) -> None:
+    def __init__(self, name: str, force_redownload: bool = False, verbose: bool = False) -> None:
         self.name = name
         self.force_redownload = force_redownload
         self.verbose = verbose
@@ -265,17 +247,13 @@ class MapObjectClassNames(DatasetTransform):
     def _map_old_class_name_to_new_class_idx(self, class_name: str) -> int:
         return self.class_names.index(self._map_class_name(class_name))
 
-    def _transform_sample(
-        self, sample: Dict[str, Any], org_class_names: List[str]
-    ) -> Dict:
+    def _transform_sample(self, sample: Dict[str, Any], org_class_names: List[str]) -> Dict:
         assert "objects" in sample, "Sample should have 'objects' feature"
         objects = sample["objects"]
         assert "category" in objects, "Objects should have 'bbox' feature"
 
         object_keys = objects.keys()
-        object_list = [
-            dict(zip(objects.keys(), values)) for values in zip(*objects.values())
-        ]
+        object_list = [dict(zip(objects.keys(), values)) for values in zip(*objects.values())]
 
         keep_objects = []
         for obj in object_list:
@@ -286,14 +264,10 @@ class MapObjectClassNames(DatasetTransform):
             obj["category"] = self.class_names.index(new_class_name)
             keep_objects.append(obj)
 
-        sample["objects"] = {
-            key: [obj[key] for obj in keep_objects] for key in object_keys
-        }
+        sample["objects"] = {key: [obj[key] for obj in keep_objects] for key in object_keys}
         return sample
 
-    def _transform_dataset_metadata(
-        self, dataset: datasets.Dataset
-    ) -> datasets.Dataset:
+    def _transform_dataset_metadata(self, dataset: datasets.Dataset) -> datasets.Dataset:
         new_features = dataset.features.copy()
         new_features["objects"].feature["category"] = ClassLabel(names=self.class_names)
         dataset_new = dataset.cast(new_features)
@@ -337,9 +311,7 @@ class MapClassNames(DatasetTransform):  # Image classification
         return dataset_splits
 
 
-def create_class_mapper(
-    class_mapping: Dict[str, str], class_label: ClassLabel
-) -> Callable:
+def create_class_mapper(class_mapping: Dict[str, str], class_label: ClassLabel) -> Callable:
     old_index2name = {class_label.str2int(k): k for k in class_label.names}
     new_classes = remove_duplicates_keep_order(class_mapping.values())
     old_2_new_index_mapping = {
@@ -361,28 +333,20 @@ def apply_transforms_without_image_features(
     Removes images from the dataset, applies the transforms and then adds the images back to the dataset.
     This is simply an optimization to avoid decoding/reading of image features, when not needed
     """
-    image_features = [
-        k for k, v in dataset.features.items() if isinstance(v, datasets.Image)
-    ]
+    image_features = [k for k, v in dataset.features.items() if isinstance(v, datasets.Image)]
     dataset_with_images = dataset.select_columns(image_features)
     dataset_without_images = dataset.remove_columns(image_features)
     for transform in transforms:
         dataset_without_images = transform.transform_dataset(dataset_without_images)
-    dataset = datasets.concatenate_datasets(
-        [dataset_without_images, dataset_with_images], axis=1
-    )
+    dataset = datasets.concatenate_datasets([dataset_without_images, dataset_with_images], axis=1)
     return dataset
 
 
 def apply_decoding(dataset: datasets.Dataset, decoding: bool) -> datasets.Dataset:
-    image_features = {
-        k: v for k, v in dataset.features.items() if isinstance(v, datasets.Image)
-    }
+    image_features = {k: v for k, v in dataset.features.items() if isinstance(v, datasets.Image)}
     for image_feature_name, image_feature in image_features.items():
         image_feature.decode = decoding
-        dataset = dataset.cast_column(
-            image_feature_name, datasets.Image(decode=decoding)
-        )
+        dataset = dataset.cast_column(image_feature_name, datasets.Image(decode=decoding))
     return dataset
 
 

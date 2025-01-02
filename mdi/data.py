@@ -165,7 +165,5 @@ def create_training_run(name: str, description: str, file):
 def _ensure_api_key() -> str:
     api_key = config.get_api_key()
     if not api_key:
-        raise ValueError(
-            "No API key found. Please login first. Run 'mdi login' in terminal."
-        )
+        raise ValueError("No API key found. Please login first. Run 'mdi login' in terminal.")
     return api_key

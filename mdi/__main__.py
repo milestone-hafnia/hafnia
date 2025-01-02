@@ -73,10 +73,10 @@ def training_create(name: str, file: str, description: str) -> None:
             )
             sys.exit(1)
         if not file.lower().endswith(".zip"):
-            click.echo(f"Provided file is not in zip format.", err=True)
+            click.echo("Provided file is not in zip format.", err=True)
             sys.exit(1)
         if not os.path.isfile(file):
-            click.echo(f"Provided file must be a valid zip file.", err=True)
+            click.echo("Provided file must be a valid zip file.", err=True)
             sys.exit(1)
         with open(file, "rb") as f:
             resp = create_training_run(name, description, f)

@@ -63,7 +63,7 @@ def test_config_profile_actions(tmp_path):
     assert "new_api_key" == config.get_api_key()
     # Delete the current profile.
     config.delete_profile("second")
-    assert config.get_current_profile_name() == None
+    assert config.get_current_profile_name() is None
     assert config.get_api_url() is None
     assert config.get_api_key() is None
 

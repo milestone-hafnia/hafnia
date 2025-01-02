@@ -1,7 +1,0 @@
-[flake8]
-select = ANN,B,B9,BLK,C,E,F,I,W
-ignore = ANN101,ANN102,ANN401,D100,D104,E203,W503
-max-line-length = 120
-max-complexity = 10
-import-order-style = google
-docstring-convention = google
