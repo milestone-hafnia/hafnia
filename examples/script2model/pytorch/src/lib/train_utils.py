@@ -5,9 +5,9 @@ from torchmetrics import Accuracy
 from torchvision.models import resnet18
 from torchvision.transforms import v2
 from torch.utils.data import DataLoader
-from datasets import load_from_disk
 
-from mdi_runc.core import MDILogger
+from mdi_cli.logger import MDILogger
+from mdi_cli.data import load_dataset
 
 
 def create_transforms() -> v2.Compose:
@@ -42,7 +42,7 @@ def create_dataloaders(
         Tuple[DataLoader, DataLoader]: Training and testing DataLoaders.
     """
     transforms = create_transforms()
-    mdi_dataset = load_from_disk(data_root)
+    mdi_dataset = load_dataset(data_root)
     train_split = mdi_dataset["train"]
     train_split.set_transform(transforms)
     test_split = mdi_dataset["test"]
