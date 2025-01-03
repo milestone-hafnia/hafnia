@@ -1,12 +1,9 @@
-import sys
 import subprocess
-from typing import Dict
-import boto3
+import sys
 from pathlib import Path
 
 from mdi_python_tools.log import logger
-from mdi_python_tools.platform.codebuild import handle_status, collect_python_modules
-from mdi_python_tools.platform.common import get_credentials
+from mdi_python_tools.platform.runtime import collect_python_modules, handle_status
 
 
 def handle_launch(task: str) -> None:
@@ -35,49 +32,3 @@ def handle_launch(task: str) -> None:
     subprocess.check_call(
         ["python", scripts[task]["runner_path"]], stdout=sys.stdout, stderr=sys.stdout
     )
-
-
-def download_s3_folder(credentials: Dict, output_dir: str) -> None:
-    """
-    Downloads the S3 folder specified in credentials['uri'] to the output_dir.
-    """
-    try:
-        uri = credentials["uri"]
-        if not uri.startswith("s3://"):
-            raise ValueError("Invalid S3 URI format. It should start with 's3://'.")
-
-        _, _, bucket_name, *key_parts = uri.split("/")
-        key_prefix = "/".join(key_parts)
-
-        s3_resource = boto3.resource(
-            "s3",
-            region_name=credentials["region"],
-            aws_access_key_id=credentials["access_key"],
-            aws_secret_access_key=credentials["secret_key"],
-            aws_session_token=credentials["session_token"],
-        )
-
-        bucket = s3_resource.Bucket(bucket_name)
-        for obj in bucket.objects.filter(Prefix=key_prefix):
-            target = Path(output_dir) / Path(obj.key).relative_to(key_prefix)
-            if obj.key.endswith("/"):
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Downloading {obj.key} to {target}")
-            bucket.download_file(obj.key, str(target))
-    except Exception as e:
-        logger.error(f"Failed to download S3 folder: {e}")
-        raise
-
-
-def get_dataset(dataset_uuid: str, output_dir: str, aws_region: str) -> None:
-    """
-    Retrieves the dataset using the dataset UUID and downloads it to the specified output directory.
-    """
-    try:
-        credentials = get_credentials(dataset_uuid, aws_region)
-        download_s3_folder(credentials, output_dir)
-        logger.info(f"Dataset downloaded successfully to {output_dir}")
-    except Exception as e:
-        logger.error(f"Failed to get dataset: {e}")
-        raise

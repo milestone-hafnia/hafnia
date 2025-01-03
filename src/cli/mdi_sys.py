@@ -1,4 +1,5 @@
 import click
+
 from mdi_python_tools.config import CONFIG
 
 

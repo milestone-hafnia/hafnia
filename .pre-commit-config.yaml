@@ -7,4 +7,3 @@ repos:
       args: [ --fix ]
     - id: ruff-format
       types_or: [ python, pyi ]
-      args: [ --line-length=100 ]

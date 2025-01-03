@@ -1,20 +1,17 @@
 # This should be moved to mdi-cli or a separate package
 import collections
+
+## from prettytable import PrettyTable
+import inspect
 import json
 from abc import ABCMeta, abstractmethod
+from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import datasets
-from datasets import ClassLabel, DatasetDict
-
 import mdi
-
-## from prettytable import PrettyTable
-
-
-import inspect
-from functools import wraps
+from datasets import ClassLabel, DatasetDict
 
 # dataset = mdi.load_dataset("mnist")
 # dataset = mdi.load_dataset("[ADD SOME CUSTOM DATASET SPECIFICATION]")

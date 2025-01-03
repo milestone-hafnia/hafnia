@@ -1,14 +1,15 @@
-import numpy as np
 import base64
 import json
-from typing import Dict, List, Optional, Union
 import os
-import pyarrow as pa
 from datetime import datetime
-from mdi_runc.log import logger
-from PIL import Image
 from enum import Enum
 from pathlib import Path
+from typing import Dict, List, Optional, Union
+
+import numpy as np
+import pyarrow as pa
+from mdi_runc.log import logger
+from PIL import Image
 from pydantic import BaseModel, field_validator
 
 
@@ -126,8 +127,8 @@ class MDILogger:
             json.dump(params, f)
 
     def log_environment(self):
-        import sys
         import platform
+        import sys
 
         environment_info = {
             "python_version": sys.version,

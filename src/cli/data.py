@@ -12,8 +12,10 @@ class MissingDataset(Exception):
     pass
 
 
-def headers_from_api_key(api_key: str) -> dict[str, str]:
-    return {"X-APIKEY": api_key}
+@click.group(name="data")
+def data_group() -> None:
+    """Data management commands"""
+    pass
 
 
 def get_dataset_obj_from_name(api_key: str, name: str) -> dict:

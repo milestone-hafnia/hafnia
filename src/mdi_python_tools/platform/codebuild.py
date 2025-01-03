@@ -1,202 +1,242 @@
-import os
-import sys
+import json
+from hashlib import sha256
 from pathlib import Path
+from shutil import rmtree
+from tempfile import TemporaryDirectory
+from typing import Dict, List
+from zipfile import ZipFile
+
 import boto3
-from dataclasses import dataclass
-from typing import Dict, Optional
+from botocore.exceptions import ClientError
 
+from mdi_python_tools.dip import download_resource
 from mdi_python_tools.log import logger
-from mdi_python_tools.platform.common import get_credentials
 
 
-@dataclass
-class MDIStatus:
-    python_path: str = os.environ.get("PYTHONPATH", "")
-    status: Optional[str] = None
-    message: Optional[str] = None
-
-    def __repr__(self) -> str:
-        key_width = max(len(key) for key in self.__dict__.keys())
-        value_width = max(len(str(value)) for value in self.__dict__.values() if value is not None)
-        table_width = key_width + value_width + 7
-        output = ["-" * table_width]
-        for key in ("status", "python_path", "message"):
-            value = self.__dict__[key] if self.__dict__[key] is not None else ""
-            output.append(f"| {key:<{key_width}} | {value:<{value_width}} |")
-        output.append("-" * table_width)
-
-        return "\n".join(output)
-
-
-def handle_status(verbose: int = 0) -> MDIStatus:
+def validate_recipe(zip_path: Path, required_paths: set) -> None:
     """
-    Checks and returns the current status of the MDI environment.
+    Validates the structure of a zip archive.
+    Ensures the presence of specific files and directories.
 
     Args:
-        verbose (int): If non-zero, prints the status to stdout
-
-    Returns:
-        MDIStatus: Object containing the current MDI environment status
-    """
-    status = MDIStatus()
-    if "lib" not in status.python_path and "scripts" not in status.python_path:
-        status.status = "error"
-        status.message = "Use 'eval $(mdi mount <PATH>)'"
-    else:
-        status.status = "ok"
-        status.message = "MDI is ready to run tasks."
-    if verbose:
-        print(status)
-    return status
-
-
-def handle_mount(source: str) -> None:
-    """
-    Mounts the MDI environment by adding source directories to PYTHONPATH.
-
-    Args:
-        source (str): Path to the root directory containing 'lib' and 'scripts' subdirectories
+        zip_path (Path): Path to the zip archive.
+        required_paths (set): A set of required paths relative to the archive root.
 
     Raises:
-        FileNotFoundError: If the required directory structure is not found
+        FileNotFoundError: If any required file or directory is missing.
     """
-    status = handle_status()
-    if status.status == "ok":
-        print(status)
-        return
-
-    source_path = Path(source)
-    lib_dir = source_path / "lib"
-    scripts_dir = source_path / "scripts"
-
-    if not lib_dir.exists() and not scripts_dir.exists():
-        raise FileNotFoundError(
-            f"Filestructure is not supported. Expected 'lib' and 'scripts' directories in {source_path}."
-        )
-    cmd = f"export PYTHONPATH=$PYTHONPATH:{lib_dir}:{scripts_dir}"
-    # Required for the shell execution
-    print(cmd)
-    sys.path.extend([lib_dir.as_posix(), scripts_dir.as_posix()])
-
-
-def collect_python_modules(directory: Path) -> Dict[str, Dict[str, str]]:
-    """
-    Collects Python modules from a directory and its subdirectories.
-
-    This function dynamically imports Python modules found in the specified directory,
-    excluding files that start with '_' or '.'. It's used to discover available tasks
-    in the MDI environment.
-
-    Args:
-        directory (Path): The directory to search for Python modules
-
-    Returns:
-        Dict[str, Dict[str, str]]: A dictionary mapping task names to module details, where each detail contains:
-            - module_name (str): The full module name
-            - runner_path (str): The absolute path to the module file
-    """
-    from importlib.util import spec_from_file_location, module_from_spec
-
-    modules = {}
-    for fname in directory.rglob("*.py"):
-        if fname.name.startswith("-"):
-            continue
-
-        task_name = fname.stem
-        module_name = f"{directory.name}.{task_name}"
-
-        # Import the module dynamically
-        spec = spec_from_file_location(module_name, fname)
-        module = module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        module_details = {
-            "module_name": module_name,
-            "runner_path": str(fname.resolve()),
+    with ZipFile(zip_path, "r") as archive:
+        archive_contents = {Path(file).as_posix() for file in archive.namelist()}
+        missing_paths = {
+            path
+            for path in required_paths
+            if not any(entry.startswith(path) for entry in archive_contents)
         }
-        modules[task_name] = module_details
 
-    return modules
+        if missing_paths:
+            raise FileNotFoundError(
+                f"The following required paths are missing in the zip archive: {missing_paths}"
+            )
 
 
-def handle_prepare(source: str, exec_cmd: str) -> None:
+def clean_up(files: List[Path], dirs: List[Path], prefix: str = "__") -> None:
     """
-    Prepares an entrypoint script for executing a specific MDI task.
-
-    This function validates the environment status and creates a shell script
-    that properly initializes the MDI environment before running the specified task.
+    Clean up a list of files first, and then remove all folders starting with a specific prefix.
 
     Args:
-        source (str): Path to the MDI source directory
-        exec_cmd (str): Name of the task to execute
-
-    Raises:
-        ValueError: If the specified task is not found in the scripts directory
+        paths (list[Path]): List of file and directory paths to clean up.
+        prefix (str, optional): Prefix to match for folder removal. Defaults to "__".
     """
-    status = handle_status()
-    if status.status != "ok":
-        logger.warning(status)
-        return
+    for path in files:
+        if path.exists() and path.is_file():
+            path.unlink()
 
-    source_path = Path(source)
-    scripts = collect_python_modules(source_path / "scripts")
-    if exec_cmd not in scripts:
-        raise ValueError(f"Task {exec_cmd} not found in {source_path/'scripts'}.")
-
-    entrypoint_path = source_path / "entrypoint.sh"
-    entrypoint_path.write_text(
-        "#!/bin/bash\n" f"eval $(mdi mount {source_path})\n" f"mdi launch {exec_cmd}\n"
-    )
-    entrypoint_path.chmod(0o755)
-    logger.info(f"Entrypoint script created at {source}/entrypoint.sh")
+    for path in dirs:
+        if path.exists() and path.is_dir():
+            for sub_dir in path.glob(f"**/{prefix}*"):
+                if sub_dir.is_dir():
+                    rmtree(sub_dir)
 
 
-def get_recipe(recipe_url: str, aws_region: str, output_dir: str) -> Path:
+def get_recipe_content(recipe_url: str, output_dir: str, state_file: str) -> Dict:
     """
-    Downloads a recipe file from AWS S3 using temporary credentials.
-
-    This function retrieves credentials using the recipe URL, validates the S3 URI,
-    and downloads the recipe file to the specified output directory.
+    Retrieves and validates the recipe content from an S3 location and extracts it.
 
     Args:
-        recipe_url (str): URL to retrieve AWS credentials
-        aws_region (str): AWS region where the S3 bucket is located
-        output_dir (str): Local directory to save the downloaded recipe
+        recipe_uuid (str): The unique identifier of the recipe.
+        output_dir (str): Directory to extract the recipe content.
+        state_file (str): File to save the state information.
 
     Returns:
-        Path: Path object pointing to the downloaded recipe file
-
-    Raises:
-        ValueError: If the S3 URI format is invalid
-        RuntimeError: If the download operation fails
+        Dict: Metadata about the recipe for further processing.
     """
-    credentials = get_credentials(recipe_url, aws_region)
-    arn_prefix = "arn:aws:s3:::"
-    uri = credentials["s3_path"]
-    if not uri.startswith(arn_prefix):
-        raise ValueError(f"Invalid S3 URI: {uri}")
-    uri = uri[len(arn_prefix) :]
+    result = download_resource(recipe_url, output_dir)
+    recipe_path = result["downloaded_files"][0]
 
-    with boto3.client(
-        "s3",
-        aws_access_key_id=credentials["access_key"],
-        aws_secret_access_key=credentials["secret_key"],
-        aws_session_token=credentials["session_token"],
-    ) as recipe_s3:
-        bucket_name, *key_parts = uri.split("/")
-        key = "/".join(key_parts)
+    required_paths = {"src/lib/", "src/scripts/", "Dockerfile"}
+    validate_recipe(recipe_path, required_paths)
 
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        file_path = output_path / Path(key).name
+    with ZipFile(recipe_path, "r") as zip_ref:
+        zip_ref.extractall(output_dir)
 
-        try:
-            recipe_s3.download_file(bucket_name, key, str(file_path))
-            logger.info(f"Recipe downloaded successfully to {file_path}")
-        except Exception as e:
-            if file_path.exists():
-                file_path.unlink()
-            raise RuntimeError(
-                f"Failed to download recipe: {e} from bucket {bucket_name} with key {key}"
-            )
-        return file_path
+    tag = sha256(recipe_path.read_bytes()).hexdigest()[:8]
+
+    output_dir = Path(output_dir)
+    scripts_dir = output_dir / "src/scripts"
+    valid_commands = [
+        str(f.name)[:-3] for f in scripts_dir.iterdir() if f.is_file() and f.suffix.lower() == ".py"
+    ]
+
+    if not valid_commands:
+        raise ValueError("No valid Python script commands found in the 'src/scripts' directory.")
+
+    state = {
+        "user_data": (output_dir / "src").as_posix(),
+        "docker_context": output_dir.as_posix(),
+        "dockerfile": (output_dir / "Dockerfile").as_posix(),
+        "docker_tag": f"runtime:{tag}",
+        "hash": tag,
+        "valid_commands": valid_commands,
+    }
+
+    try:
+        with open(state_file, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+    except Exception as e:
+        raise RuntimeError(f"Failed to write state file: {e}")
+
+    clean_up([recipe_path], [output_dir])
+
+    return state
+
+
+def build_dockerfile(
+    dockerfile: str, docker_context: str, docker_tag: str, secrets: dict = None
+) -> None:
+    """
+    Build a Docker image using the provided Dockerfile.
+
+    Args:
+        dockerfile (Path): Path to the Dockerfile.
+        docker_context (str): Path to the build context.
+        docker_tag (str): Tag for the Docker image.
+        secrets (dict, optional): Dictionary of secrets to pass to docker build.
+            Each key-value pair will be passed as --secret id=key,env=value
+    """
+
+    import subprocess
+
+    if not Path(dockerfile).exists():
+        raise FileNotFoundError("Dockerfile not found.")
+    logger.info(f"Building Docker image {docker_tag} from {dockerfile}")
+    build_cmd = [
+        "docker",
+        "build",
+        "-t",
+        docker_tag,
+        "-f",
+        dockerfile,
+    ]
+    if secrets:
+        for secret_id, env_var in secrets.items():
+            build_cmd.extend(["--secret", f"id={secret_id},env={env_var}"])
+
+    build_cmd.append(docker_context)
+    subprocess.run(build_cmd, check=True)
+
+
+def build_mdi_runtime(
+    docker_context: Path,
+    user_data: str,
+    user_runtime_tag: str,
+    mdi_tag: str,
+    exec_cmd: str,
+) -> None:
+    DOCKERFILE = f"""
+FROM --platform=linux/amd64 {user_runtime_tag}
+
+ENV RECIPE_DIR=/opt/recipe
+
+RUN mkdir -p $RECIPE_DIR
+COPY src $RECIPE_DIR
+
+RUN --mount=type=secret,id=pypi_index_url \
+    pip install \
+        --index-url $(cat /run/secrets/pypi_index_url) \
+        --no-cache-dir \
+        mdi-cli
+
+RUN mkdir -p /opt/mdi \
+    && echo "#!/bin/bash\\neval \$(mdi mount $RECIPE_DIR)\\nmdi launch {exec_cmd}" > /opt/mdi/entrypoint.sh \
+    && chmod +x /opt/mdi/entrypoint.sh
+"""
+    dockerfile = docker_context / "mdi.Dockerfile"
+    with open(dockerfile, "w") as f:
+        f.write(DOCKERFILE.strip())
+    secrets = {"pypi_index_url": "PYPI_INDEX_URL"}
+    build_dockerfile(dockerfile.as_posix(), docker_context.as_posix(), mdi_tag, secrets=secrets)
+
+
+def check_ecr(repository_name: str, image_tag: str) -> bool:
+    ecr_client = boto3.client("ecr")
+    try:
+        response = ecr_client.describe_images(
+            repositoryName=repository_name, imageIds=[{"imageTag": image_tag}]
+        )
+        if response["imageDetails"]:
+            logger.info(f"Image {image_tag} already exists in ECR.")
+            return True
+        else:
+            return False
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ImageNotFoundException":
+            logger.info(f"Image {image_tag} does not exist in ECR.")
+            return False
+        else:
+            raise e
+
+
+def __run_build(state_file: str, ecr: str, exec_cmd: str) -> None:
+    """
+    Create a user environment based on the Dockerfile.
+    The first step is to build the image, and the second step is to push the image to ECR.
+
+    Args:
+
+
+    Returns:
+        Dict: A dictionary containing the image URI.
+    """
+    state_file = Path(state_file)
+    if not state_file.exists():
+        raise FileNotFoundError("State file not found. Please use unzip command first.")
+
+    state = json.loads(state_file.read_text())
+
+    if exec_cmd not in state.get("valid_commands", []):
+        logger.error(
+            f"Invalid command '{exec_cmd}'. Supported commands are: {state['valid_commands']}"
+        )
+        raise ValueError("Invalid command.")
+
+    state["mdi_tag"] = f"{ecr}/mdi-runtime:{state['hash']}"
+    state["image_exists"] = check_ecr("mdi-runtime", state["hash"])
+    if not state["image_exists"]:
+        build_dockerfile(state["dockerfile"], state["docker_context"], state["docker_tag"])
+        build_mdi_runtime(
+            Path(state["docker_context"]),
+            state["user_data"],
+            state["docker_tag"],
+            state["mdi_tag"],
+            exec_cmd,
+        )
+    with open(state_file.as_posix(), "w") as f:
+        json.dump(state, f)
+
+
+def run_build(recipe_url: str, exec_cmd: str, state_file: str = "") -> None:
+    state_file = state_file or "state.json"
+    with TemporaryDirectory() as tmp_dir:
+        get_recipe_content(recipe_url, tmp_dir, state_file)
+        state = json.loads(Path(state_file).read_text())
+        build_dockerfile(state["dockerfile"], state["docker_context"], state["mdi_tag"])

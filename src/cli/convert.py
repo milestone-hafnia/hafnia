@@ -1,9 +1,10 @@
 import json
-from typing import Union, Dict
-from pathlib import Path
-from mdi_runc.log import logger
-import pyarrow.parquet as pa
 from argparse import ArgumentParser
+from pathlib import Path
+from typing import Dict, Union
+
+import pyarrow.parquet as pa
+from mdi_runc.log import logger
 
 
 def mdi_to_tboard(log_dir: Union[str, Path]) -> None:

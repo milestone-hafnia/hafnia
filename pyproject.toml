@@ -25,3 +25,11 @@ mdi = 'cli.__main__:main'
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+select = ["I", "E", "F"]   
+ignore = ["E501"]        
+line-length = 100
+
+[tool.ruff.isort]
+relative-imports-order = "closest-to-furthest"
