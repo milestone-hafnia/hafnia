@@ -1,8 +1,8 @@
-name: Publish to AWS CodeArtifact
+name: Publish to MDI PyPi Server
 on:
   workflow_dispatch:
   push:
-    branches: [s2m-merge]
+    branches: [dip-client]
   pull_request:
 
 permissions:
@@ -22,35 +22,13 @@ jobs:
       with:
         python-version: "3.9"
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN_TO_ASSUME }}
-        aws-region: ${{ secrets.AWS_REGION }}
-
     - name: Build package
       run: |
-        pip install poetry
-        poetry build
+        pip install uv
+        uv build
 
-    - name: Authenticate with AWS CodeArtifact
+    - name: Publish package
       run: |
-        export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain ${{ secrets.CODEARTIFACT_DOMAIN }} --query authorizationToken --output text)
-        if [ -z "$CODEARTIFACT_AUTH_TOKEN" ]; then
-          echo "Error: CODEARTIFACT_AUTH_TOKEN is empty or not set."
-          exit 1
-        else
-          echo "CODEARTIFACT_AUTH_TOKEN is successfully set."
-          echo "::add-mask::$CODEARTIFACT_AUTH_TOKEN"
-          echo "CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN" >> $GITHUB_ENV
-        fi
-        export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-        echo "::add-mask::$ACCOUNT_ID"
-        echo "ACCOUNT_ID=$ACCOUNT_ID" >> $GITHUB_ENV
-
-    - name: Publish package to CodeArtifact
-      run: |
-        export CODEARTIFACT_URL=`aws codeartifact get-repository-endpoint --domain ${{ secrets.CODEARTIFACT_DOMAIN }} --domain-owner ${{ env.ACCOUNT_ID }} --repository ${{ secrets.CODEARTIFACT_REPOSITORY }} --format pypi --query repositoryEndpoint --output text`
-        poetry config repositories.aws $CODEARTIFACT_URL
-        poetry config http-basic.aws aws $CODEARTIFACT_AUTH_TOKEN
-        poetry publish -r aws
+        export UV_PUBLISH_TOKEN="__token__"
+        uv publish --publish-url ${{ secrets.PYPI_SERVER_URL }}
+        
