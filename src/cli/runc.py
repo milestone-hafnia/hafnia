@@ -1,12 +1,6 @@
 import click
 
 from mdi_python_tools.platform.codebuild import run_build
-
-# from mdi_python_tools.platform.runtime import (
-#     handle_mount,
-#     handle_prepare,
-#     handle_status,
-# )
 from mdi_python_tools.platform.sagemaker import handle_launch
 
 
@@ -14,28 +8,6 @@ from mdi_python_tools.platform.sagemaker import handle_launch
 def runc_group():
     """Experiment management commands"""
     pass
-
-
-# @runc_group.command(name="status")
-# @click.option("--verbose", type=int, default=1, help="Print verbose output")
-# def status(verbose: int = 0) -> None:
-#     """Check the status"""
-#     handle_status(verbose)
-
-
-# @runc_group.command(name="mount")
-# @click.argument("source", required=True)
-# def mount(source: str) -> None:
-#     """Mount user source"""
-#     handle_mount(source)
-
-
-# @runc_group.command(name="prepare")
-# @click.argument("source", required=True)
-# @click.argument("exec_cmd", required=True)
-# def prepare(source: str, exec_cmd: str) -> None:
-#     """Prepare entrypoint."""
-# handle_prepare(source, exec_cmd)
 
 
 @runc_group.command(name="launch")
@@ -47,9 +19,12 @@ def launch(task: str) -> None:
 
 @runc_group.command(name="run_build")
 @click.argument("recipe_url")
-def build(recipe_url: str) -> None:
+@click.argument("exec_cmd")
+@click.argument("state_file", default="state.json")
+@click.argument("ecr_repository", default="")
+def build(recipe_url: str, exec_cmd: str, state_file: str, ecr_repository: str) -> None:
     """Build docker image with a given recipe."""
-    run_build(recipe_url)
+    run_build(recipe_url, exec_cmd, state_file, ecr_repository)
 
 
 # def list_training_runs():

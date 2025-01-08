@@ -71,7 +71,7 @@ def get_recipe_content(recipe_url: str, output_dir: str, state_file: str) -> Dic
         Dict: Metadata about the recipe for further processing.
     """
     result = download_resource(recipe_url, output_dir)
-    recipe_path = result["downloaded_files"][0]
+    recipe_path = Path(result["downloaded_files"][0])
 
     required_paths = {"src/lib/", "src/scripts/", "Dockerfile"}
     validate_recipe(recipe_path, required_paths)
@@ -234,9 +234,14 @@ def __run_build(state_file: str, ecr: str, exec_cmd: str) -> None:
         json.dump(state, f)
 
 
-def run_build(recipe_url: str, exec_cmd: str, state_file: str = "") -> None:
+def run_build(
+    recipe_url: str, exec_cmd: str, state_file: str = "", ecr_repository: str = ""
+) -> None:
     state_file = state_file or "state.json"
     with TemporaryDirectory() as tmp_dir:
         get_recipe_content(recipe_url, tmp_dir, state_file)
         state = json.loads(Path(state_file).read_text())
+        prefix = f"{ecr_repository}/" if ecr_repository else ""
+        state["mdi_tag"] = f"{prefix}mdi-runtime:{state['hash']}"
+        state["image_exists"] = check_ecr("mdi-runtime", state["hash"]) if ecr_repository else False
         build_dockerfile(state["dockerfile"], state["docker_context"], state["mdi_tag"])
