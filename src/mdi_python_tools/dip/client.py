@@ -37,6 +37,34 @@ def fetch(endpoint: str, api_key: str) -> Dict:
         http.clear()
 
 
+def post(endpoint: str, api_key: str, payload: Path) -> Dict:
+    """
+    Posts data to dipdatalib backend
+    Args:
+        endpoint (str): The URL endpoint to post data to
+        payload (Path): The file containing the data to post
+    Returns:
+        Dict: The JSON response from the endpoint
+    """
+    http = urllib3.PoolManager(timeout=5.0, retries=urllib3.Retry(3))
+    headers = {"X-APIKEY": api_key}
+
+    try:
+        with open(payload, "rb") as f:
+            response = http.request("POST", endpoint, headers=headers, body=f.read())
+            if response.status != 200:
+                raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}")
+
+            return json.loads(response.data.decode("utf-8"))
+
+    except Exception as e:
+        logger.error(f"Error posting data to {endpoint}: {str(e)}")
+        raise
+
+    finally:
+        http.clear()
+
+
 def get_api_key() -> str:
     """
     Retrieves the MDI API key from local config or AWS Secrets Manager.

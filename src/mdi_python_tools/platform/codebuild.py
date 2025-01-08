@@ -13,7 +13,7 @@ from mdi_python_tools.dip import download_resource
 from mdi_python_tools.log import logger
 
 
-def validate_recipe(zip_path: Path, required_paths: set) -> None:
+def validate_recipe(zip_path: Path, required_paths: set = None) -> None:
     """
     Validates the structure of a zip archive.
     Ensures the presence of specific files and directories.
@@ -25,6 +25,9 @@ def validate_recipe(zip_path: Path, required_paths: set) -> None:
     Raises:
         FileNotFoundError: If any required file or directory is missing.
     """
+    required_paths = (
+        {"src/lib/", "src/scripts/", "Dockerfile"} if required_paths is None else required_paths
+    )
     with ZipFile(zip_path, "r") as archive:
         archive_contents = {Path(file).as_posix() for file in archive.namelist()}
         missing_paths = {
@@ -73,8 +76,7 @@ def get_recipe_content(recipe_url: str, output_dir: str, state_file: str) -> Dic
     result = download_resource(recipe_url, output_dir)
     recipe_path = Path(result["downloaded_files"][0])
 
-    required_paths = {"src/lib/", "src/scripts/", "Dockerfile"}
-    validate_recipe(recipe_path, required_paths)
+    validate_recipe(recipe_path)
 
     with ZipFile(recipe_path, "r") as zip_ref:
         zip_ref.extractall(output_dir)
@@ -245,3 +247,5 @@ def run_build(
         state["mdi_tag"] = f"{prefix}mdi-runtime:{state['hash']}"
         state["image_exists"] = check_ecr("mdi-runtime", state["hash"]) if ecr_repository else False
         build_dockerfile(state["dockerfile"], state["docker_context"], state["mdi_tag"])
+        with open(state_file.as_posix(), "w") as f:
+            json.dump(state, f)

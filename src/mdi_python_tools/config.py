@@ -9,14 +9,9 @@ class Config:
 
     def __init__(self):
         self.config_dir = Path.home() / self.config_dir
-        self.config_file = self.config_dir / self.config_file
-        self._ensure_config_dir()
-
-    def _ensure_config_dir(self) -> None:
-        """Create config directory if it doesn't exist."""
         self.config_dir.mkdir(exist_ok=True)
-        if not self.config_file.exists():
-            self._save_config({})
+        self.config_file = self.config_dir / self.config_file
+        self.config = self._load_config() if self.config_file.exists() else {}
 
     def _load_config(self) -> dict:
         """Load configuration from file."""
@@ -25,11 +20,6 @@ class Config:
                 return json.load(f)
         except json.JSONDecodeError:
             return {}
-
-    def _save_config(self, config: dict) -> None:
-        """Save configuration to file."""
-        with open(self.config_file, "w") as f:
-            json.dump(config, f, indent=4)
 
     def set_api_key(self, api_key: str) -> None:
         """
@@ -41,9 +31,16 @@ class Config:
         if not api_key:
             raise ValueError("API key cannot be empty")
 
-        config = self._load_config()
-        config["MDI_API_KEY"] = api_key
-        self._save_config(config)
+        self.config["MDI_API_KEY"] = api_key
+        self.update()
+
+    def set_platform_url(self, url: str) -> None:
+        self.config["experiment"] = {
+            "create": f"{url}/api/v1/experiments",
+            "list": f"{url}/api/v1/experiments",
+            "status": f"{url}/api/v1/experiments",
+        }
+        self.update()
 
     def get_api_key(self) -> Optional[str]:
         """
@@ -52,15 +49,25 @@ class Config:
         Returns:
             Optional[str]: The stored API key or None if not set
         """
-        config = self._load_config()
-        return config.get("MDI_API_KEY")
+        return self.config.get("MDI_API_KEY")
+
+    def get_platform_endpoint(self, func: str, method: str) -> str:
+        if func not in self.config:
+            raise ValueError(f"Function {func} not found in config.")
+        if method not in self.config[func]:
+            raise ValueError(f"Method {method} not found in config.")
+        return self.config[func][method]
 
     def delete_api_key(self) -> None:
         """Remove the stored API key."""
         config = self._load_config()
         if "MDI_API_KEY" in config:
             del config["MDI_API_KEY"]
-            self._save_config(config)
+            self.update()
+
+    def update(self) -> None:
+        with open(self.config_file, "w") as f:
+            json.dump(self.config, f, indent=4)
 
 
 CONFIG = Config()
