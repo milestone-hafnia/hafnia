@@ -9,8 +9,8 @@ from zipfile import ZipFile
 import boto3
 from botocore.exceptions import ClientError
 
-from mdi_python_tools.dip import download_resource
 from mdi_python_tools.log import logger
+from mdi_python_tools.mdi_sdk import download_resource
 
 
 def validate_recipe(zip_path: Path, required_paths: set = None) -> None:
@@ -198,42 +198,51 @@ def check_ecr(repository_name: str, image_tag: str) -> bool:
             raise e
 
 
-def __run_build(state_file: str, ecr: str, exec_cmd: str) -> None:
-    """
-    Create a user environment based on the Dockerfile.
-    The first step is to build the image, and the second step is to push the image to ECR.
+# def get_api_key() -> str:
+#     """
+#     Retrieves the MDI API key from local config or AWS Secrets Manager.
 
-    Args:
+#     The function will:
+#       1. Attempt to get the key from local configuration via CONFIG.get_api_key().
+#       2. If not found, it will look for the Secrets Manager name in the environment
+#          variable 'MDI_API_KEY'.
+#       3. Fetch the secret value from AWS Secrets Manager using the provided secret name
+#          and the region from the environment variable 'AWS_REGION' (defaulting to 'us-west-1').
 
+#     Returns:
+#         str: The MDI API key.
 
-    Returns:
-        Dict: A dictionary containing the image URI.
-    """
-    state_file = Path(state_file)
-    if not state_file.exists():
-        raise FileNotFoundError("State file not found. Please use unzip command first.")
+#     Raises:
+#         ValueError: If the environment variable 'MDI_API_KEY' is not set or is empty.
+#         ClientError: If fetching the secret from AWS Secrets Manager fails.
+#     """
+#     local_api_key = CONFIG.get_api_key()
+#     if local_api_key:
+#         return local_api_key
 
-    state = json.loads(state_file.read_text())
+#     api_key_name = os.getenv("MDI_API_KEY")
+#     if not api_key_name:
+#         raise ValueError(
+#             "Environment variable 'MDI_API_KEY' is not set or is empty. "
+#             "Update it or use CLI to configure 'mdi sys configure'."
+#         )
 
-    if exec_cmd not in state.get("valid_commands", []):
-        logger.error(
-            f"Invalid command '{exec_cmd}'. Supported commands are: {state['valid_commands']}"
-        )
-        raise ValueError("Invalid command.")
+#     aws_region = os.getenv("AWS_REGION", "us-west-1")
 
-    state["mdi_tag"] = f"{ecr}/mdi-runtime:{state['hash']}"
-    state["image_exists"] = check_ecr("mdi-runtime", state["hash"])
-    if not state["image_exists"]:
-        build_dockerfile(state["dockerfile"], state["docker_context"], state["docker_tag"])
-        build_mdi_runtime(
-            Path(state["docker_context"]),
-            state["user_data"],
-            state["docker_tag"],
-            state["mdi_tag"],
-            exec_cmd,
-        )
-    with open(state_file.as_posix(), "w") as f:
-        json.dump(state, f)
+#     client = boto3.client("secretsmanager", region_name=aws_region)
+#     try:
+#         response = client.get_secret_value(SecretId=api_key_name)
+#         secret_value = response.get("SecretString")
+#         if not secret_value:
+#             # Secrets Manager can return the secret in 'SecretBinary' instead if it's not a string
+#             raise ValueError("Secret string was not found in the AWS Secrets Manager response.")
+#         return secret_value
+#     except (BotoCoreError, ClientError) as e:
+#         logger.error(f"Failed to retrieve secret from AWS Secrets Manager: {e}")
+#         raise ClientError(
+#             error_response={"Error": {"Message": str(e)}},
+#             operation_name="get_secret_value",
+#         )
 
 
 def run_build(

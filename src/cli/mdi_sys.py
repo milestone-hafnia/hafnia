@@ -1,6 +1,7 @@
 import click
 
 from mdi_python_tools.config import CONFIG
+from mdi_python_tools.log import logger
 
 
 @click.group(name="sys")
@@ -15,11 +16,16 @@ def configure() -> int:
     api_key = click.prompt("MDI API Key", type=str, hide_input=True)
     try:
         CONFIG.set_api_key(api_key)
-        click.echo("Successfully configured MDI CLI.")
-        return 0
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)
         return 1
+    platform_url = click.prompt("MDI Platform URL", type=str)
+    try:
+        CONFIG.set_platform_url(platform_url)
+    except ValueError as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        return 1
+    logger.info("Successfully configured MDI CLI.")
 
 
 @mdi_sys_group.command("clear")

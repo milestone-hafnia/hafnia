@@ -1,118 +1,14 @@
-import json
-import os
 from pathlib import Path
 from typing import Any, Dict
 
 import boto3
-import urllib3
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import ClientError
 
-from mdi_python_tools.config import CONFIG
 from mdi_python_tools.log import logger
+from mdi_python_tools.mdi_sdk.client import fetch
 
 
-def fetch(endpoint: str, api_key: str) -> Dict:
-    """
-    Fetches data from dipdatalib backend
-    Args:
-        endpoint (str): The URL endpoint to fetch data from
-    Returns:
-        Dict: The JSON response from the endpoint
-    """
-    http = urllib3.PoolManager(timeout=5.0, retries=urllib3.Retry(3))
-    headers = {"X-APIKEY": api_key}
-
-    try:
-        response = http.request("GET", endpoint, headers=headers)
-        if response.status != 200:
-            raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}")
-
-        return json.loads(response.data.decode("utf-8"))
-
-    except Exception as e:
-        logger.error(f"Error fetching data from {endpoint}: {str(e)}")
-        raise
-
-    finally:
-        http.clear()
-
-
-def post(endpoint: str, api_key: str, payload: Path) -> Dict:
-    """
-    Posts data to dipdatalib backend
-    Args:
-        endpoint (str): The URL endpoint to post data to
-        payload (Path): The file containing the data to post
-    Returns:
-        Dict: The JSON response from the endpoint
-    """
-    http = urllib3.PoolManager(timeout=5.0, retries=urllib3.Retry(3))
-    headers = {"X-APIKEY": api_key}
-
-    try:
-        with open(payload, "rb") as f:
-            response = http.request("POST", endpoint, headers=headers, body=f.read())
-            if response.status != 200:
-                raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}")
-
-            return json.loads(response.data.decode("utf-8"))
-
-    except Exception as e:
-        logger.error(f"Error posting data to {endpoint}: {str(e)}")
-        raise
-
-    finally:
-        http.clear()
-
-
-def get_api_key() -> str:
-    """
-    Retrieves the MDI API key from local config or AWS Secrets Manager.
-
-    The function will:
-      1. Attempt to get the key from local configuration via CONFIG.get_api_key().
-      2. If not found, it will look for the Secrets Manager name in the environment
-         variable 'MDI_API_KEY'.
-      3. Fetch the secret value from AWS Secrets Manager using the provided secret name
-         and the region from the environment variable 'AWS_REGION' (defaulting to 'us-west-1').
-
-    Returns:
-        str: The MDI API key.
-
-    Raises:
-        ValueError: If the environment variable 'MDI_API_KEY' is not set or is empty.
-        ClientError: If fetching the secret from AWS Secrets Manager fails.
-    """
-    local_api_key = CONFIG.get_api_key()
-    if local_api_key:
-        return local_api_key
-
-    api_key_name = os.getenv("MDI_API_KEY")
-    if not api_key_name:
-        raise ValueError(
-            "Environment variable 'MDI_API_KEY' is not set or is empty. "
-            "Update it or use CLI to configure 'mdi sys configure'."
-        )
-
-    aws_region = os.getenv("AWS_REGION", "us-west-1")
-
-    client = boto3.client("secretsmanager", region_name=aws_region)
-    try:
-        response = client.get_secret_value(SecretId=api_key_name)
-        secret_value = response.get("SecretString")
-        if not secret_value:
-            # Secrets Manager can return the secret in 'SecretBinary' instead if it's not a string
-            raise ValueError("Secret string was not found in the AWS Secrets Manager response.")
-        return secret_value
-    except (BotoCoreError, ClientError) as e:
-        logger.error(f"Failed to retrieve secret from AWS Secrets Manager: {e}")
-        raise ClientError(
-            error_response={"Error": {"Message": str(e)}},
-            operation_name="get_secret_value",
-        )
-
-
-def get_resource_creds(endpoint: str) -> Dict[str, Any]:
+def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:
     """
     Retrieve credentials for accessing the recipe stored in S3 (or another resource)
     by calling a DIP endpoint with the API key.
@@ -132,11 +28,10 @@ def get_resource_creds(endpoint: str) -> Dict[str, Any]:
     Raises:
         RuntimeError: If the call to fetch the credentials fails for any reason.
     """
-    api_key = get_api_key()
 
     try:
         logger.debug("Fetching credentials from DIP endpoint.")
-        creds = fetch(endpoint, api_key)
+        creds = fetch(endpoint, headers={"X-APIKEY": api_key})
         logger.debug("Successfully retrieved credentials from DIP endpoint.")
         return creds
     except Exception as e:

@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from mdi_python_tools.log import logger
+from mdi_python_tools.mdi_sdk import fetch, get_api_mapping
+
 
 class Config:
     config_dir: str = ".mdi"
@@ -12,6 +15,7 @@ class Config:
         self.config_dir.mkdir(exist_ok=True)
         self.config_file = self.config_dir / self.config_file
         self.config = self._load_config() if self.config_file.exists() else {}
+        self.get_organization_id(self.config["api"]["organizations"])
 
     def _load_config(self) -> dict:
         """Load configuration from file."""
@@ -35,12 +39,21 @@ class Config:
         self.update()
 
     def set_platform_url(self, url: str) -> None:
-        self.config["experiment"] = {
-            "create": f"{url}/api/v1/experiments",
-            "list": f"{url}/api/v1/experiments",
-            "status": f"{url}/api/v1/experiments",
-        }
+        base_url = url.rstrip("/")
+        self.config["api"] = get_api_mapping(base_url)
+        self.config["organization_id"] = self.get_organization_id(
+            self.config["api"]["organizations"]
+        )
         self.update()
+
+    def get_organization_id(self, endpoint: str) -> Optional[str]:
+        headers = {"X-APIKEY": self.get_api_key()}
+        try:
+            org_info = fetch(endpoint, headers=headers)
+        except Exception as e:
+            logger.error(f"Error fetching organization info: {str(e)}")
+            return None
+        return org_info[0]["id"]
 
     def get_api_key(self) -> Optional[str]:
         """
