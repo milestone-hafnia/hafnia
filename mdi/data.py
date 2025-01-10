@@ -1,5 +1,4 @@
 import shutil
-from unittest.mock import patch
 
 import boto3
 import datasets
@@ -26,8 +25,7 @@ def get_dataset_obj_from_name(api_key: str, name: str) -> dict:
         data = r.json()
         if len(data) == 0:
             raise MissingDataset(
-                f"Dataset '{name}' appears to either not exist in "
-                "MDI or be unavailable to you."
+                f"Dataset '{name}' appears to either not exist in " "MDI or be unavailable to you."
             )
         elif len(data) > 1:
             raise Exception(
@@ -142,7 +140,5 @@ def create_training_run(name: str, description: str, file):
 def _ensure_api_key() -> str:
     api_key = config.get_api_key()
     if not api_key:
-        raise ValueError(
-            "No API key found. Please login first. Run 'mdi login' in terminal."
-        )
+        raise ValueError("No API key found. Please login first. Run 'mdi login' in terminal.")
     return api_key
