@@ -4,11 +4,12 @@ from typing import Any, Dict
 import boto3
 from botocore.exceptions import ClientError
 
+from mdi_python_tools.config import CONFIG
+from mdi_python_tools.http import fetch
 from mdi_python_tools.log import logger
-from mdi_python_tools.mdi_sdk.client import fetch
 
 
-def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:
+def get_resource_creds(endpoint: str) -> Dict[str, Any]:
     """
     Retrieve credentials for accessing the recipe stored in S3 (or another resource)
     by calling a DIP endpoint with the API key.
@@ -28,10 +29,8 @@ def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:
     Raises:
         RuntimeError: If the call to fetch the credentials fails for any reason.
     """
-
     try:
-        logger.debug("Fetching credentials from DIP endpoint.")
-        creds = fetch(endpoint, headers={"X-APIKEY": api_key})
+        creds = fetch(endpoint, headers={"X-APIKEY": CONFIG.api_key, "accept": "application/json"})
         logger.debug("Successfully retrieved credentials from DIP endpoint.")
         return creds
     except Exception as e:

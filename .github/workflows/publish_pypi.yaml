@@ -2,7 +2,7 @@ name: Publish to MDI PyPi Server
 on:
   workflow_dispatch:
   push:
-    branches: [dip-client-22]
+    branches: [dip-client]
   pull_request:
 
 permissions:

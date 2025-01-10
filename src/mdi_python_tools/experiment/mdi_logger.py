@@ -8,9 +8,10 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pyarrow as pa
-from mdi_runc.log import logger
 from PIL import Image
 from pydantic import BaseModel, field_validator
+
+from mdi_python_tools.log import logger
 
 
 class EntityType(Enum):

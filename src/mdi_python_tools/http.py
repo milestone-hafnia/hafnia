@@ -22,7 +22,6 @@ def fetch(endpoint: str, headers: Dict, params: Dict = None) -> Dict:
         json.JSONDecodeError: On invalid JSON response
     """
     params = {} if params is None else params
-    # headers = {"X-APIKEY": get_api_key(), "accept": "application/json"}
     http = urllib3.PoolManager(timeout=5.0, retries=urllib3.Retry(3))
     try:
         response = http.request("GET", endpoint, fields=params, headers=headers)

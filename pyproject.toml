@@ -1,6 +1,6 @@
 [project]
 name = "mdi-python-tools"
-version = "0.2.2"
+version = "2.0.1"
 description = "Python tools for communication with MDI platform."
 readme = "README.md"
 authors = [
@@ -15,8 +15,15 @@ dependencies = [
     "pyarrow>=18.1.0",
     "pydantic>=2.10.4",
     "rich>=13.9.4",
-    "ruff>=0.8.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
     "tqdm>=4.67.1",
+]
+lint = [
+    "ruff>=0.9.1",
 ]
 
 [project.scripts]
@@ -33,3 +40,7 @@ line-length = 100
 
 [tool.ruff.isort]
 relative-imports-order = "closest-to-furthest"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cli", "src/mdi_python_tools"]
+

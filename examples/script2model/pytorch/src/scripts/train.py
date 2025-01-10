@@ -5,6 +5,8 @@ from pathlib import Path
 import torch
 from train_utils import create_dataloaders, create_model, train_loop
 
+from mdi_python_tools.experiment import MDILogger
+
 DATA_DIR = os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training")
 ARTIFACT_DIR = os.getenv("MDI_ARTIFACT_DIR", "/opt/ml/output/data")
 MODEL_DIR = os.getenv("MDI_MODEL_DIR", "/opt/ml/model")
@@ -24,8 +26,6 @@ def parse_args():
 
 
 def main(args: argparse.Namespace):
-    from mdi_runc.core import MDILogger
-
     artifacts_dir = Path(ARTIFACT_DIR)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
