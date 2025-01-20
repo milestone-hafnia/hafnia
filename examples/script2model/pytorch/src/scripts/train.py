@@ -1,3 +1,5 @@
+import numpy as np  # noqa E402 Set MKL_SERVICE_FORCE_INTEL to force it
+
 import argparse
 import os
 from pathlib import Path

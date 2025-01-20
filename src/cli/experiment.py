@@ -16,7 +16,7 @@ def experiment_group() -> None:
 @click.argument("env_name")
 def create(name: str, source_dir: str, exec_cmd: str, dataset_name: str, env_name: str) -> None:
     """Create a new experiment run"""
-    from mdi_python_tools.mdi_sdk.experiment import create_experiment_run
+    from mdi_python_tools.experiment import create_experiment_run
 
     experiment_info = create_experiment_run(name, source_dir, exec_cmd, dataset_name, env_name)
     rprint(experiment_info)

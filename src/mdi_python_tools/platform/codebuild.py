@@ -1,4 +1,5 @@
 import json
+import os
 from hashlib import sha256
 from pathlib import Path
 from shutil import rmtree
@@ -147,40 +148,12 @@ def build_dockerfile(
     subprocess.run(build_cmd, check=True)
 
 
-def build_mdi_runtime(
-    docker_context: Path,
-    user_data: str,
-    user_runtime_tag: str,
-    mdi_tag: str,
-    exec_cmd: str,
-) -> None:
-    DOCKERFILE = f"""
-FROM --platform=linux/amd64 {user_runtime_tag}
-
-ENV RECIPE_DIR=/opt/recipe
-
-RUN mkdir -p $RECIPE_DIR
-COPY src $RECIPE_DIR
-
-RUN --mount=type=secret,id=pypi_index_url \
-    pip install \
-        --index-url $(cat /run/secrets/pypi_index_url) \
-        --no-cache-dir \
-        mdi-cli
-
-RUN mkdir -p /opt/mdi \
-    && echo "#!/bin/bash\\neval \$(mdi mount $RECIPE_DIR)\\nmdi launch {exec_cmd}" > /opt/mdi/entrypoint.sh \
-    && chmod +x /opt/mdi/entrypoint.sh
-"""
-    dockerfile = docker_context / "mdi.Dockerfile"
-    with open(dockerfile, "w") as f:
-        f.write(DOCKERFILE.strip())
-    secrets = {"pypi_index_url": "PYPI_INDEX_URL"}
-    build_dockerfile(dockerfile.as_posix(), docker_context.as_posix(), mdi_tag, secrets=secrets)
-
-
 def check_ecr(repository_name: str, image_tag: str) -> bool:
-    ecr_client = boto3.client("ecr")
+    aws_region = os.getenv("AWS_REGION", None)
+    if aws_region is None:
+        logger.warning("ECR registry region is not provided can not look up in the registry.")
+        return False
+    ecr_client = boto3.client("ecr", aws_region=aws_region)
     try:
         response = ecr_client.describe_images(
             repositoryName=repository_name, imageIds=[{"imageTag": image_tag}]

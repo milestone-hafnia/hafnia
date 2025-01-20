@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import click
 
-from cli import mdi_sys
 from cli.data import data_group
 from cli.experiment import experiment_group
 from cli.runc import runc_group
@@ -16,18 +15,25 @@ def main():
 @main.command("configure")
 def configure() -> int:
     """Configure MDI CLI settings."""
+    from cli import mdi_sys
+
     return mdi_sys.configure()
 
 
 @main.command("profile")
 def profile() -> int:
     """Display current configuration."""
+    from cli import mdi_sys
+
     return mdi_sys.profile()
 
 
 @main.command("clear")
 def clear() -> int:
     """Remove stored configuration."""
+
+    from cli import mdi_sys
+
     return mdi_sys.clear()
 
 

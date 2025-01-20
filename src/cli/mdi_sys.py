@@ -1,10 +1,10 @@
 import click
 
-from mdi_python_tools.config import CONFIG
-from mdi_python_tools.platform import get_organization_id
-
 
 def configure() -> int:
+    from mdi_python_tools.config import CONFIG
+    from mdi_python_tools.platform import get_organization_id
+
     api_key = click.prompt("MDI API Key", type=str, hide_input=True)
     try:
         CONFIG.set_api_key(api_key)
@@ -22,6 +22,8 @@ def configure() -> int:
 
 
 def clear() -> int:
+    from mdi_python_tools.config import CONFIG
+
     CONFIG.clear()
     click.echo("Successfully cleared MDI configuration.")
     return 0
@@ -30,6 +32,8 @@ def clear() -> int:
 def profile() -> int:
     from rich.console import Console
     from rich.table import Table
+
+    from mdi_python_tools.config import CONFIG
 
     if not CONFIG.api_key:
         click.echo("No MDI API Key configured.")
