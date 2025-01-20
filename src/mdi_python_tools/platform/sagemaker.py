@@ -100,6 +100,10 @@ def handle_launch(task: str) -> None:
         available_tasks = ", ".join(sorted(scripts.keys()))
         logger.error(f"Task '{task}' not found. Available tasks: {available_tasks}")
         exit(1)
-    subprocess.check_call(
-        ["python", scripts[task].runner_path], stdout=sys.stdout, stderr=sys.stdout
-    )
+    try:
+        subprocess.check_call(
+            ["python", scripts[task].runner_path], stdout=sys.stdout, stderr=sys.stdout
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error executing task: {str(e)}")
+        exit(1)
