@@ -104,8 +104,8 @@ class Config:
             logger.error("AWS_REGION environment variable not set.")
             exit(1)
 
-        session = boto3.Session()
-        client = session.client("secretsmanager", region_name=aws_region)
+        session = boto3.Session(region_name=aws_region)
+        client = session.client("secretsmanager")
         try:
             response = client.get_secret_value(SecretId=secret_name)
             return response["SecretString"]
