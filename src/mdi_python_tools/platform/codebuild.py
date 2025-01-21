@@ -153,7 +153,8 @@ def check_ecr(repository_name: str, image_tag: str) -> bool:
     if aws_region is None:
         logger.warning("ECR registry region is not provided can not look up in the registry.")
         return False
-    ecr_client = boto3.client("ecr", aws_region=aws_region)
+    session = boto3.Session(region_name=aws_region)
+    ecr_client = session.client("ecr")
     try:
         response = ecr_client.describe_images(
             repositoryName=repository_name, imageIds=[{"imageTag": image_tag}]
