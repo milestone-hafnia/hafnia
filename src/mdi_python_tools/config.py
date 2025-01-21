@@ -4,6 +4,8 @@ from pathlib import Path
 from shutil import rmtree
 from typing import Dict
 
+from mdi_python_tools.log import logger
+
 
 class Config:
     API_KEY: str = "MDI_API_KEY"
@@ -95,11 +97,21 @@ class Config:
 
     def get_secret_value(self, secret_name: str) -> str:
         import boto3
+        from botocore.exceptions import ClientError
 
-        with boto3.Session() as session:
-            client = session.client("secretsmanager", aws_region=os.getenv("AWS_REGION"))
+        aws_region = os.getenv("AWS_REGION", None)
+        if aws_region is None:
+            logger.error("AWS_REGION environment variable not set.")
+            exit(1)
+
+        session = boto3.Session()
+        client = session.client("secretsmanager", region_name=aws_region)
+        try:
             response = client.get_secret_value(SecretId=secret_name)
             return response["SecretString"]
+        except ClientError as e:
+            logger.error(f"Error retrieving secret: {str(e)}")
+            exit(1)
 
 
 CONFIG = Config()
