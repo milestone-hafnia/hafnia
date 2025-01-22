@@ -1,0 +1,20 @@
+name: CI/CD Workflow
+on:
+  workflow_dispatch:
+  push:
+    branches: [dip-client]
+  pull_request:
+jobs:
+  ci:
+    uses: ./.github/workflows/lint.yml
+  # build-and-test:
+  #   needs: ci
+  #   uses: ./.github/workflows/publish_pypi.yml
+  #   secrets: inherit
+  #   with:
+  #     should_publish: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+  cd:
+    # needs: build-and-test
+    # if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && needs.build-and-test.result == 'success'
+    uses: ./.github/workflows/docker-push.yml
+    secrets: inherit

@@ -1,8 +1,7 @@
 from contextlib import contextmanager
 
-import pytest
-
 import mdi
+import pytest
 
 SKIP = True
 
