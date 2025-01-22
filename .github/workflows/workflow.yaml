@@ -16,14 +16,14 @@ jobs:
   ci:
     name: Lint Code
     needs: get-python-version
-    uses: ./.github/workflows/lint.yml
+    uses: ./.github/workflows/lint.yaml
     with:
       python-version: ${{ needs.get-python-version.outputs.python-version }}
   publish:
     name: Build and Publish Package
     needs: ci
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    uses: ./.github/workflows/publish_pypi.yml
+    uses: ./.github/workflows/publish_pypi.yaml
     secrets: inherit
     with:
       should_publish: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
@@ -32,7 +32,7 @@ jobs:
     name: Build and Push Docker Image
     needs: publish
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    uses: ./.github/workflows/docker-push.yml
+    uses: ./.github/workflows/docker-push.yaml
     secrets: inherit
     with:
       python-version: ${{ needs.get-python-version.outputs.python-version }}
