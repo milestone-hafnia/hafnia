@@ -29,7 +29,7 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: mdi-runtime
-          IMAGE_TAG: latest
+          IMAGE_TAG: runtime
         with:
           context: .
           file: .github/workflows/Dockerfile
