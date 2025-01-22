@@ -177,15 +177,15 @@ def build_image(
     exec_cmd: str,
     state_file: str = "",
     ecr_repository: str = "",
-    image_tag: str = "",
+    image_name: str = "",
 ) -> None:
     state_file = Path(state_file or "state.json")
-    image_tag = "mdi-user-experiment" if not image_tag else image_tag
+    image_name = "mdi-user-experiment" if not image_name else image_name
     with TemporaryDirectory() as tmp_dir:
         get_recipe_content(recipe_url, tmp_dir, state_file)
         state = json.loads(Path(state_file).read_text())
         prefix = f"{ecr_repository}/" if ecr_repository else ""
-        state["mdi_tag"] = f"{prefix}{image_tag}:{state['hash']}"
+        state["mdi_tag"] = f"{prefix}{image_name}:{state['hash']}"
         state["image_exists"] = check_ecr("mdi-runtime", state["hash"]) if ecr_repository else False
         build_dockerfile(state["dockerfile"], state["docker_context"], state["mdi_tag"])
         with open(state_file.as_posix(), "w") as f:
