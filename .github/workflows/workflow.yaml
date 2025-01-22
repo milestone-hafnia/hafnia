@@ -21,7 +21,7 @@ jobs:
       python-version: ${{ needs.get-python-version.outputs.python-version }}
   publish:
     name: Build and Publish Package
-    needs: ci
+    needs: [ci, get-python-version]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/publish_pypi.yaml
     secrets: inherit
@@ -30,7 +30,7 @@ jobs:
       python-version: ${{ needs.get-python-version.outputs.python-version }}
   cd:
     name: Build and Push Docker Image
-    needs: publish
+    needs: [publish, get-python-version]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/docker-push.yaml
     secrets: inherit
