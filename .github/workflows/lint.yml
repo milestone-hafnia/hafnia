@@ -1,8 +1,5 @@
-name: Run PreCommit Linting
+name: Run Pre Commit Linting
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 jobs:
   lint:
