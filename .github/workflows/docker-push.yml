@@ -29,9 +29,11 @@ jobs:
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: mdi-runtime
-          IMAGE_TAG: runtime
         with:
           context: .
           file: .github/workflows/Dockerfile
           push: true
           tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
