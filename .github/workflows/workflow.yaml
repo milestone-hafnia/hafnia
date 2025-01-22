@@ -6,6 +6,7 @@ on:
   pull_request:
 jobs:
   get-python-version:
+    name: Get Python Version
     runs-on: ubuntu-latest
     outputs:
       python-version: ${{ steps.get-version.outputs.version }}
