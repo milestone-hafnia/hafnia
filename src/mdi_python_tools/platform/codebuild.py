@@ -186,7 +186,7 @@ def build_image(
         state = json.loads(Path(state_file).read_text())
         prefix = f"{ecr_repository}/" if ecr_repository else ""
         state["mdi_tag"] = f"{prefix}{image_name}:{state['hash']}"
-        state["image_exists"] = check_ecr("mdi-runtime", state["hash"]) if ecr_repository else False
+        state["image_exists"] = check_ecr(image_name, state["hash"]) if ecr_repository else False
         build_dockerfile(state["dockerfile"], state["docker_context"], state["mdi_tag"])
         with open(state_file.as_posix(), "w") as f:
             json.dump(state, f)
