@@ -1,4 +1,5 @@
-FROM python:3.10-slim
+ARG PYTHON_VERSION
+FROM python:${PYTHON_VERSION}-slim
 WORKDIR /opt/ml/processing
 
 COPY dist/*.whl .

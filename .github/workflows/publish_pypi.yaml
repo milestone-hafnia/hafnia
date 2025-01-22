@@ -6,6 +6,10 @@ on:
         required: true
         type: boolean
         description: "Whether to publish the package or just build it"
+      python-version:
+        required: true
+        type: string
+        description: "Python version to use"
 permissions:
   contents: read
 jobs:
@@ -15,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: ${{ inputs.python-version }}
       - name: Build package
         run: |
           pip install uv

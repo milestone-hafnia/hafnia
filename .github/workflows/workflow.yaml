@@ -5,12 +5,34 @@ on:
     branches: [dip-client]
   pull_request:
 jobs:
+  get-python-version:
+    runs-on: ubuntu-latest
+    outputs:
+      python-version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: get-version
+        run: echo "version=$(cat .python-version)" >> $GITHUB_OUTPUT
   ci:
     name: Lint Code
+    needs: get-python-version
     uses: ./.github/workflows/lint.yml
+    with:
+      python-version: ${{ needs.get-python-version.outputs.python-version }}
+  publish:
+    name: Build and Publish Package
+    needs: ci
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/publish_pypi.yml
+    secrets: inherit
+    with:
+      should_publish: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+      python-version: ${{ needs.get-python-version.outputs.python-version }}
   cd:
     name: Build and Push Docker Image
-    needs: ci
+    needs: publish
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/docker-push.yml
     secrets: inherit
+    with:
+      python-version: ${{ needs.get-python-version.outputs.python-version }}

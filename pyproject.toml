@@ -1,6 +1,6 @@
 [project]
 name = "mdi-python-tools"
-version = "2.0.5"
+version = "2.0.6"
 description = "Python tools for communication with MDI platform."
 readme = "README.md"
 authors = [

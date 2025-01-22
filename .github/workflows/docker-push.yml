@@ -1,6 +1,10 @@
 name: Build and Push Docker Image
 on:
   workflow_call:
+    inputs:
+      python-version:
+        required: true
+        type: string
 permissions:
   id-token: write
   contents: read
@@ -11,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: ${{ inputs.python-version }}
       - name: Build package
         run: pip install --no-cache-dir uv && uv build
       - name: Configure AWS credentials
@@ -37,3 +41,5 @@ jobs:
           platforms: linux/amd64
           provenance: false
           sbom: false
+          build-args: |
+            PYTHON_VERSION=${{ inputs.python-version }}
