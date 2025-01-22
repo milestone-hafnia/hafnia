@@ -173,14 +173,19 @@ def check_ecr(repository_name: str, image_tag: str) -> bool:
 
 
 def build_image(
-    recipe_url: str, exec_cmd: str, state_file: str = "", ecr_repository: str = ""
+    recipe_url: str,
+    exec_cmd: str,
+    state_file: str = "",
+    ecr_repository: str = "",
+    image_tag: str = "",
 ) -> None:
     state_file = Path(state_file or "state.json")
+    image_tag = "mdi-user-experiment" if not image_tag else image_tag
     with TemporaryDirectory() as tmp_dir:
         get_recipe_content(recipe_url, tmp_dir, state_file)
         state = json.loads(Path(state_file).read_text())
         prefix = f"{ecr_repository}/" if ecr_repository else ""
-        state["mdi_tag"] = f"{prefix}mdi-runtime:{state['hash']}"
+        state["mdi_tag"] = f"{prefix}{image_tag}:{state['hash']}"
         state["image_exists"] = check_ecr("mdi-runtime", state["hash"]) if ecr_repository else False
         build_dockerfile(state["dockerfile"], state["docker_context"], state["mdi_tag"])
         with open(state_file.as_posix(), "w") as f:

@@ -21,8 +21,11 @@ def launch(task: str) -> None:
 @click.argument("exec_cmd")
 @click.argument("state_file", default="state.json")
 @click.argument("ecr_repository", default="")
-def build(recipe_url: str, exec_cmd: str, state_file: str, ecr_repository: str) -> None:
+@click.argument("image_tag", default="")
+def build(
+    recipe_url: str, exec_cmd: str, state_file: str, ecr_repository: str, image_tag: str
+) -> None:
     """Build docker image with a given recipe."""
     from mdi_python_tools.platform import codebuild
 
-    codebuild.build_image(recipe_url, exec_cmd, state_file, ecr_repository)
+    codebuild.build_image(recipe_url, exec_cmd, state_file, ecr_repository, image_tag)
