@@ -1,3 +1,27 @@
+# Milestone Data Insight (MDI) Platform
+
+MDI Platform is a comprehensive solution for managing data science experiments and resources. It provides tools and interfaces for experiment management, data handling, and container orchestration.
+
+
+## Documentation
+
+- [CLI Documentation](docs/cli.md) - Detailed guide for the MDI command-line interface
+
+
+## Key Components
+
+- **CLI Tool**: Command-line interface for platform interaction
+
+
+
+
+
+  
+
+  
+–------------------------------------------------------------
+
+----- TOBE UPDATED OR DEPRECATED -----
 # Milestone Data Insight Platform
 
 A command-line tool and Python package to download and load datasets (Huggingface format) from the MDI platform.

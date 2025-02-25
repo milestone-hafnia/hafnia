@@ -13,8 +13,8 @@ from .config import (
     MDI_CONFIG_FILE,
     config,
 )
+from .data import create_training_run, list_training_runs
 from .data import load_dataset as data_load_dataset
-from .data import list_training_runs, create_training_run
 
 _MODEL_UPLOAD_LIMIT_MB = 800
 

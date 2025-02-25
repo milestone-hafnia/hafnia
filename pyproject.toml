@@ -5,7 +5,7 @@ description = "A CLI tool to download and load datasets from S3."
 authors = ["Rasmus Jones <rasmus.jones@milestone.dk>"]
 readme = "README.md"
 packages = [
-    { include = "mdi", from = "." },
+    { include = "src", from = "." },
 ]
 
 [tool.poetry.dependencies] # Relax package specific dependencies
@@ -36,9 +36,7 @@ matplotlib = "^3.8.2"
 pypiprivate = {git = "https://github.com/rishabhj1717/pypiprivate.git", rev = "feature/support-python3.10"}
 
 [tool.poetry.scripts]
-mdi = 'mdi.__main__:cli'
-mdi_runc = "mdi_runc.cli.__runc__:main"
-mdi_convert = "mdi_runc.cli.__convert__:main"
+mdi = 'src.__main__:cli'
 
 [build-system]
 requires = ["poetry-core"]

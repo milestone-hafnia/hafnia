@@ -1,13 +1,13 @@
+from typing import Dict, Tuple
+
 import torch
-from typing import Tuple, Dict
 import torch.nn as nn
+from datasets import load_from_disk
+from mdi_runc.core import MDILogger
+from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 from torchvision.models import resnet18
 from torchvision.transforms import v2
-from torch.utils.data import DataLoader
-from datasets import load_from_disk
-
-from mdi_runc.core import MDILogger
 
 
 def create_transforms() -> v2.Compose:
