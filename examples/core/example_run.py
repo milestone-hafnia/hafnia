@@ -1,4 +1,4 @@
 import mdi
 
-dataset = mdi.load_dataset("midwest-extension")
+dataset = mdi.load_dataset("mnist")
 print(dataset)
