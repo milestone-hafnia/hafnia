@@ -18,7 +18,8 @@ def archive_dir(recipe_path: Path) -> Path:
                 item == recipe_zip
                 or item.name.endswith(".zip")
                 or any(part.startswith(".") for part in item.parts)
-                or any(part.startswith("__") for part in item.parts)
+                # TODO fix nicely for __init__.py files but ignore __pycache__
+                # or any(part.startswith("__") for part in item.parts)
             )
 
             if should_skip:
