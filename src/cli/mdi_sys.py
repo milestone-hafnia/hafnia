@@ -1,5 +1,7 @@
 import click
 
+import cli.consts as consts
+
 
 def configure() -> None:
     from mdi_python_tools.config import CONFIG, ConfigSchema
@@ -51,7 +53,7 @@ def profiles():
     profiles = CONFIG.available_profiles
     if not profiles:
         click.echo("Please configure the CLI with `mdi configure`")
-        return
+        exit(0)
     active = CONFIG.active_profile
 
     for profile in profiles:
@@ -64,25 +66,37 @@ def profiles():
 def switch_profile(profile_name: str) -> None:
     from mdi_python_tools.config import CONFIG
 
+    if len(CONFIG.available_profiles) == 0:
+        click.echo(consts.ERROR_CONFIGURE)
+        exit(0)
+
     try:
         CONFIG.active_profile = profile_name
         CONFIG.save_config()
-    except ValueError as e:
-        click.echo(str(e))
+    except ValueError:
+        click.echo(consts.ERROR_PROFILE_NOT_EXIST)
         exit(0)
-    click.echo(f"Switched to profile: {profile_name}")
+    click.echo(f"{consts.PROFILE_SWITCHED_SUCCESS} {profile_name}")
 
 
 def remove_profile(profile_name: str) -> None:
     from mdi_python_tools.config import CONFIG
 
+    if len(CONFIG.available_profiles) == 0:
+        click.echo(consts.ERROR_CONFIGURE)
+        exit(0)
+
+    if profile_name == CONFIG.active_profile:
+        click.echo(consts.ERROR_PROFILE_REMOVE_ACTIVE)
+        exit(0)
+
     try:
         CONFIG.remove_profile(profile_name)
         CONFIG.save_config()
-    except ValueError as e:
-        click.echo(str(e))
+    except ValueError:
+        click.echo(consts.ERROR_PROFILE_NOT_EXIST)
         exit(0)
-    click.echo(f"Removed profile: {profile_name}")
+    click.echo(f"{consts.PROFILE_REMOVED_SUCCESS} {profile_name}")
 
 
 def active_profile() -> None:
@@ -100,7 +114,7 @@ def active_profile() -> None:
     masked_key = f"{api_key[:4]}...{api_key[-4:]}" if len(api_key) > 8 else "****"
     console = Console()
 
-    table = Table(title=f"MDI Platform Configuration: {CONFIG.active_profile}", show_header=False)
+    table = Table(title=f"{consts.PROFILE_TABLE_HEADER} {CONFIG.active_profile}", show_header=False)
     table.add_column("Property", style="cyan")
     table.add_column("Value")
 

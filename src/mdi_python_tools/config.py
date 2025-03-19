@@ -3,21 +3,18 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 from mdi_python_tools.log import logger
 
 
 class ConfigSchema(BaseModel):
-    class Config:
-        extra = "allow"
-
     organization_id: str = ""
     platform_url: str = ""
     api_key: Optional[str] = None
     api_mapping: Optional[Dict[str, str]] = None
 
-    @validator("api_key")
+    @field_validator("api_key")
     def validate_api_key(cls, value: str) -> str:
         if value is not None and len(value) < 10:
             raise ValueError("API key is too short.")
@@ -142,8 +139,6 @@ class Config:
     def remove_profile(self, profile_name: str) -> None:
         if profile_name not in self.config_data.profiles:
             raise ValueError(f"Profile '{profile_name}' does not exist.")
-        if profile_name == self.config_data.active_profile:
-            raise ValueError("Cannot remove active profile. Switch to another one.")
         del self.config_data.profiles[profile_name]
         self.save_config()
 
