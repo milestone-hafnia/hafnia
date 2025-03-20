@@ -63,17 +63,16 @@ def config_with_profiles(profile_data: Dict) -> Config:
     return config
 
 
-class TestConfigure:
-    def test_configure(
-        self, cli_runner: CliRunner, empty_config: Config, api_key: str, organization_id: str
-    ) -> None:
-        with patch("mdi_python_tools.config.CONFIG", empty_config):
-            with patch("mdi_python_tools.platform.get_organization_id", return_value="org-123"):
-                with patch("mdi_python_tools.config.Config.save_config"):
-                    inputs = "default\n" "test-api-key\n" "https://api.mdi.milestonesys.com\n"
-                    result = cli_runner.invoke(cli.configure, input="".join(inputs))
-                    assert result.exit_code == 0
-                    assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
+def test_configure(
+    cli_runner: CliRunner, empty_config: Config, api_key: str, organization_id: str
+) -> None:
+    with patch("mdi_python_tools.config.CONFIG", empty_config):
+        with patch("mdi_python_tools.platform.get_organization_id", return_value="org-123"):
+            with patch("mdi_python_tools.config.Config.save_config"):
+                inputs = "default\n" "test-api-key\n" "https://api.mdi.milestonesys.com\n"
+                result = cli_runner.invoke(cli.configure, input="".join(inputs))
+                assert result.exit_code == 0
+                assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
 
 
 class TestProfile:
