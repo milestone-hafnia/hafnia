@@ -1,0 +1,13 @@
+import urllib3
+
+from mdi_python_tools.config import CONFIG
+from mdi_python_tools.http import fetch
+
+
+def get_organization_id(endpoint: str) -> str:
+    headers = {"X-APIKEY": CONFIG.api_key}
+    try:
+        org_info = fetch(endpoint, headers=headers)
+    except urllib3.exceptions.HTTPError as e:
+        raise ValueError("Failed to fetch organization ID. Verify platform URL and API key.") from e
+    return org_info[0]["id"]

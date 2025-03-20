@@ -1,45 +1,45 @@
-[tool.poetry]
-name = "mdi-cli"
-version = "0.2.0"
-description = "A CLI tool to download and load datasets from S3."
-authors = ["Rasmus Jones <rasmus.jones@milestone.dk>"]
+[project]
+name = "mdi-python-tools"
+version = "2.0.9"
+description = "Python tools for communication with MDI platform."
 readme = "README.md"
-packages = [
-    { include = "mdi", from = "." },
+authors = [
+    { name = "Ivan Sahumbaiev", email = "ivsa@milestone.dk" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "boto3>=1.35.91",
+    "click>=8.1.8",
+    "datasets>=3.2.0",
+    "pillow>=11.1.0",
+    "pyarrow>=18.1.0",
+    "pydantic>=2.10.4",
+    "rich>=13.9.4",
 ]
 
-[tool.poetry.dependencies] # Relax package specific dependencies
-python = "^3.10.1"
-click = "^8.0.3"
-requests = "^2.32.2"
-boto3 = "^1.26.161"
-tqdm = "^4.66.3"
-datasets = "^2.14.7"
-xdg-base-dirs = "^6.0.0"
-s3fs = "^2023.6.0"
-Pillow = "^10.3.0"
-multidict = "^6.0.5"
-keyring = "^25.2.1"
-pydantic = "^2.8.2"
-pyarrow = "16.1.0"
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "tqdm>=4.67.1",
+]
+lint = [
+    "ruff>=0.9.1",
+]
 
-[tool.poetry.group.dev.dependencies] # Use strict developer dependencies
-pytest = "~7.4.2"
-black = {extras = ["jupyter"], version = "^24.4.2"}
-isort = "~5.12.0"
-flake8 = "~6.0.0"
-flake8-annotations = "~3.0.1"
-flake8-black = "~0.3.6"
-ipykernel = "~6.25.1"
-matplotlib = "^3.8.2"
-# Using this fork because upstream dependencies are not compatible with Python 3.10+
-pypiprivate = {git = "https://github.com/rishabhj1717/pypiprivate.git", rev = "feature/support-python3.10"}
-
-[tool.poetry.scripts]
-mdi = 'mdi.__main__:cli'
-mdi_runc = "mdi_runc.cli.__runc__:main"
-mdi_convert = "mdi_runc.cli.__convert__:main"
+[project.scripts]
+mdi = 'cli.__main__:main'
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+select = ["I", "E", "F"]   
+ignore = ["E501"]        
+line-length = 100
+
+[tool.ruff.isort]
+relative-imports-order = "closest-to-furthest"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cli", "src/mdi_python_tools"]

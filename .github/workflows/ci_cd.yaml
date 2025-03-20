@@ -1,0 +1,22 @@
+name: CI/CD Workflow
+on:
+  workflow_dispatch:
+  push:
+    branches: [system-cli-refactor]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint Code
+    uses: ./.github/workflows/lint.yaml
+    with:
+        python-version-file: "pyproject.toml"
+
+  test:
+    name: Run Tests
+    needs: lint
+    uses: ./.github/workflows/tests.yaml
+    with:
+        python-version-file: "pyproject.toml"
+
+    

@@ -3,7 +3,6 @@ from unittest import mock
 import boto3
 import pytest
 from botocore.stub import Stubber
-
 from mdi import data
 from mdi.config import KEY_STORE_CONFIG, Config
 
