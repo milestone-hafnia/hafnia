@@ -1,5 +1,3 @@
-import shutil
-import tempfile
 from pathlib import Path
 
 import pyarrow as pa
@@ -8,18 +6,10 @@ import pytest
 from mdi_python_tools.experiment.mdi_logger import EntityType, MDILogger
 
 
-@pytest.fixture
-def test_dir() -> Path:
-    """Create a temporary directory for test logs."""
-    temp_dir = Path(tempfile.mkdtemp())
-    yield temp_dir
-    shutil.rmtree(temp_dir)
-
-
-@pytest.fixture
-def logger(test_dir: Path) -> MDILogger:
+@pytest.fixture(scope="function")
+def logger(tmpdir: Path) -> MDILogger:
     """Create a logger instance for testing."""
-    return MDILogger(test_dir.as_posix(), update_interval=2)
+    return MDILogger(Path(tmpdir), update_interval=2)
 
 
 def test_basic_scalar_logging(logger: MDILogger) -> None:
@@ -61,13 +51,12 @@ def test_metric_logging(logger: MDILogger) -> None:
     assert "loss" in metrics_df["name"].values
 
 
-def test_config_logging(test_dir):
+def test_config_logging(logger: MDILogger):
     """Test configuration logging."""
-    logger = MDILogger(test_dir)
     config = {"learning_rate": 0.001, "batch_size": 32, "model_type": "resnet50"}
 
     logger.log_configuration(config)
-    config_file = test_dir / "configuration.json"
+    config_file = logger.log_dir / "configuration.json"
 
     assert config_file.exists()
 
