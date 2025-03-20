@@ -2,8 +2,9 @@ name: CI/CD Workflow
 on:
   workflow_dispatch:
   push:
-    branches: [system-cli-refactor]
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
   lint:
