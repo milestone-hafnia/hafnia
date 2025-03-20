@@ -1,5 +1,7 @@
 import json
 import os
+import platform
+import sys
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -129,9 +131,6 @@ class MDILogger:
             logger.error(f"Failed to save parameters to {file_path}: {e}")
 
     def log_environment(self):
-        import platform
-        import sys
-
         environment_info = {
             "timestamp": datetime.now().isoformat(),
             "python_version": sys.version,
