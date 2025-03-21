@@ -1,17 +1,19 @@
+from pathlib import Path
 from typing import Dict
 from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
-import src.cli.__main__ as cli
-import src.cli.consts as consts
-from mdi_python_tools.config import Config, ConfigFileSchema, ConfigSchema
+import cli.__main__ as cli
+import cli.consts as consts
+from cli.config import Config, ConfigSchema
 
 
 @pytest.fixture
-def cli_runner() -> CliRunner:
-    return CliRunner()
+def cli_runner(tmp_path: Path) -> CliRunner:
+    env = {"MDI_CONFIG_PATH": str(tmp_path / "config.json")}
+    return CliRunner(env=env)
 
 
 @pytest.fixture
@@ -22,6 +24,12 @@ def organization_id() -> str:
 @pytest.fixture
 def api_key() -> str:
     return "test-api-key-12345678"
+
+
+@pytest.fixture
+def test_config_path(tmp_path: Path) -> Path:
+    """Return a temporary config file path for testing."""
+    return tmp_path / "config.json"
 
 
 @pytest.fixture()
@@ -43,36 +51,28 @@ def profile_data(organization_id: str, api_key: str) -> Dict:
     }
 
 
-@pytest.fixture(scope="function")
-def empty_config() -> Config:
-    return Config()
+@pytest.fixture
+def empty_config(test_config_path: Path) -> Config:
+    return Config(config_path=test_config_path)
 
 
 @pytest.fixture(scope="function")
-def config_with_profiles(profile_data: Dict) -> Config:
-    active_profile = "default"
-    default = ConfigSchema(**profile_data)
-    staging = ConfigSchema(**profile_data)
-    production = ConfigSchema(**profile_data)
-
-    config = Config()
-    config.config_data = ConfigFileSchema(
-        active_profile=active_profile,
-        profiles={active_profile: default, "staging": staging, "production": production},
-    )
+def config_with_profiles(test_config_path: Path, profile_data: dict) -> Config:
+    config = Config(config_path=test_config_path)
+    config.add_profile("default", ConfigSchema(**profile_data), set_active=True)
+    config.add_profile("staging", ConfigSchema(**profile_data))
+    config.add_profile("production", ConfigSchema(**profile_data))
     return config
 
 
 def test_configure(
     cli_runner: CliRunner, empty_config: Config, api_key: str, organization_id: str
 ) -> None:
-    with patch("mdi_python_tools.config.CONFIG", empty_config):
-        with patch("mdi_python_tools.platform.get_organization_id", return_value="org-123"):
-            with patch("mdi_python_tools.config.Config.save_config"):
-                inputs = "default\n" "test-api-key\n" "https://api.mdi.milestonesys.com\n"
-                result = cli_runner.invoke(cli.configure, input="".join(inputs))
-                assert result.exit_code == 0
-                assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
+    with patch("mdi_python_tools.platform.api.get_organization_id", return_value=organization_id):
+        inputs = "default\n" "test-api-key\n" "https://api.mdi.milestonesys.com\n"
+        result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
+        assert result.exit_code == 0
+        assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
 
 
 class TestProfile:
@@ -83,13 +83,14 @@ class TestProfile:
         config_with_profiles: Config,
     ) -> None:
         """Test list of profiles functionality."""
-        with patch("mdi_python_tools.config.CONFIG", empty_config):
-            result = cli_runner.invoke(cli.profile, ["ls"])
-            assert result.exit_code == 0
-            assert consts.ERROR_CONFIGURE in result.output
+        result = cli_runner.invoke(cli.main, ["profile", "ls"])
+        assert result.exit_code != 0
+        assert consts.ERROR_CONFIGURE in result.output
 
-        with patch("mdi_python_tools.config.CONFIG", config_with_profiles):
-            result = cli_runner.invoke(cli.profile, ["ls"])
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
+            result = cli_runner.invoke(cli.main, ["profile", "ls"])
+            assert result.exit_code == 0
             assert "default" in result.output
             assert "staging" in result.output
             assert "production" in result.output
@@ -98,53 +99,51 @@ class TestProfile:
     def test_switch_profile(
         self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config
     ) -> None:
-        with patch("mdi_python_tools.config.CONFIG", empty_config):
-            result = cli_runner.invoke(cli.profile, ["use", "default"])
+        result = cli_runner.invoke(cli.main, ["profile", "use", "default"])
+        assert result.exit_code != 0
+        assert consts.ERROR_CONFIGURE in result.output
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
+            result = cli_runner.invoke(cli.main, ["profile", "active"])
             assert result.exit_code == 0
-            assert consts.ERROR_CONFIGURE in result.output
+            assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
 
-        with patch("mdi_python_tools.config.CONFIG", config_with_profiles):
-            with patch("mdi_python_tools.config.Config.save_config"):
-                result = cli_runner.invoke(cli.profile, ["active"])
-                assert result.exit_code == 0
-                assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
+            result = cli_runner.invoke(cli.main, ["profile", "use", "staging"])
+            assert result.exit_code == 0
+            assert f"{consts.PROFILE_SWITCHED_SUCCESS} staging" in result.output
 
-                result = cli_runner.invoke(cli.profile, ["use", "staging"])
-                assert result.exit_code == 0
-                assert f"{consts.PROFILE_SWITCHED_SUCCESS} staging" in result.output
+            result = cli_runner.invoke(cli.main, ["profile", "active"])
+            assert result.exit_code == 0
+            assert f"{consts.PROFILE_TABLE_HEADER} staging" in result.output
 
-                result = cli_runner.invoke(cli.profile, ["active"])
-                assert result.exit_code == 0
-                assert f"{consts.PROFILE_TABLE_HEADER} staging" in result.output
-
-                result = cli_runner.invoke(cli.profile, ["use", "nonexistent"])
-                assert result.exit_code == 0
-                assert consts.ERROR_PROFILE_NOT_EXIST in result.output
+            result = cli_runner.invoke(cli.main, ["profile", "use", "nonexistent"])
+            assert result.exit_code != 0
+            assert consts.ERROR_PROFILE_NOT_EXIST in result.output
 
     def test_remove_profile(
         self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config
     ) -> None:
-        with patch("mdi_python_tools.config.CONFIG", empty_config):
-            result = cli_runner.invoke(cli.profile, ["rm", "default"])
+        result = cli_runner.invoke(cli.main, ["profile", "rm", "default"])
+        assert result.exit_code != 0
+        assert consts.ERROR_CONFIGURE in result.output
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
+            result = cli_runner.invoke(cli.main, ["profile", "rm", "staging"])
             assert result.exit_code == 0
-            assert consts.ERROR_CONFIGURE in result.output
+            assert f"{consts.PROFILE_REMOVED_SUCCESS} staging" in result.output
 
-        with patch("mdi_python_tools.config.CONFIG", config_with_profiles):
-            with patch("mdi_python_tools.config.Config.save_config"):
-                result = cli_runner.invoke(cli.profile, ["rm", "staging"])
-                assert result.exit_code == 0
-                assert f"{consts.PROFILE_REMOVED_SUCCESS} staging" in result.output
+            result = cli_runner.invoke(cli.main, ["profile", "ls"])
+            assert result.exit_code == 0
+            assert "staging" not in result.output
+            assert "production" in result.output
+            assert "default" in result.output
 
-                result = cli_runner.invoke(cli.profile, ["ls"])
-                assert result.exit_code == 0
-                assert "staging" not in result.output
-                assert "production" in result.output
-                assert "default" in result.output
+            result = cli_runner.invoke(cli.main, ["profile", "rm", "nonexistent"])
+            assert result.exit_code != 0
+            assert consts.ERROR_PROFILE_NOT_EXIST in result.output
 
-                result = cli_runner.invoke(cli.profile, ["rm", "nonexistent"])
-                assert result.exit_code == 0
-                assert consts.ERROR_PROFILE_NOT_EXIST in result.output
-
-                result = cli_runner.invoke(cli.profile, ["rm", "default"])
-                assert result.exit_code == 0
-                assert consts.ERROR_PROFILE_REMOVE_ACTIVE in result.output
+            result = cli_runner.invoke(cli.main, ["profile", "rm", "default"])
+            assert result.exit_code != 0
+            assert consts.ERROR_PROFILE_REMOVE_ACTIVE in result.output
