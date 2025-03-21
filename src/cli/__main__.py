@@ -1,71 +1,60 @@
 #!/usr/bin/env python
 import click
 
+from cli import consts, profile_cmds
+from cli.config import Config, ConfigSchema
+
 
 @click.group()
-def main():
+@click.pass_context
+def main(ctx: click.Context) -> None:
     """MDI CLI."""
-    pass
+    ctx.obj = Config()
 
 
 @main.command("configure")
-def configure() -> None:
+@click.pass_obj
+def configure(cfg: Config) -> None:
     """Configure MDI CLI settings."""
-    from cli import mdi_sys
 
-    return mdi_sys.configure()
+    from mdi_python_tools.platform.api import get_organization_id
+
+    profile_name = click.prompt("Profile Name", type=str, default="default")
+    profile_name = profile_name.strip()
+    try:
+        cfg.add_profile(profile_name, ConfigSchema(), set_active=True)
+    except ValueError:
+        raise click.ClickException(consts.ERROR_CREATE_PROFILE)
+
+    api_key = click.prompt("MDI API Key", type=str, hide_input=True)
+    try:
+        cfg.api_key = api_key.strip()
+    except ValueError as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        return
+    platform_url = click.prompt(
+        "MDI Platform URL", type=str, default="https://api.mdi.milestonesys.com"
+    )
+    cfg.platform_url = platform_url.strip()
+    try:
+        cfg.organization_id = get_organization_id(
+            cfg.get_platform_endpoint("organizations"), cfg.api_key
+        )
+    except Exception:
+        raise click.ClickException(consts.ERROR_ORG_ID)
+    cfg.save_config()
+    profile_cmds.profile_show(cfg)
 
 
 @main.command("clear")
-def clear() -> None:
+@click.pass_obj
+def clear(cfg: Config) -> None:
     """Remove stored configuration."""
-
-    from cli import mdi_sys
-
-    return mdi_sys.clear()
+    cfg.clear()
+    click.echo("Successfully cleared MDI configuration.")
 
 
-@click.group()
-def profile():
-    """Manage profile."""
-    pass
-
-
-@profile.command("ls")
-def profile_ls() -> None:
-    """List all available profiles."""
-    from cli import mdi_sys
-
-    return mdi_sys.profiles()
-
-
-@profile.command("use")
-@click.argument("profile_name", required=True)
-def profile_use(profile_name: str) -> None:
-    """Switch to a different profile."""
-    from cli import mdi_sys
-
-    return mdi_sys.switch_profile(profile_name)
-
-
-@profile.command("rm")
-@click.argument("profile_name", required=True)
-def profile_rm(profile_name: str) -> None:
-    """Remove a profile."""
-    from cli import mdi_sys
-
-    return mdi_sys.remove_profile(profile_name)
-
-
-@profile.command("active")
-def profile_active() -> None:
-    """Show active profile."""
-    from cli import mdi_sys
-
-    return mdi_sys.active_profile()
-
-
-main.add_command(profile)
+main.add_command(profile_cmds.profile)
 
 if __name__ == "__main__":
     main()
