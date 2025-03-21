@@ -3,8 +3,10 @@ repos:
   rev: v0.8.4
   hooks:
     - id: ruff
-      types_or: [ python, pyi ]
-      args: [ --fix ]
+      types_or: [python, pyi]
+      args: [--fix]
+      files: ^(src|tests)/
     - id: ruff-format
-      types_or: [ python, pyi ]
-      args: [ --line-length=100 ]
+      types_or: [python, pyi]
+      args: [--line-length=100]
+      files: ^(src|tests)/
