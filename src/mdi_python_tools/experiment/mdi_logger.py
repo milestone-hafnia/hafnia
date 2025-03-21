@@ -1,4 +1,3 @@
-import base64
 import json
 import os
 import platform
@@ -6,12 +5,10 @@ import sys
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
-import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
-from PIL import Image
 from pydantic import BaseModel, field_validator
 
 from mdi_python_tools.log import logger
@@ -22,7 +19,6 @@ class EntityType(Enum):
 
     SCALAR = "scalar"
     METRIC = "metric"
-    IMAGE = "image"
 
 
 class EntityMode(Enum):
@@ -43,16 +39,13 @@ class Entity(BaseModel):
         ent_type: Type of entity (scalar, metric, image)
         mode: Mode of logging (train or eval)
         value: Numerical value of the entity
-        image: Base64 encoded image data (for image entities)
     """
 
     step: int
     ts: str
     name: str
     ent_type: str
-    mode: str
     value: float = -1
-    image: Optional[str] = None
 
     @field_validator("value", mode="before")
     def set_value(cls, v: Union[float, str, int]) -> float:
@@ -70,15 +63,8 @@ class Entity(BaseModel):
             return v.value
         return str(v)
 
-    @field_validator("mode", mode="before")
-    def set_mode(cls, v: Union[EntityMode, str]) -> str:
-        """Convert EntityMode enum to string value."""
-        if isinstance(v, EntityMode):
-            return v.value
-        return str(v)
-
     def __repr__(self):
-        return f"{self.mode} {self.ts} {self.name}: {self.value} {self.ent_type}"
+        return f"{self.ts} {self.name}: {self.value} {self.ent_type}"
 
 
 class MDILogger:
@@ -129,31 +115,6 @@ class MDILogger:
         )
         self.entities.append(entity)
         print(entity)
-        if len(self.entities) >= self.update_interval:
-            self.flush()
-
-    def log_image(self, name: str, value: np.ndarray, is_training: bool, step: int) -> None:
-        if self.remote_job:
-            logger.warning("Images cannot be logged in the remote execution.")
-            return
-
-        mode = EntityMode.TRAIN if is_training else EntityMode.EVAL
-        try:
-            image_bytes = Image.fromarray(value).tobytes()
-        except ValueError:
-            logger.error("Invalid image data provided.")
-            return
-        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        self.entities.append(
-            Entity(
-                step=step,
-                ts=datetime.now().isoformat(),
-                name=name,
-                image=image_b64,
-                ent_type=EntityType.IMAGE,
-                mode=mode,
-            )
-        )
         if len(self.entities) >= self.update_interval:
             self.flush()
 
