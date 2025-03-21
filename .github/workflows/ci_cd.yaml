@@ -2,8 +2,11 @@ name: CI/CD Workflow
 on:
   workflow_dispatch:
   push:
-    branches: [system-cli-refactor]
+    branches: [main]
+    paths: ["src/**", "tests/**", "pyproject.toml"]
   pull_request:
+    branches: [main]
+    paths: ["src/**", "tests/**", "pyproject.toml"]
 
 jobs:
   lint:

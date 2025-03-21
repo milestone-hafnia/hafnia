@@ -1,0 +1,70 @@
+from pathlib import Path
+
+import pyarrow as pa
+import pytest
+
+from mdi_python_tools.experiment.mdi_logger import EntityType, MDILogger
+
+
+@pytest.fixture(scope="function")
+def logger(tmpdir: Path) -> MDILogger:
+    """Create a logger instance for testing."""
+    return MDILogger(Path(tmpdir), update_interval=2)
+
+
+def test_basic_scalar_logging(logger: MDILogger) -> None:
+    """Test that basic scalar logging works."""
+    logger.log_scalar("test_scalar", 42.0, True, 1)
+
+    assert len(logger.entities) == 1
+    assert not logger.log_file.exists()
+
+    logger.log_scalar("test_scalar", 43.0, True, 2)
+
+    # Should be written now and entities cleared
+    assert len(logger.entities) == 0
+    assert logger.log_file.exists()
+
+    table = pa.parquet.read_table(logger.log_file)
+    df = table.to_pandas()
+    assert len(df) == 2
+    assert df.iloc[0]["value"] == 42.0
+    assert df.iloc[1]["value"] == 43.0
+
+
+def test_metric_logging(logger: MDILogger) -> None:
+    """Test that metric logging works."""
+    logger.log_metric("accuracy", 0.95, False, 100)
+    logger.log_metric("loss", 0.05, True, 100)
+
+    # Should be written now and entities cleared (update_interval=2)
+    assert len(logger.entities) == 0
+    assert logger.log_file.exists()
+
+    # Verify the data
+    table = pa.parquet.read_table(logger.log_file)
+    df = table.to_pandas()
+
+    metrics_df = df[df["ent_type"] == EntityType.METRIC.value]
+    assert len(metrics_df) == 2
+    assert "accuracy" in metrics_df["name"].values
+    assert "loss" in metrics_df["name"].values
+
+
+def test_config_logging(logger: MDILogger):
+    """Test configuration logging."""
+    config = {"learning_rate": 0.001, "batch_size": 32, "model_type": "resnet50"}
+
+    logger.log_configuration(config)
+    config_file = logger.log_dir / "configuration.json"
+
+    assert config_file.exists()
+
+    import json
+
+    with open(config_file, "r") as f:
+        loaded_config = json.load(f)
+
+    assert loaded_config["learning_rate"] == 0.001
+    assert loaded_config["batch_size"] == 32
+    assert loaded_config["model_type"] == "resnet50"
