@@ -1,9 +1,13 @@
+import numpy as np  # noqa E402 Set MKL_SERVICE_FORCE_INTEL to force it
+
 import argparse
 import os
 from pathlib import Path
 
 import torch
 from train_utils import create_dataloaders, create_model, train_loop
+
+from mdi_python_tools.experiment import MDILogger
 
 DATA_DIR = os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training")
 ARTIFACT_DIR = os.getenv("MDI_ARTIFACT_DIR", "/opt/ml/output/data")
@@ -24,8 +28,6 @@ def parse_args():
 
 
 def main(args: argparse.Namespace):
-    from mdi_runc.core import MDILogger
-
     artifacts_dir = Path(ARTIFACT_DIR)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 

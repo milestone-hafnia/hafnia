@@ -17,7 +17,7 @@ def runc():
 @click.argument("task", required=True)
 def launch(task: str) -> None:
     """Launch a job within the image."""
-    from mdi_python_tools.platform.sagemaker import handle_launch
+    from mdi_python_tools.platform.executor import handle_launch
 
     handle_launch(task)
 
@@ -25,8 +25,8 @@ def launch(task: str) -> None:
 @runc.command(name="build")
 @click.argument("recipe_url")
 @click.argument("state_file", default="state.json")
-@click.argument("ecr_repository", default="")
-@click.argument("image_name", default="")
+@click.argument("ecr_repository", default="localhost")
+@click.argument("image_name", default="recipe")
 @click.pass_obj
 def build(
     cfg: Config, recipe_url: str, state_file: str, ecr_repository: str, image_name: str
@@ -43,7 +43,7 @@ def build(
 @runc.command(name="build-local")
 @click.argument("recipe")
 @click.argument("state_file", default="state.json")
-@click.argument("image_name")
+@click.argument("image_name", default="recipe")
 def build_local(recipe: str, state_file: str, image_name: str) -> None:
     """Build recipe from local path as image with prefix - localhost"""
 
@@ -65,6 +65,6 @@ def build_local(recipe: str, state_file: str, image_name: str) -> None:
         "hash": sha256(recipe_zip.read_bytes()).hexdigest()[:8],
     }
     click.echo("Start building image")
-    build_image(image_info, "localhost", state_file)
+    build_image(image_info, "localhost", state_file=state_file)
     if recipe_created:
         recipe_zip.unlink()

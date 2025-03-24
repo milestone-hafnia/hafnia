@@ -19,7 +19,8 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-python.mypy-type-checker",
-        "charliermarsh.ruff"
+        "charliermarsh.ruff",
+        "tamasfe.even-better-toml"
       ],
       "settings": {
         "editor.formatOnSave": true,

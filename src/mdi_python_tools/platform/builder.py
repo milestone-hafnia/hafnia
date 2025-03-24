@@ -129,20 +129,17 @@ def build_dockerfile(
 
     if not Path(dockerfile).exists():
         raise FileNotFoundError("Dockerfile not found.")
-    logger.info(f"Building Docker image {docker_tag} from {dockerfile}")
     build_cmd = [
         "docker",
         "build",
+        "--platform=linux/amd64",
         "-t",
         docker_tag,
         "-f",
         dockerfile,
     ]
-    if secrets:
-        for secret_id, env_var in secrets.items():
-            build_cmd.extend(["--secret", f"id={secret_id},env={env_var}"])
-
     build_cmd.append(docker_context)
+    logger.info(f"Building Docker image: {' '.join(build_cmd)}")
     subprocess.run(build_cmd, check=True)
 
 
