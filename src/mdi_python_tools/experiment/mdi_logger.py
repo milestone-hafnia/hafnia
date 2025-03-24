@@ -104,14 +104,12 @@ class MDILogger:
         step: int,
         ent_type: EntityType = EntityType.SCALAR,
     ) -> None:
-        mode = EntityMode.TRAIN if is_training else EntityMode.EVAL
         entity = Entity(
             step=step,
             ts=datetime.now().isoformat(),
             name=name,
             value=value,
-            mode=mode,
-            ent_type=ent_type,
+            ent_type=ent_type.value,
         )
         self.entities.append(entity)
         print(entity)

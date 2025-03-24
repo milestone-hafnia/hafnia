@@ -65,9 +65,10 @@ def profile_rm(cfg: Config, profile_name: str) -> None:
 @profile.command("active")
 @click.pass_obj
 def profile_active(cfg: Config) -> None:
-    if not cfg.api_key:
-        raise click.ClickException(consts.ERROR_CONFIGURE)
-    profile_show(cfg)
+    try:
+        profile_show(cfg)
+    except Exception as e:
+        raise click.ClickException(str(e))
 
 
 def profile_show(cfg: Config) -> None:

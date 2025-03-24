@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, field_validator
 
+import cli.consts as consts
 from mdi_python_tools.log import logger
 
 
@@ -33,6 +34,8 @@ class Config:
 
     @property
     def active_profile(self) -> str:
+        if self.config_data.active_profile is None:
+            raise ValueError(consts.ERROR_PROFILE_NOT_EXIST)
         return self.config_data.active_profile
 
     @active_profile.setter
@@ -45,9 +48,7 @@ class Config:
     @property
     def config(self) -> ConfigSchema:
         if not self.config_data.active_profile:
-            raise ValueError(
-                "No active profile configured. Please configure the CLI with `mdi configure`"
-            )
+            raise ValueError(consts.ERROR_PROFILE_NOT_EXIST)
         return self.config_data.profiles[self.config_data.active_profile]
 
     @property
@@ -57,7 +58,7 @@ class Config:
             return self.get_secret_value(api_key_secret)
         if self.config.api_key is not None:
             return self.config.api_key
-        raise ValueError("API key not set. Please configure the CLI with `mdi configure`.")
+        raise ValueError(consts.ERROR_API_KEY_NOT_SET)
 
     @api_key.setter
     def api_key(self, value: str) -> None:
@@ -81,12 +82,12 @@ class Config:
         self.config.platform_url = base_url
         self.config.api_mapping = self.get_api_mapping(base_url)
 
-    def __init__(self, config_path: Path = None) -> None:
+    def __init__(self, config_path: Optional[Path] = None) -> None:
         self.config_path = self.resolve_config_path(config_path)
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         self.config_data = self.load_config()
 
-    def resolve_config_path(self, path: Path = None) -> Path:
+    def resolve_config_path(self, path: Optional[Path] = None) -> Path:
         if path:
             return Path(path).expanduser()
 
@@ -138,9 +139,8 @@ class Config:
         """Load configuration from file."""
         if not self.config_path.exists():
             return ConfigFileSchema()
-
         try:
-            with open(self.config_path, "r") as f:
+            with open(self.config_path.as_posix(), "r") as f:
                 data = json.load(f)
             return ConfigFileSchema(**data)
         except json.JSONDecodeError:
@@ -149,7 +149,7 @@ class Config:
 
     def save_config(self) -> None:
         with open(self.config_path, "w") as f:
-            json.dump(self.config.model_dump(), f, indent=4)
+            json.dump(self.config_data.model_dump(), f, indent=4)
 
     def remove_profile(self, profile_name: str) -> None:
         if profile_name not in self.config_data.profiles:
@@ -159,5 +159,5 @@ class Config:
 
     def clear(self) -> None:
         self.config_data = ConfigFileSchema(active_profile=None, profiles={})
-        if self.config_file.exists():
-            self.config_file.unlink()
+        if self.config_path.exists():
+            self.config_path.unlink()
