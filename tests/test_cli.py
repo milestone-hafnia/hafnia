@@ -83,9 +83,11 @@ class TestProfile:
         config_with_profiles: Config,
     ) -> None:
         """Test list of profiles functionality."""
-        result = cli_runner.invoke(cli.main, ["profile", "ls"])
-        assert result.exit_code != 0
-        assert consts.ERROR_CONFIGURE in result.output
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: empty_config)
+            result = cli_runner.invoke(cli.main, ["profile", "ls"])
+            assert result.exit_code != 0
+            assert consts.ERROR_CONFIGURE in result.output
 
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
@@ -99,9 +101,11 @@ class TestProfile:
     def test_switch_profile(
         self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config
     ) -> None:
-        result = cli_runner.invoke(cli.main, ["profile", "use", "default"])
-        assert result.exit_code != 0
-        assert consts.ERROR_CONFIGURE in result.output
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: empty_config)
+            result = cli_runner.invoke(cli.main, ["profile", "use", "default"])
+            assert result.exit_code != 0
+            assert f"Error: {consts.ERROR_CONFIGURE}" in result.output
 
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
@@ -124,9 +128,11 @@ class TestProfile:
     def test_remove_profile(
         self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config
     ) -> None:
-        result = cli_runner.invoke(cli.main, ["profile", "rm", "default"])
-        assert result.exit_code != 0
-        assert consts.ERROR_CONFIGURE in result.output
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: empty_config)
+            result = cli_runner.invoke(cli.main, ["profile", "rm", "default"])
+            assert result.exit_code != 0
+            assert consts.ERROR_CONFIGURE in result.output
 
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)

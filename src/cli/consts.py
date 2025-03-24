@@ -9,7 +9,7 @@ ERROR_API_KEY_NOT_SET: str = "API key not set. Please configure the CLI with `md
 ERROR_ORG_ID: str = "Failed to fetch organization ID. Verify platform URL and API key."
 ERROR_CREATE_PROFILE: str = "Failed to create profile. Profile name must be unique and not empty."
 
-ERROR_GET_RESOURCE: str = "Failed to get the data from plaform. Verify url or api key."
+ERROR_GET_RESOURCE: str = "Failed to get the data from platform. Verify url or api key."
 
 PROFILE_SWITCHED_SUCCESS: str = "Switched to profile:"
 PROFILE_REMOVED_SUCCESS: str = "Removed profile:"
