@@ -22,4 +22,12 @@ jobs:
     with:
         python-version-file: "pyproject.toml"
 
+  publish-pypi:
+    name: Publish Package
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    uses: ./.github/workflows/publish_pypi
+    with:
+        python-version-file: "pyproject.toml"
+
     
