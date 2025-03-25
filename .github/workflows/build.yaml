@@ -29,7 +29,7 @@ jobs:
       - name: Build the project
         run: uv build
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: python-package
           path: dist/
