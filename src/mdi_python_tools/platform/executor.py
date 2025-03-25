@@ -72,6 +72,9 @@ def collect_python_modules(directory: Path) -> Dict[str, PythonModule]:
         if spec is None:
             logger.warning(f"Was not able to load {module_name} from {fname}")
             continue
+        if spec.loader is None:
+            logger.warning(f"Loader is None for {module_name} from {fname}")
+            continue
         module = module_from_spec(spec)
         spec.loader.exec_module(module)
 
