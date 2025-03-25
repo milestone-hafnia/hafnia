@@ -41,6 +41,13 @@ def validate_recipe(zip_path: Path, required_paths: Optional[set] = None) -> Non
                 f"The following required paths are missing in the zip archive: {missing_paths}"
             )
 
+        script_files = [
+            f for f in archive_contents if f.startswith("src/scripts/") and f.endswith(".py")
+        ]
+
+        if not script_files:
+            raise ValueError("No Python script files found in the 'src/scripts/' directory.")
+
 
 def clean_up(files: List[Path], dirs: List[Path], prefix: str = "__") -> None:
     """

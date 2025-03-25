@@ -153,3 +153,50 @@ class TestProfile:
             result = cli_runner.invoke(cli.main, ["profile", "rm", "default"])
             assert result.exit_code != 0
             assert consts.ERROR_PROFILE_REMOVE_ACTIVE in result.output
+
+
+class TestData:
+    @pytest.fixture
+    def data_endpoint(self) -> str:
+        return "https://api.mdi.milestonesys.com/api/v1/datasets/my-dataset"
+
+    @pytest.fixture
+    def destination(self, tmp_path: Path) -> str:
+        return str(tmp_path / "data")
+
+    def test_get_data_failure(
+        self, cli_runner: CliRunner, data_endpoint: str, destination: str
+    ) -> None:
+        """Test data get command when download fails"""
+
+        def mock_download_failure(*args, **kwargs):
+            raise Exception("Download failed")
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("mdi_python_tools.data.s3_client.download_resource", mock_download_failure)
+            result = cli_runner.invoke(cli.main, ["data", "get", data_endpoint, destination])
+            assert result.exit_code != 0
+            assert consts.ERROR_GET_RESOURCE in result.output
+
+    def test_get_data_success(
+        self,
+        cli_runner: CliRunner,
+        config_with_profiles: Config,
+        data_endpoint: str,
+        destination: str,
+        tmp_path: Path,
+    ) -> None:
+        """Test data get command when download succeeds"""
+        dummy_file = tmp_path / "data" / "downloaded.txt"
+
+        def mock_download_success(*args, **kwargs):
+            return {"status": "success", "downloaded_files": [dummy_file.as_posix()]}
+
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("mdi_python_tools.data.s3_client.download_resource", mock_download_success)
+            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
+
+            result = cli_runner.invoke(cli.main, ["data", "get", data_endpoint, destination])
+            assert result.exit_code == 0
+            assert "success" in result.output
+            assert "downloaded_files" in result.output
