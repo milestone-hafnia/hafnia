@@ -186,13 +186,13 @@ def build_image(image_info: Dict, ecr_prefix: str, state_file: str = "state.json
     image_exists = False
     if "localhost" not in ecr_prefix:
         image_exists = check_ecr(image_info["name"], image_info["hash"])
-    build_dockerfile(
-        image_info["dockerfile"],
-        image_info["docker_context"],
-        mdi_tag,
-    )
+
+    image_info.update({"mdi_tag": mdi_tag, "image_exists": image_exists})
     state_path = Path(state_file)
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    image_info.update({"mdi_tag": mdi_tag, "image_exists": image_exists})
+    if image_exists:
+        logger.info(f"Image {mdi_tag} already exists in ECR. Skipping build.")
+    else:
+        build_dockerfile(image_info["dockerfile"], image_info["docker_context"], mdi_tag)
     with open(state_path.as_posix(), "w") as f:
         json.dump(image_info, f, indent=4)
