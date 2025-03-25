@@ -6,9 +6,17 @@ Project Hafnia is a comprehensive solution for managing data science experiments
 ## Documentation
 
 - [CLI Documentation](docs/cli.md) - Detailed guide for the MDI command-line interface
+- [Script2Model Documentation](docs/s2m.md) - Detailed guide for script2model
 
 
 ## Key Components
 
 - **CLI Tool**: Command-line interface for platform interaction
+
+
+## Install
+
+```bash
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ mdi-python-tools
+```
 

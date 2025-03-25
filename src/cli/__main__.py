@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import click
 
-from cli import consts, profile_cmds
+from cli import consts, data_cmds, profile_cmds, runc_cmds
 from cli.config import Config, ConfigSchema
 
 
@@ -55,6 +55,8 @@ def clear(cfg: Config) -> None:
 
 
 main.add_command(profile_cmds.profile)
+main.add_command(data_cmds.data)
+main.add_command(runc_cmds.runc)
 
 if __name__ == "__main__":
     main()
