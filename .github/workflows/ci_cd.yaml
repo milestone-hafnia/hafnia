@@ -30,4 +30,12 @@ jobs:
     with:
         python-version-file: "pyproject.toml"
 
+  publish-docker-runtime:
+    name: Publish Docker Image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: publish-pypi
+    uses: ./.github/workflows/publish_docker.yaml
+    with:
+        python-version-file: "pyproject.toml"
+
     
