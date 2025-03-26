@@ -61,6 +61,7 @@ jobs:
     uses: ./.github/workflows/publish_docker.yaml
     with:
       python-version-file: "pyproject.toml"
+      package-version: needs.build.outputs.package-version
       environment: "staging"
 
   publish-release:
@@ -69,4 +70,4 @@ jobs:
     # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     uses: ./.github/workflows/publish_release.yaml 
     with:
-      python-version-file: "pyproject.toml"
+      package-version: ${{ needs.build.outputs.package-version }}

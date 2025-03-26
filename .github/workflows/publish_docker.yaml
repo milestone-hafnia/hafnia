@@ -6,6 +6,9 @@ on:
       python-version-file:
         required: true
         type: string
+      package-version:
+        required: true
+        type: string 
       environment:
         required: true
         type: string
@@ -26,13 +29,6 @@ jobs:
         id: python
         with:
           python-version-file: ${{ inputs.python-version-file }}
-      - name: Extract version
-        id: extract-version
-        run: |
-          VERSION=$(grep -m 1 'version = '  ${{ inputs.python-version-file }} | sed -e 's/version = "\(.*\)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building Docker image for version: $VERSION"
-          echo "PYTHON_VERSION ${{ steps.python.outputs.python-version }}"
 
       - name: Download package artifact
         uses: actions/download-artifact@v4.2.1
@@ -74,7 +70,7 @@ jobs:
           push: true
           tags: |
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
-            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.extract-version.outputs.version }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ inputs.package-version }}
           platforms: linux/amd64
           provenance: false
           sbom: false

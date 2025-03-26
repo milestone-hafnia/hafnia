@@ -2,13 +2,13 @@ name: Build and Publish Package
 on:
   workflow_call:
     inputs:
-      python-version-file:
+      package-version:
         required: true
         type: string
    
 permissions:
   contents: write
-  
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -28,17 +28,12 @@ jobs:
           echo "✅ Found the following package files:"
           ls -la dist/
 
-      - name: Extract version
-        id: get_version
-        run: |
-          VERSION=$(grep -m 1 'version = '  ${{ inputs.python-version-file }} | sed -e 's/version = "\(.*\)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Check if release exists
         id: check_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="v${{ steps.get_version.outputs.version }}"
+          TAG="v${{ inputs.package-version }}"
           echo "Checking if release tag exists: $TAG"
 
           if gh release view "$TAG" --repo="$GITHUB_REPOSITORY" &>/dev/null; then
@@ -49,4 +44,4 @@ jobs:
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: "TAG=\"v${{ steps.get_version.outputs.version }}\"\necho \"Creating release tag: $TAG\"\n\ngh release create \"$TAG\" --repo=\"$GITHUB_REPOSITORY\" \\\n  --title=\"${GITHUB_REPOSITORY#*/} ${{ steps.get_version.outputs.version }}\" \\\n  --generate-notes\n  \n"
+        run: "TAG=\"v${{ inputs.package-version }}\"\necho \"Creating release tag: $TAG\"\n\ngh release create \"$TAG\" --repo=\"$GITHUB_REPOSITORY\" \\\n  --title=\"${GITHUB_REPOSITORY#*/} ${{ inputs.package_version }}\" \\\n  --generate-notes\n  \n"
