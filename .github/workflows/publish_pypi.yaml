@@ -36,16 +36,17 @@ jobs:
         run: |
           if [[ "${{ inputs.environment }}" == "test.pypi" ]]; then
             echo "url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "mint_url=https://test.pypi.org/_/oidc/mint-token" >> $GITHUB_OUTPUT
           elif [[ "${{ inputs.environment }}" == "pypi" ]]; then
             echo "url=https://upload.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "mint_url=https://pypi.org/_/oidc/mint-token" >> $GITHUB_OUTPUT
           else
-            echo "url=https://${{ inputs.environment }}.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "❌ Unsupported environment: ${{ inputs.environment }}" >> $GITHUB_OUTPUT
+            exit 1
           fi
 
       - name: Mint API token
         id: mint-token
-        env:
-            PYPI_API_URL: 'https://${{ steps.repo-url.outputs.url }}.org/_/oidc/mint-token'
         run: |
           resp=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
                             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.environment }}")
@@ -53,7 +54,7 @@ jobs:
           echo "✅ Requesting OIDC token with audience: ${{ inputs.environment }}"
   
           pypi_api_json_payload="{\"token\":\"${oidc_token}\"}"
-          resp=$(curl -sS -X POST ${{ env.PYPI_API_URL }} -d "$pypi_api_json_payload")
+          resp=$(curl -sS -X POST ${{ steps.repo-url.outputs.mint_url }}-d "$pypi_api_json_payload")
           api_token=$(jq -r '.token' <<< "${resp}")
           echo "✅ Exchanging OIDC token for PyPI API token"
   
@@ -66,6 +67,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: ${{ steps.repo-url.outputs.url }}
+          password: ${{ steps.mint-token.outputs.api-token }}
           print-hash: true
           verbose: true
-          password: ${{ steps.mint-token.outputs.api-token }}
