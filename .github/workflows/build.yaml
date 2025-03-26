@@ -1,0 +1,36 @@
+name: Build Package
+
+'on':
+  workflow_call:
+    inputs:
+      python-version-file:
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.4.0
+        with:
+          python-version-file: ${{ inputs.python-version-file }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: 0.6.8
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+      - name: Build the project
+        run: uv build
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: python-package
+          path: dist/
+          retention-days: 1
