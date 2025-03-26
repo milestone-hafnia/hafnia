@@ -1,0 +1,47 @@
+name: Build and Publish Package
+on:
+  workflow_call:
+    inputs:
+      package-version:
+        required: true
+        type: string
+   
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4.2.1
+        with:
+            name: python-package
+            path: dist/
+
+      - name: Verify package files
+        run: |
+          if [ -z "$(ls -A dist/)" ]; then
+              echo "❌ No package files found in the artifact"
+              exit 1
+          fi
+          echo "✅ Found the following package files:"
+          ls -la dist/
+
+      - name: Check if release exists
+        id: check_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ inputs.package-version }}"
+          echo "Checking if release tag exists: $TAG"
+
+          if gh release view "$TAG" --repo="$GITHUB_REPOSITORY" &>/dev/null; then
+            echo "::error::Release $TAG already exists. Please increment the version number."
+            exit 1
+          fi
+          echo "Release does not exist. Will create new release."
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: "TAG=\"v${{ inputs.package-version }}\"\necho \"Creating release tag: $TAG\"\n\ngh release create \"$TAG\" --repo=\"$GITHUB_REPOSITORY\" \\\n  --title=\"${GITHUB_REPOSITORY#*/} ${{ inputs.package_version }}\" \\\n  --generate-notes\n  \n"

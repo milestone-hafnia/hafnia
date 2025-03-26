@@ -1,17 +1,17 @@
 name: Build and Publish Package
 
 on:
-  workflow_dispatch:
   workflow_call:
     inputs:
-      python-version-file:
+      environment:
+        description: 'Environment prefix (e.g. "testpypi" or "pypi")'
         required: true
         type: string
-        
+
 jobs:
-  publish-test-pypi:
+  publish-pypi:
     runs-on: ubuntu-latest
-    environment: testpypi
+    environment: ${{ inputs.environment }}
     permissions:
       id-token: write
       contents: read
@@ -21,28 +21,52 @@ jobs:
         with:
           name: python-package
           path: dist/
-      - name: Display package files
-        run: ls -la dist/
-      - name: mint API token
+
+      - name: Verify package files
+        run: |
+          if [ -z "$(ls -A dist/)" ]; then
+            echo "❌ No package files found in the artifact"
+            exit 1
+          fi
+          echo "✅ Found the following package files:"
+          ls -la dist/
+
+      - name: Determine Repository URL
+        id: repo-url
+        run: |
+          if [[ "${{ inputs.environment }}" == "testpypi" ]]; then
+            echo "url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "mint_url=https://test.pypi.org/_/oidc/mint-token" >> $GITHUB_OUTPUT
+          elif [[ "${{ inputs.environment }}" == "pypi" ]]; then
+            echo "url=https://upload.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "mint_url=https://pypi.org/_/oidc/mint-token" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Unsupported environment: ${{ inputs.environment }}" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Mint API token
         id: mint-token
         run: |
-          # retrieve the ambient OIDC token
-          resp=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=pypi")
+          resp=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+                            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.environment }}")
           oidc_token=$(jq -r '.value' <<< "${resp}")
-
-          # exchange the OIDC token for an API token
-          resp=$(curl -X POST https://test.pypi.org/_/oidc/mint-token -d "{\"token\": \"${oidc_token}\"}")
+          echo "✅ Requesting OIDC token with audience: ${{ inputs.environment }}"
+  
+          pypi_api_json_payload="{\"token\":\"${oidc_token}\"}"
+          resp=$(curl -sS -X POST ${{ steps.repo-url.outputs.mint_url }} -d "$pypi_api_json_payload")
           api_token=$(jq -r '.token' <<< "${resp}")
-
-          # mask the newly minted API token, so that we don't accidentally leak it
+          echo "✅ Exchanging OIDC token for PyPI API token"
+  
+          # Mask the API token to prevent accidental leakage
           echo "::add-mask::${api_token}"
-
-          # see the next step in the workflow for an example of using this step output
           echo "api-token=${api_token}" >> "${GITHUB_OUTPUT}"
+          echo "✅ API token successfully minted"
 
-      - name: Publish package distributions to PyPI
+      - name: Publish 📦 to ${{ inputs.environment }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: https://test.pypi.org/legacy/
+          repository-url: ${{ steps.repo-url.outputs.url }}
+          password: ${{ steps.mint-token.outputs.api-token }}
           print-hash: true
+          skip-existing: true

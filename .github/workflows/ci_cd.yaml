@@ -3,7 +3,6 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["src/**", "tests/**", "pyproject.toml"]
   pull_request:
     branches: [main]
     paths: ["src/**", "tests/**", "pyproject.toml"]
@@ -47,18 +46,27 @@ jobs:
 
   publish-pypi:
     name: Publish Package
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish_pypi.yaml
     with:
-        python-version-file: "pyproject.toml"
+      environment: testpypi
 
-  publish-docker-runtime:
-    name: Publish Docker Image
+  publish-docker-staging:
+    name: Publish Docker Image to Staging
+    needs: [build, publish-pypi]
+    secrets: inherit
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: publish-pypi
     uses: ./.github/workflows/publish_docker.yaml
     with:
-        python-version-file: "pyproject.toml"
+      python-version-file: "pyproject.toml"
+      package-version: ${{ needs.build.outputs.package-version }}
+      environment: "staging"
 
-    
+  publish-release:
+    name: Publish Github release
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish_release.yaml 
+    with:
+      package-version: ${{ needs.build.outputs.package-version }}
