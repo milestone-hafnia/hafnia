@@ -31,9 +31,30 @@ jobs:
           echo "✅ Found the following package files:"
           ls -la dist/
 
+      - name: Mint API token
+        id: mint-token
+        env:
+            PYPI_API_URL: 'https://${{ inputs.environment }}.org/_/oidc/mint-token'
+        run: |
+          resp=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+                            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.audience }}")
+          oidc_token=$(jq -r '.value' <<< "${resp}")
+          echo "✅ Requesting OIDC token with audience: ${{ inputs.audience }}"
+  
+          pypi_api_json_payload="{\"token\":\"${oidc_token}\"}"
+          resp=$(curl -sS -X POST ${{ env.PYPI_API_URL }} -d "$pypi_api_json_payload")
+          api_token=$(jq -r '.token' <<< "${resp}")
+          echo "✅ Exchanging OIDC token for PyPI API token"
+  
+          # Mask the API token to prevent accidental leakage
+          echo "::add-mask::${api_token}"
+          echo "api-token=${api_token}" >> "${GITHUB_OUTPUT}"
+          echo "✅ API token successfully minted"
+
       - name: Publish 📦 to ${{ inputs.environment }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: ${{ inputs.environment == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
           print-hash: true
           verbose: true
+          password: ${{ steps.mint-token.outputs.api-token }}
