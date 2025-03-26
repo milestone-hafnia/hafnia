@@ -8,6 +8,14 @@ on:
         description: 'Environment prefix (e.g. "test.pypi" or "pypi")'
         required: true
         type: string
+      audience:
+        description: 'OIDC tocken audience'
+        required: true
+        type: string
+
+env:
+  PYPI_API_URL: 'https://${{ inputs.environment }}.org/_/oidc/mint-token'
+  REPOSITORY_URL: 'https://${{ inputs.environment }}.pypi.org/legacy/'
   
 jobs:
   publish-pypi:
@@ -22,35 +30,50 @@ jobs:
         with:
           name: python-package
           path: dist/
+
       - name: Display package files
         run: ls -la dist/
-      - name: mint API token
+
+      - name: Mint API token
         id: mint-token
         run: |
-          echo "Input environment: '${{ inputs.environment }}'"
-          # Remove dots from the input so that "test.pypi" becomes "testpypi"
-          audience=$(echo "${{ inputs.environment }}" | tr -d '.')
-          echo "Using audience: ${audience}"
+          # Retrieve the ambient OIDC token
+          echo "Requesting OIDC token with audience: ${{ inputs.audience }}"
+          resp=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=${{ inputs.audience }}")
+
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to retrieve OIDC token"
+            exit 1
+          fi
           
-          # Retrieve the ambient OIDC token using the transformed audience.
-          resp=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=${audience}")
           oidc_token=$(jq -r '.value' <<< "${resp}")
-          echo "OIDC token retrieved."
+
+          # Exchange the OIDC token for an API token
+          echo "Exchanging OIDC token for PyPI API token"
+          resp=$(curl -sSf -X POST ${PYPI_API_URL} \
+                -H "Content-Type: application/json" \
+                -d "{\"token\": \"${oidc_token}\"}")
+                
+          if [ $? -ne 0 ]; then
+            echo "::error::Failed to exchange OIDC token for PyPI API token"
+            exit 1
+          fi
           
-          # Construct the mint URL using the transformed audience.
-          mint_url="https://${audience}.org/_/oidc/mint-token"
-          echo "Mint URL: ${mint_url}"
-          
-          # Exchange the OIDC token for an API token.
-          resp=$(curl -s -X POST "${mint_url}" -d "{\"token\": \"${oidc_token}\"}")
           api_token=$(jq -r '.token' <<< "${resp}")
+
+          if [ -z "$api_token" ] || [ "$api_token" = "null" ]; then
+            echo "::error::Received invalid API token"
+            exit 1
+          fi
           
-          # Mask the API token in logs.
+          # Mask the API token to prevent accidental leakage
           echo "::add-mask::${api_token}"
           echo "api-token=${api_token}" >> "${GITHUB_OUTPUT}"
-      - name: Publish 📦 to PyPI
+          echo "API token successfully minted"
+
+      - name: Publish 📦 to ${{ inputs.environment }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: https://${{ inputs.environment }}.pypi.org/legacy/
+          repository-url: ${{ env.REPOSITORY_URL }}
           print-hash: true
