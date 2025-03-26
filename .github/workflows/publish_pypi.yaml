@@ -34,7 +34,7 @@ jobs:
       - name: Determine Repository URL
         id: repo-url
         run: |
-          if [[ "${{ inputs.environment }}" == "test.pypi" ]]; then
+          if [[ "${{ inputs.environment }}" == "testpypi" ]]; then
             echo "url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
             echo "mint_url=https://test.pypi.org/_/oidc/mint-token" >> $GITHUB_OUTPUT
           elif [[ "${{ inputs.environment }}" == "pypi" ]]; then
