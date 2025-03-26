@@ -4,14 +4,10 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: 'Environment prefix (e.g. "test.pypi" or "pypi")'
+        description: 'Environment prefix (e.g. "testpypi" or "pypi")'
         required: true
         type: string
-      audience:
-        description: 'OIDC tocken audience'
-        required: true
-        type: string
-  
+
 jobs:
   publish-pypi:
     runs-on: ubuntu-latest
@@ -29,14 +25,14 @@ jobs:
       - name: Verify package files
         run: |
           if [ -z "$(ls -A dist/)" ]; then
-            echo "::error::No package files found in the artifact"
+            echo "❌ No package files found in the artifact"
             exit 1
           fi
-          echo "Found the following package files:"
+          echo "✅ Found the following package files:"
           ls -la dist/
 
       - name: Publish 📦 to ${{ inputs.environment }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: ${{ inputs.environment == 'test.pypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
+          repository-url: ${{ inputs.environment == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
           print-hash: true

@@ -50,8 +50,7 @@ jobs:
     needs: build
     uses: ./.github/workflows/publish_pypi.yaml
     with:
-      environment: test.pypi
-      audience: testpypi
+      environment: testpypi
 
   publish-docker-runtime:
     name: Publish Docker Image
