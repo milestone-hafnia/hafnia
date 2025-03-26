@@ -51,7 +51,7 @@ jobs:
           resp=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
                             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.environment }}")
           oidc_token=$(jq -r '.value' <<< "${resp}")
-          echo "✅ Requesting OIDC token with audience: ${{ inputs.environment }} ${{ steps.repo-url.outputs.mint_url }}"
+          echo "✅ Requesting OIDC token with audience: ${{ inputs.environment }}"
   
           pypi_api_json_payload="{\"token\":\"${oidc_token}\"}"
           resp=$(curl -sS -X POST ${{ steps.repo-url.outputs.mint_url }} -d "$pypi_api_json_payload")
@@ -69,4 +69,3 @@ jobs:
           repository-url: ${{ steps.repo-url.outputs.url }}
           password: ${{ steps.mint-token.outputs.api-token }}
           print-hash: true
-          verbose: true

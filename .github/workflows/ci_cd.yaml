@@ -45,18 +45,24 @@ jobs:
     with:
         python-version-file: "pyproject.toml"
 
-  publish-pypi:
-    name: Publish Package
-    needs: build
-    uses: ./.github/workflows/publish_pypi.yaml
-    with:
-      environment: testpypi
+  # publish-pypi:
+  #   name: Publish Package
+  #   needs: build
+  #   uses: ./.github/workflows/publish_pypi.yaml
+  #   with:
+  #     environment: testpypi
+
+  # publish-docker-runtime:
+  #   name: Publish Docker Image
+  #   needs: [build, publish-pypi]
+  #   uses: ./.github/workflows/publish_docker.yaml
+  #   with:
+  #       python-version-file: "pyproject.toml"
+
 
   publish-docker-runtime:
     name: Publish Docker Image
-    needs: [build, publish-pypi]
+    needs: build
     uses: ./.github/workflows/publish_docker.yaml
     with:
         python-version-file: "pyproject.toml"
-
-    
