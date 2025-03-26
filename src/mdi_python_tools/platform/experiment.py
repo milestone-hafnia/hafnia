@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 from mdi_python_tools.http import fetch, post
 from mdi_python_tools.platform.builder import validate_recipe
@@ -10,6 +10,8 @@ def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[s
     headers = {"X-APIKEY": api_key}
     full_url = f"{endpoint}?name__iexact={dataset_name}"
     dataset_info = fetch(full_url, headers=headers)
+    if not dataset_info:
+        raise ValueError(f"Dataset '{dataset_name}' not found")
     return dataset_info[0]["id"]
 
 
@@ -60,9 +62,3 @@ def create_experiment(
         },
     )
     return response["id"]
-
-
-def get_exp_run_info(experiment_id: str, endpoint: str, api_key: str) -> Optional[Dict]:
-    headers = {"X-APIKEY": api_key, "accept": "application/json"}
-    exp_run_info = fetch(f"{endpoint}?experiment={experiment_id}", headers=headers)
-    return exp_run_info[0]
