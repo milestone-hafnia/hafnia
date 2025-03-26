@@ -2,11 +2,11 @@ name: CI/CD Workflow
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-    paths: ["src/**", "tests/**", "pyproject.toml"]
+    branches: [MDEV-849-Package-release-CI-CD]
+    # paths: ["src/**", "tests/**", "pyproject.toml"]
   pull_request:
     branches: [main]
-    # paths: ["src/**", "tests/**", "pyproject.toml", ".github/workflows/**"]
+    paths: ["src/**", "tests/**", "pyproject.toml"]
 
 jobs:
   lint:
