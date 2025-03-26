@@ -2,6 +2,7 @@ name: Build and Publish Package
 
 on:
   workflow_dispatch:
+  workflow_call:
   
 jobs:
   publish-test-pypi:
