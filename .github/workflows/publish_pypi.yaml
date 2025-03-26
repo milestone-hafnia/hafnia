@@ -26,33 +26,17 @@ jobs:
           name: python-package
           path: dist/
 
-      - name: Display package files
-        run: ls -la dist/
-
-      - name: Mint API token
-        id: mint-token
-        env:
-           PYPI_API_URL: 'https://${{ inputs.environment }}.org/_/oidc/mint-token'
+      - name: Verify package files
         run: |
-          resp=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-                           "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.audience }}")
-          oidc_token=$(jq -r '.value' <<< "${resp}")
-          echo "✅ Requesting OIDC token with audience: ${{ inputs.audience }}"
-
-          pypi_api_json_payload="{\"token\":\"${oidc_token}\"}"
-          resp=$(curl -sS -X POST ${{ env.PYPI_API_URL }} -d "$pypi_api_json_payload")
-          api_token=$(jq -r '.token' <<< "${resp}")
-          echo "✅ Exchanging OIDC token for PyPI API token"
-
-          # Mask the API token to prevent accidental leakage
-          echo "::add-mask::${api_token}"
-          echo "api-token=${api_token}" >> "${GITHUB_OUTPUT}"
-          echo "✅ API token successfully minted"
+          if [ -z "$(ls -A dist/)" ]; then
+            echo "::error::No package files found in the artifact"
+            exit 1
+          fi
+          echo "Found the following package files:"
+          ls -la dist/
 
       - name: Publish 📦 to ${{ inputs.environment }}
         uses: pypa/gh-action-pypi-publish@release/v1
-        env:
-          REPOSITORY_URL:  ${{ inputs.environment == 'test.pypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
         with:
-          repository-url: https://test.pypi.org/legacy/
+          repository-url: ${{ inputs.environment == 'test.pypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
           print-hash: true
