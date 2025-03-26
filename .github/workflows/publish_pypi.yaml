@@ -69,3 +69,4 @@ jobs:
           repository-url: ${{ steps.repo-url.outputs.url }}
           password: ${{ steps.mint-token.outputs.api-token }}
           print-hash: true
+          skip-existing: true

@@ -6,6 +6,11 @@ on:
       python-version-file:
         required: true
         type: string
+      environment:
+        required: true
+        type: string
+        description: 'Target environment (staging or production)'
+        default: 'staging'
     
         
 permissions:
@@ -13,7 +18,7 @@ permissions:
   contents: read
   
 jobs:
-  docker_runtime:
+  staging:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
@@ -35,12 +40,22 @@ jobs:
           name: python-package
           path: dist/
 
+      - name: Set environment-specific variables
+        id: env-vars
+        run: |
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "aws_account_id=${{ secrets.PROD_AWS_ACCOUNT_ID }}" >> $GITHUB_OUTPUT
+            echo "aws_region=${{ secrets.PROD_AWS_REGION }}" >> $GITHUB_OUTPUT
+          else
+            echo "aws_account_id=${{ secrets.STAGE_AWS_ACCOUNT_ID }}" >> $GITHUB_OUTPUT
+            echo "aws_region=${{ secrets.STAGE_AWS_REGION }}" >> $GITHUB_OUTPUT
+          fi
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_NAME }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
+          role-to-assume: arn:aws:iam::${{ steps.env-vars.outputs.aws_account_id }}:role/${{ secrets.AWS_ROLE_NAME }}
+          aws-region: ${{ steps.env-vars.outputs.aws_region }} 
+          
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2.0.1
