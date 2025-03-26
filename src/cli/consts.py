@@ -11,6 +11,8 @@ ERROR_CREATE_PROFILE: str = "Failed to create profile. Profile name must be uniq
 
 ERROR_GET_RESOURCE: str = "Failed to get the data from platform. Verify url or api key."
 
+ERROR_EXPERIMENT_DIR: str = "Source directory does not exist"
+
 PROFILE_SWITCHED_SUCCESS: str = "Switched to profile:"
 PROFILE_REMOVED_SUCCESS: str = "Removed profile:"
 PROFILE_TABLE_HEADER: str = "MDI Platform Profile:"
