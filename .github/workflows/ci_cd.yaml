@@ -2,8 +2,7 @@ name: CI/CD Workflow
 on:
   workflow_dispatch:
   push:
-    branches: [MDEV-849-Package-release-CI-CD]
-    # paths: ["src/**", "tests/**", "pyproject.toml"]
+    branches: [main]
   pull_request:
     branches: [main]
     paths: ["src/**", "tests/**", "pyproject.toml"]
@@ -48,7 +47,7 @@ jobs:
   publish-pypi:
     name: Publish Package
     needs: build
-    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     uses: ./.github/workflows/publish_pypi.yaml
     with:
       environment: testpypi
@@ -57,17 +56,17 @@ jobs:
     name: Publish Docker Image to Staging
     needs: [build, publish-pypi]
     secrets: inherit
-    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     uses: ./.github/workflows/publish_docker.yaml
     with:
       python-version-file: "pyproject.toml"
-      package-version: needs.build.outputs.package-version
+      package-version: ${{ needs.build.outputs.package-version }}
       environment: "staging"
 
   publish-release:
     name: Publish Github release
     needs: [build]
-    # if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     uses: ./.github/workflows/publish_release.yaml 
     with:
       package-version: ${{ needs.build.outputs.package-version }}
