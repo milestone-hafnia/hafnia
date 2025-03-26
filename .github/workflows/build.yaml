@@ -1,6 +1,6 @@
 name: Build Package
 
-on:
+'on':
   workflow_call:
     inputs:
       python-version-file:
