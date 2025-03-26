@@ -18,24 +18,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-python@v5.4.0
+        id: python
         with:
           python-version-file: ${{ inputs.python-version-file }}
       - name: Extract version
         id: extract-version
         run: |
-          VERSION=$(grep -m 1 'version = ' pyproject.toml | sed -e 's/version = "\(.*\)"/\1/')
+          VERSION=$(grep -m 1 'version = '  ${{ inputs.python-version-file }} | sed -e 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building Docker image for version: $VERSION"
+          echo "PYTHON_VERSION ${{ steps.python.outputs.python-version }}"
 
       - name: Download package artifact
         uses: actions/download-artifact@v4.2.1
         with:
           name: python-package
           path: dist/
-
-      - name: Debug
-        run:
-          echo "${{ secrets.AWS_ACCOUNT_ID }} ${{ secrets.AWS_ROLE_NAME }} ${{ secrets.AWS_REGION }}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4.1.0
@@ -67,3 +65,5 @@ jobs:
           sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            PYTHON_VERSION=${{ steps.python.outputs.python-version }}
