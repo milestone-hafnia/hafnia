@@ -54,6 +54,5 @@ jobs:
         env:
           REPOSITORY_URL:  ${{ inputs.environment == 'test.pypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
         with:
-          repository-url: ${{ env.REPOSITORY_URL }}
+          repository-url: https://test.pypi.org/legacy/
           print-hash: true
-          api-token: ${{ steps.mint-token.outputs.api-token }}
