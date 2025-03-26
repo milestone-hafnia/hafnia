@@ -34,20 +34,20 @@ jobs:
         env:
            PYPI_API_URL: 'https://${{ inputs.environment }}.org/_/oidc/mint-token'
         run: |
-          echo "Requesting OIDC token with audience: ${{ inputs.audience }}"
           resp=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
                            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.audience }}")
           oidc_token=$(jq -r '.value' <<< "${resp}")
+          echo "✅ Requesting OIDC token with audience: ${{ inputs.audience }}"
 
-          echo "Exchanging OIDC token for PyPI API token ${{ env.PYPI_API_URL }} "
           pypi_api_json_payload="{\"token\":\"${oidc_token}\"}"
           resp=$(curl -sS -X POST ${{ env.PYPI_API_URL }} -d "$pypi_api_json_payload")
           api_token=$(jq -r '.token' <<< "${resp}")
+          echo "✅ Exchanging OIDC token for PyPI API token"
 
           # Mask the API token to prevent accidental leakage
           echo "::add-mask::${api_token}"
           echo "api-token=${api_token}" >> "${GITHUB_OUTPUT}"
-          echo "API token successfully minted"
+          echo "✅ API token successfully minted"
 
       - name: Publish 📦 to ${{ inputs.environment }}
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -56,3 +56,4 @@ jobs:
         with:
           repository-url: ${{ env.REPOSITORY_URL }}
           print-hash: true
+          api-token: ${{ steps.mint-token.outputs.api-token }}
