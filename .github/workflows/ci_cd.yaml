@@ -47,11 +47,9 @@ jobs:
 
   publish-pypi:
     name: Publish Package
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     uses: ./.github/workflows/publish_pypi.yaml
-    with:
-        python-version-file: "pyproject.toml"
 
   publish-docker-runtime:
     name: Publish Docker Image

@@ -2,12 +2,7 @@ name: Build and Publish Package
 
 on:
   workflow_dispatch:
-  workflow_call:
-    inputs:
-      python-version-file:
-        required: true
-        type: string
-        
+  
 jobs:
   publish-test-pypi:
     runs-on: ubuntu-latest
