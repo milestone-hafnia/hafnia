@@ -18,7 +18,7 @@ permissions:
   contents: read
   
 jobs:
-  staging:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
