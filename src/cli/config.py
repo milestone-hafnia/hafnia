@@ -53,9 +53,6 @@ class Config:
 
     @property
     def api_key(self) -> str:
-        api_key_secret = os.getenv("MDI_API_KEY_SECRET_NAME", None)
-        if api_key_secret is not None:
-            return self.get_secret_value(api_key_secret)
         if self.config.api_key is not None:
             return self.config.api_key
         raise ValueError(consts.ERROR_API_KEY_NOT_SET)
@@ -122,18 +119,6 @@ class Config:
         if not self.config.api_mapping or method not in self.config.api_mapping:
             raise ValueError(f"{method} is not supported.")
         return self.config.api_mapping[method]
-
-    def get_secret_value(self, secret_name: str) -> str:
-        import boto3
-
-        aws_region = os.getenv("AWS_REGION", None)
-        if aws_region is None:
-            raise RuntimeError("AWS_REGION environment variable not set.")
-
-        session = boto3.Session(region_name=aws_region)
-        client = session.client("secretsmanager")
-        response = client.get_secret_value(SecretId=secret_name)
-        return response["SecretString"]
 
     def load_config(self) -> ConfigFileSchema:
         """Load configuration from file."""

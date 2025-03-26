@@ -162,8 +162,6 @@ class MDILogger:
                 prev = pa.parquet.read_table(self.log_file)
                 next_table = pa.concat_tables([prev, log_batch])
                 pq.write_table(next_table, self.log_file)
-
-            logger.info(f"Flushed {len(self.entities)} logs to {self.log_file}")
             self.entities = []
         except Exception as e:
             logger.error(f"Failed to flush logs: {e}")
