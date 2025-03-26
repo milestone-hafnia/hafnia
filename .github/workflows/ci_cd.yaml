@@ -64,5 +64,6 @@ jobs:
     name: Publish Docker Image
     needs: build
     uses: ./.github/workflows/publish_docker.yaml
+    secrets: inherit
     with:
         python-version-file: "pyproject.toml"
