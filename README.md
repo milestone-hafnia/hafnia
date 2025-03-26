@@ -7,6 +7,7 @@ Project Hafnia is a comprehensive solution for managing data science experiments
 
 - [CLI Documentation](docs/cli.md) - Detailed guide for the MDI command-line interface
 - [Script2Model Documentation](docs/s2m.md) - Detailed guide for script2model
+- [Release lyfecycle](docs/release.md) - Details about package release lifecycle.
 
 
 ## Key Components

@@ -173,7 +173,7 @@ class TestData:
             raise Exception("Download failed")
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("mdi_python_tools.data.s3_client.download_resource", mock_download_failure)
+            mp.setattr("mdi_python_tools.platform.download_resource", mock_download_failure)
             result = cli_runner.invoke(cli.main, ["data", "get", data_endpoint, destination])
             assert result.exit_code != 0
             assert consts.ERROR_GET_RESOURCE in result.output
@@ -193,7 +193,7 @@ class TestData:
             return {"status": "success", "downloaded_files": [dummy_file.as_posix()]}
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("mdi_python_tools.data.s3_client.download_resource", mock_download_success)
+            mp.setattr("mdi_python_tools.platform.download_resource", mock_download_success)
             mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
 
             result = cli_runner.invoke(cli.main, ["data", "get", data_endpoint, destination])

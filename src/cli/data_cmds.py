@@ -18,7 +18,7 @@ def data():
 def data_get(cfg: Config, url: str, destination: click.Path) -> None:
     """Download resource from MDI platform"""
 
-    from mdi_python_tools.data.s3_client import download_resource
+    from mdi_python_tools.platform import download_resource
 
     try:
         result = download_resource(url, destination, cfg.api_key)
