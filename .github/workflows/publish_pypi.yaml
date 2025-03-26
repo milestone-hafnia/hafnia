@@ -39,7 +39,7 @@ jobs:
         run: |
           # Retrieve the ambient OIDC token
           echo "Requesting OIDC token with audience: ${{ inputs.audience }}"
-          resp=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          resp=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
                 "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=${{ inputs.audience }}")
 
           if [ $? -ne 0 ]; then
@@ -51,9 +51,7 @@ jobs:
 
           # Exchange the OIDC token for an API token
           echo "Exchanging OIDC token for PyPI API token"
-          resp=$(curl -sSf -X POST ${PYPI_API_URL} \
-                -H "Content-Type: application/json" \
-                -d "{\"token\": \"${oidc_token}\"}")
+          resp=$(curl -X POST ${PYPI_API_URL} -d "{\"token\": \"${oidc_token}\"}")
                 
           if [ $? -ne 0 ]; then
             echo "::error::Failed to exchange OIDC token for PyPI API token"
