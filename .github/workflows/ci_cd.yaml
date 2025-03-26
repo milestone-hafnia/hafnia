@@ -47,9 +47,10 @@ jobs:
 
   publish-pypi:
     name: Publish Package
-    
     needs: build
     uses: ./.github/workflows/publish_pypi.yaml
+    with:
+      environment: test.pypi
 
   publish-docker-runtime:
     name: Publish Docker Image
