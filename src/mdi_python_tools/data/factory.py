@@ -11,7 +11,8 @@ def load_local(dataset_path: Path) -> Union[Dataset, DatasetDict]:
     """Load a Hugging Face dataset from a local directory path."""
     if not dataset_path.exists():
         raise ValueError(f"Can not load dataset, directory does not exist -- {dataset_path}")
-    return load_from_disk(dataset_path)
+    logger.info(f"Loading data from {dataset_path.as_posix()}")
+    return load_from_disk(dataset_path.as_posix())
 
 
 def load_from_platform(
