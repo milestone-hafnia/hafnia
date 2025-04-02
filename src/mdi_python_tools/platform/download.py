@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 import boto3
 from botocore.exceptions import ClientError
+from tqdm import tqdm
 
 from mdi_python_tools.http import fetch
 from mdi_python_tools.log import logger
@@ -109,9 +110,11 @@ def download_resource(resource_url: str, destination: str, api_key: str) -> Dict
 
             if not contents:
                 raise ValueError(f"No objects found for prefix '{key}' in bucket '{bucket_name}'")
-
-            for obj in contents:
+            pbar = tqdm(contents)
+            for obj in pbar:
                 sub_key = obj["Key"]
+                size_mb = obj.get("Size", 0) / 1024 / 1024
+                pbar.set_description(f"{sub_key} ({size_mb:.2f} MB)")
                 local_file = download_single_object(s3_client, bucket_name, sub_key, output_path)
                 downloaded_files.append(local_file.as_posix())
 

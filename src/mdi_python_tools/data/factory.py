@@ -1,8 +1,10 @@
+import shutil
 from pathlib import Path
 from typing import Optional, Union
 
 from datasets import Dataset, DatasetDict, load_from_disk
 
+from cli.config import Config
 from mdi_python_tools.log import logger
 from mdi_python_tools.platform import download_resource, get_dataset_id
 
@@ -15,6 +17,37 @@ def load_local(dataset_path: Path) -> Union[Dataset, DatasetDict]:
     return load_from_disk(dataset_path.as_posix())
 
 
+def download_or_get_dataset_path(
+    dataset_name: str,
+    endpoint: str,
+    api_key: str,
+    output_dir: Optional[str] = None,
+    force: bool = False,
+) -> Path:
+    """Download or get the path of the dataset."""
+    output_dir = "./data" if output_dir is None else output_dir
+    dataset_path_base = Path(output_dir).absolute() / dataset_name
+    dataset_path_base.mkdir(exist_ok=True, parents=True)
+    dataset_path_sample = dataset_path_base / "sample"
+
+    if dataset_path_sample.exists() and not force:
+        logger.info(
+            "Dataset found locally. Set 'force=True' or add `--force` flag with cli to re-download"
+        )
+        return dataset_path_sample
+
+    dataset_id = get_dataset_id(dataset_name, endpoint, api_key)
+    dataset_access_info_url = f"{endpoint}/{dataset_id}/temporary-credentials"
+
+    if force and dataset_path_sample.exists():
+        # Remove old files to avoid old files conflicting with new files
+        shutil.rmtree(dataset_path_sample, ignore_errors=True)
+    status = download_resource(dataset_access_info_url, dataset_path_base, api_key)
+    if status:
+        return dataset_path_sample
+    raise RuntimeError("Failed to download dataset")
+
+
 def load_from_platform(
     dataset_name: str,
     endpoint: str,
@@ -22,33 +55,36 @@ def load_from_platform(
     output_dir: Optional[str] = None,
     force: bool = False,
 ) -> Union[Dataset, DatasetDict]:
-    """Download and load a dataset from the MDI platform, with caching for subsequent loads."""
-    output_dir = "." if output_dir is None else output_dir
-    dataset_path = Path(output_dir).absolute() / dataset_name
-    dataset_path.parent.mkdir(exist_ok=True, parents=True)
-    if dataset_path.exists() and not force:
-        logger.info("Dataset found locally. Use `force=True` to re-download")
-        return load_local(dataset_path / "sample")
-    dataset_id = get_dataset_id(dataset_name, endpoint, api_key)
-    dataset_access_info_url = f"{endpoint}/{dataset_id}/temporary-credentials"
-    status = download_resource(dataset_access_info_url, dataset_path, api_key)
-    if status:
-        return load_local(dataset_path / "sample")
-    raise NotImplementedError("Download dataset is not implemented yet.")
+    path_dataset = download_or_get_dataset_path(
+        dataset_name=dataset_name,
+        endpoint=endpoint,
+        api_key=api_key,
+        output_dir=output_dir,
+        force=force,
+    )
+    return load_local(path_dataset)
 
 
 def load_dataset(
-    data_path: Optional[str] = None,
-    mdi_platform_endpoint: Optional[str] = None,
-    mdi_dataset_name: Optional[str] = None,
-    output_dir: Optional[str] = None,
-    api_key: Optional[str] = None,
+    dataset_name: str | Path,
+    force: bool = False,
 ) -> Union[Dataset, DatasetDict]:
     """Load a dataset either from a local path or from the MDI platform."""
-    if data_path is not None:
-        return load_local(Path(data_path))
-    if mdi_dataset_name is not None:
-        if api_key is None or mdi_platform_endpoint is None:
-            raise ValueError("Provide `api_key` in order to use `mdi_dataset_name`.")
-        return load_from_platform(mdi_dataset_name, mdi_platform_endpoint, api_key, output_dir)
-    raise ValueError("Please provide dataset_path or mdi_dataset_name")
+    is_path = (
+        isinstance(dataset_name, Path) or isinstance(dataset_name, str) and "/" in dataset_name
+    )
+    if is_path:
+        return load_local(Path(dataset_name))
+
+    cfg = Config()
+    endpoint_dataset = cfg.get_platform_endpoint("datasets")
+    api_key = cfg.api_key
+    dataset = load_from_platform(
+        dataset_name=str(dataset_name),
+        endpoint=endpoint_dataset,
+        api_key=api_key,
+        output_dir=None,
+        force=force,
+    )
+
+    return dataset
