@@ -11,7 +11,7 @@ def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[s
     full_url = f"{endpoint}?name__iexact={dataset_name}"
     dataset_info = fetch(full_url, headers=headers)
     if not dataset_info:
-        raise ValueError(f"Dataset '{dataset_name}' not found")
+        raise ValueError(f"Dataset '{dataset_name}' was not found in the dataset library.")
     return dataset_info[0]["id"]
 
 

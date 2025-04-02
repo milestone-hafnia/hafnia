@@ -63,6 +63,12 @@ mdi profile rm old-profile
 # Clear all configuration
 mdi clear
 
+# Download a dataset sample
+mdi data download mnist
+
+# Add '--force' to re-download dataset
+mdi data download mnist --force
+
 # Download a resource from the platform
 mdi data get https://api.mdi.milestonesys.com/api/v1/datasets/my-dataset ./data
 

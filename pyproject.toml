@@ -16,8 +16,15 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3.4", "tqdm>=4.67.1"]
-lint = ["ruff>=0.9.1"]
+dev = [
+    "ipykernel>=6.29.5",
+    "pytest>=8.3.4",
+    "tqdm>=4.67.1",
+]
+lint = [
+    "pre-commit>=4.2.0",
+    "ruff>=0.9.1",
+]
 
 [project.scripts]
 mdi = 'cli.__main__:main'

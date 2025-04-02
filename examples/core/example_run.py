@@ -1,4 +1,4 @@
-import mdi
+from mdi_python_tools.data import load_dataset
 
-dataset = mdi.load_dataset("midwest-extension")
+dataset = load_dataset("midwest-vehicle-detection")
 print(dataset)
