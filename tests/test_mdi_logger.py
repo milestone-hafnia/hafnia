@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pyarrow as pa
@@ -9,6 +10,8 @@ from mdi_python_tools.experiment.mdi_logger import EntityType, MDILogger
 @pytest.fixture(scope="function")
 def logger(tmpdir: Path) -> MDILogger:
     """Create a logger instance for testing."""
+    if "HAFNIA_LOCAL_SCRIPT" not in os.environ:
+        os.environ["HAFNIA_LOCAL_SCRIPT"] = "true"
     return MDILogger(Path(tmpdir), update_interval=2)
 
 
@@ -56,7 +59,7 @@ def test_config_logging(logger: MDILogger):
     config = {"learning_rate": 0.001, "batch_size": 32, "model_type": "resnet50"}
 
     logger.log_configuration(config)
-    config_file = logger.log_dir / "configuration.json"
+    config_file = logger._path_artifacts() / "configuration.json"
 
     assert config_file.exists()
 

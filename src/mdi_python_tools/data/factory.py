@@ -7,6 +7,7 @@ from datasets import Dataset, DatasetDict, load_from_disk
 from cli.config import Config
 from mdi_python_tools.log import logger
 from mdi_python_tools.platform import download_resource, get_dataset_id
+from mdi_python_tools.utils import PATH_DATASET
 
 
 def load_local(dataset_path: Path) -> Union[Dataset, DatasetDict]:
@@ -25,7 +26,7 @@ def download_or_get_dataset_path(
     force: bool = False,
 ) -> Path:
     """Download or get the path of the dataset."""
-    output_dir = "./data" if output_dir is None else output_dir
+    output_dir = output_dir or str(PATH_DATASET)
     dataset_path_base = Path(output_dir).absolute() / dataset_name
     dataset_path_base.mkdir(exist_ok=True, parents=True)
     dataset_path_sample = dataset_path_base / "sample"
