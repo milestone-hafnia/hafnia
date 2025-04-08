@@ -8,5 +8,4 @@ repos:
       files: ^(src|tests)/
     - id: ruff-format
       types_or: [python, pyi]
-      args: [--line-length=100]
       files: ^(src|tests)/

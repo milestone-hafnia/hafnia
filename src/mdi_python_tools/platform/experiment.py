@@ -3,7 +3,7 @@ from typing import Optional
 
 from mdi_python_tools.http import fetch, post
 from mdi_python_tools.platform.builder import validate_recipe
-from mdi_python_tools.utils import archive_dir
+from mdi_python_tools.utils import archive_dir, get_recipe_path
 
 
 def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[str]:
@@ -19,11 +19,12 @@ def create_recipe(
     source_dir: Path, endpoint: str, api_key: str, organization_id: str
 ) -> Optional[str]:
     headers = {"X-APIKEY": api_key, "accept": "application/json"}
-    zip_path = archive_dir(source_dir)
+    path_recipe = get_recipe_path(source_dir.name)
+    zip_path = archive_dir(source_dir, output_path=path_recipe)
     validate_recipe(zip_path)
     with open(zip_path, "rb") as zip_file:
         fields = {
-            "name": source_dir.name,
+            "name": path_recipe.name,
             "description": "Recipe created by MDI CLI",
             "organization": organization_id,
             "file": (zip_path.name, zip_file.read()),

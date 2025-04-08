@@ -1,29 +1,48 @@
 import functools
+import os
 import sys
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from zipfile import ZipFile
 
 import click
 
 from mdi_python_tools.log import logger
 
+PATH_DATA = Path("./.data")
+PATH_DATASET = PATH_DATA / "datasets"
+PATH_RECIPES = PATH_DATA / "recipes"
 
-def archive_dir(recipe_path: Path) -> Path:
-    recipe_zip = recipe_path / "recipe.zip"
+
+def now_as_str() -> str:
+    """Get the current date and time as a string."""
+    return datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+
+
+def get_recipe_path(recipe_name: str) -> Path:
+    now = now_as_str()
+    path_recipe = PATH_RECIPES / f"{recipe_name}_{now}.zip"
+    return path_recipe
+
+
+def archive_dir(recipe_path: Path, output_path: Optional[Path] = None) -> Path:
+    recipe_zip_path = output_path or recipe_path / "recipe.zip"
+    assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
+    recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
+
     click.echo(f"Creating zip archive {recipe_path}")
-    with ZipFile(recipe_zip, "w") as zip_ref:
+    with ZipFile(recipe_zip_path, "w") as zip_ref:
         for item in recipe_path.rglob("*"):
             should_skip = (
-                item == recipe_zip
+                item == recipe_zip_path
                 or item.name.endswith(".zip")
                 or any(part.startswith(".") for part in item.parts)
-                # TODO fix nicely for __init__.py files but ignore __pycache__
-                # or any(part.startswith("__") for part in item.parts)
+                or any(part == "__pycache__" for part in item.parts)
             )
 
             if should_skip:
-                if item != recipe_zip:
+                if item != recipe_zip_path:
                     click.echo(f"[-] {item.relative_to(recipe_path)}")
                 continue
 
@@ -33,7 +52,7 @@ def archive_dir(recipe_path: Path) -> Path:
             relative_path = item.relative_to(recipe_path)
             click.echo(f"[+] {relative_path}")
             zip_ref.write(item, relative_path)
-    return recipe_zip
+    return recipe_zip_path
 
 
 def safe(func: Callable) -> Callable:
@@ -56,3 +75,10 @@ def safe(func: Callable) -> Callable:
             sys.exit(1)
 
     return wrapper
+
+
+def is_remote_job() -> bool:
+    """Check if the current job is running in HAFNIA cloud environment."""
+    # is_local = os.getenv("REMOTE_JOB", "False").lower() in ("true", "1", "yes")
+    is_local = os.getenv("HAFNIA_LOCAL_SCRIPT", "False").lower() in ("true", "1", "yes")
+    return not is_local

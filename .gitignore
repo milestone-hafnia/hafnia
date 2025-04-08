@@ -162,5 +162,5 @@ cython_debug/
 
 /pypiprivate/
 /packaging/
-/data/
+/.data/
 *.zip

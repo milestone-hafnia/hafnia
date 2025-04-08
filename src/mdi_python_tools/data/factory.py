@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 from typing import Optional, Union
@@ -5,6 +6,7 @@ from typing import Optional, Union
 from datasets import Dataset, DatasetDict, load_from_disk
 
 from cli.config import Config
+from mdi_python_tools import utils
 from mdi_python_tools.log import logger
 from mdi_python_tools.platform import download_resource, get_dataset_id
 
@@ -25,7 +27,7 @@ def download_or_get_dataset_path(
     force: bool = False,
 ) -> Path:
     """Download or get the path of the dataset."""
-    output_dir = "./data" if output_dir is None else output_dir
+    output_dir = output_dir or str(utils.PATH_DATASET)
     dataset_path_base = Path(output_dir).absolute() / dataset_name
     dataset_path_base.mkdir(exist_ok=True, parents=True)
     dataset_path_sample = dataset_path_base / "sample"
@@ -65,22 +67,18 @@ def load_from_platform(
     return load_local(path_dataset)
 
 
-def load_dataset(
-    dataset_name: str | Path,
-    force: bool = False,
-) -> Union[Dataset, DatasetDict]:
+def load_dataset(dataset_name: str, force: bool = False) -> Union[Dataset, DatasetDict]:
     """Load a dataset either from a local path or from the MDI platform."""
-    is_path = (
-        isinstance(dataset_name, Path) or isinstance(dataset_name, str) and "/" in dataset_name
-    )
-    if is_path:
-        return load_local(Path(dataset_name))
+
+    if utils.is_remote_job():
+        path_dataset = Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))
+        return load_local(path_dataset)
 
     cfg = Config()
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
     api_key = cfg.api_key
     dataset = load_from_platform(
-        dataset_name=str(dataset_name),
+        dataset_name=dataset_name,
         endpoint=endpoint_dataset,
         api_key=api_key,
         output_dir=None,

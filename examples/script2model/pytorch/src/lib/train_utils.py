@@ -43,9 +43,6 @@ def create_dataloaders(
         Tuple[DataLoader, DataLoader]: Training and testing DataLoaders.
     """
     transforms = create_transforms()
-    import os
-    print(data_root)
-    print(os.listdir(data_root))
     mdi_dataset = load_dataset(data_root)
     train_split = mdi_dataset["train"]
     train_split.set_transform(transforms)
