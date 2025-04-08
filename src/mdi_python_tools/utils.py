@@ -1,4 +1,5 @@
 import functools
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -74,3 +75,10 @@ def safe(func: Callable) -> Callable:
             sys.exit(1)
 
     return wrapper
+
+
+def is_remote_job() -> bool:
+    """Check if the current job is running in HAFNIA cloud environment."""
+    # is_local = os.getenv("REMOTE_JOB", "False").lower() in ("true", "1", "yes")
+    is_local = os.getenv("HAFNIA_LOCAL_SCRIPT", "False").lower() in ("true", "1", "yes")
+    return not is_local

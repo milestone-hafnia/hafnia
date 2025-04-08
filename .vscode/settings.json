@@ -4,7 +4,7 @@
         "editor.defaultFormatter": "vscode.json-language-features"
     },
     "editor.rulers": [
-        120,  // This should match the 'line-length' setting in pyproject.toml
+        100,  // This should match the 'line-length' setting in pyproject.toml
     ],
     "notebook.formatOnSave.enabled": true,
     "notebook.codeActionsOnSave": {

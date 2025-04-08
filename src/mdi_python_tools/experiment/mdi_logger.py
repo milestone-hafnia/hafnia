@@ -5,16 +5,16 @@ import sys
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 from datasets import DatasetDict
 from pydantic import BaseModel, field_validator
 
-from mdi_python_tools.data.factory import load_dataset, load_local
+from mdi_python_tools.data.factory import load_dataset
 from mdi_python_tools.log import logger
-from mdi_python_tools.utils import now_as_str
+from mdi_python_tools.utils import is_remote_job, now_as_str
 
 
 class EntityType(Enum):
@@ -73,7 +73,7 @@ class Entity(BaseModel):
 class MDILogger:
     EXPERIMENT_FILE = "experiment.parquet"
 
-    def __init__(self, log_dir: Union[Path, str], update_interval: int = 5):
+    def __init__(self, log_dir: Union[Path, str] = "./.data", update_interval: int = 5):
         self.remote_job = os.getenv("REMOTE_JOB", "False").lower() in (
             "true",
             "1",
@@ -91,54 +91,52 @@ class MDILogger:
             path.mkdir(parents=True, exist_ok=True)
 
         self.log_file = self._path_artifacts() / self.EXPERIMENT_FILE
-
+        self.dataset_name: Optional[str] = None
         self.update_interval = max(1, update_interval)
         self.entities: List[Entity] = []
         self.schema = self.create_schema()
         self.log_environment()
 
-    def is_remote_job(self) -> bool:
-        """Check if the current job is running in HAFNIA cloud environment."""
-        # is_local = os.getenv("REMOTE_JOB", "False").lower() in ("true", "1", "yes")
-        is_local = os.getenv("HAFNIA_LOCAL_SCRIPT", "False").lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-        return not is_local
-
     def load_dataset(self, dataset_name: str) -> DatasetDict:
         """
         Load a dataset from the specified path.
         """
-        if self.is_remote_job():
-            path_dataset = os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training")
-            return load_local(path_dataset)
-
+        self.dataset_name = dataset_name
         return load_dataset(dataset_name)
 
     def path_local_experiment(self) -> Path:
         """Get the path for local experiment."""
-        if self.is_remote_job():
+        if is_remote_job():
             raise RuntimeError("Cannot access local experiment path in remote job.")
         return self._local_experiment_path
 
     def path_model_checkpoints(self) -> Path:
         """Get the path for model checkpoints."""
-        if self.is_remote_job():
-            return Path(os.getenv("MDI_CHECKPOINT_DIR", "/opt/ml/checkpoints"))
+        if "MDI_CHECKPOINT_DIR" in os.environ:
+            return Path(os.environ["MDI_CHECKPOINT_DIR"])
+
+        if is_remote_job():
+            return Path("/opt/ml/checkpoints")
         return self.path_local_experiment() / "checkpoints"
 
     def _path_artifacts(self) -> Path:
         """Get the path for artifacts."""
-        if self.is_remote_job():
-            return Path(os.getenv("MDI_ARTIFACT_DIR", "/opt/ml/output/data"))
+        if "MDI_ARTIFACT_DIR" in os.environ:
+            return Path(os.environ["MDI_ARTIFACT_DIR"])
+
+        if is_remote_job():
+            return Path("/opt/ml/output/data")
+
         return self.path_local_experiment() / "data"
 
     def path_model(self) -> Path:
         """Get the path for the model."""
-        if self.is_remote_job():
-            return Path(os.getenv("MDI_MODEL_DIR", "/opt/ml/model"))
+        if "MDI_MODEL_DIR" in os.environ:
+            return Path(os.environ["MDI_MODEL_DIR"])
+
+        if is_remote_job():
+            return Path("/opt/ml/model")
+
         return self.path_local_experiment() / "model"
 
     def create_schema(self) -> pa.Schema:
