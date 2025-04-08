@@ -1,6 +1,6 @@
 [project]
 name = "mdi-python-tools"
-version = "0.1.2"
+version = "0.1.3"
 description = "Python tools for communication with MDI platform."
 readme = "README.md"
 authors = [{ name = "Ivan Sahumbaiev", email = "ivsa@milestone.dk" }]
