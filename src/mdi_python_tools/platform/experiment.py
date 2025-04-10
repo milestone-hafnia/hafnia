@@ -21,6 +21,9 @@ def create_recipe(
     headers = {"X-APIKEY": api_key, "accept": "application/json"}
     path_recipe = get_recipe_path(source_dir.name)
     zip_path = archive_dir(source_dir, output_path=path_recipe)
+
+    print(f"Recipe created and stored in '{path_recipe}'")
+
     validate_recipe(zip_path)
     with open(zip_path, "rb") as zip_file:
         fields = {

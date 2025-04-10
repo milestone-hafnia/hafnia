@@ -79,6 +79,5 @@ def safe(func: Callable) -> Callable:
 
 def is_remote_job() -> bool:
     """Check if the current job is running in HAFNIA cloud environment."""
-    # is_local = os.getenv("REMOTE_JOB", "False").lower() in ("true", "1", "yes")
-    is_local = os.getenv("HAFNIA_LOCAL_SCRIPT", "False").lower() in ("true", "1", "yes")
-    return not is_local
+    is_remote = os.getenv("HAFNIA_CLOUD", "false").lower() == "true"
+    return is_remote
