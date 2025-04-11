@@ -17,12 +17,12 @@ def logger(tmpdir: Path) -> MDILogger:
 
 def test_basic_scalar_logging(logger: MDILogger) -> None:
     """Test that basic scalar logging works."""
-    logger.log_scalar("test_scalar", 42.0, True, 1)
+    logger.log_scalar("test_scalar", 42.0, 1)
 
     assert len(logger.entities) == 1
     assert not logger.log_file.exists()
 
-    logger.log_scalar("test_scalar", 43.0, True, 2)
+    logger.log_scalar("test_scalar", 43.0, 2)
 
     # Should be written now and entities cleared
     assert len(logger.entities) == 0
@@ -37,8 +37,8 @@ def test_basic_scalar_logging(logger: MDILogger) -> None:
 
 def test_metric_logging(logger: MDILogger) -> None:
     """Test that metric logging works."""
-    logger.log_metric("accuracy", 0.95, False, 100)
-    logger.log_metric("loss", 0.05, True, 100)
+    logger.log_metric("accuracy", 0.95, 100)
+    logger.log_metric("loss", 0.05, 100)
 
     # Should be written now and entities cleared (update_interval=2)
     assert len(logger.entities) == 0

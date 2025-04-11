@@ -130,7 +130,7 @@ def run_train_epoch(
         if i % log_interval == 0:
             avg_loss = epoch_loss / total_samples
             accuracy = metrics.compute().item()
-            ml_logger.log_scalar("loss", avg_loss, model.training, iteration)
+            ml_logger.log_scalar("train/loss", avg_loss, iteration)
 
         if i >= max_steps_per_epoch:
             print(f"Max steps per train epoch reached: {max_steps_per_epoch}")
@@ -138,13 +138,11 @@ def run_train_epoch(
 
     avg_loss = epoch_loss / total_samples
     accuracy = metrics.compute().item()
-    ml_logger.log_metric(
-        name="accuracy", value=accuracy, is_training=model.training, step=iteration
-    )
+    ml_logger.log_metric(name="train/accuracy", value=accuracy, step=iteration)
 
     return {
-        "loss": avg_loss,
-        "accuracy": accuracy,
+        "train/loss": avg_loss,
+        "train/accuracy": accuracy,
     }
 
 
@@ -193,12 +191,12 @@ def run_eval(
     accuracy = metrics.compute().item()
     step = (epoch + 1) * len(dataloader)
 
-    ml_logger.log_scalar("loss", avg_loss, model.training, step)
-    ml_logger.log_metric("accuracy", accuracy, model.training, step)
+    ml_logger.log_scalar("val/loss", avg_loss, step)
+    ml_logger.log_metric("val/accuracy", accuracy, step)
 
     return {
-        "loss": avg_loss,
-        "accuracy": accuracy,
+        "val/loss": avg_loss,
+        "val/accuracy": accuracy,
     }
 
 

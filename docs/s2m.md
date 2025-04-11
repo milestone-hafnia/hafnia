@@ -72,8 +72,8 @@ from mdi_python_tools.experiment import MDILogger
 logger = MDILogger(Path("./logs"), update_interval=5)
 
 # Log metrics during training
-logger.log_metric("accuracy", 0.95, True, 100)
-logger.log_metric("loss", 0.05, True, 100)
+logger.log_metric("accuracy", value=0.95, step=100)
+logger.log_metric("loss", value=0.05, step=100)
 
 # Log configuration
 logger.log_configuration({

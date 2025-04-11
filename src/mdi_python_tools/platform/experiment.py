@@ -19,7 +19,7 @@ def create_recipe(
     source_dir: Path, endpoint: str, api_key: str, organization_id: str
 ) -> Optional[str]:
     headers = {"X-APIKEY": api_key, "accept": "application/json"}
-    path_recipe = get_recipe_path(source_dir.name)
+    path_recipe = get_recipe_path(recipe_name=source_dir.name)
     zip_path = archive_dir(source_dir, output_path=path_recipe)
 
     print(f"Recipe created and stored in '{path_recipe}'")

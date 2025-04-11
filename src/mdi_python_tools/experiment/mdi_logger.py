@@ -24,13 +24,6 @@ class EntityType(Enum):
     METRIC = "metric"
 
 
-class EntityMode(Enum):
-    """Modes for entity logging."""
-
-    TRAIN = "train"
-    EVAL = "eval"
-
-
 class Entity(BaseModel):
     """
     Entity model for experiment logging.
@@ -39,7 +32,7 @@ class Entity(BaseModel):
         step: Current step/iteration of the experiment
         ts: Timestamp when the entity was created
         name: Name of the entity
-        ent_type: Type of entity (scalar, metric, image)
+        ent_type: Type of entity (scalar, metric)
         mode: Mode of logging (train or eval)
         value: Numerical value of the entity
     """
@@ -69,17 +62,24 @@ class Entity(BaseModel):
     def __repr__(self):
         return f"{self.ts} {self.name}: {self.value} {self.ent_type}"
 
+    @staticmethod
+    def create_schema() -> pa.Schema:
+        """Create the PyArrow schema for the Parquet file."""
+        return pa.schema(
+            [
+                pa.field("step", pa.int64()),
+                pa.field("ts", pa.string()),
+                pa.field("name", pa.string()),
+                pa.field("value", pa.float64()),
+                pa.field("ent_type", pa.string()),
+            ]
+        )
+
 
 class MDILogger:
     EXPERIMENT_FILE = "experiment.parquet"
 
     def __init__(self, log_dir: Union[Path, str] = "./.data", update_interval: int = 5):
-        self.remote_job = os.getenv("REMOTE_JOB", "False").lower() in (
-            "true",
-            "1",
-            "yes",
-        )
-
         self._local_experiment_path = Path(log_dir) / "experiments" / now_as_str()
         create_paths = [
             self._local_experiment_path,
@@ -94,7 +94,7 @@ class MDILogger:
         self.dataset_name: Optional[str] = None
         self.update_interval = max(1, update_interval)
         self.entities: List[Entity] = []
-        self.schema = self.create_schema()
+        self.schema = Entity.create_schema()
         self.log_environment()
 
     def load_dataset(self, dataset_name: str) -> DatasetDict:
@@ -139,27 +139,13 @@ class MDILogger:
 
         return self.path_local_experiment() / "model"
 
-    def create_schema(self) -> pa.Schema:
-        """Create the PyArrow schema for the Parquet file."""
-        return pa.schema(
-            [
-                pa.field("step", pa.int64()),
-                pa.field("ts", pa.string()),
-                pa.field("name", pa.string()),
-                pa.field("value", pa.float64()),
-                pa.field("ent_type", pa.string()),
-                pa.field("image", pa.string()),
-            ]
-        )
-
-    def log_metric(self, name: str, value: float, is_training: bool, step: int) -> None:
-        self.log_scalar(name, value, is_training, step, EntityType.METRIC)
+    def log_metric(self, name: str, value: float, step: int) -> None:
+        self.log_scalar(name, value, step, EntityType.METRIC)
 
     def log_scalar(
         self,
         name: str,
         value: float,
-        is_training: bool,
         step: int,
         ent_type: EntityType = EntityType.SCALAR,
     ) -> None:
