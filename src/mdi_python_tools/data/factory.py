@@ -24,7 +24,7 @@ def download_or_get_dataset_path(
     endpoint: str,
     api_key: str,
     output_dir: Optional[str] = None,
-    force: bool = False,
+    force_redownload: bool = False,
 ) -> Path:
     """Download or get the path of the dataset."""
     output_dir = output_dir or str(utils.PATH_DATASET)
@@ -32,7 +32,7 @@ def download_or_get_dataset_path(
     dataset_path_base.mkdir(exist_ok=True, parents=True)
     dataset_path_sample = dataset_path_base / "sample"
 
-    if dataset_path_sample.exists() and not force:
+    if dataset_path_sample.exists() and not force_redownload:
         logger.info(
             "Dataset found locally. Set 'force=True' or add `--force` flag with cli to re-download"
         )
@@ -41,7 +41,7 @@ def download_or_get_dataset_path(
     dataset_id = get_dataset_id(dataset_name, endpoint, api_key)
     dataset_access_info_url = f"{endpoint}/{dataset_id}/temporary-credentials"
 
-    if force and dataset_path_sample.exists():
+    if force_redownload and dataset_path_sample.exists():
         # Remove old files to avoid old files conflicting with new files
         shutil.rmtree(dataset_path_sample, ignore_errors=True)
     status = download_resource(dataset_access_info_url, dataset_path_base, api_key)
@@ -55,19 +55,19 @@ def load_from_platform(
     endpoint: str,
     api_key: str,
     output_dir: Optional[str] = None,
-    force: bool = False,
+    force_redownload: bool = False,
 ) -> Union[Dataset, DatasetDict]:
     path_dataset = download_or_get_dataset_path(
         dataset_name=dataset_name,
         endpoint=endpoint,
         api_key=api_key,
         output_dir=output_dir,
-        force=force,
+        force_redownload=force_redownload,
     )
     return load_local(path_dataset)
 
 
-def load_dataset(dataset_name: str, force: bool = False) -> Union[Dataset, DatasetDict]:
+def load_dataset(dataset_name: str, force_redownload: bool = False) -> Union[Dataset, DatasetDict]:
     """Load a dataset either from a local path or from the MDI platform."""
 
     if utils.is_remote_job():
@@ -82,7 +82,7 @@ def load_dataset(dataset_name: str, force: bool = False) -> Union[Dataset, Datas
         endpoint=endpoint_dataset,
         api_key=api_key,
         output_dir=None,
-        force=force,
+        force_redownload=force_redownload,
     )
 
     return dataset

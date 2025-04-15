@@ -40,11 +40,11 @@ if __name__ == "__main__":
     image, targets = train_dataset[0]
     visualize_image = torch_helpers.draw_image_and_targets(image=image, targets=targets)
     pil_image = torchvision.transforms.functional.to_pil_image(visualize_image)
-    pil_image.save("output_image.png")
+    pil_image.save("visualized_labels.png")
 
     # Create DataLoaders - using TorchVisionCollateFn
     collate_fn = torch_helpers.TorchVisionCollateFn(
-        skip_stacking=["objects.bbox", "objects.category_id"]
+        skip_stacking=["objects.bbox", "objects.class_idx"]
     )
     train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
