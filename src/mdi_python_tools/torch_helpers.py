@@ -56,7 +56,7 @@ class TorchvisionDataset(torch.utils.data.Dataset):
                 if bboxes.numel() == 0:
                     bboxes = bboxes.reshape(-1, 4)
                 target[f"{object_task}.bbox"] = bboxes
-                target[f"{object_task}.category_id"] = torch.tensor(
+                target[f"{object_task}.class_idx"] = torch.tensor(
                     sample[object_task].pop("class_idx")
                 )
 
