@@ -13,6 +13,7 @@ dependencies = [
     "pyarrow>=18.1.0",
     "pydantic>=2.10.4",
     "rich>=13.9.4",
+    "tqdm>=4.67.1",
 ]
 
 [dependency-groups]
@@ -20,15 +21,25 @@ dev = [
     "ipykernel>=6.29.5",
     "lark>=1.2.2",
     "pytest>=8.3.4",
-    "tqdm>=4.67.1",
 ]
 lint = [
     "pre-commit>=4.2.0",
     "ruff>=0.9.1",
 ]
 
+[tool.uv]
+default-groups = "all"
+
 [project.scripts]
 mdi = 'cli.__main__:main'
+
+[project.optional-dependencies]
+# Use "uv sync --extra torch" to install torch dependencies
+torch = [
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
+    "flatten-dict>=0.4.2",
+]
 
 [build-system]
 requires = ["hatchling"]
