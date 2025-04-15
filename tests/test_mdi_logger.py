@@ -12,21 +12,19 @@ def logger(tmpdir: Path) -> MDILogger:
     """Create a logger instance for testing."""
     if "HAFNIA_LOCAL_SCRIPT" not in os.environ:
         os.environ["HAFNIA_LOCAL_SCRIPT"] = "true"
-    return MDILogger(Path(tmpdir), update_interval=2)
+    return MDILogger(Path(tmpdir))
 
 
 def test_basic_scalar_logging(logger: MDILogger) -> None:
     """Test that basic scalar logging works."""
-    logger.log_scalar("test_scalar", 42.0, 1)
 
-    assert len(logger.entities) == 1
     assert not logger.log_file.exists()
 
-    logger.log_scalar("test_scalar", 43.0, 2)
+    logger.log_scalar("test_scalar", 42.0, 1)
 
-    # Should be written now and entities cleared
-    assert len(logger.entities) == 0
     assert logger.log_file.exists()
+
+    logger.log_scalar("test_scalar", 43.0, 2)
 
     table = pa.parquet.read_table(logger.log_file)
     df = table.to_pandas()
@@ -39,9 +37,6 @@ def test_metric_logging(logger: MDILogger) -> None:
     """Test that metric logging works."""
     logger.log_metric("accuracy", 0.95, 100)
     logger.log_metric("loss", 0.05, 100)
-
-    # Should be written now and entities cleared (update_interval=2)
-    assert len(logger.entities) == 0
     assert logger.log_file.exists()
 
     # Verify the data

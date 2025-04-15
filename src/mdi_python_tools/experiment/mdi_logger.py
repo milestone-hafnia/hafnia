@@ -5,7 +5,7 @@ import sys
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -59,9 +59,6 @@ class Entity(BaseModel):
             return v.value
         return str(v)
 
-    def __repr__(self):
-        return f"{self.ts} {self.name}: {self.value} {self.ent_type}"
-
     @staticmethod
     def create_schema() -> pa.Schema:
         """Create the PyArrow schema for the Parquet file."""
@@ -70,8 +67,8 @@ class Entity(BaseModel):
                 pa.field("step", pa.int64()),
                 pa.field("ts", pa.string()),
                 pa.field("name", pa.string()),
-                pa.field("value", pa.float64()),
                 pa.field("ent_type", pa.string()),
+                pa.field("value", pa.float64()),
             ]
         )
 
@@ -79,7 +76,7 @@ class Entity(BaseModel):
 class MDILogger:
     EXPERIMENT_FILE = "experiment.parquet"
 
-    def __init__(self, log_dir: Union[Path, str] = "./.data", update_interval: int = 5):
+    def __init__(self, log_dir: Union[Path, str] = "./.data"):
         self._local_experiment_path = Path(log_dir) / "experiments" / now_as_str()
         create_paths = [
             self._local_experiment_path,
@@ -90,10 +87,8 @@ class MDILogger:
         for path in create_paths:
             path.mkdir(parents=True, exist_ok=True)
 
-        self.log_file = self._path_artifacts() / self.EXPERIMENT_FILE
         self.dataset_name: Optional[str] = None
-        self.update_interval = max(1, update_interval)
-        self.entities: List[Entity] = []
+        self.log_file = self._path_artifacts() / self.EXPERIMENT_FILE
         self.schema = Entity.create_schema()
         self.log_environment()
 
@@ -156,10 +151,7 @@ class MDILogger:
             value=value,
             ent_type=ent_type.value,
         )
-        self.entities.append(entity)
-        print(entity)
-        if len(self.entities) >= self.update_interval:
-            self.flush()
+        self.write_entity(entity)
 
     def log_configuration(self, configurations: Dict):
         self.log_hparams(configurations, "configuration.json")
@@ -186,20 +178,17 @@ class MDILogger:
         }
         self.log_hparams(environment_info, "environment.json")
 
-    def flush(self) -> None:
+    def write_entity(self, entity: Entity) -> None:
         """
         Force writing all accumulated logs to disk.
 
         This method should be called at the end of an experiment or
         when you want to ensure all logs are written.
         """
-        if not self.entities:
-            return
-
+        print(entity)  # Keep this line! Parsed and used for real-time logging in another process
+        entities = [entity]
         try:
-            log_batch = pa.Table.from_pylist(
-                [e.model_dump() for e in self.entities], schema=self.schema
-            )
+            log_batch = pa.Table.from_pylist([e.model_dump() for e in entities], schema=self.schema)
 
             if not self.log_file.exists():
                 pq.write_table(log_batch, self.log_file)
@@ -207,6 +196,5 @@ class MDILogger:
                 prev = pa.parquet.read_table(self.log_file)
                 next_table = pa.concat_tables([prev, log_batch])
                 pq.write_table(next_table, self.log_file)
-            self.entities = []
         except Exception as e:
             logger.error(f"Failed to flush logs: {e}")
