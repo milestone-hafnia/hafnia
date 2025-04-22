@@ -50,6 +50,14 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish_pypi.yaml
     with:
+      environment: pypi
+
+  publish-pypi-test:
+    name: Publish Package
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish_pypi.yaml
+    with:
       environment: testpypi
 
   publish-docker-staging:
