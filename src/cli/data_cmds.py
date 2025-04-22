@@ -51,7 +51,7 @@ def data_download(
             dataset_name=dataset_name,
             endpoint=endpoint_dataset,
             api_key=api_key,
-            output_dir=str(destination),
+            output_dir=destination,
             force_redownload=force,
         )
     except Exception:

@@ -44,7 +44,7 @@ def download_or_get_dataset_path(
     if force_redownload and dataset_path_sample.exists():
         # Remove old files to avoid old files conflicting with new files
         shutil.rmtree(dataset_path_sample, ignore_errors=True)
-    status = download_resource(dataset_access_info_url, dataset_path_base, api_key)
+    status = download_resource(dataset_access_info_url, str(dataset_path_base), api_key)
     if status:
         return dataset_path_sample
     raise RuntimeError("Failed to download dataset")
