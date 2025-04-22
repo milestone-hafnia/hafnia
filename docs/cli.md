@@ -2,7 +2,7 @@ A command-line interface tool for managing data science experiments and resource
 
 ## Features
 
-- **Platform Configuration**: Easy setup and management of MDI platform settings
+- **Platform Configuration**: Easy setup and management of Hafnia platform settings
 
 ## Installation
 
@@ -10,76 +10,76 @@ A command-line interface tool for managing data science experiments and resource
 
 ### Core Commands
 
-- `mdi configure` - Configure MDI CLI settings
-- `mdi clear` - Remove stored configuration
-- `mdi profile` - Manage profiles (see subcommands below) 
+- `hafnia configure` - Configure Hafnia CLI settings
+- `hafnia clear` - Remove stored configuration
+- `hafnia profile` - Manage profiles (see subcommands below) 
 
 ### Profile Management
 
-- `mdi profile ls` - List all available profiles
-- `mdi profile use <profile_name>` - Switch to a different profile
-- `mdi profile rm <profile_name>` - Remove a specific profile
-- `mdi profile active` - Show detailed information about the active profile
+- `hafnia profile ls` - List all available profiles
+- `hafnia profile use <profile_name>` - Switch to a different profile
+- `hafnia profile rm <profile_name>` - Remove a specific profile
+- `hafnia profile active` - Show detailed information about the active profile
 
 ### Data Management
 
-- `mdi data get <url> <destination>` - Download resource from MDI platform to local destination
+- `hafnia data get <url> <destination>` - Download resource from Hafnia platform to local destination
 
 ### Experiment Management
 
-- `mdi runc launch <task>` - Launch a job within the image
-- `mdi runc build <recipe_url> [state_file] [ecr_repository] [image_name]` - Build docker image with a given recipe
-- `mdi runc build-local <recipe> [state_file] [image_name]` - Build recipe from local path as image with prefix - localhost
+- `hafnia runc launch <task>` - Launch a job within the image
+- `hafnia runc build <recipe_url> [state_file] [ecr_repository] [image_name]` - Build docker image with a given recipe
+- `hafnia runc build-local <recipe> [state_file] [image_name]` - Build recipe from local path as image with prefix - localhost
 
 ## Configuration
 
 he CLI tool supports multiple configuration profiles:
 
-1. Run `mdi configure`
+1. Run `hafnia configure`
 2. Enter a profile name (defaults to "default")
-3. Enter your MDI API Key when prompted
-4. Provide the MDI Platform URL (defaults to "https://api.mdi.milestonesys.com")
+3. Enter your Hafnia API Key when prompted
+4. Provide the Hafnia Platform URL (defaults to "https://api.mdi.milestonesys.com")
 5. The organization ID will be retrieved automatically
-6. Verify your configuration with `mdi profile active`
+6. Verify your configuration with `hafnia profile active`
 
 ## Example Usage
 
 ```bash
 # Configure the CLI with a new profile
-mdi configure
+hafnia configure
 
 # List all available profiles
-mdi profile ls
+hafnia profile ls
 
 # Switch to a different profile
-mdi profile use production
+hafnia profile use production
 
 # View active profile details
-mdi profile active
+hafnia profile active
 
 # Remove a profile
-mdi profile rm old-profile
+hafnia profile rm old-profile
 
 # Clear all configuration
-mdi clear
+hafnia clear
 
 # Download a dataset sample
-mdi data download mnist
+hafnia data download mnist
 
 # Add '--force' to re-download dataset
-mdi data download mnist --force
+hafnia data download mnist --force
 
 # Download a resource from the platform
-mdi data get https://api.mdi.milestonesys.com/api/v1/datasets/my-dataset ./data
+hafnia data get https://api.mdi.milestonesys.com/api/v1/datasets/my-dataset ./data
 
 # Build a Docker image from a recipe
-mdi runc build https://api.mdi.milestonesys.com/api/v1/recipes/my-recipe
+hafnia runc build https://api.mdi.milestonesys.com/api/v1/recipes/my-recipe
 
 # Build a Docker image from a local recipe
-mdi runc build-local ./my-recipe
+hafnia runc build-local ./my-recipe
 
 # Launch a task within the image
-mdi runc launch train
+hafnia runc launch train
 ```
 
 ## Environment Variables
@@ -87,7 +87,7 @@ mdi runc launch train
 The CLI tool uses configuration stored in your local environment. You can view the current settings using:
 
 ```bash
-mdi profile active
+hafnia profile active
 ```
 
 Available environment variables:

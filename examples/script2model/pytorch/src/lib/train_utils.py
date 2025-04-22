@@ -8,7 +8,7 @@ from torchvision.models import resnet18
 from torchvision.transforms import v2
 
 from hafnia.data import load_dataset
-from hafnia.experiment import MDILogger
+from hafnia.experiment import HafniaLogger
 
 
 def create_transforms() -> v2.Compose:
@@ -43,10 +43,10 @@ def create_dataloaders(
         Tuple[DataLoader, DataLoader]: Training and testing DataLoaders.
     """
     transforms = create_transforms()
-    mdi_dataset = load_dataset(data_root)
-    train_split = mdi_dataset["train"]
+    hafnia_dataset = load_dataset(data_root)
+    train_split = hafnia_dataset["train"]
     train_split.set_transform(transforms)
-    test_split = mdi_dataset["test"]
+    test_split = hafnia_dataset["test"]
     test_split.set_transform(transforms)
 
     train_loader = DataLoader(
@@ -83,7 +83,7 @@ def run_train_epoch(
     criterion: nn.Module,
     metrics: nn.Module,
     device: torch.device,
-    ml_logger: MDILogger,
+    ml_logger: HafniaLogger,
     log_interval: int,
     max_steps_per_epoch: int,
 ) -> Dict[str, float]:
@@ -98,7 +98,7 @@ def run_train_epoch(
         criterion (nn.Module): Loss function.
         metrics (MulticlassAccuracy): Metrics calculator.
         device (torch.device): Computation device.
-        ml_logger (MDILogger): Logger for metrics.
+        ml_logger (HafniaLogger): Logger for metrics.
         log_interval (int): Interval for logging.
         max_steps_per_epoch (int): Maximum steps per epoch.
 
@@ -154,7 +154,7 @@ def run_eval(
     criterion: nn.Module,
     metrics: nn.Module,
     device: torch.device,
-    ml_logger: MDILogger,
+    ml_logger: HafniaLogger,
 ):
     """
     Runs evaluation on the test dataset.
@@ -166,7 +166,7 @@ def run_eval(
         criterion (nn.Module): Loss function.
         metrics (MulticlassAccuracy): Metrics calculator.
         device (torch.device): Computation device.
-        ml_logger (MDILogger): Logger for metrics.
+        ml_logger (HafniaLogger): Logger for metrics.
 
     Returns:
         Dict[str, float]: Dictionary containing average loss and accuracy.
@@ -201,7 +201,7 @@ def run_eval(
 
 
 def train_loop(
-    logger: MDILogger,
+    logger: HafniaLogger,
     train_dataloader: DataLoader,
     test_dataloader: DataLoader,
     model: nn.Module,
@@ -215,7 +215,7 @@ def train_loop(
     Main training loop.
 
     Args:
-        logger (MDILogger): Logger for metrics.
+        logger (HafniaLogger): Logger for metrics.
         train_dataloader (DataLoader): Training DataLoader.
         test_dataloader (DataLoader): Testing DataLoader.
         model (nn.Module): The model to train.

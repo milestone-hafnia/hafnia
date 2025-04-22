@@ -1,6 +1,6 @@
 # Script2Model: Converting Scripts to Models
 
-Script2Model is a utility in the MDI Python Tools that helps you convert your Python scripts into deployable models on the MDI platform.
+Script2Model is a utility in the Hafnia Python Tools that helps you convert your Python scripts into deployable models on the Hafnia platform.
 
 ## Overview
 
@@ -9,11 +9,11 @@ Script2Model simplifies the process of converting experimental code into product
 1. Analyzing your Python script
 2. Extracting the necessary dependencies and functionality
 3. Creating a standardized model structure
-4. Packaging the model for deployment on the MDI platform
+4. Packaging the model for deployment on the Hafnia platform
 
 ## Prerequisites
 
-- An active MDI platform profile (configure with `mdi configure`)
+- An active Hafnia platform profile (configure with `hafnia configure`)
 - Python scripts with well-defined inputs and outputs
 - Required dependencies installed
 
@@ -22,7 +22,7 @@ Script2Model simplifies the process of converting experimental code into product
 To convert a Python script to a model:
 
 ```bash
-mdi script2model convert <script_path> [--output <output_dir>] [--name <model_name>]
+hafnia script2model convert <script_path> [--output <output_dir>] [--name <model_name>]
 ```
 
 ### Parameters
@@ -35,10 +35,10 @@ mdi script2model convert <script_path> [--output <output_dir>] [--name <model_na
 
 ```bash
 # Convert a training script to a model
-mdi script2model convert ./src/scripts/train.py --name my-classifier
+hafnia script2model convert ./src/scripts/train.py --name my-classifier
 
-# Deploy the model to MDI platform
-mdi script2model deploy ./model --experiment-id exp-123456
+# Deploy the model to Hafnia platform
+hafnia script2model deploy ./model --experiment-id exp-123456
 ```
 
 ## Working with Model Configuration
@@ -47,10 +47,10 @@ Script2Model automatically detects function signatures and generates a configura
 
 ```bash
 # Generate a configuration template
-mdi script2model config-template ./src/scripts/train.py
+hafnia script2model config-template ./src/scripts/train.py
 
 # Convert with a custom configuration
-mdi script2model convert ./src/scripts/train.py --config ./config.json
+hafnia script2model convert ./src/scripts/train.py --config ./config.json
 ```
 
 ## Best Practices
@@ -61,15 +61,15 @@ mdi script2model convert ./src/scripts/train.py --config ./config.json
 4. **Dependencies**: List all dependencies in requirements.txt or environment.yml
 5. **Testing**: Test your script locally before conversion
 
-## Logging with MDILogger
+## Logging with HafniaLogger
 
-Script2Model integrates with MDILogger to track model training and evaluation metrics:
+Script2Model integrates with HafniaLogger to track model training and evaluation metrics:
 
 ```python
-from hafnia.experiment import MDILogger
+from hafnia.experiment import HafniaLogger
 
 # Initialize logger
-logger = MDILogger(Path("./logs"), update_interval=5)
+logger = HafniaLogger(Path("./logs"), update_interval=5)
 
 # Log metrics during training
 logger.log_metric("accuracy", value=0.95, step=100)

@@ -92,7 +92,7 @@ class Config:
         if config_env_path:
             return Path(config_env_path).expanduser()
 
-        return Path.home() / ".mdi" / "config.json"
+        return Path.home() / ".hafnia" / "config.json"
 
     def add_profile(
         self, profile_name: str, profile: ConfigSchema, set_active: bool = False

@@ -68,7 +68,7 @@ def load_from_platform(
 
 
 def load_dataset(dataset_name: str, force_redownload: bool = False) -> Union[Dataset, DatasetDict]:
-    """Load a dataset either from a local path or from the MDI platform."""
+    """Load a dataset either from a local path or from the Hafnia platform."""
 
     if utils.is_remote_job():
         path_dataset = Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))

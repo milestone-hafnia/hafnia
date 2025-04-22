@@ -22,7 +22,7 @@
             ],
         },
         {
-            "name": "debug (mdi data download mnist)",
+            "name": "debug (hafnia data download mnist)",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/cli/__main__.py",

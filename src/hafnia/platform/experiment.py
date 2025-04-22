@@ -28,7 +28,7 @@ def create_recipe(
     with open(zip_path, "rb") as zip_file:
         fields = {
             "name": path_recipe.name,
-            "description": "Recipe created by MDI CLI",
+            "description": "Recipe created by Hafnia CLI",
             "organization": organization_id,
             "file": (zip_path.name, zip_file.read()),
         }

@@ -73,7 +73,7 @@ class Entity(BaseModel):
         )
 
 
-class MDILogger:
+class HafniaLogger:
     EXPERIMENT_FILE = "experiment.parquet"
 
     def __init__(self, log_dir: Union[Path, str] = "./.data"):

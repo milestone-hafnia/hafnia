@@ -18,7 +18,7 @@ def data():
 @click.argument("destination")
 @click.pass_obj
 def data_get(cfg: Config, url: str, destination: click.Path) -> None:
-    """Download resource from MDI platform"""
+    """Download resource from Hafnia platform"""
 
     from hafnia.platform import download_resource
 
@@ -40,7 +40,7 @@ def data_get(cfg: Config, url: str, destination: click.Path) -> None:
 def data_download(
     cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool
 ) -> None:
-    """Download dataset from MDI platform"""
+    """Download dataset from Hafnia platform"""
 
     from hafnia.data.factory import download_or_get_dataset_path
 
@@ -51,8 +51,8 @@ def data_download(
             dataset_name=dataset_name,
             endpoint=endpoint_dataset,
             api_key=api_key,
-            output_dir=destination,
-            force=force,
+            output_dir=str(destination),
+            force_redownload=force,
         )
     except Exception:
         raise click.ClickException(consts.ERROR_GET_RESOURCE)

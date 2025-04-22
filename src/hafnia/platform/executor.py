@@ -18,7 +18,7 @@ class PythonModule:
 
 def handle_mount(source: str) -> None:
     """
-    Mounts the MDI environment by adding source directories to PYTHONPATH.
+    Mounts the Hafnia environment by adding source directories to PYTHONPATH.
 
     Args:
         source (str): Path to the root directory containing 'lib' and 'scripts' subdirectories
@@ -48,7 +48,7 @@ def collect_python_modules(directory: Path) -> Dict[str, PythonModule]:
 
     This function dynamically imports Python modules found in the specified directory,
     excluding files that start with '_' or '.'. It's used to discover available tasks
-    in the MDI environment.
+    in the Hafnia environment.
 
     Args:
         directory (Path): The directory to search for Python modules
@@ -85,9 +85,9 @@ def collect_python_modules(directory: Path) -> Dict[str, PythonModule]:
 
 def handle_launch(task: str) -> None:
     """
-    Launch and execute a specified MDI task.
+    Launch and execute a specified Hafnia task.
 
-    This function verifies the MDI environment status, locates the task script,
+    This function verifies the Hafnia environment status, locates the task script,
     and executes it in a subprocess with output streaming.
 
     Args:

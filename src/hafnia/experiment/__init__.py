@@ -1,3 +1,3 @@
-from hafnia.experiment.mdi_logger import MDILogger
+from hafnia.experiment.hafnia_logger import HafniaLogger
 
-__all__ = ["MDILogger"]
+__all__ = ["HafniaLogger"]

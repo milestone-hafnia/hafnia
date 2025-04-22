@@ -7,7 +7,7 @@ from pathlib import Path
 import torch
 from train_utils import create_dataloaders, create_model, train_loop
 
-from hafnia.experiment import MDILogger
+from hafnia.experiment import HafniaLogger
 
 DATA_DIR = os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training")
 ARTIFACT_DIR = os.getenv("MDI_ARTIFACT_DIR", "/opt/ml/output/data")
@@ -37,7 +37,7 @@ def main(args: argparse.Namespace):
     model_dir = Path(MODEL_DIR)
     model_dir.mkdir(parents=True, exist_ok=True)
 
-    logger = MDILogger(artifacts_dir)
+    logger = HafniaLogger(artifacts_dir)
     logger.log_configuration(vars(args))
     train_dataloader, test_dataloader = create_dataloaders(DATA_DIR, args.batch_size)
     model = create_model(num_classes=10)

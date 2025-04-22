@@ -4,18 +4,18 @@ from pathlib import Path
 import pyarrow as pa
 import pytest
 
-from hafnia.experiment.mdi_logger import EntityType, MDILogger
+from hafnia.experiment.hafnia_logger import EntityType, HafniaLogger
 
 
 @pytest.fixture(scope="function")
-def logger(tmpdir: Path) -> MDILogger:
+def logger(tmpdir: Path) -> HafniaLogger:
     """Create a logger instance for testing."""
     if "HAFNIA_LOCAL_SCRIPT" not in os.environ:
         os.environ["HAFNIA_LOCAL_SCRIPT"] = "true"
-    return MDILogger(Path(tmpdir))
+    return HafniaLogger(Path(tmpdir))
 
 
-def test_basic_scalar_logging(logger: MDILogger) -> None:
+def test_basic_scalar_logging(logger: HafniaLogger) -> None:
     """Test that basic scalar logging works."""
 
     assert not logger.log_file.exists()
@@ -33,7 +33,7 @@ def test_basic_scalar_logging(logger: MDILogger) -> None:
     assert df.iloc[1]["value"] == 43.0
 
 
-def test_metric_logging(logger: MDILogger) -> None:
+def test_metric_logging(logger: HafniaLogger) -> None:
     """Test that metric logging works."""
     logger.log_metric("accuracy", 0.95, 100)
     logger.log_metric("loss", 0.05, 100)
@@ -49,7 +49,7 @@ def test_metric_logging(logger: MDILogger) -> None:
     assert "loss" in metrics_df["name"].values
 
 
-def test_config_logging(logger: MDILogger):
+def test_config_logging(logger: HafniaLogger):
     """Test configuration logging."""
     config = {"learning_rate": 0.001, "batch_size": 32, "model_type": "resnet50"}
 

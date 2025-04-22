@@ -8,14 +8,14 @@ from cli.config import Config, ConfigSchema
 @click.group()
 @click.pass_context
 def main(ctx: click.Context) -> None:
-    """MDI CLI."""
+    """Hafnia CLI."""
     ctx.obj = Config()
 
 
 @main.command("configure")
 @click.pass_obj
 def configure(cfg: Config) -> None:
-    """Configure MDI CLI settings."""
+    """Configure Hafnia CLI settings."""
 
     from hafnia.platform.api import get_organization_id
 
@@ -26,14 +26,14 @@ def configure(cfg: Config) -> None:
     except ValueError:
         raise click.ClickException(consts.ERROR_CREATE_PROFILE)
 
-    api_key = click.prompt("MDI API Key", type=str, hide_input=True)
+    api_key = click.prompt("Hafnia API Key", type=str, hide_input=True)
     try:
         cfg.api_key = api_key.strip()
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)
         return
     platform_url = click.prompt(
-        "MDI Platform URL", type=str, default="https://api.mdi.milestonesys.com"
+        "Hafnia Platform URL", type=str, default="https://api.mdi.milestonesys.com"
     )
     cfg.platform_url = platform_url.strip()
     try:
@@ -51,7 +51,7 @@ def configure(cfg: Config) -> None:
 def clear(cfg: Config) -> None:
     """Remove stored configuration."""
     cfg.clear()
-    click.echo("Successfully cleared MDI configuration.")
+    click.echo("Successfully cleared Hafnia configuration.")
 
 
 main.add_command(profile_cmds.profile)
