@@ -4,8 +4,8 @@ import torchvision.transforms.functional
 from torch.utils.data import DataLoader
 from torchvision.transforms import v2
 
-from mdi_python_tools import torch_helpers
-from mdi_python_tools.data import load_dataset
+from hafnia import torch_helpers
+from hafnia.data import load_dataset
 
 if __name__ == "__main__":
     # Load Hugging Face dataset

@@ -1,5 +1,5 @@
 [project]
-name = "mdi-python-tools"
+name = "hafnia"
 version = "0.1.7"
 description = "Python tools for communication with MDI platform."
 readme = "README.md"
@@ -54,4 +54,4 @@ line-length = 100
 relative-imports-order = "closest-to-furthest"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cli", "src/mdi_python_tools"]
+packages = ["src/cli", "src/hafnia"]

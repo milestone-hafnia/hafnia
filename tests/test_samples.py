@@ -8,8 +8,8 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import v2
 
 from cli.config import Config
-from mdi_python_tools import torch_helpers
-from mdi_python_tools.data import load_dataset
+from hafnia import torch_helpers
+from hafnia.data import load_dataset
 
 FORCE_REDOWNLOAD = False
 

@@ -1,10 +1,10 @@
-from mdi_python_tools.platform.api import get_organization_id
-from mdi_python_tools.platform.download import (
+from hafnia.platform.api import get_organization_id
+from hafnia.platform.download import (
     download_resource,
     download_single_object,
     get_resource_creds,
 )
-from mdi_python_tools.platform.experiment import (
+from hafnia.platform.experiment import (
     create_experiment,
     create_recipe,
     get_dataset_id,

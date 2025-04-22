@@ -5,8 +5,8 @@ import boto3
 from botocore.exceptions import ClientError
 from tqdm import tqdm
 
-from mdi_python_tools.http import fetch
-from mdi_python_tools.log import logger
+from hafnia.http import fetch
+from hafnia.log import logger
 
 
 def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:

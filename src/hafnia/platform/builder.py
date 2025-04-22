@@ -9,8 +9,8 @@ from zipfile import ZipFile
 import boto3
 from botocore.exceptions import ClientError
 
-from mdi_python_tools.log import logger
-from mdi_python_tools.platform import download_resource
+from hafnia.log import logger
+from hafnia.platform import download_resource
 
 
 def validate_recipe(zip_path: Path, required_paths: Optional[set] = None) -> None:

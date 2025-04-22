@@ -12,9 +12,9 @@ import pyarrow.parquet as pq
 from datasets import DatasetDict
 from pydantic import BaseModel, field_validator
 
-from mdi_python_tools.data.factory import load_dataset
-from mdi_python_tools.log import logger
-from mdi_python_tools.utils import is_remote_job, now_as_str
+from hafnia.data.factory import load_dataset
+from hafnia.log import logger
+from hafnia.utils import is_remote_job, now_as_str
 
 
 class EntityType(Enum):

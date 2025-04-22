@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Optional
 
-from mdi_python_tools.http import fetch, post
-from mdi_python_tools.platform.builder import validate_recipe
-from mdi_python_tools.utils import archive_dir, get_recipe_path
+from hafnia.http import fetch, post
+from hafnia.platform.builder import validate_recipe
+from hafnia.utils import archive_dir, get_recipe_path
 
 
 def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[str]:

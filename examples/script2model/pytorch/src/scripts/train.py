@@ -7,7 +7,7 @@ from pathlib import Path
 import torch
 from train_utils import create_dataloaders, create_model, train_loop
 
-from mdi_python_tools.experiment import MDILogger
+from hafnia.experiment import MDILogger
 
 DATA_DIR = os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training")
 ARTIFACT_DIR = os.getenv("MDI_ARTIFACT_DIR", "/opt/ml/output/data")

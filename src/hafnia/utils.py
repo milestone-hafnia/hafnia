@@ -8,7 +8,7 @@ from zipfile import ZipFile
 
 import click
 
-from mdi_python_tools.log import logger
+from hafnia.log import logger
 
 PATH_DATA = Path("./.data")
 PATH_DATASET = PATH_DATA / "datasets"

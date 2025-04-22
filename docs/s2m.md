@@ -66,7 +66,7 @@ mdi script2model convert ./src/scripts/train.py --config ./config.json
 Script2Model integrates with MDILogger to track model training and evaluation metrics:
 
 ```python
-from mdi_python_tools.experiment import MDILogger
+from hafnia.experiment import MDILogger
 
 # Initialize logger
 logger = MDILogger(Path("./logs"), update_interval=5)

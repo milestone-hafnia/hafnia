@@ -4,7 +4,7 @@ from pathlib import Path
 import pyarrow as pa
 import pytest
 
-from mdi_python_tools.experiment.mdi_logger import EntityType, MDILogger
+from hafnia.experiment.mdi_logger import EntityType, MDILogger
 
 
 @pytest.fixture(scope="function")

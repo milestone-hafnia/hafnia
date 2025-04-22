@@ -20,7 +20,7 @@ def data():
 def data_get(cfg: Config, url: str, destination: click.Path) -> None:
     """Download resource from MDI platform"""
 
-    from mdi_python_tools.platform import download_resource
+    from hafnia.platform import download_resource
 
     try:
         result = download_resource(
@@ -42,7 +42,7 @@ def data_download(
 ) -> None:
     """Download dataset from MDI platform"""
 
-    from mdi_python_tools.data.factory import download_or_get_dataset_path
+    from hafnia.data.factory import download_or_get_dataset_path
 
     try:
         endpoint_dataset = cfg.get_platform_endpoint("datasets")

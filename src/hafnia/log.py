@@ -1,6 +1,6 @@
 import logging
 
-from mdi_python_tools import __package_name__
+from hafnia import __package_name__
 
 
 class CustomFormatter(logging.Formatter):

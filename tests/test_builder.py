@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mdi_python_tools.platform.builder import check_ecr, validate_recipe
+from hafnia.platform.builder import check_ecr, validate_recipe
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def test_successful_recipe_extraction(valid_recipe: Path, tmp_path: Path) -> Non
 
     from hashlib import sha256
 
-    from mdi_python_tools.platform.builder import get_recipe_content
+    from hafnia.platform.builder import get_recipe_content
 
     state_file = "state.json"
     expected_hash = sha256(valid_recipe.read_bytes()).hexdigest()[:8]
@@ -80,8 +80,8 @@ def test_successful_recipe_extraction(valid_recipe: Path, tmp_path: Path) -> Non
         )
         mock_clean_up = MagicMock()
 
-        mp.setattr("mdi_python_tools.platform.builder.download_resource", mock_download)
-        mp.setattr("mdi_python_tools.platform.builder.clean_up", mock_clean_up)
+        mp.setattr("hafnia.platform.builder.download_resource", mock_download)
+        mp.setattr("hafnia.platform.builder.clean_up", mock_clean_up)
 
         result = get_recipe_content("s3://bucket/recipe.zip", tmp_path, state_file, "api-key-123")
         mock_download.assert_called_once_with("s3://bucket/recipe.zip", tmp_path, "api-key-123")

@@ -1,6 +1,6 @@
 import urllib3
 
-from mdi_python_tools.http import fetch
+from hafnia.http import fetch
 
 
 def get_organization_id(endpoint: str, api_key: str) -> str:
