@@ -6,9 +6,9 @@ from typing import Optional, Union
 from datasets import Dataset, DatasetDict, load_from_disk
 
 from cli.config import Config
-from mdi_python_tools import utils
-from mdi_python_tools.log import logger
-from mdi_python_tools.platform import download_resource, get_dataset_id
+from hafnia import utils
+from hafnia.log import logger
+from hafnia.platform import download_resource, get_dataset_id
 
 
 def load_local(dataset_path: Path) -> Union[Dataset, DatasetDict]:

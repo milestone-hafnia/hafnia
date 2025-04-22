@@ -68,8 +68,8 @@ def config_with_profiles(test_config_path: Path, profile_data: dict) -> Config:
 def test_configure(
     cli_runner: CliRunner, empty_config: Config, api_key: str, organization_id: str
 ) -> None:
-    with patch("mdi_python_tools.platform.api.get_organization_id", return_value=organization_id):
-        inputs = "default\n" "test-api-key\n" "https://api.mdi.milestonesys.com\n"
+    with patch("hafnia.platform.api.get_organization_id", return_value=organization_id):
+        inputs = "default\ntest-api-key\nhttps://api.mdi.milestonesys.com\n"
         result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
         assert result.exit_code == 0
         assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
@@ -173,7 +173,7 @@ class TestData:
             raise Exception("Download failed")
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("mdi_python_tools.platform.download_resource", mock_download_failure)
+            mp.setattr("hafnia.platform.download_resource", mock_download_failure)
             result = cli_runner.invoke(cli.main, ["data", "get", data_endpoint, destination])
             assert result.exit_code != 0
             assert consts.ERROR_GET_RESOURCE in result.output
@@ -193,7 +193,7 @@ class TestData:
             return {"status": "success", "downloaded_files": [dummy_file.as_posix()]}
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("mdi_python_tools.platform.download_resource", mock_download_success)
+            mp.setattr("hafnia.platform.download_resource", mock_download_success)
             mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
 
             result = cli_runner.invoke(cli.main, ["data", "get", data_endpoint, destination])

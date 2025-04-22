@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
 
-from mdi_python_tools.log import logger
+from hafnia.log import logger
 
 
 @dataclass

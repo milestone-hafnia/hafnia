@@ -24,7 +24,7 @@ def create(
     cfg: Config, name: str, source_dir: Path, exec_cmd: str, dataset_name: str, env_name: str
 ) -> None:
     """Create a new experiment run"""
-    from mdi_python_tools.platform import (
+    from hafnia.platform import (
         create_experiment,
         create_recipe,
         get_dataset_id,

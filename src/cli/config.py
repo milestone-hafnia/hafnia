@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, field_validator
 
 import cli.consts as consts
-from mdi_python_tools.log import logger
+from hafnia.log import logger
 
 
 class ConfigSchema(BaseModel):

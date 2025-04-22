@@ -7,8 +7,8 @@ from torchmetrics import Accuracy
 from torchvision.models import resnet18
 from torchvision.transforms import v2
 
-from mdi_python_tools.data import load_dataset
-from mdi_python_tools.experiment import MDILogger
+from hafnia.data import load_dataset
+from hafnia.experiment import MDILogger
 
 
 def create_transforms() -> v2.Compose:

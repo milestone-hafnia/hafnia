@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mdi_python_tools.platform.executor import (
+from hafnia.platform.executor import (
     PythonModule,
     collect_python_modules,
     handle_launch,
@@ -48,7 +48,7 @@ def test_successful_task_execution(recipe_dir: Path):
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("RECIPE_DIR", str(recipe_dir))
         mp.setattr(sys, "path", [str(recipe_dir / "scripts")])
-        mp.setattr("mdi_python_tools.platform.executor.subprocess.check_call", mock_subprocess)
+        mp.setattr("hafnia.platform.executor.subprocess.check_call", mock_subprocess)
 
         handle_launch("train")
         mock_subprocess.assert_called_once()
@@ -66,7 +66,7 @@ def test_failed_task_execution(recipe_dir: Path):
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("RECIPE_DIR", str(recipe_dir))
         mp.setattr(sys, "path", [str(recipe_dir / "scripts")])
-        mp.setattr("mdi_python_tools.platform.executor.subprocess.check_call", mock_subprocess)
+        mp.setattr("hafnia.platform.executor.subprocess.check_call", mock_subprocess)
         with pytest.raises(SystemExit):
             handle_launch("train")
 

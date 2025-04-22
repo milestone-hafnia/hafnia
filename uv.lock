@@ -548,6 +548,66 @@ http = [
 ]
 
 [[package]]
+name = "hafnia"
+version = "0.1.7"
+source = { editable = "." }
+dependencies = [
+    { name = "boto3" },
+    { name = "click" },
+    { name = "datasets" },
+    { name = "pillow" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "rich" },
+    { name = "tqdm" },
+]
+
+[package.optional-dependencies]
+torch = [
+    { name = "flatten-dict" },
+    { name = "torch" },
+    { name = "torchvision" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ipykernel" },
+    { name = "lark" },
+    { name = "pytest" },
+]
+lint = [
+    { name = "pre-commit" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "boto3", specifier = ">=1.35.91" },
+    { name = "click", specifier = ">=8.1.8" },
+    { name = "datasets", specifier = ">=3.2.0" },
+    { name = "flatten-dict", marker = "extra == 'torch'", specifier = ">=0.4.2" },
+    { name = "pillow", specifier = ">=11.1.0" },
+    { name = "pyarrow", specifier = ">=18.1.0" },
+    { name = "pydantic", specifier = ">=2.10.4" },
+    { name = "rich", specifier = ">=13.9.4" },
+    { name = "torch", marker = "extra == 'torch'", specifier = ">=2.6.0" },
+    { name = "torchvision", marker = "extra == 'torch'", specifier = ">=0.21.0" },
+    { name = "tqdm", specifier = ">=4.67.1" },
+]
+provides-extras = ["torch"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "lark", specifier = ">=1.2.2" },
+    { name = "pytest", specifier = ">=8.3.4" },
+]
+lint = [
+    { name = "pre-commit", specifier = ">=4.2.0" },
+    { name = "ruff", specifier = ">=0.9.1" },
+]
+
+[[package]]
 name = "huggingface-hub"
 version = "0.27.0"
 source = { registry = "https://pypi.org/simple" }
@@ -832,66 +892,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/99/5b/a36a337438a14116b16480db471ad061c36c3694df7c2084a0da7ba538b7/matplotlib_inline-0.1.7.tar.gz", hash = "sha256:8423b23ec666be3d16e16b60bdd8ac4e86e840ebd1dd11a30b9f117f2fa0ab90", size = 8159 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/8e/9ad090d3553c280a8060fbf6e24dc1c0c29704ee7d1c372f0c174aa59285/matplotlib_inline-0.1.7-py3-none-any.whl", hash = "sha256:df192d39a4ff8f21b1895d72e6a13f5fcc5099f00fa84384e0ea28c2cc0653ca", size = 9899 },
-]
-
-[[package]]
-name = "mdi-python-tools"
-version = "0.1.5"
-source = { editable = "." }
-dependencies = [
-    { name = "boto3" },
-    { name = "click" },
-    { name = "datasets" },
-    { name = "pillow" },
-    { name = "pyarrow" },
-    { name = "pydantic" },
-    { name = "rich" },
-    { name = "tqdm" },
-]
-
-[package.optional-dependencies]
-torch = [
-    { name = "flatten-dict" },
-    { name = "torch" },
-    { name = "torchvision" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ipykernel" },
-    { name = "lark" },
-    { name = "pytest" },
-]
-lint = [
-    { name = "pre-commit" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "boto3", specifier = ">=1.35.91" },
-    { name = "click", specifier = ">=8.1.8" },
-    { name = "datasets", specifier = ">=3.2.0" },
-    { name = "flatten-dict", marker = "extra == 'torch'", specifier = ">=0.4.2" },
-    { name = "pillow", specifier = ">=11.1.0" },
-    { name = "pyarrow", specifier = ">=18.1.0" },
-    { name = "pydantic", specifier = ">=2.10.4" },
-    { name = "rich", specifier = ">=13.9.4" },
-    { name = "torch", marker = "extra == 'torch'", specifier = ">=2.6.0" },
-    { name = "torchvision", marker = "extra == 'torch'", specifier = ">=0.21.0" },
-    { name = "tqdm", specifier = ">=4.67.1" },
-]
-provides-extras = ["torch"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "ipykernel", specifier = ">=6.29.5" },
-    { name = "lark", specifier = ">=1.2.2" },
-    { name = "pytest", specifier = ">=8.3.4" },
-]
-lint = [
-    { name = "pre-commit", specifier = ">=4.2.0" },
-    { name = "ruff", specifier = ">=0.9.1" },
 ]
 
 [[package]]

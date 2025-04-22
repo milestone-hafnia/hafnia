@@ -17,7 +17,7 @@ def runc():
 @click.argument("task", required=True)
 def launch(task: str) -> None:
     """Launch a job within the image."""
-    from mdi_python_tools.platform.executor import handle_launch
+    from hafnia.platform.executor import handle_launch
 
     handle_launch(task)
 
@@ -32,7 +32,7 @@ def build(
     cfg: Config, recipe_url: str, state_file: str, ecr_repository: str, image_name: str
 ) -> None:
     """Build docker image with a given recipe."""
-    from mdi_python_tools.platform.builder import build_image, prepare_recipe
+    from hafnia.platform.builder import build_image, prepare_recipe
 
     with TemporaryDirectory() as temp_dir:
         image_info = prepare_recipe(recipe_url, Path(temp_dir), cfg.api_key)
@@ -47,8 +47,8 @@ def build(
 def build_local(recipe: str, state_file: str, image_name: str) -> None:
     """Build recipe from local path as image with prefix - localhost"""
 
-    from mdi_python_tools.platform.builder import build_image, validate_recipe
-    from mdi_python_tools.utils import archive_dir
+    from hafnia.platform.builder import build_image, validate_recipe
+    from hafnia.utils import archive_dir
 
     recipe_zip = Path(recipe)
     recipe_created = False

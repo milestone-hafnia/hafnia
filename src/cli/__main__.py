@@ -17,7 +17,7 @@ def main(ctx: click.Context) -> None:
 def configure(cfg: Config) -> None:
     """Configure MDI CLI settings."""
 
-    from mdi_python_tools.platform.api import get_organization_id
+    from hafnia.platform.api import get_organization_id
 
     profile_name = click.prompt("Profile Name", type=str, default="default")
     profile_name = profile_name.strip()
