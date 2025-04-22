@@ -1,6 +1,6 @@
 [project]
 name = "hafnia"
-version = "0.1.7"
+version = "0.1.8"
 description = "Python tools for communication with MDI platform."
 readme = "README.md"
 authors = [{ name = "Ivan Sahumbaiev", email = "ivsa@milestone.dk" }]
