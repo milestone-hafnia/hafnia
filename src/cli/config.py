@@ -94,9 +94,7 @@ class Config:
 
         return Path.home() / ".hafnia" / "config.json"
 
-    def add_profile(
-        self, profile_name: str, profile: ConfigSchema, set_active: bool = False
-    ) -> None:
+    def add_profile(self, profile_name: str, profile: ConfigSchema, set_active: bool = False) -> None:
         profile_name = profile_name.strip()
         self.config_data.profiles[profile_name] = profile
         if set_active:

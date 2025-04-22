@@ -25,25 +25,17 @@ def validate_recipe(zip_path: Path, required_paths: Optional[set] = None) -> Non
     Raises:
         FileNotFoundError: If any required file or directory is missing.
     """
-    required_paths = (
-        {"src/lib/", "src/scripts/", "Dockerfile"} if required_paths is None else required_paths
-    )
+    required_paths = {"src/lib/", "src/scripts/", "Dockerfile"} if required_paths is None else required_paths
     with ZipFile(zip_path, "r") as archive:
         archive_contents = {Path(file).as_posix() for file in archive.namelist()}
         missing_paths = {
-            path
-            for path in required_paths
-            if not any(entry.startswith(path) for entry in archive_contents)
+            path for path in required_paths if not any(entry.startswith(path) for entry in archive_contents)
         }
 
         if missing_paths:
-            raise FileNotFoundError(
-                f"The following required paths are missing in the zip archive: {missing_paths}"
-            )
+            raise FileNotFoundError(f"The following required paths are missing in the zip archive: {missing_paths}")
 
-        script_files = [
-            f for f in archive_contents if f.startswith("src/scripts/") and f.endswith(".py")
-        ]
+        script_files = [f for f in archive_contents if f.startswith("src/scripts/") and f.endswith(".py")]
 
         if not script_files:
             raise ValueError("No Python script files found in the 'src/scripts/' directory.")
@@ -91,9 +83,7 @@ def get_recipe_content(recipe_url: str, output_dir: Path, state_file: str, api_k
     tag = sha256(recipe_path.read_bytes()).hexdigest()[:8]
 
     scripts_dir = output_dir / "src/scripts"
-    valid_commands = [
-        str(f.name)[:-3] for f in scripts_dir.iterdir() if f.is_file() and f.suffix.lower() == ".py"
-    ]
+    valid_commands = [str(f.name)[:-3] for f in scripts_dir.iterdir() if f.is_file() and f.suffix.lower() == ".py"]
 
     if not valid_commands:
         raise ValueError("No valid Python script commands found in the 'src/scripts' directory.")
@@ -118,9 +108,7 @@ def get_recipe_content(recipe_url: str, output_dir: Path, state_file: str, api_k
     return state
 
 
-def build_dockerfile(
-    dockerfile: str, docker_context: str, docker_tag: str, secrets: Optional[Dict] = None
-) -> None:
+def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, secrets: Optional[Dict] = None) -> None:
     """
     Build a Docker image using the provided Dockerfile.
 
@@ -158,9 +146,7 @@ def check_ecr(repository_name: str, image_tag: str) -> bool:
     session = boto3.Session(region_name=aws_region)
     ecr_client = session.client("ecr")
     try:
-        response = ecr_client.describe_images(
-            repositoryName=repository_name, imageIds=[{"imageTag": image_tag}]
-        )
+        response = ecr_client.describe_images(repositoryName=repository_name, imageIds=[{"imageTag": image_tag}])
         if response["imageDetails"]:
             logger.info(f"Image {image_tag} already exists in ECR.")
             return True

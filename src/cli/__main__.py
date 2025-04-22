@@ -32,14 +32,10 @@ def configure(cfg: Config) -> None:
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)
         return
-    platform_url = click.prompt(
-        "Hafnia Platform URL", type=str, default="https://api.mdi.milestonesys.com"
-    )
+    platform_url = click.prompt("Hafnia Platform URL", type=str, default="https://api.mdi.milestonesys.com")
     cfg.platform_url = platform_url.strip()
     try:
-        cfg.organization_id = get_organization_id(
-            cfg.get_platform_endpoint("organizations"), cfg.api_key
-        )
+        cfg.organization_id = get_organization_id(cfg.get_platform_endpoint("organizations"), cfg.api_key)
     except Exception:
         raise click.ClickException(consts.ERROR_ORG_ID)
     cfg.save_config()

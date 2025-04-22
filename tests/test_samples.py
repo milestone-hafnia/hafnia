@@ -91,9 +91,7 @@ def test_dataset_features(loaded_dataset):
         if task_type == "ImageClassification":
             assert "classification" in dataset_split.features
             assert "class_idx" in dataset_split.features["classification"]
-            assert isinstance(
-                dataset_split.features["classification"]["class_idx"], datasets.ClassLabel
-            )
+            assert isinstance(dataset_split.features["classification"]["class_idx"], datasets.ClassLabel)
 
             assert "classification" in sample
             assert "class_idx" in sample["classification"]
@@ -104,9 +102,7 @@ def test_dataset_features(loaded_dataset):
             assert "objects" in dataset_split.features
             assert "bbox" in dataset_split.features["objects"].feature
             assert isinstance(dataset_split.features["objects"].feature["bbox"], datasets.Sequence)
-            assert isinstance(
-                dataset_split.features["objects"].feature["class_idx"], datasets.ClassLabel
-            )
+            assert isinstance(dataset_split.features["objects"].feature["class_idx"], datasets.ClassLabel)
 
             assert "objects" in sample
             assert "bbox" in sample["objects"]
@@ -165,9 +161,7 @@ def test_dataset_dataloader(loaded_dataset):
     skip_stacking = ["objects.bbox", "objects.class_idx"]
     batch_size = 2
     collate_fn = torch_helpers.TorchVisionCollateFn(skip_stacking=skip_stacking)
-    dataloader_train = DataLoader(
-        batch_size=batch_size, dataset=torch_dataset, collate_fn=collate_fn
-    )
+    dataloader_train = DataLoader(batch_size=batch_size, dataset=torch_dataset, collate_fn=collate_fn)
 
     # Test iteration
     for images, targets in dataloader_train:

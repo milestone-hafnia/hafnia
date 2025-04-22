@@ -1,6 +1,6 @@
 [project]
 name = "hafnia"
-version = "0.1.8"
+version = "0.1.9"
 description = "Python tools for communication with Hafnia platform."
 readme = "README.md"
 authors = [{ name = "Ivan Sahumbaiev", email = "ivsa@milestone.dk" }]
@@ -48,7 +48,7 @@ build-backend = "hatchling.build"
 [tool.ruff]
 select = ["I", "E", "F"]
 ignore = ["E501"]
-line-length = 100
+line-length = 120
 
 [tool.ruff.isort]
 relative-imports-order = "closest-to-furthest"

@@ -15,9 +15,7 @@ def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[s
     return dataset_info[0]["id"]
 
 
-def create_recipe(
-    source_dir: Path, endpoint: str, api_key: str, organization_id: str
-) -> Optional[str]:
+def create_recipe(source_dir: Path, endpoint: str, api_key: str, organization_id: str) -> Optional[str]:
     headers = {"X-APIKEY": api_key, "accept": "application/json"}
     path_recipe = get_recipe_path(recipe_name=source_dir.name)
     zip_path = archive_dir(source_dir, output_path=path_recipe)

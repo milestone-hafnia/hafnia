@@ -23,9 +23,7 @@ def data_get(cfg: Config, url: str, destination: click.Path) -> None:
     from hafnia.platform import download_resource
 
     try:
-        result = download_resource(
-            resource_url=url, destination=str(destination), api_key=cfg.api_key
-        )
+        result = download_resource(resource_url=url, destination=str(destination), api_key=cfg.api_key)
     except Exception:
         raise click.ClickException(consts.ERROR_GET_RESOURCE)
 
@@ -37,9 +35,7 @@ def data_get(cfg: Config, url: str, destination: click.Path) -> None:
 @click.argument("destination", default=None, required=False)
 @click.option("--force", is_flag=True, default=False, help="Force download")
 @click.pass_obj
-def data_download(
-    cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool
-) -> None:
+def data_download(cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool) -> None:
     """Download dataset from Hafnia platform"""
 
     from hafnia.data.factory import download_or_get_dataset_path

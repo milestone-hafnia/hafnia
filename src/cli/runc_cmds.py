@@ -28,9 +28,7 @@ def launch(task: str) -> None:
 @click.argument("ecr_repository", default="localhost")
 @click.argument("image_name", default="recipe")
 @click.pass_obj
-def build(
-    cfg: Config, recipe_url: str, state_file: str, ecr_repository: str, image_name: str
-) -> None:
+def build(cfg: Config, recipe_url: str, state_file: str, ecr_repository: str, image_name: str) -> None:
     """Build docker image with a given recipe."""
     from hafnia.platform.builder import build_image, prepare_recipe
 

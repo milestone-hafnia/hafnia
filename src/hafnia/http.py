@@ -31,9 +31,7 @@ def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Dict:
         http.clear()
 
 
-def post(
-    endpoint: str, headers: Dict, data: Union[Path, Dict, bytes], multipart: bool = False
-) -> Dict:
+def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes], multipart: bool = False) -> Dict:
     """Posts data to backend endpoint.
 
     Args:
@@ -76,9 +74,7 @@ def post(
 
         if response.status not in (200, 201):
             error_details = response.data.decode("utf-8")
-            raise urllib3.exceptions.HTTPError(
-                f"Request failed with status {response.status}: {error_details}"
-            )
+            raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}: {error_details}")
 
         return json.loads(response.data.decode("utf-8"))
     finally:

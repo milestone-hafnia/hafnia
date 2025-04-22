@@ -75,9 +75,7 @@ def test_successful_recipe_extraction(valid_recipe: Path, tmp_path: Path) -> Non
     expected_hash = sha256(valid_recipe.read_bytes()).hexdigest()[:8]
 
     with pytest.MonkeyPatch.context() as mp:
-        mock_download = MagicMock(
-            return_value={"status": "success", "downloaded_files": [valid_recipe]}
-        )
+        mock_download = MagicMock(return_value={"status": "success", "downloaded_files": [valid_recipe]})
         mock_clean_up = MagicMock()
 
         mp.setattr("hafnia.platform.builder.download_resource", mock_download)
@@ -96,9 +94,7 @@ def test_successful_recipe_extraction(valid_recipe: Path, tmp_path: Path) -> Non
 def test_ecr_image_exist(mock_boto_session: MagicMock) -> None:
     """Test when image exists in ECR."""
 
-    mock_boto_session.client.return_value.describe_images.return_value = {
-        "imageDetails": [{"imageTags": ["v1.0"]}]
-    }
+    mock_boto_session.client.return_value.describe_images.return_value = {"imageDetails": [{"imageTags": ["v1.0"]}]}
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("AWS_REGION", "us-west-2")
         mp.setattr("boto3.Session", lambda **kwargs: mock_boto_session)

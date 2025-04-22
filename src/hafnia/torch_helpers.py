@@ -39,15 +39,11 @@ class TorchvisionDataset(torch.utils.data.Dataset):
 
         for segmentation_task in self.segmentation_tasks:
             if segmentation_task in sample:
-                target[f"{segmentation_task}.mask"] = tv_tensors.Mask(
-                    sample[segmentation_task].pop("mask")
-                )
+                target[f"{segmentation_task}.mask"] = tv_tensors.Mask(sample[segmentation_task].pop("mask"))
 
         for classification_task in self.classification_tasks:
             if classification_task in sample:
-                target[f"{classification_task}.class_idx"] = sample[classification_task].pop(
-                    "class_idx"
-                )
+                target[f"{classification_task}.class_idx"] = sample[classification_task].pop("class_idx")
 
         for object_task in self.object_tasks:
             if object_task in sample:
@@ -56,9 +52,7 @@ class TorchvisionDataset(torch.utils.data.Dataset):
                 if bboxes.numel() == 0:
                     bboxes = bboxes.reshape(-1, 4)
                 target[f"{object_task}.bbox"] = bboxes
-                target[f"{object_task}.class_idx"] = torch.tensor(
-                    sample[object_task].pop("class_idx")
-                )
+                target[f"{object_task}.class_idx"] = torch.tensor(sample[object_task].pop("class_idx"))
 
         if self.keep_metadata:
             target.update(flatten(sample, reducer="dot"))
@@ -88,14 +82,12 @@ def draw_image_classification(visualize_image: torch.Tensor, text_label: str) ->
     width = max(text_tensor.shape[-1], visualize_image.shape[-1])
     visualize_image_new = torch.zeros((3, height, width), dtype=visualize_image.dtype)
     shift_w = (width - visualize_image.shape[-1]) // 2
-    visualize_image_new[
-        :, : visualize_image.shape[-2], shift_w : shift_w + visualize_image.shape[-1]
-    ] = visualize_image
+    visualize_image_new[:, : visualize_image.shape[-2], shift_w : shift_w + visualize_image.shape[-1]] = visualize_image
     shift_w = (width - text_tensor.shape[-1]) // 2
     shift_h = visualize_image.shape[-2]
-    visualize_image_new[
-        :, shift_h : shift_h + text_tensor.shape[-2], shift_w : shift_w + text_tensor.shape[-1]
-    ] = text_tensor
+    visualize_image_new[:, shift_h : shift_h + text_tensor.shape[-2], shift_w : shift_w + text_tensor.shape[-1]] = (
+        text_tensor
+    )
     visualize_image = visualize_image_new
     return visualize_image
 
@@ -122,14 +114,10 @@ def draw_image_and_targets(
         bbox_field = f"{object_task}.bbox"
         if bbox_field in targets:
             hugging_face_format = "xywh"
-            bbox = torchvision.ops.box_convert(
-                targets[bbox_field], in_fmt=hugging_face_format, out_fmt="xyxy"
-            )
+            bbox = torchvision.ops.box_convert(targets[bbox_field], in_fmt=hugging_face_format, out_fmt="xyxy")
             class_names_field = f"{object_task}.class_name"
             class_names = targets.get(class_names_field, None)
-            visualize_image = tv_utils.draw_bounding_boxes(
-                visualize_image, bbox, labels=class_names, width=2
-            )
+            visualize_image = tv_utils.draw_bounding_boxes(visualize_image, bbox, labels=class_names, width=2)
 
     for segmentation_task in segmentation_tasks:
         mask_field = f"{segmentation_task}.mask"
@@ -137,9 +125,7 @@ def draw_image_and_targets(
             mask = targets[mask_field].squeeze(0)
             masks_list = [mask == value for value in mask.unique()]
             masks = torch.stack(masks_list, dim=0).to(torch.bool)
-            visualize_image = tv_utils.draw_segmentation_masks(
-                visualize_image, masks=masks, alpha=0.5
-            )
+            visualize_image = tv_utils.draw_segmentation_masks(visualize_image, masks=masks, alpha=0.5)
 
     for classification_task in classification_tasks:
         classification_field = f"{classification_task}.class_idx"

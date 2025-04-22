@@ -65,9 +65,7 @@ def config_with_profiles(test_config_path: Path, profile_data: dict) -> Config:
     return config
 
 
-def test_configure(
-    cli_runner: CliRunner, empty_config: Config, api_key: str, organization_id: str
-) -> None:
+def test_configure(cli_runner: CliRunner, empty_config: Config, api_key: str, organization_id: str) -> None:
     with patch("hafnia.platform.api.get_organization_id", return_value=organization_id):
         inputs = "default\ntest-api-key\nhttps://api.mdi.milestonesys.com\n"
         result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
@@ -98,9 +96,7 @@ class TestProfile:
             assert "production" in result.output
             assert "Active profile: default" in result.output
 
-    def test_switch_profile(
-        self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config
-    ) -> None:
+    def test_switch_profile(self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config) -> None:
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr("cli.__main__.Config", lambda *args, **kwargs: empty_config)
             result = cli_runner.invoke(cli.main, ["profile", "use", "default"])
@@ -125,9 +121,7 @@ class TestProfile:
             assert result.exit_code != 0
             assert consts.ERROR_PROFILE_NOT_EXIST in result.output
 
-    def test_remove_profile(
-        self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config
-    ) -> None:
+    def test_remove_profile(self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config) -> None:
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr("cli.__main__.Config", lambda *args, **kwargs: empty_config)
             result = cli_runner.invoke(cli.main, ["profile", "rm", "default"])
@@ -164,9 +158,7 @@ class TestData:
     def destination(self, tmp_path: Path) -> str:
         return str(tmp_path / "data")
 
-    def test_get_data_failure(
-        self, cli_runner: CliRunner, data_endpoint: str, destination: str
-    ) -> None:
+    def test_get_data_failure(self, cli_runner: CliRunner, data_endpoint: str, destination: str) -> None:
         """Test data get command when download fails"""
 
         def mock_download_failure(*args, **kwargs):

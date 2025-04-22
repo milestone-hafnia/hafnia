@@ -33,9 +33,7 @@ def download_or_get_dataset_path(
     dataset_path_sample = dataset_path_base / "sample"
 
     if dataset_path_sample.exists() and not force_redownload:
-        logger.info(
-            "Dataset found locally. Set 'force=True' or add `--force` flag with cli to re-download"
-        )
+        logger.info("Dataset found locally. Set 'force=True' or add `--force` flag with cli to re-download")
         return dataset_path_sample
 
     dataset_id = get_dataset_id(dataset_name, endpoint, api_key)

@@ -31,9 +31,7 @@ def handle_mount(source: str) -> None:
     scripts_dir = source_path / "scripts"
 
     if not lib_dir.exists() and not scripts_dir.exists():
-        logger.error(
-            f"Filestructure is not supported. Expected 'lib' and 'scripts' directories in {source_path}."
-        )
+        logger.error(f"Filestructure is not supported. Expected 'lib' and 'scripts' directories in {source_path}.")
         exit(1)
 
     sys.path.extend([lib_dir.as_posix(), scripts_dir.as_posix()])
@@ -107,9 +105,7 @@ def handle_launch(task: str) -> None:
         logger.error(f"Task '{task}' not found. Available tasks: {available_tasks}")
         exit(1)
     try:
-        subprocess.check_call(
-            ["python", scripts[task].runner_path], stdout=sys.stdout, stderr=sys.stdout
-        )
+        subprocess.check_call(["python", scripts[task].runner_path], stdout=sys.stdout, stderr=sys.stdout)
     except subprocess.CalledProcessError as e:
         logger.error(f"Error executing task: {str(e)}")
         exit(1)

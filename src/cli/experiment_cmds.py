@@ -20,9 +20,7 @@ def experiment() -> None:
 @click.argument("dataset_name")
 @click.argument("env_name")
 @click.pass_obj
-def create(
-    cfg: Config, name: str, source_dir: Path, exec_cmd: str, dataset_name: str, env_name: str
-) -> None:
+def create(cfg: Config, name: str, source_dir: Path, exec_cmd: str, dataset_name: str, env_name: str) -> None:
     """Create a new experiment run"""
     from hafnia.platform import (
         create_experiment,
@@ -35,25 +33,19 @@ def create(
         raise click.ClickException(consts.ERROR_EXPERIMENT_DIR)
 
     try:
-        dataset_id = get_dataset_id(
-            dataset_name, cfg.get_platform_endpoint("datasets"), cfg.api_key
-        )
+        dataset_id = get_dataset_id(dataset_name, cfg.get_platform_endpoint("datasets"), cfg.api_key)
     except (IndexError, KeyError):
         raise click.ClickException(f"Dataset '{dataset_name}' not found.")
     except Exception:
         raise click.ClickException(f"Error retrieving dataset '{dataset_name}'.")
 
     try:
-        recipe_id = create_recipe(
-            source_dir, cfg.get_platform_endpoint("recipes"), cfg.api_key, cfg.organization_id
-        )
+        recipe_id = create_recipe(source_dir, cfg.get_platform_endpoint("recipes"), cfg.api_key, cfg.organization_id)
     except Exception:
         raise click.ClickException(f"Failed to create recipe from '{source_dir}'")
 
     try:
-        env_id = get_exp_environment_id(
-            env_name, cfg.get_platform_endpoint("experiment_environments"), cfg.api_key
-        )
+        env_id = get_exp_environment_id(env_name, cfg.get_platform_endpoint("experiment_environments"), cfg.api_key)
     except Exception:
         raise click.ClickException(f"Environment '{env_name}' not found")
 
