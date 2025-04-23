@@ -1,4 +1,4 @@
-# Project Hafnia 
+# Hafnia tools
 
 Project Hafnia is a comprehensive solution for managing data science experiments and resources. It provides tools and interfaces for experiment management, data handling, and container orchestration.
 
@@ -7,7 +7,7 @@ Project Hafnia is a comprehensive solution for managing data science experiments
 
 - [CLI Documentation](docs/cli.md) - Detailed guide for the Hafnia command-line interface
 - [Script2Model Documentation](docs/s2m.md) - Detailed guide for script2model
-- [Release lyfecycle](docs/release.md) - Details about package release lifecycle.
+- [Release lifecycle](docs/release.md) - Details about package release lifecycle.
 
 
 ## Key Components
@@ -20,3 +20,5 @@ Project Hafnia is a comprehensive solution for managing data science experiments
 ```bash
 pip install hafnia
 ```
+
+## Development
