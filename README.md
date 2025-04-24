@@ -160,7 +160,7 @@ or in below markdown pages.
 - [Release lifecycle](docs/release.md) - Details about package release lifecycle.
 
 ## Development
-For development, we are using an uv based virtual python environment
+For development, we are using an uv based virtual python environment.
 
 Install uv
 
