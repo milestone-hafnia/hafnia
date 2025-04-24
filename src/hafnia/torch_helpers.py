@@ -3,7 +3,6 @@ from typing import List, Optional
 import datasets
 import torch
 import torchvision
-import torchvision.transforms.functional
 from flatten_dict import flatten
 from PIL import Image, ImageDraw, ImageFont
 from torchvision import tv_tensors

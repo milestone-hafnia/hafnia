@@ -549,12 +549,13 @@ http = [
 
 [[package]]
 name = "hafnia"
-version = "0.1.14"
+version = "0.1.15"
 source = { editable = "." }
 dependencies = [
     { name = "boto3" },
     { name = "click" },
     { name = "datasets" },
+    { name = "flatten-dict" },
     { name = "pillow" },
     { name = "pyarrow" },
     { name = "pydantic" },
@@ -585,6 +586,7 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.35.91" },
     { name = "click", specifier = ">=8.1.8" },
     { name = "datasets", specifier = ">=3.2.0" },
+    { name = "flatten-dict", specifier = ">=0.4.2" },
     { name = "flatten-dict", marker = "extra == 'torch'", specifier = ">=0.4.2" },
     { name = "pillow", specifier = ">=11.1.0" },
     { name = "pyarrow", specifier = ">=18.1.0" },
