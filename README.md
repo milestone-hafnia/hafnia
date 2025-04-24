@@ -23,7 +23,7 @@ The `script2model` approach is a Training-aaS concept, where you package your cu
 script as a *training recipe* and use the recipe to train models on the hidden datasets.
 
 To support local development of a training recipe, we have introduced a **sample dataset** 
-for each dataset available on the Hafnia platform. The sample dataset is a small 
+for each dataset available in the Hafnia [data library](https://hafnia.milestonesys.com/training-aas/datasets). The sample dataset is a small 
 and anonymized subset of the full dataset and available for download. 
 
 With the sample dataset, you can seamlessly switch between local and Hafnia training. 
@@ -70,19 +70,17 @@ dataset_splits = load_dataset("midwest-vehicle-detection")
 print(dataset_splits)
 print(dataset_splits["train"])
 ```
-
-Datasets with corresponding sample datasets can be found in [data library](https://hafnia.milestonesys.com/training-aas/datasets). It is early days for the data library, 
-but we are actively working on adding more datasets.
-
 The returned sample dataset is a [hugging face dataset](https://huggingface.co/docs/datasets/index) 
 and contains train, validation and test splits. 
 
 An important feature of `load_dataset` is that it will return the full dataset 
 when loaded on the Hafnia platform. 
-
 This enables seamlessly switching between running/validating a training script 
 locally (on the sample dataset) and running full model trainings in the cloud 
 without changing code or configurations for the training script.
+
+Available datasets with corresponding sample datasets can be found in [data library](https://hafnia.milestonesys.com/training-aas/datasets) including metadata and description for each dataset. 
+
 
 ## Getting started: Experiment Tracking with HafniaLogger
 The `HafniaLogger` is an important part of the recipe script and enables you to track, log and
@@ -173,4 +171,6 @@ Install python dependencies including developer (`--dev`) and optional dependenc
 
     uv sync --all-extras --dev
 
- 
+ Run tests:
+
+    uv run pytest tests
