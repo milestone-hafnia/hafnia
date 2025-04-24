@@ -28,8 +28,8 @@ and anonymized subset of the full dataset and available for download.
 
 With the sample dataset, you can seamlessly switch between local and Hafnia training. 
 Locally, you can create, validate and debug your training recipe. The recipe is then 
-launched on Training-aaS, where it runs on the full dataset and can be scaled to run 
-multiple GPUs or instances if needed. 
+launched with Hafnia Training-aaS, where the recipe runs on the full dataset and can be scaled to run on
+multiple GPUs and instances if needed. 
 
 
 ## Getting started: Configuration

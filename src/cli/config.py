@@ -140,6 +140,9 @@ class Config:
         del self.config_data.profiles[profile_name]
         self.save_config()
 
+    def is_configured(self) -> bool:
+        return self.config_data.active_profile is not None
+
     def clear(self) -> None:
         self.config_data = ConfigFileSchema(active_profile=None, profiles={})
         if self.config_path.exists():

@@ -6,8 +6,6 @@ import pytest
 
 from cli.config import Config
 
-HAFNIA_LOGGED_IN = Config().config_data.active_profile is not None
-
 
 @pytest.mark.parametrize(
     "script_path_str",
@@ -19,7 +17,7 @@ HAFNIA_LOGGED_IN = Config().config_data.active_profile is not None
     ],
 )
 def test_example_scripts(script_path_str: str):
-    if not HAFNIA_LOGGED_IN:
+    if not Config().is_configured():
         pytest.skip("Not logged in to Hafnia")
 
     script_path = Path(script_path_str)

@@ -13,7 +13,6 @@ from hafnia.data import load_dataset
 
 FORCE_REDOWNLOAD = False
 
-HAFNIA_LOGGED_IN = Config().config_data.active_profile is not None
 DATASETS_EXPECTED = [
     (
         "midwest-vehicle-detection",
@@ -36,7 +35,7 @@ DATASET_IDS = [dataset[0] for dataset in DATASETS_EXPECTED]
 @pytest.fixture(params=DATASETS_EXPECTED, ids=DATASET_IDS, scope="session")
 def loaded_dataset(request):
     """Fixture that loads a dataset and returns it along with metadata."""
-    if not HAFNIA_LOGGED_IN:
+    if not Config().is_configured():
         pytest.skip("Not logged in to Hafnia")
 
     dataset_name, expected_lengths, task_type = request.param
