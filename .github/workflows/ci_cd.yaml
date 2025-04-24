@@ -7,10 +7,6 @@ on:
     branches: [main]
     paths: ["src/**", "tests/**", "pyproject.toml"]
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
   lint:
     name: Lint Code
