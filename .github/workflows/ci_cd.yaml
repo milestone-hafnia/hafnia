@@ -70,7 +70,7 @@ jobs:
     
   publish-docker-production:
     name: Publish Docker Image to Production
-    needs: publish-pypi
+    needs: [build, publish-pypi]
     secrets: inherit
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish_docker.yaml
@@ -82,7 +82,7 @@ jobs:
           
   publish-docker-staging:
     name: Publish Docker Image to Staging
-    needs: publish-pypi-test
+    needs: [build, publish-pypi-test]
     secrets: inherit
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish_docker.yaml
