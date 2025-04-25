@@ -13,6 +13,32 @@ def experiment() -> None:
     pass
 
 
+@experiment.command(name="create_recipe")
+@click.option("--source_folder", default=".", type=Path, help="Path to the source folder", show_default=True)
+@click.option(
+    "--recipe_filename",
+    default="recipe.zip",
+    type=Path,
+    help="Recipe filename. Should have a '.zip' suffix",
+    show_default=True,
+)
+def create_recipe(source_folder: str, recipe_filename: str) -> None:
+    """Build recipe from local path as image with prefix - localhost"""
+
+    from hafnia.platform.builder import validate_recipe
+    from hafnia.utils import archive_dir
+
+    path_output_zip = Path(recipe_filename)
+
+    if path_output_zip.suffix != ".zip":
+        raise click.ClickException("Recipe filename must be a '.zip' file")
+
+    path_source = Path(source_folder)
+
+    path_output_zip = archive_dir(path_source, path_output_zip)
+    validate_recipe(path_output_zip)
+
+
 @experiment.command(name="create")
 @click.argument("name")
 @click.argument("source_dir", type=Path)
