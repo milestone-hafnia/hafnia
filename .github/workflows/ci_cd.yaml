@@ -60,9 +60,21 @@ jobs:
     with:
       environment: testpypi
 
+  publish-docker-production:
+    name: Publish Docker Image to Production
+    needs: [build, publish-pypi]
+    secrets: inherit
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish_docker.yaml
+    with:
+      python-version-file: "pyproject.toml"
+      package-version: ${{ needs.build.outputs.package-version }}
+      environment: "production"
+
+          
   publish-docker-staging:
     name: Publish Docker Image to Staging
-    needs: [build, publish-pypi]
+    needs: [build, publish-pypi-test]
     secrets: inherit
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/publish_docker.yaml
