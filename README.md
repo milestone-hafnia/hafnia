@@ -5,8 +5,8 @@ the [Hafnia Platform](https://hafnia.milestonesys.com/).
 
 The package includes the following interfaces: 
 
-- `cli`: A Command Line Interface (CLI) to 1) configure/connect to Hafnia and 2) create and 
-launch  [Training-aaS](https://hafnia.readme.io/docs/training-as-a-service) recipe scripts.
+- `cli`: A Command Line Interface (CLI) to 1) configure/connect to Hafnia's [Training-aaS](https://hafnia.readme.io/docs/training-as-a-service) and 2) create and 
+launch recipe scripts.
 - `hafnia`: A python package with helper functions to load and interact with sample datasets and an experiment
  tracker (`HafniaLogger`). 
 
@@ -26,11 +26,10 @@ To support local development of a training recipe, we have introduced a **sample
 for each dataset available in the Hafnia [data library](https://hafnia.milestonesys.com/training-aas/datasets). The sample dataset is a small 
 and anonymized subset of the full dataset and available for download. 
 
-With the sample dataset, you can seamlessly switch between local and Hafnia training. 
+With the sample dataset, you can seamlessly switch between local development and Training-aaS. 
 Locally, you can create, validate and debug your training recipe. The recipe is then 
-launched with Hafnia Training-aaS, where the recipe runs on the full dataset and can be scaled to run on
+launched with Training-aaS, where the recipe runs on the full dataset and can be scaled to run on
 multiple GPUs and instances if needed. 
-
 
 ## Getting started: Configuration
 To get started with Hafnia: 
@@ -53,7 +52,7 @@ Copy the key and save it for later use.
     Hafnia API Key:  # Pass your HAFNIA API key
     Hafnia Platform URL [https://api.mdi.milestonesys.com]:  # Press [Enter]
     ```
-1. Download `mnist` from terminal to verify configuration is working.  
+1. Download `mnist` from terminal to verify that your configuration is working.  
 
     ```bash
     hafnia data download mnist --force
@@ -76,7 +75,7 @@ and contains train, validation and test splits.
 An important feature of `load_dataset` is that it will return the full dataset 
 when loaded on the Hafnia platform. 
 This enables seamlessly switching between running/validating a training script 
-locally (on the sample dataset) and running full model trainings in the cloud 
+locally (on the sample dataset) and running full model trainings with Training-aaS (on the full dataset). 
 without changing code or configurations for the training script.
 
 Available datasets with corresponding sample datasets can be found in [data library](https://hafnia.milestonesys.com/training-aas/datasets) including metadata and description for each dataset. 
