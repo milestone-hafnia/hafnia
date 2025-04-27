@@ -65,7 +65,7 @@ and explore the dataset sample with a python script:
 ```python
 from hafnia.data import load_dataset
 
-dataset_splits = load_dataset("midwest-vehicle-detection")
+dataset_splits = load_dataset("mnist")
 print(dataset_splits)
 print(dataset_splits["train"])
 ```
