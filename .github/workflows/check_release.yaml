@@ -1,11 +1,14 @@
-name: Build and Publish Package
+name: Check Release and Publish
 on:
   workflow_call:
     inputs:
       package-version:
         required: true
         type: string
-   
+    outputs:
+      make_release:
+        description: "Whether to create a new release"
+        value: ${{ jobs.release.outputs.make_release }}   
 permissions:
   contents: write
 
