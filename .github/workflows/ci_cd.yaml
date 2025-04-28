@@ -60,14 +60,7 @@ jobs:
     with:
       environment: pypi
 
-  publish-pypi-test:
-    name: Publish Package to TestPyPI
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/publish_pypi.yaml
-    with:
-      environment: testpypi
-    
+
   publish-docker-production:
     name: Publish Docker Image to Production
     needs: [build, publish-pypi]
@@ -79,7 +72,14 @@ jobs:
       package-version: ${{ needs.build.outputs.package-version }}
       environment: "production"
 
-          
+  publish-pypi-test:
+    name: Publish Package to TestPyPI
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish_pypi.yaml
+    with:
+      environment: testpypi
+        
   publish-docker-staging:
     name: Publish Docker Image to Staging
     needs: [build, publish-pypi-test]
