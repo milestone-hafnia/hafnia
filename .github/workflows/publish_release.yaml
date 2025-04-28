@@ -37,11 +37,20 @@ jobs:
           echo "Checking if release tag exists: $TAG"
 
           if gh release view "$TAG" --repo="$GITHUB_REPOSITORY" &>/dev/null; then
-            echo "::error::Release $TAG already exists. Please increment the version number."
-            exit 1
+            echo "Release $TAG already exists. Skipping release creation."
+            echo "make_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "Release does not exist. Will create new release."
+            echo "make_release=true" >> $GITHUB_OUTPUT
           fi
-          echo "Release does not exist. Will create new release."
+
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: "TAG=\"v${{ inputs.package-version }}\"\necho \"Creating release tag: $TAG\"\n\ngh release create \"$TAG\" --repo=\"$GITHUB_REPOSITORY\" \\\n  --title=\"${GITHUB_REPOSITORY#*/} ${{ inputs.package_version }}\" \\\n  --generate-notes\n  \n"
+        run: |
+          TAG="v${{ inputs.package-version }}"
+          echo "Creating release tag: $TAG"
+          
+          gh release create "$TAG" --repo="$GITHUB_REPOSITORY" \
+            --title="${GITHUB_REPOSITORY#*/} ${{ inputs.package-version }}" \
+            --generate-notes

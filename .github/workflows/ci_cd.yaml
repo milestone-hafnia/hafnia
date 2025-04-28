@@ -44,10 +44,18 @@ jobs:
     with:
         python-version-file: "pyproject.toml"
 
-  publish-pypi:
-    name: Publish Package to PyPI
+  publish-release:
+    name: Publish Github release
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish_release.yaml 
+    with:
+      package-version: ${{ needs.build.outputs.package-version }}
+
+  publish-pypi:
+    name: Publish Package to PyPI
+    needs: publish-release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-release.outputs.make_release == 'true'
     uses: ./.github/workflows/publish_pypi.yaml
     with:
       environment: pypi
@@ -59,14 +67,6 @@ jobs:
     uses: ./.github/workflows/publish_pypi.yaml
     with:
       environment: testpypi
-
-  publish-release:
-    name: Publish Github release
-    needs: publish-pypi
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/publish_release.yaml 
-    with:
-      package-version: ${{ needs.build.outputs.package-version }}
     
   publish-docker-production:
     name: Publish Docker Image to Production
