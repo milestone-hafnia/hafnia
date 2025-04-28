@@ -45,6 +45,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
+        if: steps.check_release.outputs.make_release == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
