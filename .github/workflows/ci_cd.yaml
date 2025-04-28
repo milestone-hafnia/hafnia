@@ -44,6 +44,25 @@ jobs:
     with:
         python-version-file: "pyproject.toml"
 
+  publish-pypi-test:
+    name: Publish Package to TestPyPI
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish_pypi.yaml
+    with:
+      environment: testpypi
+        
+  publish-docker-staging:
+    name: Publish Docker Image to Staging
+    needs: [build, publish-pypi-test]
+    secrets: inherit
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish_docker.yaml
+    with:
+      python-version-file: "pyproject.toml"
+      package-version: ${{ needs.build.outputs.package-version }}
+      environment: "staging"
+
   check-release:
     name: Check if Release Exists
     needs: build
@@ -71,23 +90,4 @@ jobs:
       python-version-file: "pyproject.toml"
       package-version: ${{ needs.build.outputs.package-version }}
       environment: "production"
-
-  publish-pypi-test:
-    name: Publish Package to TestPyPI
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/publish_pypi.yaml
-    with:
-      environment: testpypi
-        
-  publish-docker-staging:
-    name: Publish Docker Image to Staging
-    needs: [build, publish-pypi-test]
-    secrets: inherit
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/publish_docker.yaml
-    with:
-      python-version-file: "pyproject.toml"
-      package-version: ${{ needs.build.outputs.package-version }}
-      environment: "staging"
 
