@@ -54,7 +54,7 @@ jobs:
 
   publish-pypi:
     name: Publish Package to PyPI
-    needs: [build check-release]
+    needs: [build, check-release]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-release.outputs.make_release == 'true'
     uses: ./.github/workflows/publish_pypi.yaml
     with:
