@@ -168,7 +168,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Install python dependencies including developer (`--dev`) and optional dependencies (`--all-extras`).
 
 ```bash
-uv sync --all-extras --de
+uv sync --all-extras --dev
 ```
 
  Run tests:
