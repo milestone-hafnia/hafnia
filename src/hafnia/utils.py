@@ -51,15 +51,13 @@ def archive_dir(
     assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
     recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if path_ignore_file is None:
-        path_ignore_file = recipe_path / FILENAME_HAFNIAIGNORE
-
+    path_ignore_file = path_ignore_file or recipe_path / FILENAME_HAFNIAIGNORE
     if not path_ignore_file.exists():
         ignore_specification_lines = DEFAULT_IGNORE_SPECIFICATION
         click.echo(
-            f"No '{path_ignore_file}' file. Recipe is generated with the default ignore specification.\n"
-            f"\tDefault specification: {DEFAULT_IGNORE_SPECIFICATION}\n"
-            f"Add a '{FILENAME_HAFNIAIGNORE}' file to the root folder to make custom ignores."
+            f"No '{FILENAME_HAFNIAIGNORE}' was file found. Files are excluded using the default ignore patterns.\n"
+            f"\tDefault ignore patterns: {DEFAULT_IGNORE_SPECIFICATION}\n"
+            f"Add a '{FILENAME_HAFNIAIGNORE}' file to the root folder to make custom ignore patterns."
         )
     else:
         ignore_specification_lines = Path(path_ignore_file).read_text().splitlines()
