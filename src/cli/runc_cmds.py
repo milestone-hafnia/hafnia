@@ -1,3 +1,4 @@
+import zipfile
 from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -56,13 +57,18 @@ def build_local(recipe: str, state_file: str, image_name: str) -> None:
 
     validate_recipe(recipe_zip)
     click.echo("Recipe successfully validated")
-    image_info = {
-        "name": image_name,
-        "dockerfile": f"{recipe_zip.parent}/Dockerfile",
-        "docker_context": f"{recipe_zip.parent}",
-        "hash": sha256(recipe_zip.read_bytes()).hexdigest()[:8],
-    }
-    click.echo("Start building image")
-    build_image(image_info, "localhost", state_file=state_file)
-    if recipe_created:
-        recipe_zip.unlink()
+    with TemporaryDirectory() as temp_dir:
+        temp_dir_path = Path(temp_dir)
+        with zipfile.ZipFile(recipe_zip, "r") as zip_ref:
+            zip_ref.extractall(temp_dir_path)
+
+        image_info = {
+            "name": image_name,
+            "dockerfile": (temp_dir_path / "Dockerfile").as_posix(),
+            "docker_context": temp_dir_path.as_posix(),
+            "hash": sha256(recipe_zip.read_bytes()).hexdigest()[:8],
+        }
+        click.echo("Start building image")
+        build_image(image_info, "localhost", state_file=state_file)
+        if recipe_created:
+            recipe_zip.unlink()

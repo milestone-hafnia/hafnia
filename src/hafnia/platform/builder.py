@@ -25,7 +25,7 @@ def validate_recipe(zip_path: Path, required_paths: Optional[set] = None) -> Non
     Raises:
         FileNotFoundError: If any required file or directory is missing.
     """
-    required_paths = {"src/lib/", "src/scripts/", "Dockerfile"} if required_paths is None else required_paths
+    required_paths = {"src", "scripts", "Dockerfile"} if required_paths is None else required_paths
     with ZipFile(zip_path, "r") as archive:
         archive_contents = {Path(file).as_posix() for file in archive.namelist()}
         missing_paths = {
@@ -35,10 +35,10 @@ def validate_recipe(zip_path: Path, required_paths: Optional[set] = None) -> Non
         if missing_paths:
             raise FileNotFoundError(f"The following required paths are missing in the zip archive: {missing_paths}")
 
-        script_files = [f for f in archive_contents if f.startswith("src/scripts/") and f.endswith(".py")]
+        script_files = [f for f in archive_contents if f.startswith("scripts/") and f.endswith(".py")]
 
         if not script_files:
-            raise ValueError("No Python script files found in the 'src/scripts/' directory.")
+            raise ValueError("No Python script files found in the 'scripts' directory.")
 
 
 def clean_up(files: List[Path], dirs: List[Path], prefix: str = "__") -> None:
@@ -82,11 +82,11 @@ def get_recipe_content(recipe_url: str, output_dir: Path, state_file: str, api_k
 
     tag = sha256(recipe_path.read_bytes()).hexdigest()[:8]
 
-    scripts_dir = output_dir / "src/scripts"
+    scripts_dir = output_dir / "scripts"
     valid_commands = [str(f.name)[:-3] for f in scripts_dir.iterdir() if f.is_file() and f.suffix.lower() == ".py"]
 
     if not valid_commands:
-        raise ValueError("No valid Python script commands found in the 'src/scripts' directory.")
+        raise ValueError("No valid Python script commands found in the 'scripts' directory.")
 
     state = {
         "user_data": (output_dir / "src").as_posix(),

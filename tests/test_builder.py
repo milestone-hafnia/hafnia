@@ -13,7 +13,7 @@ def valid_recipe(tmp_path: Path) -> Path:
     zip_path = tmp_path / "valid_recipe.zip"
     with ZipFile(zip_path, "w") as zipf:
         zipf.writestr("src/lib/example.py", "# Example lib")
-        zipf.writestr("src/scripts/run.py", "print('Running training.')")
+        zipf.writestr("scripts/run.py", "print('Running training.')")
         zipf.writestr("Dockerfile", "FROM python:3.9")
     return zip_path
 
@@ -38,13 +38,13 @@ def test_validate_recipe_no_scripts(tmp_path: Path) -> None:
     zip_path = tmp_path / "no_scripts.zip"
     with ZipFile(zip_path, "w") as zipf:
         zipf.writestr("src/lib/example.py", "# Example lib")
-        zipf.writestr("src/scripts/README.md", "# Not a Python file")
+        zipf.writestr("scripts/README.md", "# Not a Python file")
         zipf.writestr("Dockerfile", "FROM python:3.9")
 
     with pytest.raises(ValueError) as excinfo:
         validate_recipe(zip_path)
 
-    assert "No Python script files found in the 'src/scripts/' directory." in str(excinfo.value)
+    assert "No Python script files found in the 'scripts' directory." in str(excinfo.value)
 
 
 def test_invalid_recipe_structure(tmp_path: Path) -> None:
@@ -60,7 +60,7 @@ def test_invalid_recipe_structure(tmp_path: Path) -> None:
 
     error_msg = str(excinfo.value)
     assert "missing in the zip archive" in error_msg
-    for required_path in ("Dockerfile", "src/lib/", "src/scripts/"):
+    for required_path in ("Dockerfile", "src", "scripts"):
         assert required_path in error_msg
 
 

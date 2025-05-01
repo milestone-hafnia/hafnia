@@ -21,22 +21,22 @@ def handle_mount(source: str) -> None:
     Mounts the Hafnia environment by adding source directories to PYTHONPATH.
 
     Args:
-        source (str): Path to the root directory containing 'lib' and 'scripts' subdirectories
+        source (str): Path to the root directory containing 'src' and 'scripts' subdirectories
 
     Raises:
         FileNotFoundError: If the required directory structure is not found
     """
     source_path = Path(source)
-    lib_dir = source_path / "lib"
+    src_dir = source_path / "src"
     scripts_dir = source_path / "scripts"
 
-    if not lib_dir.exists() and not scripts_dir.exists():
-        logger.error(f"Filestructure is not supported. Expected 'lib' and 'scripts' directories in {source_path}.")
+    if not src_dir.exists() and not scripts_dir.exists():
+        logger.error(f"Filestructure is not supported. Expected 'src' and 'scripts' directories in {source_path}.")
         exit(1)
 
-    sys.path.extend([lib_dir.as_posix(), scripts_dir.as_posix()])
+    sys.path.extend([src_dir.as_posix(), scripts_dir.as_posix()])
     python_path = os.getenv("PYTHONPATH", "")
-    os.environ["PYTHONPATH"] = f"{python_path}:{lib_dir.as_posix()}:{scripts_dir.as_posix()}"
+    os.environ["PYTHONPATH"] = f"{python_path}:{src_dir.as_posix()}:{scripts_dir.as_posix()}"
     logger.info(f"Mounted codebase from {source_path}")
 
 
