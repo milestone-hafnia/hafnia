@@ -155,21 +155,36 @@ For more information, go to our [documentation page](https://hafnia.readme.io/do
 or in below markdown pages. 
 
 - [CLI](docs/cli.md) - Detailed guide for the Hafnia command-line interface
-- [Script2Model Documentation](docs/s2m.md) - Detailed guide for script2model
 - [Release lifecycle](docs/release.md) - Details about package release lifecycle.
 
 ## Development
 For development, we are using an uv based virtual python environment.
 
 Install uv
-
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-
+```bash 
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 Install python dependencies including developer (`--dev`) and optional dependencies (`--all-extras`).
 
-    uv sync --all-extras --dev
+```bash
+uv sync --all-extras --dev
+```
 
  Run tests:
+```bash
+uv run pytest tests
+```
 
-    uv run pytest tests
+
+### Local Build
+
+In order to test recipe compatibility with Hafnia cloud use the following command to build and 
+start the job.
+```bash
+hafnia runc build-local <PATH_TO_RECIPE_DIR | PATH_TO_RECIPE_ZIP>
+docker run --rm -v <PATH_TO_DATASET>:/opt/ml/input/data/training \
+                -e HAFNIA_CLOUD=True \
+                localhost/recipe:<TAG> \
+                hafnia runc launch <COMMAND>
+```

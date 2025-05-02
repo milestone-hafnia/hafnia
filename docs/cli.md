@@ -95,4 +95,5 @@ Available environment variables:
 - `MDI_CONFIG_PATH` - Custom path to the configuration file
 - `MDI_API_KEY_SECRET_NAME` - Name of the AWS Secrets Manager secret containing the API key
 - `AWS_REGION` - AWS region for ECR and Secrets Manager operations
-- `RECIPE_DIR` - Directory containing recipe code (used by the `runc launch` command)
+- `RECIPE_DIR` - Directory containing recipe code (used by the `runc launch` command
+- `HAFNIA_CLOUD` – Allow emulate cloud behaviour

@@ -36,7 +36,7 @@ def test_successful_mount(recipe_dir: Path) -> None:
         mp.setenv("PYTHONPATH", "")
         handle_mount(recipe_dir)
 
-        lib_path = recipe_dir / "lib"
+        lib_path = recipe_dir / "src"
         scripts_path = recipe_dir / "scripts"
         assert lib_path.as_posix() in sys.path
         assert scripts_path.as_posix() in sys.path
