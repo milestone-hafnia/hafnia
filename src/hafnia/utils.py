@@ -7,12 +7,28 @@ from typing import Any, Callable, Optional
 from zipfile import ZipFile
 
 import click
+import pathspec
 
 from hafnia.log import logger
 
 PATH_DATA = Path("./.data")
 PATH_DATASET = PATH_DATA / "datasets"
 PATH_RECIPES = PATH_DATA / "recipes"
+FILENAME_HAFNIAIGNORE = ".hafniaignore"
+DEFAULT_IGNORE_SPECIFICATION = [
+    "*.jpg",
+    "*.png",
+    "*.py[cod]",
+    "*_cache/",
+    ".data",
+    ".git",
+    ".venv",
+    ".vscode",
+    "__pycache__",
+    "recipe.zip",
+    "tests",
+    "wandb",
+]
 
 
 def now_as_str() -> str:
@@ -26,32 +42,38 @@ def get_recipe_path(recipe_name: str) -> Path:
     return path_recipe
 
 
-def archive_dir(recipe_path: Path, output_path: Optional[Path] = None) -> Path:
+def archive_dir(
+    recipe_path: Path,
+    output_path: Optional[Path] = None,
+    path_ignore_file: Optional[Path] = None,
+) -> Path:
     recipe_zip_path = output_path or recipe_path / "recipe.zip"
     assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
     recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
-    click.echo(f"Creating zip archive {recipe_path}")
+    path_ignore_file = path_ignore_file or recipe_path / FILENAME_HAFNIAIGNORE
+    if not path_ignore_file.exists():
+        ignore_specification_lines = DEFAULT_IGNORE_SPECIFICATION
+        click.echo(
+            f"No '{FILENAME_HAFNIAIGNORE}' was file found. Files are excluded using the default ignore patterns.\n"
+            f"\tDefault ignore patterns: {DEFAULT_IGNORE_SPECIFICATION}\n"
+            f"Add a '{FILENAME_HAFNIAIGNORE}' file to the root folder to make custom ignore patterns."
+        )
+    else:
+        ignore_specification_lines = Path(path_ignore_file).read_text().splitlines()
+    ignore_specification = pathspec.GitIgnoreSpec.from_lines(ignore_specification_lines)
+
+    include_files = sorted(ignore_specification.match_tree(recipe_path, negate=True))
+    click.echo(f"Creating zip archive of '{recipe_path}'")
     with ZipFile(recipe_zip_path, "w") as zip_ref:
-        for item in recipe_path.rglob("*"):
-            should_skip = (
-                item == recipe_zip_path
-                or item.name.endswith(".zip")
-                or any(part.startswith(".") for part in item.parts)
-                or any(part == "__pycache__" for part in item.parts)
-            )
-
-            if should_skip:
-                if item != recipe_zip_path:
-                    click.echo(f"[-] {item.relative_to(recipe_path)}")
+        for str_filepath in include_files:
+            path_file = recipe_path / str_filepath
+            if not path_file.is_file():
                 continue
 
-            if not item.is_file():
-                continue
-
-            relative_path = item.relative_to(recipe_path)
+            relative_path = path_file.relative_to(recipe_path)
             click.echo(f"[+] {relative_path}")
-            zip_ref.write(item, relative_path)
+            zip_ref.write(path_file, relative_path)
     return recipe_zip_path
 
 

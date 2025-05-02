@@ -145,7 +145,7 @@ and datasets available in the data library.
 By combining logging and dataset loading, we can now construct our model training recipe. 
 
 To demonstrate this, we have provided a recipe project that serves as a template for creating and structuring training recipes
-[recipe-classification](https://github.com/Data-insight-Platform/recipe-classification)
+[recipe-classification](https://github.com/milestone-hafnia/recipe-classification)
 
 The project also contains additional information on how to structure your training recipe, use the `HafniaLogger`, the `load_dataset` function and different approach for launching 
 the training recipe on the Hafnia platform.
