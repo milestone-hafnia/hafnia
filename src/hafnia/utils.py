@@ -1,6 +1,8 @@
 import functools
 import os
 import sys
+import tempfile
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -8,6 +10,7 @@ from zipfile import ZipFile
 
 import click
 import pathspec
+import seedir
 
 from hafnia.log import logger
 
@@ -72,8 +75,10 @@ def archive_dir(
                 continue
 
             relative_path = path_file.relative_to(recipe_path)
-            click.echo(f"[+] {relative_path}")
             zip_ref.write(path_file, relative_path)
+
+    recipe_dir_tree = view_recipe_content(recipe_zip_path)
+    click.echo(recipe_dir_tree)
     return recipe_zip_path
 
 
@@ -97,6 +102,31 @@ def safe(func: Callable) -> Callable:
             sys.exit(1)
 
     return wrapper
+
+
+def size_human_readable(size_bytes: int, suffix="B") -> str:
+    # From: https://stackoverflow.com/a/1094933
+    size_value = float(size_bytes)
+    for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
+        if abs(size_value) < 1024.0:
+            return f"{size_value:3.1f}{unit}{suffix}"
+        size_value /= 1024.0
+    return f"{size_value:.1f}Yi{suffix}"
+
+
+def view_recipe_content(recipe_path: Path, style: str = "emoji", depth_limit: int = 3) -> str:
+    zf = zipfile.ZipFile(recipe_path)
+    with tempfile.TemporaryDirectory() as tempdir:
+        path_extract_folder = Path(tempdir) / "recipe"
+        zf.extractall(path_extract_folder)
+        dir_str = seedir.seedir(
+            path_extract_folder, sort=True, first="folders", style=style, depthlimit=depth_limit, printout=False
+        )
+
+    size_str = size_human_readable(os.path.getsize(recipe_path))
+
+    dir_str = dir_str + f"\n\nRecipe size: {size_str}. Max size 800MiB\n"
+    return dir_str
 
 
 def is_remote_job() -> bool:

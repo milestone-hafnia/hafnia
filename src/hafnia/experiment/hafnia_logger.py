@@ -159,8 +159,12 @@ class HafniaLogger:
     def log_hparams(self, params: Dict, fname: str = "hparams.json"):
         file_path = self._path_artifacts() / fname
         try:
-            with open(file_path, "w") as f:
-                json.dump(params, f, indent=2)
+            if file_path.exists():  # New params are appended to existing params
+                existing_params = json.loads(file_path.read_text())
+            else:
+                existing_params = {}
+            existing_params.update(params)
+            file_path.write_text(json.dumps(existing_params, indent=2))
             logger.info(f"Saved parameters to {file_path}")
         except Exception as e:
             logger.error(f"Failed to save parameters to {file_path}: {e}")

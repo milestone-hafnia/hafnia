@@ -150,6 +150,22 @@ To demonstrate this, we have provided a recipe project that serves as a template
 The project also contains additional information on how to structure your training recipe, use the `HafniaLogger`, the `load_dataset` function and different approach for launching 
 the training recipe on the Hafnia platform.
 
+
+## Create, Build and Run `recipe.zip` locally
+In order to test recipe compatibility with Hafnia cloud use the following command to build and 
+start the job locally.
+
+```bash
+    # Create 'recipe.zip' from source folder '.'
+    hafnia recipe create .
+    
+    # Build the docker image locally from a 'recipe.zip' file
+    hafnia runc build-local recipe.zip
+
+    # Execute the docker image locally with a desired dataset
+    hafnia runc launch-local --dataset mnist  "python scripts/train.py"
+```
+
 ## Detailed Documentation
 For more information, go to our [documentation page](https://hafnia.readme.io/docs/welcome-to-hafnia) 
 or in below markdown pages. 
@@ -174,17 +190,4 @@ uv sync --all-extras --dev
  Run tests:
 ```bash
 uv run pytest tests
-```
-
-
-### Local Build
-
-In order to test recipe compatibility with Hafnia cloud use the following command to build and 
-start the job.
-```bash
-hafnia runc build-local <PATH_TO_RECIPE_DIR | PATH_TO_RECIPE_ZIP>
-docker run --rm -v <PATH_TO_DATASET>:/opt/ml/input/data/training \
-                -e HAFNIA_CLOUD=True \
-                localhost/recipe:<TAG> \
-                hafnia runc launch <COMMAND>
 ```
