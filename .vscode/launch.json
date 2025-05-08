@@ -22,6 +22,32 @@
             ],
         },
         {
+            "name": "cmd: hafnia runc launch-local",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "args": [
+                "runc",
+                "launch-local",
+                "--dataset",
+                "midwest-vehicle-detection-tiny",
+                "train --config-name yolov4-hafnia.yaml"
+            ],
+        },
+        {
+            "name": "cmd: hafnia runc build-local",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "args": [
+                "runc",
+                "build-local",
+                "train",
+                "--dataset",
+                "mnist",
+            ],
+        },
+        {
             "name": "debug (hafnia data download mnist)",
             "type": "debugpy",
             "request": "launch",

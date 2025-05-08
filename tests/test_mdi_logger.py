@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -52,17 +53,23 @@ def test_metric_logging(logger: HafniaLogger) -> None:
 def test_config_logging(logger: HafniaLogger):
     """Test configuration logging."""
     config = {"learning_rate": 0.001, "batch_size": 32, "model_type": "resnet50"}
-
     logger.log_configuration(config)
     config_file = logger._path_artifacts() / "configuration.json"
 
     assert config_file.exists()
-
-    import json
-
-    with open(config_file, "r") as f:
-        loaded_config = json.load(f)
+    loaded_config = json.loads(config_file.read_text())
 
     assert loaded_config["learning_rate"] == 0.001
     assert loaded_config["batch_size"] == 32
     assert loaded_config["model_type"] == "resnet50"
+    assert loaded_config == config
+
+    extra_config = {"dropout": 0.5, "batch_size": 64}
+    logger.log_configuration(extra_config)
+
+    loaded_config_with_extra = json.loads(config_file.read_text())
+
+    expected_config = {**config, **extra_config}
+    assert loaded_config_with_extra["dropout"] == 0.5
+    assert loaded_config_with_extra["batch_size"] == 64
+    assert loaded_config_with_extra == expected_config

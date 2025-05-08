@@ -29,3 +29,21 @@ def create(source: str, output: str) -> None:
     path_source = Path(source)
     path_output_zip = archive_dir(path_source, path_output_zip)
     validate_recipe(path_output_zip)
+
+
+@recipe.command(name="view")
+@click.option("--path", type=str, default="./recipe.zip", show_default=True, help="Path of recipe.zip.")
+@click.option("--depth-limit", type=int, default=3, help="Limit the depth of the tree view.", show_default=True)
+def view(path: str, depth_limit: int) -> None:
+    """View the content of a recipe zip file."""
+    from hafnia.utils import view_recipe_content
+
+    path_recipe = Path(path)
+    if not path_recipe.exists():
+        raise click.ClickException(
+            f"Recipe file '{path_recipe}' does not exist. Please provide a valid path. "
+            f"To create a recipe, use the 'hafnia recipe create' command."
+        )
+
+    tree_str = view_recipe_content(path_recipe, depth_limit=depth_limit)
+    click.echo(tree_str)
