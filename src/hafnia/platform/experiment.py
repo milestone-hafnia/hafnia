@@ -7,7 +7,7 @@ from hafnia.utils import archive_dir, get_recipe_path
 
 
 def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[str]:
-    headers = {"X-APIKEY": api_key}
+    headers = {"Authorization": api_key}
     full_url = f"{endpoint}?name__iexact={dataset_name}"
     dataset_info = fetch(full_url, headers=headers)
     if not dataset_info:
@@ -16,7 +16,7 @@ def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[s
 
 
 def create_recipe(source_dir: Path, endpoint: str, api_key: str, organization_id: str) -> Optional[str]:
-    headers = {"X-APIKEY": api_key, "accept": "application/json"}
+    headers = {"Authorization": api_key, "accept": "application/json"}
     source_dir = source_dir.resolve()  # Ensure the path is absolute to handle '.' paths are given an appropriate name.
     path_recipe = get_recipe_path(recipe_name=source_dir.name)
     zip_path = archive_dir(source_dir, output_path=path_recipe)
@@ -36,7 +36,7 @@ def create_recipe(source_dir: Path, endpoint: str, api_key: str, organization_id
 
 
 def get_exp_environment_id(name: str, endpoint: str, api_key: str) -> Optional[str]:
-    headers = {"X-APIKEY": api_key}
+    headers = {"Authorization": api_key}
     env_info = fetch(endpoint, headers=headers)
     return next((env["id"] for env in env_info if env["name"] == name), None)
 
@@ -51,7 +51,7 @@ def create_experiment(
     api_key: str,
     organization_id: str,
 ) -> Optional[str]:
-    headers = {"X-APIKEY": api_key}
+    headers = {"Authorization": api_key}
     response = post(
         endpoint,
         headers=headers,
