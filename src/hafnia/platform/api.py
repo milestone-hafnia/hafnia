@@ -4,7 +4,7 @@ from hafnia.http import fetch
 
 
 def get_organization_id(endpoint: str, api_key: str) -> str:
-    headers = {"X-APIKEY": api_key}
+    headers = {"Authorization": api_key}
     try:
         org_info = fetch(endpoint, headers=headers)
     except urllib3.exceptions.HTTPError as e:

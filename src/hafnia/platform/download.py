@@ -30,7 +30,7 @@ def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:
         RuntimeError: If the call to fetch the credentials fails for any reason.
     """
     try:
-        creds = fetch(endpoint, headers={"X-APIKEY": api_key, "accept": "application/json"})
+        creds = fetch(endpoint, headers={"Authorization": api_key, "accept": "application/json"})
         logger.debug("Successfully retrieved credentials from DIP endpoint.")
         return creds
     except Exception as e:
