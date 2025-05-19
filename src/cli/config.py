@@ -8,6 +8,16 @@ from pydantic import BaseModel, field_validator
 import cli.consts as consts
 from hafnia.log import logger
 
+PLATFORM_API_MAPPING = {
+    "organizations": "/api/v1/organizations",
+    "recipes": "/api/v1/recipes",
+    "experiments": "/api/v1/experiments",
+    "experiment_environments": "/api/v1/experiment-environments",
+    "experiment_runs": "/api/v1/experiment-runs",
+    "runs": "/api/v1/experiments-runs",
+    "datasets": "/api/v1/datasets",
+}
+
 
 class ConfigSchema(BaseModel):
     organization_id: str = ""
@@ -104,10 +114,10 @@ class Config:
 
     def get_platform_endpoint(self, method: str) -> str:
         """Get specific API endpoint"""
-        api_mapping = get_api_mapping(self.config.platform_url)
-        if method not in api_mapping:
+        if method not in PLATFORM_API_MAPPING:
             raise ValueError(f"'{method}' is not supported.")
-        return api_mapping[method]
+        endpoint = self.config.platform_url + PLATFORM_API_MAPPING[method]
+        return endpoint
 
     def load_config(self) -> ConfigFileSchema:
         """Load configuration from file."""
@@ -138,15 +148,3 @@ class Config:
         self.config_data = ConfigFileSchema(active_profile=None, profiles={})
         if self.config_path.exists():
             self.config_path.unlink()
-
-
-def get_api_mapping(base_url: str) -> Dict:
-    return {
-        "organizations": f"{base_url}/api/v1/organizations",
-        "recipes": f"{base_url}/api/v1/recipes",
-        "experiments": f"{base_url}/api/v1/experiments",
-        "experiment_environments": f"{base_url}/api/v1/experiment-environments",
-        "experiment_runs": f"{base_url}/api/v1/experiment-runs",
-        "runs": f"{base_url}/api/v1/experiments-runs",
-        "datasets": f"{base_url}/api/v1/datasets",
-    }
