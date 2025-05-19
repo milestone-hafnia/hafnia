@@ -37,17 +37,8 @@ def profile_data(organization_id: str, api_key: str) -> Dict:
     """Base profile data that can be reused across different profiles."""
     return {
         "organization_id": organization_id,
-        "platform_url": "https://api.mdi.milestonesys.com",
+        "platform_url": consts.DEFAULT_API_URL,
         "api_key": api_key,
-        "api_mapping": {
-            "organizations": "https://api.mdi.milestonesys.com/api/v1/organizations",
-            "recipes": "https://api.mdi.milestonesys.com/api/v1/recipes",
-            "experiments": "https://api.mdi.milestonesys.com/api/v1/experiments",
-            "experiment_environments": "https://api.mdi.milestonesys.com/api/v1/experiment-environments",
-            "experiment_runs": "https://api.mdi.milestonesys.com/api/v1/experiment-runs",
-            "runs": "https://api.mdi.milestonesys.com/api/v1/experiments-runs",
-            "datasets": "https://api.mdi.milestonesys.com/api/v1/datasets",
-        },
     }
 
 
@@ -67,7 +58,7 @@ def config_with_profiles(test_config_path: Path, profile_data: dict) -> Config:
 
 def test_configure(cli_runner: CliRunner, empty_config: Config, api_key: str, organization_id: str) -> None:
     with patch("hafnia.platform.api.get_organization_id", return_value=organization_id):
-        inputs = "default\ntest-api-key\nhttps://api.mdi.milestonesys.com\n"
+        inputs = f"default\ntest-api-key\n{consts.DEFAULT_API_URL}\n"
         result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
         assert result.exit_code == 0
         assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
@@ -152,7 +143,7 @@ class TestProfile:
 class TestData:
     @pytest.fixture
     def data_endpoint(self) -> str:
-        return "https://api.mdi.milestonesys.com/api/v1/datasets/my-dataset"
+        return f"{consts.DEFAULT_API_URL}/api/v1/datasets/my-dataset"
 
     @pytest.fixture
     def destination(self, tmp_path: Path) -> str:

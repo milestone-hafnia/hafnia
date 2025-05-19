@@ -1,3 +1,6 @@
+DEFAULT_API_URL = "https://api.mdi.milestonesys.com"
+DEFAULT_PROFILE_NAME = "default"
+
 ERROR_CONFIGURE: str = "Please configure the CLI with `hafnia configure`"
 ERROR_PROFILE_NOT_EXIST: str = "No active profile configured. Please configure the CLI with `hafnia configure`"
 ERROR_PROFILE_REMOVE_ACTIVE: str = "Cannot remove active profile. Please switch to another profile first."

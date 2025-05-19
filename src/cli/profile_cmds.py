@@ -3,7 +3,8 @@ from rich.console import Console
 from rich.table import Table
 
 import cli.consts as consts
-from cli.config import Config
+from cli.config import Config, ConfigSchema
+from hafnia.platform.api import get_organization_id
 
 
 @click.group()
@@ -41,6 +42,22 @@ def profile_use(cfg: Config, profile_name: str) -> None:
     except ValueError:
         raise click.ClickException(consts.ERROR_PROFILE_NOT_EXIST)
     click.echo(f"{consts.PROFILE_SWITCHED_SUCCESS} {profile_name}")
+
+
+@profile.command("create")
+@click.argument("api-key", required=True)
+@click.option("--name", help="Specify profile name", default=consts.DEFAULT_PROFILE_NAME, show_default=True)
+@click.option("--api-url", help="API URL", default=consts.DEFAULT_API_URL, show_default=True)
+@click.option(
+    "--activate/--no-activate", help="Activate the created profile after creation", default=True, show_default=True
+)
+@click.pass_obj
+def profile_create(cfg: Config, name: str, api_url: str, api_key: str, activate: bool) -> None:
+    """Create a new profile."""
+    organization_id = get_organization_id(cfg.get_platform_endpoint("organizations"), api_key)
+    cfg_profile = ConfigSchema(organization_id=organization_id, platform_url=api_url, api_key=api_key)
+
+    cfg.add_profile(profile_name=name, profile=cfg_profile, set_active=activate)
 
 
 @profile.command("rm")

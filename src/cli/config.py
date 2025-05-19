@@ -8,12 +8,21 @@ from pydantic import BaseModel, field_validator
 import cli.consts as consts
 from hafnia.log import logger
 
+PLATFORM_API_MAPPING = {
+    "organizations": "/api/v1/organizations",
+    "recipes": "/api/v1/recipes",
+    "experiments": "/api/v1/experiments",
+    "experiment_environments": "/api/v1/experiment-environments",
+    "experiment_runs": "/api/v1/experiment-runs",
+    "runs": "/api/v1/experiments-runs",
+    "datasets": "/api/v1/datasets",
+}
+
 
 class ConfigSchema(BaseModel):
     organization_id: str = ""
     platform_url: str = ""
     api_key: Optional[str] = None
-    api_mapping: Optional[Dict[str, str]] = None
 
     @field_validator("api_key")
     def validate_api_key(cls, value: str) -> str:
@@ -77,7 +86,6 @@ class Config:
     def platform_url(self, value: str) -> None:
         base_url = value.rstrip("/")
         self.config.platform_url = base_url
-        self.config.api_mapping = self.get_api_mapping(base_url)
 
     def __init__(self, config_path: Optional[Path] = None) -> None:
         self.config_path = self.resolve_config_path(config_path)
@@ -96,27 +104,20 @@ class Config:
 
     def add_profile(self, profile_name: str, profile: ConfigSchema, set_active: bool = False) -> None:
         profile_name = profile_name.strip()
+        if profile_name in self.config_data.profiles:
+            logger.warning(f"Profile with name '{profile_name}' already exists, it will be overwritten by the new one.")
+
         self.config_data.profiles[profile_name] = profile
         if set_active:
             self.config_data.active_profile = profile_name
         self.save_config()
 
-    def get_api_mapping(self, base_url: str) -> Dict:
-        return {
-            "organizations": f"{base_url}/api/v1/organizations",
-            "recipes": f"{base_url}/api/v1/recipes",
-            "experiments": f"{base_url}/api/v1/experiments",
-            "experiment_environments": f"{base_url}/api/v1/experiment-environments",
-            "experiment_runs": f"{base_url}/api/v1/experiment-runs",
-            "runs": f"{base_url}/api/v1/experiments-runs",
-            "datasets": f"{base_url}/api/v1/datasets",
-        }
-
     def get_platform_endpoint(self, method: str) -> str:
         """Get specific API endpoint"""
-        if not self.config.api_mapping or method not in self.config.api_mapping:
-            raise ValueError(f"{method} is not supported.")
-        return self.config.api_mapping[method]
+        if method not in PLATFORM_API_MAPPING:
+            raise ValueError(f"'{method}' is not supported.")
+        endpoint = self.config.platform_url + PLATFORM_API_MAPPING[method]
+        return endpoint
 
     def load_config(self) -> ConfigFileSchema:
         """Load configuration from file."""
