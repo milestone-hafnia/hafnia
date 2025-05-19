@@ -10,6 +10,7 @@ from cli.config import Config, ConfigSchema
 def main(ctx: click.Context) -> None:
     """Hafnia CLI."""
     ctx.obj = Config()
+    ctx.max_content_width = 120
 
 
 @main.command("configure")
@@ -19,7 +20,7 @@ def configure(cfg: Config) -> None:
 
     from hafnia.platform.api import get_organization_id
 
-    profile_name = click.prompt("Profile Name", type=str, default="default")
+    profile_name = click.prompt("Profile Name", type=str, default=consts.DEFAULT_PROFILE_NAME)
     profile_name = profile_name.strip()
     try:
         cfg.add_profile(profile_name, ConfigSchema(), set_active=True)
@@ -32,7 +33,7 @@ def configure(cfg: Config) -> None:
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)
         return
-    platform_url = click.prompt("Hafnia Platform URL", type=str, default="https://api.mdi.milestonesys.com")
+    platform_url = click.prompt("Hafnia Platform URL", type=str, default=consts.DEFAULT_API_URL)
     cfg.platform_url = platform_url.strip()
     try:
         cfg.organization_id = get_organization_id(cfg.get_platform_endpoint("organizations"), cfg.api_key)
@@ -57,4 +58,4 @@ main.add_command(experiment_cmds.experiment)
 main.add_command(recipe_cmds.recipe)
 
 if __name__ == "__main__":
-    main()
+    main(max_content_width=120)

@@ -181,10 +181,10 @@ Install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Install python dependencies including developer (`--dev`) and optional dependencies (`--all-extras`).
+Create virtual environment and install python dependencies
 
 ```bash
-uv sync --all-extras --dev
+uv sync
 ```
 
  Run tests:

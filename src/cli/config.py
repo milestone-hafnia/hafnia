@@ -13,7 +13,6 @@ class ConfigSchema(BaseModel):
     organization_id: str = ""
     platform_url: str = ""
     api_key: Optional[str] = None
-    api_mapping: Optional[Dict[str, str]] = None
 
     @field_validator("api_key")
     def validate_api_key(cls, value: str) -> str:
@@ -77,7 +76,6 @@ class Config:
     def platform_url(self, value: str) -> None:
         base_url = value.rstrip("/")
         self.config.platform_url = base_url
-        self.config.api_mapping = self.get_api_mapping(base_url)
 
     def __init__(self, config_path: Optional[Path] = None) -> None:
         self.config_path = self.resolve_config_path(config_path)
@@ -96,27 +94,20 @@ class Config:
 
     def add_profile(self, profile_name: str, profile: ConfigSchema, set_active: bool = False) -> None:
         profile_name = profile_name.strip()
+        if profile_name in self.config_data.profiles:
+            logger.warning(f"Profile with name '{profile_name}' already exists, it will be overwritten by the new one.")
+
         self.config_data.profiles[profile_name] = profile
         if set_active:
             self.config_data.active_profile = profile_name
         self.save_config()
 
-    def get_api_mapping(self, base_url: str) -> Dict:
-        return {
-            "organizations": f"{base_url}/api/v1/organizations",
-            "recipes": f"{base_url}/api/v1/recipes",
-            "experiments": f"{base_url}/api/v1/experiments",
-            "experiment_environments": f"{base_url}/api/v1/experiment-environments",
-            "experiment_runs": f"{base_url}/api/v1/experiment-runs",
-            "runs": f"{base_url}/api/v1/experiments-runs",
-            "datasets": f"{base_url}/api/v1/datasets",
-        }
-
     def get_platform_endpoint(self, method: str) -> str:
         """Get specific API endpoint"""
-        if not self.config.api_mapping or method not in self.config.api_mapping:
-            raise ValueError(f"{method} is not supported.")
-        return self.config.api_mapping[method]
+        api_mapping = get_api_mapping(self.config.platform_url)
+        if method not in api_mapping:
+            raise ValueError(f"'{method}' is not supported.")
+        return api_mapping[method]
 
     def load_config(self) -> ConfigFileSchema:
         """Load configuration from file."""
@@ -147,3 +138,15 @@ class Config:
         self.config_data = ConfigFileSchema(active_profile=None, profiles={})
         if self.config_path.exists():
             self.config_path.unlink()
+
+
+def get_api_mapping(base_url: str) -> Dict:
+    return {
+        "organizations": f"{base_url}/api/v1/organizations",
+        "recipes": f"{base_url}/api/v1/recipes",
+        "experiments": f"{base_url}/api/v1/experiments",
+        "experiment_environments": f"{base_url}/api/v1/experiment-environments",
+        "experiment_runs": f"{base_url}/api/v1/experiment-runs",
+        "runs": f"{base_url}/api/v1/experiments-runs",
+        "datasets": f"{base_url}/api/v1/datasets",
+    }

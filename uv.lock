@@ -575,22 +575,16 @@ dependencies = [
     { name = "tqdm" },
 ]
 
-[package.optional-dependencies]
-torch = [
-    { name = "flatten-dict" },
-    { name = "torch" },
-    { name = "torchvision" },
-]
-
 [package.dev-dependencies]
 dev = [
+    { name = "flatten-dict" },
     { name = "ipykernel" },
     { name = "lark" },
-    { name = "pytest" },
-]
-lint = [
     { name = "pre-commit" },
+    { name = "pytest" },
     { name = "ruff" },
+    { name = "torch" },
+    { name = "torchvision" },
 ]
 
 [package.metadata]
@@ -600,28 +594,25 @@ requires-dist = [
     { name = "datasets", specifier = ">=3.2.0" },
     { name = "emoji", specifier = ">=2.14.1" },
     { name = "flatten-dict", specifier = ">=0.4.2" },
-    { name = "flatten-dict", marker = "extra == 'torch'", specifier = ">=0.4.2" },
     { name = "pathspec", specifier = ">=0.12.1" },
     { name = "pillow", specifier = ">=11.1.0" },
     { name = "pyarrow", specifier = ">=18.1.0" },
     { name = "pydantic", specifier = ">=2.10.4" },
     { name = "rich", specifier = ">=13.9.4" },
     { name = "seedir", specifier = ">=0.5.0" },
-    { name = "torch", marker = "extra == 'torch'", specifier = ">=2.6.0" },
-    { name = "torchvision", marker = "extra == 'torch'", specifier = ">=0.21.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
-provides-extras = ["torch"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "flatten-dict", specifier = ">=0.4.2" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "lark", specifier = ">=1.2.2" },
-    { name = "pytest", specifier = ">=8.3.4" },
-]
-lint = [
     { name = "pre-commit", specifier = ">=4.2.0" },
+    { name = "pytest", specifier = ">=8.3.4" },
     { name = "ruff", specifier = ">=0.9.1" },
+    { name = "torch", specifier = ">=2.6.0" },
+    { name = "torchvision", specifier = ">=0.21.0" },
 ]
 
 [[package]]

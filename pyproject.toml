@@ -25,10 +25,11 @@ dev = [
     "ipykernel>=6.29.5",
     "lark>=1.2.2",
     "pytest>=8.3.4",
-]
-lint = [
     "pre-commit>=4.2.0",
     "ruff>=0.9.1",
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
+    "flatten-dict>=0.4.2",
 ]
 
 [tool.uv]
@@ -36,14 +37,6 @@ default-groups = "all"
 
 [project.scripts]
 hafnia = 'cli.__main__:main'
-
-[project.optional-dependencies]
-# Use "uv sync --extra torch" to install torch dependencies
-torch = [
-    "torch>=2.6.0",
-    "torchvision>=0.21.0",
-    "flatten-dict>=0.4.2",
-]
 
 [build-system]
 requires = ["hatchling"]
