@@ -215,7 +215,7 @@ def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> No
     tag = f"{ecr_repo}/{info['name']}:{info['hash']}"
     info.update({"image_tag": tag})
 
-    remote_digest = check_ecr(ecr_repo, info["hash"])
+    remote_digest = check_ecr(info["name"], info["hash"])
     info["image_exists"] = remote_digest is not None
 
     if info["image_exists"]:
@@ -228,9 +228,7 @@ def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> No
                 try:
                     build_meta = json.load(m)
                     info["local_digest"] = build_meta["containerimage.digest"]
-                    info["buildx_enabled"] = 1
                 except Exception:
                     info["local_digest"] = ""
-                    info["buildx_enabled"] = 0
 
     Path(state_file).write_text(json.dumps(info, indent=2))
