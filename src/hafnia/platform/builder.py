@@ -209,7 +209,7 @@ def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> No
     info["image_tag"] = tag
 
     remote_digest = check_ecr(info["name"], info["hash"])
-    info["image_exists"] = remote_digest is not None
+    info["image_exists"] = False #remote_digest is not None
 
     if info["image_exists"]:
         logger.info("Tag already in ECR – skipping build.")
