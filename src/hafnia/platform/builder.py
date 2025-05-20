@@ -1,5 +1,7 @@
 import json
 import os
+import subprocess
+import tempfile
 from hashlib import sha256
 from pathlib import Path
 from shutil import rmtree
@@ -107,59 +109,6 @@ def get_recipe_content(recipe_url: str, output_dir: Path, state_file: str, api_k
 
     return state
 
-
-def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, secrets: Optional[Dict] = None) -> None:
-    """
-    Build a Docker image using the provided Dockerfile.
-
-    Args:
-        dockerfile (Path): Path to the Dockerfile.
-        docker_context (str): Path to the build context.
-        docker_tag (str): Tag for the Docker image.
-        secrets (dict, optional): Dictionary of secrets to pass to docker build.
-            Each key-value pair will be passed as --secret id=key,env=value
-    """
-
-    import subprocess
-
-    if not Path(dockerfile).exists():
-        raise FileNotFoundError("Dockerfile not found.")
-    build_cmd = [
-        "docker",
-        "build",
-        "--platform=linux/amd64",
-        "-t",
-        docker_tag,
-        "-f",
-        dockerfile,
-    ]
-    build_cmd.append(docker_context)
-    logger.info(f"Building Docker image: {' '.join(build_cmd)}")
-    subprocess.run(build_cmd, check=True)
-
-
-def check_ecr(repository_name: str, image_tag: str) -> bool:
-    aws_region = os.getenv("AWS_REGION", None)
-    if aws_region is None:
-        logger.warning("ECR registry region is not provided can not look up in the registry.")
-        return False
-    session = boto3.Session(region_name=aws_region)
-    ecr_client = session.client("ecr")
-    try:
-        response = ecr_client.describe_images(repositoryName=repository_name, imageIds=[{"imageTag": image_tag}])
-        if response["imageDetails"]:
-            logger.info(f"Image {image_tag} already exists in ECR.")
-            return True
-        else:
-            return False
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ImageNotFoundException":
-            logger.info(f"Image {image_tag} does not exist in ECR.")
-            return False
-        else:
-            raise e
-
-
 def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
     state_file = output_dir / "state.json"
     get_recipe_content(recipe_url, output_dir, state_file.as_posix(), api_key)
@@ -167,18 +116,107 @@ def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
         return json.loads(f.read())
 
 
-def build_image(image_info: Dict, ecr_prefix: str, state_file: str = "state.json") -> None:
-    hafnia_tag = f"{ecr_prefix}/{image_info['name']}:{image_info['hash']}"
-    image_exists = False
-    if "localhost" not in ecr_prefix:
-        image_exists = check_ecr(image_info["name"], image_info["hash"])
+def buildx_available() -> bool:
+    try:
+        result = subprocess.run(
+            ["docker", "buildx", "version"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return "buildx" in result.stdout.lower()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
 
-    image_info.update({"mdi_tag": hafnia_tag, "image_exists": image_exists})
-    state_path = Path(state_file)
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    if image_exists:
-        logger.info(f"Image {hafnia_tag} already exists in ECR. Skipping build.")
+def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta_file: str) -> None:
+    """
+    Build a Docker image using the provided Dockerfile.
+
+    Args:
+        dockerfile (str): Path to the Dockerfile.
+        docker_context (str): Path to the build context.
+        docker_tag (str): Tag for the Docker image.
+        meta_file (Optional[str]): File to store build metadata.
+    """
+
+    if not Path(dockerfile).exists():
+        raise FileNotFoundError("Dockerfile not found.")
+
+    cache_ref = os.getenv("DOCKER_REMOTE_CACHE")
+    if buildx_available():
+        cmd = [
+            "docker", "buildx", "build",
+            "--platform", "linux/amd64",
+            "--build-arg", "BUILDKIT_INLINE_CACHE=1",
+            "--load",
+            f"--metadata-file={meta_file}",
+        ]
+        if cache_ref:
+            cmd.extend([
+                f"--cache-from=type=registry,ref={cache_ref}",
+                f"--cache-to=type=registry,ref={cache_ref},mode=max,oci-mediatypes=true,image-manifest=true",
+            ])
+        cmd.extend(["-t", docker_tag, "-f", dockerfile, docker_context])
+        logger.info("Building Docker image with BuildKit (buildx)…")
     else:
-        build_dockerfile(image_info["dockerfile"], image_info["docker_context"], hafnia_tag)
-    with open(state_path.as_posix(), "w") as f:
-        json.dump(image_info, f, indent=4)
+        cmd = [
+            "docker", "build",
+            "-t", docker_tag,
+            "-f", dockerfile,
+            docker_context,
+        ]
+        logger.warning("Docker buildx is not available. Falling back to classic docker build (no cache, no metadata).")
+
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Docker build failed: {e}")
+        raise RuntimeError(f"Docker build failed: {e}")
+
+
+def check_ecr(repository: str, image_tag: str) -> Optional[str]:
+    """
+    Returns the remote digest for TAG if it exists, otherwise None.
+    """
+    if "localhost" in repository:
+        return None
+
+    region = os.getenv("AWS_REGION")
+    if not region:
+        logger.warning("AWS_REGION environment variable not set. Skipping image exist check.")
+        return None
+
+    repo_name = repository.split("/")[-1]
+    ecr = boto3.client("ecr", region_name=region)
+    try:
+        out = ecr.describe_images(
+            repositoryName=repo_name,
+            imageIds=[{"imageTag": image_tag}],
+        )
+        return out["imageDetails"][0]["imageDigest"]
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ImageNotFoundException":
+            return None
+        raise
+
+def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> None:
+    tag  = f"{ecr_repo}/{info['name']}:{info['hash']}"
+    info.update({"image_tag": tag})
+
+    remote_digest = check_ecr(ecr_repo, info["hash"]) 
+    info["image_exists"] = remote_digest is not None
+
+    if info["image_exists"]:
+        logger.info("Tag already in ECR – skipping build.")
+    else:
+        with tempfile.NamedTemporaryFile() as meta_tmp:
+            meta_file = meta_tmp.name
+            build_dockerfile(info["dockerfile"], info["docker_context"], tag, meta_file)
+            with open(meta_file) as m:
+                try:
+                    build_meta = json.load(m)
+                    info["local_digest"] = build_meta["containerimage.digest"]
+                except Exception as e:
+                    info["local_digest"] = ""
+
+    Path(state_file).write_text(json.dumps(info, indent=2))
