@@ -139,13 +139,7 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
     if not Path(dockerfile).exists():
         raise FileNotFoundError("Dockerfile not found.")
 
-    cache_ref = os.getenv("DOCKER_REMOTE_CACHE")
-
     if buildx_available():
-        cache_command = os.getenv("DOCKER_CACHE_COMMAND", "--load")
-        if cache_command not in ("--push", "--load"):
-            raise ValueError(f"Invalid DOCKER_CACHE_COMMAND value: {cache_command}. Must be '--push' or '--load'.")
-
         cmd = [
             "docker",
             "buildx",
@@ -154,18 +148,17 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
             "linux/amd64",
             "--build-arg",
             "BUILDKIT_INLINE_CACHE=1",
-            cache_command,
+            "--load",
             f"--metadata-file={meta_file}",
+            "-t",
+            docker_tag,
+            "-f",
+            dockerfile,
+            docker_context,
         ]
-        if cache_ref:
-            cmd.extend(
-                [
-                    f"--cache-from=type=registry,ref={cache_ref}",
-                    f"--cache-to=type=registry,ref={cache_ref},mode=max,oci-mediatypes=true,image-manifest=true",
-                ]
-            )
-        cmd.extend(["-t", docker_tag, "-f", dockerfile, docker_context])
-        logger.info("Building Docker image with BuildKit (buildx)…")
+        logger.info(
+            "Building Docker image with BuildKit (buildx), using --load (image will be available for docker push)…"
+        )
     else:
         cmd = [
             "docker",
@@ -213,7 +206,7 @@ def check_ecr(repository: str, image_tag: str) -> Optional[str]:
 
 def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> None:
     tag = f"{ecr_repo}/{info['name']}:{info['hash']}"
-    info.update({"image_tag": tag})
+    info["image_tag"] = tag
 
     remote_digest = check_ecr(info["name"], info["hash"])
     info["image_exists"] = remote_digest is not None
