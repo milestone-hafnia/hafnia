@@ -109,6 +109,7 @@ def get_recipe_content(recipe_url: str, output_dir: Path, state_file: str, api_k
 
     return state
 
+
 def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
     state_file = output_dir / "state.json"
     get_recipe_content(recipe_url, output_dir, state_file.as_posix(), api_key)
@@ -118,15 +119,11 @@ def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
 
 def buildx_available() -> bool:
     try:
-        result = subprocess.run(
-            ["docker", "buildx", "version"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        result = subprocess.run(["docker", "buildx", "version"], capture_output=True, text=True, check=True)
         return "buildx" in result.stdout.lower()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
+
 
 def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta_file: str) -> None:
     """
@@ -143,31 +140,40 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
         raise FileNotFoundError("Dockerfile not found.")
 
     cache_ref = os.getenv("DOCKER_REMOTE_CACHE")
-    
+
     if buildx_available():
         cache_command = os.getenv("DOCKER_CACHE_COMMAND", "--load")
         if cache_command not in ("--push", "--load"):
             raise ValueError(f"Invalid DOCKER_CACHE_COMMAND value: {cache_command}. Must be '--push' or '--load'.")
-            
+
         cmd = [
-            "docker", "buildx", "build",
-            "--platform", "linux/amd64",
-            "--build-arg", "BUILDKIT_INLINE_CACHE=1",
+            "docker",
+            "buildx",
+            "build",
+            "--platform",
+            "linux/amd64",
+            "--build-arg",
+            "BUILDKIT_INLINE_CACHE=1",
             cache_command,
             f"--metadata-file={meta_file}",
         ]
         if cache_ref:
-            cmd.extend([
-                f"--cache-from=type=registry,ref={cache_ref}",
-                f"--cache-to=type=registry,ref={cache_ref},mode=max,oci-mediatypes=true,image-manifest=true",
-            ])
+            cmd.extend(
+                [
+                    f"--cache-from=type=registry,ref={cache_ref}",
+                    f"--cache-to=type=registry,ref={cache_ref},mode=max,oci-mediatypes=true,image-manifest=true",
+                ]
+            )
         cmd.extend(["-t", docker_tag, "-f", dockerfile, docker_context])
         logger.info("Building Docker image with BuildKit (buildx)…")
     else:
         cmd = [
-            "docker", "build",
-            "-t", docker_tag,
-            "-f", dockerfile,
+            "docker",
+            "build",
+            "-t",
+            docker_tag,
+            "-f",
+            dockerfile,
             docker_context,
         ]
         logger.warning("Docker buildx is not available. Falling back to classic docker build (no cache, no metadata).")
@@ -204,11 +210,12 @@ def check_ecr(repository: str, image_tag: str) -> Optional[str]:
             return None
         raise
 
+
 def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> None:
-    tag  = f"{ecr_repo}/{info['name']}:{info['hash']}"
+    tag = f"{ecr_repo}/{info['name']}:{info['hash']}"
     info.update({"image_tag": tag})
 
-    remote_digest = check_ecr(ecr_repo, info["hash"]) 
+    remote_digest = check_ecr(ecr_repo, info["hash"])
     info["image_exists"] = remote_digest is not None
 
     if info["image_exists"]:
@@ -222,7 +229,7 @@ def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> No
                     build_meta = json.load(m)
                     info["local_digest"] = build_meta["containerimage.digest"]
                     info["buildx_enabled"] = 1
-                except Exception as e:
+                except Exception:
                     info["local_digest"] = ""
                     info["buildx_enabled"] = 0
 
