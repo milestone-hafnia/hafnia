@@ -143,12 +143,17 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
         raise FileNotFoundError("Dockerfile not found.")
 
     cache_ref = os.getenv("DOCKER_REMOTE_CACHE")
+    
     if buildx_available():
+        cache_command = os.getenv("DOCKER_CACHE_COMMAND", "--load")
+        if cache_command not in ("--push", "--load"):
+            raise ValueError(f"Invalid DOCKER_CACHE_COMMAND value: {cache_command}. Must be '--push' or '--load'.")
+            
         cmd = [
             "docker", "buildx", "build",
             "--platform", "linux/amd64",
             "--build-arg", "BUILDKIT_INLINE_CACHE=1",
-            "--load",
+            cache_command,
             f"--metadata-file={meta_file}",
         ]
         if cache_ref:
@@ -183,7 +188,7 @@ def check_ecr(repository: str, image_tag: str) -> Optional[str]:
 
     region = os.getenv("AWS_REGION")
     if not region:
-        logger.warning("AWS_REGION environment variable not set. Skipping image exist check.")
+        logger.warning("AWS_REGION environment variable not set. Skip image exist check.")
         return None
 
     repo_name = repository.split("/")[-1]
@@ -216,7 +221,9 @@ def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> No
                 try:
                     build_meta = json.load(m)
                     info["local_digest"] = build_meta["containerimage.digest"]
+                    info["buildx_enabled"] = 1
                 except Exception as e:
                     info["local_digest"] = ""
+                    info["buildx_enabled"] = 0
 
     Path(state_file).write_text(json.dumps(info, indent=2))
