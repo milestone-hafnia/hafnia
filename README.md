@@ -66,14 +66,114 @@ and explore the dataset sample with a python script:
 from hafnia.data import load_dataset
 
 dataset_splits = load_dataset("mnist")
-print(dataset_splits)
-print(dataset_splits["train"])
 ```
+
+### Dataset Format
 The returned sample dataset is a [hugging face dataset](https://huggingface.co/docs/datasets/index) 
 and contains train, validation and test splits. 
 
+```python
+print(dataset_splits)
+
+# Output:
+>>> DatasetDict({
+    train: Dataset({
+        features: ['image_id', 'image', 'height', 'width', 'objects', 'Weather', 'Surface Conditions'],
+        num_rows: 172
+    })
+    validation: Dataset({
+        features: ['image_id', 'image', 'height', 'width', 'objects', 'Weather', 'Surface Conditions'],
+        num_rows: 21
+    })
+    test: Dataset({
+        features: ['image_id', 'image', 'height', 'width', 'objects', 'Weather', 'Surface Conditions'],
+        num_rows: 21
+    })
+})
+
+```
+
+A Hugging Face dataset is a dictionary with splits, where each split is a `Dataset` object.
+Each `Dataset` is structured as a table with a set of columns (also called features) and a row for each sample.
+
+The features of the dataset can be viewed with the `features` attribute of the dataset split.
+```python
+# View features of the train split
+pprint.pprint(dataset["train"].features)
+{'Surface Conditions': ClassLabel(names=['Dry', 'Wet'], id=None),
+ 'Weather': ClassLabel(names=['Clear', 'Foggy'], id=None),
+ 'height': Value(dtype='int64', id=None),
+ 'image': Image(mode=None, decode=True, id=None),
+ 'image_id': Value(dtype='int64', id=None),
+ 'objects': Sequence(feature={'bbox': Sequence(feature=Value(dtype='int64',
+                                                             id=None),
+                                               length=-1,
+                                               id=None),
+                              'class_idx': ClassLabel(names=['Vehicle.Bicycle',
+                                                             'Vehicle.Motorcycle',
+                                                             'Vehicle.Car',
+                                                             'Vehicle.Van',
+                                                             'Vehicle.RV',
+                                                             'Vehicle.Single_Truck',
+                                                             'Vehicle.Combo_Truck',
+                                                             'Vehicle.Pickup_Truck',
+                                                             'Vehicle.Trailer',
+                                                             'Vehicle.Emergency_Vehicle',
+                                                             'Vehicle.Bus',
+                                                             'Vehicle.Heavy_Duty_Vehicle'],
+                                                      id=None),
+                              'class_name': Value(dtype='string', id=None),
+                              'id': Value(dtype='string', id=None)},
+                     length=-1,
+                     id=None),
+ 'width': Value(dtype='int64', id=None)}
+```
+In above representation, the `features` attribute shows the columns of the dataset split.
+
+View the first sample in the training set:
+```python
+# Print sample from the training set
+pprint.pprint(dataset["train"][0])
+
+{'image': <PIL.PngImagePlugin.PngImageFile image mode=RGB size=1920x1080 at 0x79D6292C5ED0>,
+ 'image_id': 4920,
+ 'height': 1080,
+ 'Weather': 0,
+ 'Surface Conditions': 0,
+ 'objects': {'bbox': [[441, 180, 121, 126],
+                      [549, 151, 131, 103],
+                      [1845, 722, 68, 130],
+                      [1810, 571, 110, 149]],
+             'class_idx': [7, 7, 2, 2],
+             'class_name': ['Vehicle.Pickup_Truck',
+                            'Vehicle.Pickup_Truck',
+                            'Vehicle.Car',
+                            'Vehicle.Car'],
+             'id': ['HW6WiLAJ', 'T/ccFpRi', 'CS0O8B6W', 'DKrJGzjp']},
+ 'width': 1920}
+
+```
+
+For hafnia based datasets, we want to standardized how a dataset and dataset tasks are represented.
+We have defined a set of features that are common across all datasets in the Hafnia data library.
+
+- `image`: The image itself, stored as a PIL image
+- `height`: The height of the image in pixels
+- `width`: The width of the image in pixels
+- `[IMAGE_CLASSIFICATION_TASK]`: [Optional] Image classifications tasks is a top-level `ClassLabel` feature. The feature can be used for mapping image class indices to class names. In above example we have two classification tasks:
+  - `Weather`: Classifies the weather conditions in the image, with possible values `Clear` and `Foggy`
+  - `Surface Conditions`: Classifies the surface conditions in the image, with possible values `Dry` and `Wet`
+- `objects`: A dictionary containing information about objects in the image, including:
+  - `bbox`: Bounding boxes for each object, represented as a list of lists with coordinates `[xmin, ymin, bbox_width, bbox_height]`. It is the top-left corner `(xmin, ymin)` of the bounding box and its width and height `(bbox_width, bbox_height)` in pixels.
+  - `class_idx`: Class indices for each detected object. This is a
+  `ClassLabel` feature that maps to the `class_name` feature.
+  - `class_name`: Class names for each detected object
+  - `id`: Unique identifiers for each detected object
+
+### Dataset Locally vs. Training-aaS
 An important feature of `load_dataset` is that it will return the full dataset 
-when loaded on the Hafnia platform. 
+when loaded with Training-aaS on the Hafnia platform. 
+
 This enables seamlessly switching between running/validating a training script 
 locally (on the sample dataset) and running full model trainings with Training-aaS (on the full dataset). 
 without changing code or configurations for the training script.
@@ -135,11 +235,57 @@ with a dataloader that performs data augmentations and batching of the dataset a
 To support this, we have provided a torch dataloader example script
 [example_torchvision_dataloader.py](./examples/example_torchvision_dataloader.py). 
 
-The script demonstrates how to make a dataloader with data augmentation (`torchvision.transforms.v2`)
-and a helper function for visualizing image and labels. 
+The script demonstrates how to load a dataset sample, apply data augmentations using
+`torchvision.transforms.v2`, and visualize the dataset with `torch_helpers.draw_image_and_targets`.
+
+Note also how `torch_helpers.TorchVisionCollateFn` is used in combination with the `DataLoader` from 
+`torch.utils.data` to handle the dataset's collate function.
 
 The dataloader and visualization function supports computer vision tasks 
 and datasets available in the data library. 
+
+```python
+# Load Hugging Face dataset
+dataset_splits = load_dataset("midwest-vehicle-detection")
+
+# Define transforms
+train_transforms = v2.Compose(
+    [
+        v2.RandomResizedCrop(size=(224, 224), antialias=True),
+        v2.RandomHorizontalFlip(p=0.5),
+        v2.ToDtype(torch.float32, scale=True),
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
+test_transforms = v2.Compose(
+    [
+        v2.Resize(size=(224, 224), antialias=True),
+        v2.ToDtype(torch.float32, scale=True),
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
+
+keep_metadata = True
+train_dataset = torch_helpers.TorchvisionDataset(
+    dataset_splits["train"], transforms=train_transforms, keep_metadata=keep_metadata
+)
+test_dataset = torch_helpers.TorchvisionDataset(
+    dataset_splits["test"], transforms=test_transforms, keep_metadata=keep_metadata
+)
+
+# Visualize sample
+image, targets = train_dataset[0]
+visualize_image = torch_helpers.draw_image_and_targets(image=image, targets=targets)
+pil_image = torchvision.transforms.functional.to_pil_image(visualize_image)
+pil_image.save("visualized_labels.png")
+
+# Create DataLoaders - using TorchVisionCollateFn
+collate_fn = torch_helpers.TorchVisionCollateFn(
+    skip_stacking=["objects.bbox", "objects.class_idx"]
+)
+train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
+```
+
 
 ## Example: Training-aaS
 By combining logging and dataset loading, we can now construct our model training recipe. 
