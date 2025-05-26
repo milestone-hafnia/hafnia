@@ -96,7 +96,7 @@ print(dataset_splits)
 A Hugging Face dataset is a dictionary with splits, where each split is a `Dataset` object.
 Each `Dataset` is structured as a table with a set of columns (also called features) and a row for each sample.
 
-The features of the dataset can be viewed with the `features` attribute of the dataset split.
+The features of the dataset can be viewed with the `features` attribute.
 ```python
 # View features of the train split
 pprint.pprint(dataset["train"].features)
@@ -128,7 +128,6 @@ pprint.pprint(dataset["train"].features)
                      id=None),
  'width': Value(dtype='int64', id=None)}
 ```
-In above representation, the `features` attribute shows the columns of the dataset split.
 
 View the first sample in the training set:
 ```python
@@ -160,11 +159,15 @@ We have defined a set of features that are common across all datasets in the Haf
 - `image`: The image itself, stored as a PIL image
 - `height`: The height of the image in pixels
 - `width`: The width of the image in pixels
-- `[IMAGE_CLASSIFICATION_TASK]`: [Optional] Image classifications tasks is a top-level `ClassLabel` feature. The feature can be used for mapping image class indices to class names. In above example we have two classification tasks:
+- `[IMAGE_CLASSIFICATION_TASK]`: [Optional] Image classification tasks are top-level `ClassLabel` feature. 
+  `ClassLabel` is a Hugging Face feature that maps class indices to class names. 
+  In above example we have two classification tasks:
   - `Weather`: Classifies the weather conditions in the image, with possible values `Clear` and `Foggy`
   - `Surface Conditions`: Classifies the surface conditions in the image, with possible values `Dry` and `Wet`
 - `objects`: A dictionary containing information about objects in the image, including:
-  - `bbox`: Bounding boxes for each object, represented as a list of lists with coordinates `[xmin, ymin, bbox_width, bbox_height]`. It is the top-left corner `(xmin, ymin)` of the bounding box and its width and height `(bbox_width, bbox_height)` in pixels.
+  - `bbox`: Bounding boxes for each object, represented with a list of bounding box coordinates 
+  `[xmin, ymin, bbox_width, bbox_height]`. Each bounding box is defined with a top-left corner coordinate 
+  `(xmin, ymin)` and bounding box width and height `(bbox_width, bbox_height)` in pixels.
   - `class_idx`: Class indices for each detected object. This is a
   `ClassLabel` feature that maps to the `class_name` feature.
   - `class_name`: Class names for each detected object
