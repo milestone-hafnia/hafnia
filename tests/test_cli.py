@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Dict
-from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner

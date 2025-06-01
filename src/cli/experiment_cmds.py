@@ -51,13 +51,7 @@ def create(cfg: Config, name: str, source_dir: Path, exec_cmd: str, dataset_name
 
     try:
         experiment_id = create_experiment(
-            name,
-            dataset_id,
-            recipe_id,
-            exec_cmd,
-            env_id,
-            cfg.get_platform_endpoint("experiments"),
-            cfg.api_key
+            name, dataset_id, recipe_id, exec_cmd, env_id, cfg.get_platform_endpoint("experiments"), cfg.api_key
         )
     except Exception:
         raise click.ClickException(f"Failed to create experiment '{name}'")

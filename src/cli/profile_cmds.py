@@ -5,6 +5,7 @@ from rich.table import Table
 import cli.consts as consts
 from cli.config import Config, ConfigSchema
 
+
 @click.group()
 def profile():
     """Manage profile."""

@@ -19,6 +19,7 @@ def valid_recipe(tmp_path: Path) -> Path:
         zipf.writestr("Dockerfile", "FROM python:3.9")
     return zip_path
 
+
 @pytest.fixture
 def project_with_files_default(tmp_path: Path) -> tuple[Path, list[str], list[str]]:
     zip_files = [
@@ -165,10 +166,8 @@ def test_successful_recipe_extraction(valid_recipe: Path, tmp_path: Path) -> Non
 def test_ecr_image_exist() -> None:
     """Test when image exists in ECR."""
     mock_ecr_client = MagicMock()
-    mock_ecr_client.describe_images.return_value = {
-        "imageDetails": [{"imageTags": ["v1.0"], "imageDigest": "1234a"}]
-    }
-    
+    mock_ecr_client.describe_images.return_value = {"imageDetails": [{"imageTags": ["v1.0"], "imageDigest": "1234a"}]}
+
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("AWS_REGION", "us-west-1")
         mp.setattr("boto3.client", lambda service, **kwargs: mock_ecr_client)
