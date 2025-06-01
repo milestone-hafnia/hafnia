@@ -9,7 +9,6 @@ import cli.consts as consts
 from hafnia.log import logger
 
 PLATFORM_API_MAPPING = {
-    "organizations": "/api/v1/organizations",
     "recipes": "/api/v1/recipes",
     "experiments": "/api/v1/experiments",
     "experiment_environments": "/api/v1/experiment-environments",
@@ -20,7 +19,6 @@ PLATFORM_API_MAPPING = {
 
 
 class ConfigSchema(BaseModel):
-    organization_id: str = ""
     platform_url: str = ""
     api_key: Optional[str] = None
 
@@ -69,14 +67,6 @@ class Config:
     @api_key.setter
     def api_key(self, value: str) -> None:
         self.config.api_key = value
-
-    @property
-    def organization_id(self) -> str:
-        return self.config.organization_id
-
-    @organization_id.setter
-    def organization_id(self, value: str) -> None:
-        self.config.organization_id = value
 
     @property
     def platform_url(self) -> str:

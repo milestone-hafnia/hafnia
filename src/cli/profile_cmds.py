@@ -4,8 +4,6 @@ from rich.table import Table
 
 import cli.consts as consts
 from cli.config import Config, ConfigSchema
-from hafnia.platform.api import get_organization_id
-
 
 @click.group()
 def profile():
@@ -54,8 +52,7 @@ def profile_use(cfg: Config, profile_name: str) -> None:
 @click.pass_obj
 def profile_create(cfg: Config, name: str, api_url: str, api_key: str, activate: bool) -> None:
     """Create a new profile."""
-    organization_id = get_organization_id(cfg.get_platform_endpoint("organizations"), api_key)
-    cfg_profile = ConfigSchema(organization_id=organization_id, platform_url=api_url, api_key=api_key)
+    cfg_profile = ConfigSchema(platform_url=api_url, api_key=api_key)
 
     cfg.add_profile(profile_name=name, profile=cfg_profile, set_active=activate)
 
@@ -97,7 +94,6 @@ def profile_show(cfg: Config) -> None:
     table.add_column("Value")
 
     table.add_row("API Key", masked_key)
-    table.add_row("Organization", cfg.organization_id)
     table.add_row("Platform URL", cfg.platform_url)
     table.add_row("Config File", cfg.config_path.as_posix())
     console.print(table)

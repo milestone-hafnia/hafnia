@@ -15,7 +15,7 @@ def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[s
     return dataset_info[0]["id"]
 
 
-def create_recipe(source_dir: Path, endpoint: str, api_key: str, organization_id: str) -> Optional[str]:
+def create_recipe(source_dir: Path, endpoint: str, api_key: str) -> Optional[str]:
     headers = {"Authorization": api_key, "accept": "application/json"}
     source_dir = source_dir.resolve()  # Ensure the path is absolute to handle '.' paths are given an appropriate name.
     path_recipe = get_recipe_path(recipe_name=source_dir.name)
@@ -28,7 +28,6 @@ def create_recipe(source_dir: Path, endpoint: str, api_key: str, organization_id
         fields = {
             "name": path_recipe.name,
             "description": "Recipe created by Hafnia CLI",
-            "organization": organization_id,
             "file": (zip_path.name, zip_file.read()),
         }
         response = post(endpoint, headers=headers, data=fields, multipart=True)
@@ -49,14 +48,12 @@ def create_experiment(
     environment_id: str,
     endpoint: str,
     api_key: str,
-    organization_id: str,
 ) -> Optional[str]:
     headers = {"Authorization": api_key}
     response = post(
         endpoint,
         headers=headers,
         data={
-            "organization": organization_id,
             "name": exp_name,
             "recipe": recipe_id,
             "dataset": dataset_id,

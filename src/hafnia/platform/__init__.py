@@ -1,4 +1,3 @@
-from hafnia.platform.api import get_organization_id
 from hafnia.platform.download import (
     download_resource,
     download_single_object,
@@ -12,7 +11,6 @@ from hafnia.platform.experiment import (
 )
 
 __all__ = [
-    "get_organization_id",
     "get_dataset_id",
     "create_recipe",
     "get_exp_environment_id",
