@@ -40,7 +40,7 @@ def create(cfg: Config, name: str, source_dir: Path, exec_cmd: str, dataset_name
         raise click.ClickException(f"Error retrieving dataset '{dataset_name}'.")
 
     try:
-        recipe_id = create_recipe(source_dir, cfg.get_platform_endpoint("recipes"), cfg.api_key, cfg.organization_id)
+        recipe_id = create_recipe(source_dir, cfg.get_platform_endpoint("recipes"), cfg.api_key)
     except Exception:
         raise click.ClickException(f"Failed to create recipe from '{source_dir}'")
 
@@ -51,14 +51,7 @@ def create(cfg: Config, name: str, source_dir: Path, exec_cmd: str, dataset_name
 
     try:
         experiment_id = create_experiment(
-            name,
-            dataset_id,
-            recipe_id,
-            exec_cmd,
-            env_id,
-            cfg.get_platform_endpoint("experiments"),
-            cfg.api_key,
-            cfg.organization_id,
+            name, dataset_id, recipe_id, exec_cmd, env_id, cfg.get_platform_endpoint("experiments"), cfg.api_key
         )
     except Exception:
         raise click.ClickException(f"Failed to create experiment '{name}'")

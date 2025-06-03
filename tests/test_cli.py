@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Dict
-from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
@@ -17,11 +16,6 @@ def cli_runner(tmp_path: Path) -> CliRunner:
 
 
 @pytest.fixture
-def organization_id() -> str:
-    return "org-123"
-
-
-@pytest.fixture
 def api_key() -> str:
     return "test-api-key-12345678"
 
@@ -33,13 +27,9 @@ def test_config_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture()
-def profile_data(organization_id: str, api_key: str) -> Dict:
+def profile_data(api_key: str) -> Dict:
     """Base profile data that can be reused across different profiles."""
-    return {
-        "organization_id": organization_id,
-        "platform_url": consts.DEFAULT_API_URL,
-        "api_key": api_key,
-    }
+    return {"platform_url": consts.DEFAULT_API_URL, "api_key": api_key}
 
 
 @pytest.fixture
@@ -56,12 +46,11 @@ def config_with_profiles(test_config_path: Path, profile_data: dict) -> Config:
     return config
 
 
-def test_configure(cli_runner: CliRunner, empty_config: Config, api_key: str, organization_id: str) -> None:
-    with patch("hafnia.platform.api.get_organization_id", return_value=organization_id):
-        inputs = f"default\ntest-api-key\n{consts.DEFAULT_API_URL}\n"
-        result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
-        assert result.exit_code == 0
-        assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
+def test_configure(cli_runner: CliRunner, empty_config: Config, api_key: str) -> None:
+    inputs = f"default\ntest-api-key\n{consts.DEFAULT_API_URL}\n"
+    result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
+    assert result.exit_code == 0
+    assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
 
 
 class TestProfile:

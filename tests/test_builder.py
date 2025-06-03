@@ -20,19 +20,11 @@ def valid_recipe(tmp_path: Path) -> Path:
     return zip_path
 
 
-@pytest.fixture(scope="function")
-def mock_boto_session() -> MagicMock:
-    mock_client = MagicMock()
-    mock_session = MagicMock()
-    mock_session.client.return_value = mock_client
-    return mock_client
-
-
 @pytest.fixture
 def project_with_files_default(tmp_path: Path) -> tuple[Path, list[str], list[str]]:
     zip_files = [
-        "src/scripts/train.py",
-        "src/scripts/README.md",
+        "scripts/train.py",
+        "scripts/README.md",
         "Dockerfile",
         "src/lib/example.py",
     ]
@@ -40,8 +32,8 @@ def project_with_files_default(tmp_path: Path) -> tuple[Path, list[str], list[st
     ignore_files = [
         ".venv/bin/activate",
         ".venv/lib/jedi/__init__.py",
-        "src/lib/__pycache__/some_file.py",
-        "src/lib/__pycache__/example.cpython-310.pyc",
+        "__pycache__/some_file.py",
+        "__pycache__/example.cpython-310.pyc",
     ]
     files = [*zip_files, *ignore_files]
     path_source_code = tmp_path / "source_code"
@@ -171,28 +163,30 @@ def test_successful_recipe_extraction(valid_recipe: Path, tmp_path: Path) -> Non
         mock_clean_up.assert_called_once()
 
 
-def test_ecr_image_exist(mock_boto_session: MagicMock) -> None:
+def test_ecr_image_exist() -> None:
     """Test when image exists in ECR."""
+    mock_ecr_client = MagicMock()
+    mock_ecr_client.describe_images.return_value = {"imageDetails": [{"imageTags": ["v1.0"], "imageDigest": "1234a"}]}
 
-    mock_boto_session.client.return_value.describe_images.return_value = {"imageDetails": [{"imageTags": ["v1.0"]}]}
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("AWS_REGION", "us-west-2")
-        mp.setattr("boto3.Session", lambda **kwargs: mock_boto_session)
+        mp.setenv("AWS_REGION", "us-west-1")
+        mp.setattr("boto3.client", lambda service, **kwargs: mock_ecr_client)
         result = check_ecr("my-repo", "v1.0")
-        assert result is True
+        assert result == "1234a"
 
 
-def test_ecr_image_not_found(mock_boto_session: MagicMock) -> None:
+def test_ecr_image_not_found() -> None:
     """Test when ECR client raises ImageNotFoundException."""
 
     from botocore.exceptions import ClientError
 
-    mock_boto_session.client.return_value.describe_images.side_effect = ClientError(
+    mock_ecr_client = MagicMock()
+    mock_ecr_client.describe_images.side_effect = ClientError(
         {"Error": {"Code": "ImageNotFoundException"}}, "describe_images"
     )
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("AWS_REGION", "us-west-2")
-        mp.setattr("boto3.Session", lambda **kwargs: mock_boto_session)
+        mp.setattr("boto3.client", lambda service, **kwargs: mock_ecr_client)
         result = check_ecr("my-repo", "v1.0")
-        assert result is False
+        assert result is None

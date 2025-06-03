@@ -18,8 +18,6 @@ def main(ctx: click.Context) -> None:
 def configure(cfg: Config) -> None:
     """Configure Hafnia CLI settings."""
 
-    from hafnia.platform.api import get_organization_id
-
     profile_name = click.prompt("Profile Name", type=str, default=consts.DEFAULT_PROFILE_NAME)
     profile_name = profile_name.strip()
     try:
@@ -35,10 +33,6 @@ def configure(cfg: Config) -> None:
         return
     platform_url = click.prompt("Hafnia Platform URL", type=str, default=consts.DEFAULT_API_URL)
     cfg.platform_url = platform_url.strip()
-    try:
-        cfg.organization_id = get_organization_id(cfg.get_platform_endpoint("organizations"), cfg.api_key)
-    except Exception:
-        raise click.ClickException(consts.ERROR_ORG_ID)
     cfg.save_config()
     profile_cmds.profile_show(cfg)
 
