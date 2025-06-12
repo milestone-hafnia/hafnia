@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import Optional
 
+from rich import print as rprint
+
 from hafnia.http import fetch, post
-from hafnia.platform.builder import validate_recipe
-from hafnia.utils import archive_dir, get_recipe_path
+from hafnia.utils import archive_dir, get_recipe_path, timed_call
 
 
 def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[str]:
@@ -16,14 +17,12 @@ def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> Optional[s
 
 
 def create_recipe(source_dir: Path, endpoint: str, api_key: str) -> Optional[str]:
-    headers = {"Authorization": api_key, "accept": "application/json"}
     source_dir = source_dir.resolve()  # Ensure the path is absolute to handle '.' paths are given an appropriate name.
     path_recipe = get_recipe_path(recipe_name=source_dir.name)
-    zip_path = archive_dir(source_dir, output_path=path_recipe)
+    zip_path = timed_call("Wrapping recipe", archive_dir, source_dir, output_path=path_recipe)
+    rprint(f"[bold green][INFO][/bold green] Recipe created and stored in '{path_recipe}'")
 
-    print(f"Recipe created and stored in '{path_recipe}'")
-
-    validate_recipe(zip_path)
+    headers = {"Authorization": api_key, "accept": "application/json"}
     with open(zip_path, "rb") as zip_file:
         fields = {
             "name": path_recipe.name,

@@ -1,18 +1,14 @@
-import functools
 import os
-import sys
-import tempfile
+import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Optional
 from zipfile import ZipFile
 
-import click
 import pathspec
 import seedir
-
-from hafnia.log import logger
+from rich import print as rprint
 
 PATH_DATA = Path("./.data")
 PATH_DATASET = PATH_DATA / "datasets"
@@ -57,7 +53,7 @@ def archive_dir(
     path_ignore_file = path_ignore_file or recipe_path / FILENAME_HAFNIAIGNORE
     if not path_ignore_file.exists():
         ignore_specification_lines = DEFAULT_IGNORE_SPECIFICATION
-        click.echo(
+        rprint(
             f"No '{FILENAME_HAFNIAIGNORE}' was file found. Files are excluded using the default ignore patterns.\n"
             f"\tDefault ignore patterns: {DEFAULT_IGNORE_SPECIFICATION}\n"
             f"Add a '{FILENAME_HAFNIAIGNORE}' file to the root folder to make custom ignore patterns."
@@ -66,70 +62,60 @@ def archive_dir(
         ignore_specification_lines = Path(path_ignore_file).read_text().splitlines()
     ignore_specification = pathspec.GitIgnoreSpec.from_lines(ignore_specification_lines)
 
-    include_files = sorted(ignore_specification.match_tree(recipe_path, negate=True))
-    click.echo(f"Creating zip archive of '{recipe_path}'")
-    with ZipFile(recipe_zip_path, "w") as zip_ref:
+    include_files = ignore_specification.match_tree(recipe_path, negate=True)
+    rprint(f"[bold green][INFO][/bold green] Creating zip archive of '{recipe_path}'")
+
+    with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
         for str_filepath in include_files:
-            path_file = recipe_path / str_filepath
-            if not path_file.is_file():
-                continue
+            full_path = recipe_path / str_filepath
+            zip_ref.write(full_path, str_filepath)
+    show_recipe_content(recipe_zip_path)
 
-            relative_path = path_file.relative_to(recipe_path)
-            zip_ref.write(path_file, relative_path)
-
-    recipe_dir_tree = view_recipe_content(recipe_zip_path)
-    click.echo(recipe_dir_tree)
     return recipe_zip_path
 
 
-def safe(func: Callable) -> Callable:
-    """
-    Decorator that catches exceptions, logs them, and exits with code 1.
-
-    Args:
-        func: The function to decorate
-
-    Returns:
-        Wrapped function that handles exceptions
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            logger.error(f"Error in {func.__name__}: {str(e)}")
-            sys.exit(1)
-
-    return wrapper
+def timed_call(label: str, func, *args, **kwargs):
+    tik = time.perf_counter()
+    try:
+        return func(*args, **kwargs)
+    except Exception as e:
+        rprint(f"[bold red][ERROR][/bold red] {label} failed: {e}")
+        exit(1)
+    finally:
+        if os.getenv("HAFNIA_DEBUG", "false") in ("true", "1"):
+            elapsed = time.perf_counter() - tik
+            rprint(f"[bold green][DEBUG][/bold green] {label} took {elapsed:.2f} seconds.")
 
 
 def size_human_readable(size_bytes: int, suffix="B") -> str:
-    # From: https://stackoverflow.com/a/1094933
     size_value = float(size_bytes)
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(size_value) < 1024.0:
-            return f"{size_value:3.1f}{unit}{suffix}"
+            return f"{size_value:3.1f} {unit}{suffix}"
         size_value /= 1024.0
     return f"{size_value:.1f}Yi{suffix}"
 
 
-def view_recipe_content(recipe_path: Path, style: str = "emoji", depth_limit: int = 3) -> str:
-    zf = zipfile.ZipFile(recipe_path)
-    with tempfile.TemporaryDirectory() as tempdir:
-        path_extract_folder = Path(tempdir) / "recipe"
-        zf.extractall(path_extract_folder)
-        dir_str = seedir.seedir(
-            path_extract_folder, sort=True, first="folders", style=style, depthlimit=depth_limit, printout=False
-        )
+def show_recipe_content(recipe_path: Path, style: str = "emoji", depth_limit: int = 3) -> None:
+    def scan(parent: seedir.FakeDir, path: zipfile.Path, depth: int = 0) -> None:
+        if depth >= depth_limit:
+            return
+        for child in path.iterdir():
+            if child.is_dir():
+                folder = seedir.FakeDir(child.name)
+                scan(folder, child, depth + 1)
+                folder.parent = parent
+            else:
+                parent.create_file(child.name)
 
-    size_str = size_human_readable(os.path.getsize(recipe_path))
-
-    dir_str = dir_str + f"\n\nRecipe size: {size_str}. Max size 800MiB\n"
-    return dir_str
+    recipe = seedir.FakeDir("recipe")
+    scan(recipe, zipfile.Path(recipe_path))
+    rprint(recipe.seedir(sort=True, first="folders", style=style, printout=False))
+    rprint(
+        f"[bold green][INFO][/bold green] Recipe size: {size_human_readable(os.path.getsize(recipe_path))}. Max size 800 MiB"
+    )
 
 
 def is_remote_job() -> bool:
     """Check if the current job is running in HAFNIA cloud environment."""
-    is_remote = os.getenv("HAFNIA_CLOUD", "false").lower() == "true"
-    return is_remote
+    return os.getenv("HAFNIA_CLOUD", "false").lower() == "true"

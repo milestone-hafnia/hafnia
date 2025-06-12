@@ -28,34 +28,40 @@ def create(cfg: Config, name: str, source_dir: Path, exec_cmd: str, dataset_name
         get_dataset_id,
         get_exp_environment_id,
     )
+    from hafnia.utils import timed_call
 
     if not source_dir.exists():
         raise click.ClickException(consts.ERROR_EXPERIMENT_DIR)
 
-    try:
-        dataset_id = get_dataset_id(dataset_name, cfg.get_platform_endpoint("datasets"), cfg.api_key)
-    except (IndexError, KeyError):
-        raise click.ClickException(f"Dataset '{dataset_name}' not found.")
-    except Exception:
-        raise click.ClickException(f"Error retrieving dataset '{dataset_name}'.")
+    dataset_id = timed_call(
+        "Retrieving dataset", get_dataset_id, dataset_name, cfg.get_platform_endpoint("datasets"), cfg.api_key
+    )
+    env_id = timed_call(
+        f"Retrieving environment '{env_name}'",
+        get_exp_environment_id,
+        env_name,
+        cfg.get_platform_endpoint("experiment_environments"),
+        cfg.api_key,
+    )
 
-    try:
-        recipe_id = create_recipe(source_dir, cfg.get_platform_endpoint("recipes"), cfg.api_key)
-    except Exception:
-        raise click.ClickException(f"Failed to create recipe from '{source_dir}'")
-
-    try:
-        env_id = get_exp_environment_id(env_name, cfg.get_platform_endpoint("experiment_environments"), cfg.api_key)
-    except Exception:
-        raise click.ClickException(f"Environment '{env_name}' not found")
-
-    try:
-        experiment_id = create_experiment(
-            name, dataset_id, recipe_id, exec_cmd, env_id, cfg.get_platform_endpoint("experiments"), cfg.api_key
-        )
-    except Exception:
-        raise click.ClickException(f"Failed to create experiment '{name}'")
-
+    recipe_id = timed_call(
+        f"Creating recipe from '{source_dir}'",
+        create_recipe,
+        source_dir,
+        cfg.get_platform_endpoint("recipes"),
+        cfg.api_key,
+    )
+    experiment_id = timed_call(
+        "Creating experiment",
+        create_experiment,
+        name,
+        dataset_id,
+        recipe_id,
+        exec_cmd,
+        env_id,
+        cfg.get_platform_endpoint("experiments"),
+        cfg.api_key,
+    )
     rprint(
         {
             "dataset_id": dataset_id,
