@@ -135,11 +135,11 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
         docker_tag (str): Tag for the Docker image.
         meta_file (Optional[str]): File to store build metadata.
     """
-
     if not Path(dockerfile).exists():
         raise FileNotFoundError("Dockerfile not found.")
 
     if buildx_available():
+        remote_cache = os.getenv("REMOTE_CACHE_REPO")
         cmd = [
             "docker",
             "buildx",
@@ -148,28 +148,27 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
             "linux/amd64",
             "--build-arg",
             "BUILDKIT_INLINE_CACHE=1",
-            "--load",
-            f"--metadata-file={meta_file}",
+            "--metadata-file",
+            meta_file,
+            "--push",
             "-t",
             docker_tag,
             "-f",
             dockerfile,
-            docker_context,
         ]
-        logger.info(
-            "Building Docker image with BuildKit (buildx), using --load (image will be available for docker push)…"
-        )
+        if remote_cache:
+            cmd += [
+                "--cache-from",
+                f"type=registry,ref={remote_cache}:buildcache",
+                "--cache-from",
+                f"type=registry,ref={remote_cache}:latest",
+                "--cache-to",
+                f"type=registry,ref={remote_cache}:buildcache,mode=max",
+            ]
+        cmd.append(docker_context)
+        logger.info(f"Building and pushing Docker image with BuildKit (buildx); cache repo: {remote_cache or 'none'}")
     else:
-        cmd = [
-            "docker",
-            "build",
-            "-t",
-            docker_tag,
-            "-f",
-            dockerfile,
-            docker_context,
-        ]
-        logger.warning("Docker buildx is not available. Falling back to classic docker build (no cache, no metadata).")
+        raise RuntimeError("Buildx is required for automatic push workflow.")
 
     try:
         subprocess.run(cmd, check=True)
