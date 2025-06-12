@@ -138,24 +138,16 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
     if not Path(dockerfile).exists():
         raise FileNotFoundError("Dockerfile not found.")
 
+    cmd = ["docker", "build", "--platform", "linux/amd64", "-t", docker_tag, "-f", dockerfile]
+
+    remote_cache = os.getenv("REMOTE_CACHE_REPO")
+    cloud_mode = os.getenv("HAFNIA_CLOUD", "false").lower() in ["true", "1", "yes"]
+
     if buildx_available():
-        remote_cache = os.getenv("REMOTE_CACHE_REPO")
-        cmd = [
-            "docker",
-            "buildx",
-            "build",
-            "--platform",
-            "linux/amd64",
-            "--build-arg",
-            "BUILDKIT_INLINE_CACHE=1",
-            "--metadata-file",
-            meta_file,
-            "--push",
-            "-t",
-            docker_tag,
-            "-f",
-            dockerfile,
-        ]
+        cmd.insert(1, "buildx")
+        cmd += ["--build-arg", "BUILDKIT_INLINE_CACHE=1", "--metadata-file", meta_file]
+        if cloud_mode:
+            cmd += ["--push"]
         if remote_cache:
             cmd += [
                 "--cache-from",
@@ -165,11 +157,8 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
                 "--cache-to",
                 f"type=registry,ref={remote_cache}:buildcache,mode=max",
             ]
-        cmd.append(docker_context)
-        logger.info(f"Building and pushing Docker image with BuildKit (buildx); cache repo: {remote_cache or 'none'}")
-    else:
-        raise RuntimeError("Buildx is required for automatic push workflow.")
-
+    cmd.append(docker_context)
+    logger.info(f"Building and pushing Docker image with BuildKit (buildx); cache repo: {remote_cache or 'none'}")
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
