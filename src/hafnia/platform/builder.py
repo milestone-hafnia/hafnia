@@ -11,7 +11,7 @@ from zipfile import ZipFile
 import boto3
 from botocore.exceptions import ClientError
 
-from hafnia.log import logger
+from hafnia.log import sys_logger
 from hafnia.platform import download_resource
 
 
@@ -152,17 +152,16 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
             cmd += [
                 "--cache-from",
                 f"type=registry,ref={remote_cache}:buildcache",
-                "--cache-from",
-                f"type=registry,ref={remote_cache}:latest",
                 "--cache-to",
                 f"type=registry,ref={remote_cache}:buildcache,mode=max",
             ]
     cmd.append(docker_context)
-    logger.info(f"Building and pushing Docker image with BuildKit (buildx); cache repo: {remote_cache or 'none'}")
+    sys_logger.debug(f"Build cmd: {cmd}")
+    sys_logger.info(f"Building and pushing Docker image with BuildKit (buildx); cache repo: {remote_cache or 'none'}")
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Docker build failed: {e}")
+        sys_logger.error(f"Docker build failed: {e}")
         raise RuntimeError(f"Docker build failed: {e}")
 
 
@@ -175,7 +174,7 @@ def check_ecr(repository: str, image_tag: str) -> Optional[str]:
 
     region = os.getenv("AWS_REGION")
     if not region:
-        logger.warning("AWS_REGION environment variable not set. Skip image exist check.")
+        sys_logger.warning("AWS_REGION environment variable not set. Skip image exist check.")
         return None
 
     repo_name = repository.split("/")[-1]
@@ -193,14 +192,14 @@ def check_ecr(repository: str, image_tag: str) -> Optional[str]:
 
 
 def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> None:
-    tag =  f"{ecr_repo}:{info['hash']}"
+    tag = f"{ecr_repo}:{info['hash']}"
     info["image_tag"] = tag
 
     remote_digest = check_ecr(info["name"], info["hash"])
     info["image_exists"] = remote_digest is not None
 
     if info["image_exists"]:
-        logger.info("Tag already in ECR – skipping build.")
+        sys_logger.info("Tag already in ECR – skipping build.")
     else:
         with tempfile.NamedTemporaryFile() as meta_tmp:
             meta_file = meta_tmp.name

@@ -10,6 +10,8 @@ import pathspec
 import seedir
 from rich import print as rprint
 
+from hafnia.log import sys_logger, user_logger
+
 PATH_DATA = Path("./.data")
 PATH_DATASET = PATH_DATA / "datasets"
 PATH_RECIPES = PATH_DATA / "recipes"
@@ -63,7 +65,7 @@ def archive_dir(
     ignore_specification = pathspec.GitIgnoreSpec.from_lines(ignore_specification_lines)
 
     include_files = ignore_specification.match_tree(recipe_path, negate=True)
-    rprint(f"[bold green][INFO][/bold green] Creating zip archive of '{recipe_path}'")
+    user_logger.info(f" Creating zip archive of '{recipe_path}'")
 
     with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
         for str_filepath in include_files:
@@ -79,12 +81,11 @@ def timed_call(label: str, func, *args, **kwargs):
     try:
         return func(*args, **kwargs)
     except Exception as e:
-        rprint(f"[bold red][ERROR][/bold red] {label} failed: {e}")
+        sys_logger.error(f"{label} failed: {e}")
         exit(1)
     finally:
-        if os.getenv("HAFNIA_DEBUG", "false") in ("true", "1"):
-            elapsed = time.perf_counter() - tik
-            rprint(f"[bold green][DEBUG][/bold green] {label} took {elapsed:.2f} seconds.")
+        elapsed = time.perf_counter() - tik
+        sys_logger.debug(f"{label} took {elapsed:.2f} seconds.")
 
 
 def size_human_readable(size_bytes: int, suffix="B") -> str:
@@ -111,9 +112,7 @@ def show_recipe_content(recipe_path: Path, style: str = "emoji", depth_limit: in
     recipe = seedir.FakeDir("recipe")
     scan(recipe, zipfile.Path(recipe_path))
     rprint(recipe.seedir(sort=True, first="folders", style=style, printout=False))
-    rprint(
-        f"[bold green][INFO][/bold green] Recipe size: {size_human_readable(os.path.getsize(recipe_path))}. Max size 800 MiB"
-    )
+    user_logger.info(f"Recipe size: {size_human_readable(os.path.getsize(recipe_path))}. Max size 800 MiB")
 
 
 def is_remote_job() -> bool:
