@@ -19,7 +19,6 @@ def recipe() -> None:
 def create(source: str, output: str) -> None:
     """Create HRF from local path"""
 
-    from hafnia.platform.builder import validate_recipe
     from hafnia.utils import archive_dir
 
     path_output_zip = Path(output)
@@ -28,7 +27,6 @@ def create(source: str, output: str) -> None:
 
     path_source = Path(source)
     path_output_zip = archive_dir(path_source, path_output_zip)
-    validate_recipe(path_output_zip)
 
 
 @recipe.command(name="view")

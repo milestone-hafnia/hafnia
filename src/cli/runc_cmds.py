@@ -1,7 +1,6 @@
 import json
 import subprocess
 import zipfile
-from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Optional
@@ -9,7 +8,7 @@ from typing import Optional
 import click
 
 from cli.config import Config
-from hafnia.log import user_logger, sys_logger
+from hafnia.log import sys_logger, user_logger
 
 
 @click.group(name="runc")
@@ -104,7 +103,7 @@ def build(cfg: Config, recipe_url: str, state_file: str, ecr_repository: str, im
 @click.argument("recipe")
 @click.option("--state_file", type=str, default="state.json")
 @click.option("--image_name", type=str, default="recipe")
-@click.option( "--repo", type=str, default="localhost", help="Docker ecr repository")
+@click.option("--repo", type=str, default="localhost", help="Docker ecr repository")
 def build_local(recipe: Path, state_file: str, image_name: str, repo: str) -> None:
     """Build recipe from local path as image with prefix - localhost"""
     import shutil
@@ -117,8 +116,8 @@ def build_local(recipe: Path, state_file: str, image_name: str, repo: str) -> No
 
     recipe = Path(recipe)
 
-    with TemporaryDirectory() as tmp_dir:
-        tmp_dir = Path(tmp_dir)
+    with TemporaryDirectory() as d:
+        tmp_dir = Path(d)
         recipe_dir = tmp_dir / "recipe"
         recipe_dir.mkdir(parents=True, exist_ok=True)
 
@@ -133,13 +132,15 @@ def build_local(recipe: Path, state_file: str, image_name: str, repo: str) -> No
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(src_path, target_path)
 
-        user_logger.info(seedir.seedir(recipe_dir, sort=True, first="folders", style="emoji", printout=False, depthlimit=2))
+        user_logger.info(
+            seedir.seedir(recipe_dir, sort=True, first="folders", style="emoji", printout=False, depthlimit=2)
+        )
 
         metadata = {
             "name": image_name,
             "dockerfile": (recipe_dir / "Dockerfile").as_posix(),
             "docker_context": recipe_dir.as_posix(),
-            "hash": uuid.uuid4().hex[:8]
+            "hash": uuid.uuid4().hex[:8],
         }
 
         user_logger.info("Start building image.")

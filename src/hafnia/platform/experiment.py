@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import Optional
 
-from rich import print as rprint
-
 from hafnia.http import fetch, post
+from hafnia.log import user_logger
 from hafnia.utils import archive_dir, get_recipe_path, timed_call
 
 
@@ -20,7 +19,7 @@ def create_recipe(source_dir: Path, endpoint: str, api_key: str) -> Optional[str
     source_dir = source_dir.resolve()  # Ensure the path is absolute to handle '.' paths are given an appropriate name.
     path_recipe = get_recipe_path(recipe_name=source_dir.name)
     zip_path = timed_call("Wrapping recipe", archive_dir, source_dir, output_path=path_recipe)
-    rprint(f"[bold green][INFO][/bold green] Recipe created and stored in '{path_recipe}'")
+    user_logger.info(f"Recipe created and stored in '{path_recipe}'")
 
     headers = {"Authorization": api_key, "accept": "application/json"}
     with open(zip_path, "rb") as zip_file:

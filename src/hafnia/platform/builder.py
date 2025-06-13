@@ -20,7 +20,7 @@ def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
     recipe_path = Path(resource["downloaded_files"][0])
     with zipfile.ZipFile(recipe_path, "r") as zip_ref:
         zip_ref.extractall(output_dir)
-    required = {"src", "scripts", "Dockerfile"} if required is None else required
+    required = {"src", "scripts", "Dockerfile"}
     errors = 0
     for rp in required:
         if not (output_dir / rp).exists():
