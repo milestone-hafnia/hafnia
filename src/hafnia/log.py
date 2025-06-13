@@ -20,4 +20,4 @@ def create_logger(handler: RichHandler, name: str, log_level: str) -> logging.Lo
 
 
 sys_logger = create_logger(system_handler, f"{__package_name__}.system", os.getenv("HAFNIA_LOG", "INFO").upper())
-user_logger = create_logger(user_handler, f"{__package_name__}.user", "NOTSET")
+user_logger = create_logger(user_handler, f"{__package_name__}.user", "DEBUG")

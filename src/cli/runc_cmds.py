@@ -9,21 +9,13 @@ from typing import Optional
 import click
 
 from cli.config import Config
+from hafnia.log import user_logger, sys_logger
 
 
 @click.group(name="runc")
 def runc():
     """Experiment management commands"""
     pass
-
-
-@runc.command(name="launch")
-@click.argument("task", required=True)
-def launch(task: str) -> None:
-    """Launch a job within the image."""
-    from hafnia.platform.executor import handle_launch
-
-    handle_launch(task)
 
 
 @runc.command(name="launch-local")
@@ -110,34 +102,46 @@ def build(cfg: Config, recipe_url: str, state_file: str, ecr_repository: str, im
 
 @runc.command(name="build-local")
 @click.argument("recipe")
-@click.argument("state_file", default="state.json")
-@click.argument("image_name", default="recipe")
-def build_local(recipe: str, state_file: str, image_name: str) -> None:
+@click.option("--state_file", type=str, default="state.json")
+@click.option("--image_name", type=str, default="recipe")
+@click.option( "--repo", type=str, default="localhost", help="Docker ecr repository")
+def build_local(recipe: Path, state_file: str, image_name: str, repo: str) -> None:
     """Build recipe from local path as image with prefix - localhost"""
+    import shutil
+    import uuid
 
-    from hafnia.platform.builder import build_image, validate_recipe
-    from hafnia.utils import archive_dir
+    import seedir
 
-    recipe_zip = Path(recipe)
-    recipe_created = False
-    if not recipe_zip.suffix == ".zip" and recipe_zip.is_dir():
-        recipe_zip = archive_dir(recipe_zip)
-        recipe_created = True
+    from hafnia.platform.builder import build_image
+    from hafnia.utils import filter_recipe_files
 
-    validate_recipe(recipe_zip)
-    click.echo("Recipe successfully validated")
-    with TemporaryDirectory() as temp_dir:
-        temp_dir_path = Path(temp_dir)
-        with zipfile.ZipFile(recipe_zip, "r") as zip_ref:
-            zip_ref.extractall(temp_dir_path)
+    recipe = Path(recipe)
 
-        image_info = {
+    with TemporaryDirectory() as tmp_dir:
+        tmp_dir = Path(tmp_dir)
+        recipe_dir = tmp_dir / "recipe"
+        recipe_dir.mkdir(parents=True, exist_ok=True)
+
+        if recipe.suffix == ".zip":
+            user_logger.info("Extracting recipe for processing.")
+            with zipfile.ZipFile(recipe.as_posix(), "r") as zip_ref:
+                zip_ref.extractall(recipe_dir)
+        elif recipe.is_dir():
+            for rf in filter_recipe_files(recipe):
+                src_path = (recipe / rf).absolute()
+                target_path = recipe_dir / rf
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(src_path, target_path)
+
+        user_logger.info(seedir.seedir(recipe_dir, sort=True, first="folders", style="emoji", printout=False, depthlimit=2))
+
+        metadata = {
             "name": image_name,
-            "dockerfile": (temp_dir_path / "Dockerfile").as_posix(),
-            "docker_context": temp_dir_path.as_posix(),
-            "hash": sha256(recipe_zip.read_bytes()).hexdigest()[:8],
+            "dockerfile": (recipe_dir / "Dockerfile").as_posix(),
+            "docker_context": recipe_dir.as_posix(),
+            "hash": uuid.uuid4().hex[:8]
         }
-        click.echo("Start building image")
-        build_image(image_info, "localhost", state_file=state_file)
-        if recipe_created:
-            recipe_zip.unlink()
+
+        user_logger.info("Start building image.")
+        sys_logger.debug(metadata)
+        build_image(metadata, repo, state_file=state_file)

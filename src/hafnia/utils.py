@@ -3,7 +3,7 @@ import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional
 from zipfile import ZipFile
 
 import pathspec
@@ -43,15 +43,7 @@ def get_recipe_path(recipe_name: str) -> Path:
     return path_recipe
 
 
-def archive_dir(
-    recipe_path: Path,
-    output_path: Optional[Path] = None,
-    path_ignore_file: Optional[Path] = None,
-) -> Path:
-    recipe_zip_path = output_path or recipe_path / "recipe.zip"
-    assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
-    recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
-
+def filter_recipe_files(recipe_path: Path, path_ignore_file: Optional[Path] = None) -> Iterator:
     path_ignore_file = path_ignore_file or recipe_path / FILENAME_HAFNIAIGNORE
     if not path_ignore_file.exists():
         ignore_specification_lines = DEFAULT_IGNORE_SPECIFICATION
@@ -63,10 +55,21 @@ def archive_dir(
     else:
         ignore_specification_lines = Path(path_ignore_file).read_text().splitlines()
     ignore_specification = pathspec.GitIgnoreSpec.from_lines(ignore_specification_lines)
-
     include_files = ignore_specification.match_tree(recipe_path, negate=True)
-    user_logger.info(f" Creating zip archive of '{recipe_path}'")
+    return include_files
 
+
+def archive_dir(
+    recipe_path: Path,
+    output_path: Optional[Path] = None,
+    path_ignore_file: Optional[Path] = None,
+) -> Path:
+    recipe_zip_path = output_path or recipe_path / "recipe.zip"
+    assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
+    recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
+
+    user_logger.info(f" Creating zip archive of '{recipe_path}'")
+    include_files = filter_recipe_files(recipe_zip_path, path_ignore_file)
     with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
         for str_filepath in include_files:
             full_path = recipe_path / str_filepath

@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 from tqdm import tqdm
 
 from hafnia.http import fetch
-from hafnia.log import logger
+from hafnia.log import sys_logger, user_logger
 
 
 def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:
@@ -31,10 +31,10 @@ def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:
     """
     try:
         creds = fetch(endpoint, headers={"Authorization": api_key, "accept": "application/json"})
-        logger.debug("Successfully retrieved credentials from DIP endpoint.")
+        sys_logger.debug("Successfully retrieved credentials from DIP endpoint.")
         return creds
     except Exception as e:
-        logger.error(f"Failed to fetch credentials from endpoint: {e}")
+        sys_logger.error(f"Failed to fetch credentials from endpoint: {e}")
         raise RuntimeError(f"Failed to retrieve credentials: {e}") from e
 
 
@@ -99,12 +99,12 @@ def download_resource(resource_url: str, destination: str, api_key: str) -> Dict
         s3_client.head_object(Bucket=bucket_name, Key=key)
         local_file = download_single_object(s3_client, bucket_name, key, output_path)
         downloaded_files.append(str(local_file))
-        logger.info(f"Downloaded single file: {local_file}")
+        user_logger.info(f"Downloaded single file: {local_file}")
 
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code")
         if error_code == "404":
-            logger.debug(f"Object '{key}' not found; trying as a prefix.")
+            sys_logger.debug(f"Object '{key}' not found; trying as a prefix.")
             response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
             contents = response.get("Contents", [])
 
@@ -118,9 +118,9 @@ def download_resource(resource_url: str, destination: str, api_key: str) -> Dict
                 local_file = download_single_object(s3_client, bucket_name, sub_key, output_path)
                 downloaded_files.append(local_file.as_posix())
 
-            logger.info(f"Downloaded folder/prefix '{key}' with {len(downloaded_files)} object(s).")
+            user_logger.info(f"Downloaded folder/prefix '{key}' with {len(downloaded_files)} object(s).")
         else:
-            logger.error(f"Error checking object or prefix: {e}")
+            user_logger.error(f"Error checking object or prefix: {e}")
             raise RuntimeError(f"Failed to check or download S3 resource: {e}") from e
 
     return {"status": "success", "downloaded_files": downloaded_files}

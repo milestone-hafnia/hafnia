@@ -2,119 +2,48 @@ import json
 import os
 import subprocess
 import tempfile
+import zipfile
 from hashlib import sha256
 from pathlib import Path
-from shutil import rmtree
-from typing import Dict, List, Optional
-from zipfile import ZipFile
+from typing import Dict, Optional
 
 import boto3
 from botocore.exceptions import ClientError
 
-from hafnia.log import sys_logger
+from hafnia.log import sys_logger, user_logger
 from hafnia.platform import download_resource
 
 
-def validate_recipe(zip_path: Path, required_paths: Optional[set] = None) -> None:
-    """
-    Validates the structure of a zip archive.
-    Ensures the presence of specific files and directories.
-
-    Args:
-        zip_path (Path): Path to the zip archive.
-        required_paths (set): A set of required paths relative to the archive root.
-
-    Raises:
-        FileNotFoundError: If any required file or directory is missing.
-    """
-    required_paths = {"src", "scripts", "Dockerfile"} if required_paths is None else required_paths
-    with ZipFile(zip_path, "r") as archive:
-        archive_contents = {Path(file).as_posix() for file in archive.namelist()}
-        missing_paths = {
-            path for path in required_paths if not any(entry.startswith(path) for entry in archive_contents)
-        }
-
-        if missing_paths:
-            raise FileNotFoundError(f"The following required paths are missing in the zip archive: {missing_paths}")
-
-        script_files = [f for f in archive_contents if f.startswith("scripts/") and f.endswith(".py")]
-
-        if not script_files:
-            raise ValueError("No Python script files found in the 'scripts' directory.")
-
-
-def clean_up(files: List[Path], dirs: List[Path], prefix: str = "__") -> None:
-    """
-    Clean up a list of files first, and then remove all folders starting with a specific prefix.
-
-    Args:
-        paths (list[Path]): List of file and directory paths to clean up.
-        prefix (str, optional): Prefix to match for folder removal. Defaults to "__".
-    """
-    for path in files:
-        if path.exists() and path.is_file():
-            path.unlink()
-
-    for path in dirs:
-        if path.exists() and path.is_dir():
-            for sub_dir in path.glob(f"**/{prefix}*"):
-                if sub_dir.is_dir():
-                    rmtree(sub_dir)
-
-
-def get_recipe_content(recipe_url: str, output_dir: Path, state_file: str, api_key: str) -> Dict:
-    """
-    Retrieves and validates the recipe content from an S3 location and extracts it.
-
-    Args:
-        recipe_uuid (str): The unique identifier of the recipe.
-        output_dir (str): Directory to extract the recipe content.
-        state_file (str): File to save the state information.
-
-    Returns:
-        Dict: Metadata about the recipe for further processing.
-    """
-    result = download_resource(recipe_url, output_dir, api_key)
-    recipe_path = Path(result["downloaded_files"][0])
-
-    validate_recipe(recipe_path)
-
-    with ZipFile(recipe_path, "r") as zip_ref:
+def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
+    state_file = output_dir / "state.json"
+    resource = download_resource(recipe_url, output_dir.as_posix(), api_key)
+    recipe_path = Path(resource["downloaded_files"][0])
+    with zipfile.ZipFile(recipe_path, "r") as zip_ref:
         zip_ref.extractall(output_dir)
+    required = {"src", "scripts", "Dockerfile"} if required is None else required
+    errors = 0
+    for rp in required:
+        if not (output_dir / rp).exists():
+            user_logger.error(f"Required path {rp} not found in recipe.")
+            errors += 1
+    if errors > 0:
+        raise Exception("Wrong recipe structure")
 
     tag = sha256(recipe_path.read_bytes()).hexdigest()[:8]
-
     scripts_dir = output_dir / "scripts"
-    valid_commands = [str(f.name)[:-3] for f in scripts_dir.iterdir() if f.is_file() and f.suffix.lower() == ".py"]
+    if not any(scripts_dir.iterdir()):
+        user_logger.warning("Scripts folder is empty")
 
-    if not valid_commands:
-        raise ValueError("No valid Python script commands found in the 'scripts' directory.")
-
-    state = {
+    metadata = {
         "user_data": (output_dir / "src").as_posix(),
         "docker_context": output_dir.as_posix(),
         "dockerfile": (output_dir / "Dockerfile").as_posix(),
         "docker_tag": f"runtime:{tag}",
         "hash": tag,
-        "valid_commands": valid_commands,
     }
-
-    try:
-        with open(state_file, "w", encoding="utf-8") as f:
-            json.dump(state, f)
-    except Exception as e:
-        raise RuntimeError(f"Failed to write state file: {e}")
-
-    clean_up([recipe_path], [output_dir])
-
-    return state
-
-
-def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
-    state_file = output_dir / "state.json"
-    get_recipe_content(recipe_url, output_dir, state_file.as_posix(), api_key)
-    with open(state_file.as_posix(), "r") as f:
-        return json.loads(f.read())
+    with open(state_file, "w", encoding="utf-8") as f:
+        json.dump(metadata, f)
+    return metadata
 
 
 def buildx_available() -> bool:
@@ -156,7 +85,7 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
                 f"type=registry,ref={remote_cache}:buildcache,mode=max",
             ]
     cmd.append(docker_context)
-    sys_logger.debug(f"Build cmd: {cmd}")
+    sys_logger.debug("Build cmd: `{}`".format(" ".join(cmd)))
     sys_logger.info(f"Building and pushing Docker image with BuildKit (buildx); cache repo: {remote_cache or 'none'}")
     try:
         subprocess.run(cmd, check=True)

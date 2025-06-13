@@ -52,3 +52,11 @@ relative-imports-order = "closest-to-furthest"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cli", "src/hafnia"]
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+warn_unused_ignores = false
