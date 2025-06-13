@@ -193,7 +193,7 @@ def check_ecr(repository: str, image_tag: str) -> Optional[str]:
 
 
 def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> None:
-    tag = f"{ecr_repo}/{info['name']}:{info['hash']}"
+    tag =  f"{ecr_repo}:{info['hash']}"
     info["image_tag"] = tag
 
     remote_digest = check_ecr(info["name"], info["hash"])
