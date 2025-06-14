@@ -35,17 +35,14 @@ def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str, state_file: 
 
     validate_hrf(output_dir)
 
-    tag = sha256(recipe_path.read_bytes()).hexdigest()[:8]
     scripts_dir = output_dir / "scripts"
     if not any(scripts_dir.iterdir()):
         user_logger.warning("Scripts folder is empty")
 
     metadata = {
         "user_data": (output_dir / "src").as_posix(),
-        "docker_context": output_dir.as_posix(),
         "dockerfile": (output_dir / "Dockerfile").as_posix(),
-        "docker_tag": f"runtime:{tag}",
-        "hash": tag,
+        "digest": sha256(recipe_path.read_bytes()).hexdigest()[:8],
     }
     state_file = state_file if state_file else output_dir / "state.json"
     with open(state_file, "w", encoding="utf-8") as f:
@@ -101,11 +98,11 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
         raise RuntimeError(f"Docker build failed: {e}")
 
 
-def check_ecr(repository: str, image_tag: str) -> Optional[str]:
+def check_registry(docker_image: str) -> Optional[str]:
     """
     Returns the remote digest for TAG if it exists, otherwise None.
     """
-    if "localhost" in repository:
+    if "localhost" in docker_image:
         return None
 
     region = os.getenv("AWS_REGION")
@@ -113,38 +110,35 @@ def check_ecr(repository: str, image_tag: str) -> Optional[str]:
         sys_logger.warning("AWS_REGION environment variable not set. Skip image exist check.")
         return None
 
-    repo_name = repository.split("/")[-1]
+    repo_name, image_tag = docker_image.rsplit(":")
+    if "/" in repo_name:
+        repo_name = repo_name.rsplit("/", 1)[-1]
     ecr = boto3.client("ecr", region_name=region)
     try:
-        out = ecr.describe_images(
-            repositoryName=repo_name,
-            imageIds=[{"imageTag": image_tag}],
-        )
+        out = ecr.describe_images(repositoryName=repo_name, imageIds=[{"imageTag": image_tag}])
         return out["imageDetails"][0]["imageDigest"]
     except ClientError as e:
-        if e.response["Error"]["Code"] == "ImageNotFoundException":
-            return None
-        raise
+        error_code = e.response["Error"]["Code"]
+        sys_logger.error(f"ECR client error: {error_code}")
+        return None
 
 
-def build_image(info: Dict, ecr_repo: str, state_file: str = "state.json") -> None:
-    tag = f"{ecr_repo}:{info['hash']}"
-    info["image_tag"] = tag
-
-    remote_digest = check_ecr(info["name"], info["hash"])
-    info["image_exists"] = remote_digest is not None
-
-    if info["image_exists"]:
-        sys_logger.info("Tag already in ECR – skipping build.")
+def build_image(metadata: Dict, registry_repo: str, state_file: str = "state.json") -> None:
+    docker_image = f"{registry_repo}:{metadata['digest']}"
+    image_exists = check_registry(docker_image) is not None
+    if image_exists:
+        sys_logger.info(f"Tag already in ECR – skipping build of {docker_image}.")
     else:
         with tempfile.NamedTemporaryFile() as meta_tmp:
             meta_file = meta_tmp.name
-            build_dockerfile(info["dockerfile"], info["docker_context"], tag, meta_file)
+            build_dockerfile(
+                metadata["dockerfile"], Path(metadata["dockerfile"]).parent.as_posix(), docker_image, meta_file
+            )
             with open(meta_file) as m:
                 try:
                     build_meta = json.load(m)
-                    info["local_digest"] = build_meta["containerimage.digest"]
+                    metadata["local_digest"] = build_meta["containerimage.digest"]
                 except Exception:
-                    info["local_digest"] = ""
-
-    Path(state_file).write_text(json.dumps(info, indent=2))
+                    metadata["local_digest"] = ""
+    metadata.update({"image_tag": docker_image, "image_exists": image_exists})
+    Path(state_file).write_text(json.dumps(metadata, indent=2))

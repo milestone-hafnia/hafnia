@@ -85,26 +85,23 @@ def launch_local(cfg: Config, exec_cmd: str, dataset: str, image_name: str) -> N
 
 @runc.command(name="build")
 @click.argument("recipe_url")
-@click.argument("state_file", default="state.json")
-@click.argument("ecr_repository", default="localhost")
-@click.argument("image_name", default="recipe")
+@click.option("--state_file", "--st", type=str, default="state.json")
+@click.option("--repo", type=str, default="localhost", help="Docker repository")
 @click.pass_obj
-def build(cfg: Config, recipe_url: str, state_file: str, ecr_repository: str, image_name: str) -> None:
+def build(cfg: Config, recipe_url: str, state_file: str, repo: str) -> None:
     """Build docker image with a given recipe."""
     from hafnia.platform.builder import build_image, prepare_recipe
 
     with TemporaryDirectory() as temp_dir:
-        image_info = prepare_recipe(recipe_url, Path(temp_dir), cfg.api_key)
-        image_info["name"] = image_name
-        build_image(image_info, ecr_repository, state_file)
+        metadata = prepare_recipe(recipe_url, Path(temp_dir), cfg.api_key)
+        build_image(metadata, repo, state_file=state_file)
 
 
 @runc.command(name="build-local")
 @click.argument("recipe")
-@click.option("--state_file", type=str, default="state.json")
-@click.option("--image_name", type=str, default="recipe")
-@click.option("--repo", type=str, default="localhost", help="Docker ecr repository")
-def build_local(recipe: Path, state_file: str, image_name: str, repo: str) -> None:
+@click.option("--state_file", "--st", type=str, default="state.json")
+@click.option("--repo", type=str, default="localhost", help="Docker repository")
+def build_local(recipe: Path, state_file: str, repo: str) -> None:
     """Build recipe from local path as image with prefix - localhost"""
     import shutil
     import uuid
@@ -137,10 +134,9 @@ def build_local(recipe: Path, state_file: str, image_name: str, repo: str) -> No
         )
 
         metadata = {
-            "name": image_name,
             "dockerfile": (recipe_dir / "Dockerfile").as_posix(),
             "docker_context": recipe_dir.as_posix(),
-            "hash": uuid.uuid4().hex[:8],
+            "digest": uuid.uuid4().hex[:8],
         }
 
         user_logger.info("Start building image.")

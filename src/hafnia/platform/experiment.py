@@ -1,4 +1,3 @@
-import zipfile
 from pathlib import Path
 from typing import Optional
 
@@ -31,7 +30,7 @@ def create_recipe(source_dir: Path, endpoint: str, api_key: str) -> str:
     data = {
         "name": path_recipe.name,
         "description": "Recipe created by Hafnia CLI",
-        "file": (zip_path.name, zipfile.Path(zip_path).read_bytes()),
+        "file": (zip_path.name, Path(zip_path).read_bytes()),
     }
     response = post(endpoint, headers=headers, data=data, multipart=True)
     return response["id"]

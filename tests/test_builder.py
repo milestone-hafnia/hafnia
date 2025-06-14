@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from hafnia.platform.builder import check_ecr, validate_hrf
+from hafnia.platform.builder import check_registry, validate_hrf
 
 
 @pytest.fixture
@@ -69,8 +69,7 @@ def test_successful_recipe_extraction(valid_recipe: Path, tmp_path: Path) -> Non
         result = prepare_recipe("s3://bucket/recipe.zip", tmp_path, "api-key-123", Path(state_file))
         mock_download.assert_called_once_with("s3://bucket/recipe.zip", tmp_path.as_posix(), "api-key-123")
 
-        assert result["docker_tag"] == f"runtime:{expected_hash}"
-        assert result["hash"] == expected_hash
+        assert result["digest"] == expected_hash
 
 
 def test_ecr_image_exist() -> None:
@@ -81,7 +80,7 @@ def test_ecr_image_exist() -> None:
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("AWS_REGION", "us-west-1")
         mp.setattr("boto3.client", lambda service, **kwargs: mock_ecr_client)
-        result = check_ecr("my-repo", "v1.0")
+        result = check_registry("my-repo:v1.0")
         assert result == "1234a"
 
 
@@ -98,5 +97,5 @@ def test_ecr_image_not_found() -> None:
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("AWS_REGION", "us-west-2")
         mp.setattr("boto3.client", lambda service, **kwargs: mock_ecr_client)
-        result = check_ecr("my-repo", "v1.0")
+        result = check_registry("my-repo:v1.0")
         assert result is None
