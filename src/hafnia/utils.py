@@ -2,8 +2,9 @@ import os
 import time
 import zipfile
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 from zipfile import ZipFile
 
 import pathspec
@@ -32,6 +33,30 @@ DEFAULT_IGNORE_SPECIFICATION = [
 ]
 
 
+def timed(label: str):
+    """
+    Decorator factory that allows custom labels for timing.
+    Usage: @timed("Custom Operation")
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            operation_label = label or func.__name__
+            tik = time.perf_counter()
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                sys_logger.error(f"{operation_label} failed: {e}")
+            finally:
+                elapsed = time.perf_counter() - tik
+                sys_logger.debug(f"{operation_label} took {elapsed:.2f} seconds.")
+
+        return wrapper
+
+    return decorator
+
+
 def now_as_str() -> str:
     """Get the current date and time as a string."""
     return datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -47,7 +72,7 @@ def filter_recipe_files(recipe_path: Path, path_ignore_file: Optional[Path] = No
     path_ignore_file = path_ignore_file or recipe_path / FILENAME_HAFNIAIGNORE
     if not path_ignore_file.exists():
         ignore_specification_lines = DEFAULT_IGNORE_SPECIFICATION
-        rprint(
+        user_logger.info(
             f"No '{FILENAME_HAFNIAIGNORE}' was file found. Files are excluded using the default ignore patterns.\n"
             f"\tDefault ignore patterns: {DEFAULT_IGNORE_SPECIFICATION}\n"
             f"Add a '{FILENAME_HAFNIAIGNORE}' file to the root folder to make custom ignore patterns."
@@ -59,6 +84,7 @@ def filter_recipe_files(recipe_path: Path, path_ignore_file: Optional[Path] = No
     return include_files
 
 
+@timed("Wrapping recipe.")
 def archive_dir(
     recipe_path: Path,
     output_path: Optional[Path] = None,
@@ -69,7 +95,7 @@ def archive_dir(
     recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
     user_logger.info(f" Creating zip archive of '{recipe_path}'")
-    include_files = filter_recipe_files(recipe_zip_path, path_ignore_file)
+    include_files = filter_recipe_files(recipe_path, path_ignore_file)
     with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
         for str_filepath in include_files:
             full_path = recipe_path / str_filepath
@@ -77,18 +103,6 @@ def archive_dir(
     show_recipe_content(recipe_zip_path)
 
     return recipe_zip_path
-
-
-def timed_call(label: str, func, *args, **kwargs):
-    tik = time.perf_counter()
-    try:
-        return func(*args, **kwargs)
-    except Exception as e:
-        sys_logger.error(f"{label} failed: {e}")
-        exit(1)
-    finally:
-        elapsed = time.perf_counter() - tik
-        sys_logger.debug(f"{label} took {elapsed:.2f} seconds.")
 
 
 def size_human_readable(size_bytes: int, suffix="B") -> str:

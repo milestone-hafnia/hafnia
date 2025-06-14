@@ -15,7 +15,6 @@ def logger(tmpdir: Path) -> HafniaLogger:
         os.environ["HAFNIA_LOCAL_SCRIPT"] = "true"
     return HafniaLogger(Path(tmpdir))
 
-
 def test_basic_scalar_logging(logger: HafniaLogger) -> None:
     """Test that basic scalar logging works."""
 
@@ -33,7 +32,6 @@ def test_basic_scalar_logging(logger: HafniaLogger) -> None:
     assert df.iloc[0]["value"] == 42.0
     assert df.iloc[1]["value"] == 43.0
 
-
 def test_metric_logging(logger: HafniaLogger) -> None:
     """Test that metric logging works."""
     logger.log_metric("accuracy", 0.95, 100)
@@ -48,7 +46,6 @@ def test_metric_logging(logger: HafniaLogger) -> None:
     assert len(metrics_df) == 2
     assert "accuracy" in metrics_df["name"].values
     assert "loss" in metrics_df["name"].values
-
 
 def test_config_logging(logger: HafniaLogger):
     """Test configuration logging."""

@@ -3,8 +3,12 @@ name = "hafnia"
 version = "0.1.25"
 description = "Python SDK for communication with Hafnia platform."
 readme = "README.md"
-authors = [{ name = "Milestone Systems", email = "hafniaplatform@milestone.dk" }]
+authors = [
+    { name = "Milestone Systems", email = "hafniaplatform@milestone.dk" },
+]
 requires-python = ">=3.10"
+
+
 dependencies = [
     "boto3>=1.35.91",
     "click>=8.1.8",
@@ -32,9 +36,6 @@ dev = [
     "flatten-dict>=0.4.2",
 ]
 
-[tool.uv]
-default-groups = "all"
-
 [project.scripts]
 hafnia = 'cli.__main__:main'
 
@@ -42,16 +43,19 @@ hafnia = 'cli.__main__:main'
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.ruff]
-select = ["I", "E", "F"]
-ignore = ["E501"]
-line-length = 120
-
-[tool.ruff.isort]
-relative-imports-order = "closest-to-furthest"
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/cli", "src/hafnia"]
+
+[tool.uv]
+default-groups = "all"
+
+[tool.ruff]
+lint.select = ["I", "E", "F"]
+lint.ignore = ["E501"]
+line-length = 120
+
+[tool.ruff.lint.isort]
+relative-imports-order = "closest-to-furthest"
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -60,3 +64,6 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 disallow_untyped_calls = false
 warn_unused_ignores = false
+
+[tool.pytest.ini_options]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]

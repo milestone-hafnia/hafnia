@@ -14,20 +14,26 @@ from hafnia.log import sys_logger, user_logger
 from hafnia.platform import download_resource
 
 
-def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
-    state_file = output_dir / "state.json"
+def validate_hrf(path: Path) -> None:
+    """Validate Hafnia Recipe Format submition"""
+    hrf = zipfile.Path(path) if path.suffix == ".zip" else path
+    required = {"src", "scripts", "Dockerfile"}
+    errors = 0
+    for rp in required:
+        if not (hrf / rp).exists():
+            user_logger.error(f"Required path {rp} not found in recipe.")
+            errors += 1
+    if errors > 0:
+        raise FileNotFoundError("Wrong recipe structure")
+
+
+def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str, state_file: Optional[Path] = None) -> Dict:
     resource = download_resource(recipe_url, output_dir.as_posix(), api_key)
     recipe_path = Path(resource["downloaded_files"][0])
     with zipfile.ZipFile(recipe_path, "r") as zip_ref:
         zip_ref.extractall(output_dir)
-    required = {"src", "scripts", "Dockerfile"}
-    errors = 0
-    for rp in required:
-        if not (output_dir / rp).exists():
-            user_logger.error(f"Required path {rp} not found in recipe.")
-            errors += 1
-    if errors > 0:
-        raise Exception("Wrong recipe structure")
+
+    validate_hrf(output_dir)
 
     tag = sha256(recipe_path.read_bytes()).hexdigest()[:8]
     scripts_dir = output_dir / "scripts"
@@ -41,6 +47,7 @@ def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str) -> Dict:
         "docker_tag": f"runtime:{tag}",
         "hash": tag,
     }
+    state_file = state_file if state_file else output_dir / "state.json"
     with open(state_file, "w", encoding="utf-8") as f:
         json.dump(metadata, f)
     return metadata
