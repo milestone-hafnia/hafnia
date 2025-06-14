@@ -8,7 +8,6 @@ authors = [
 ]
 requires-python = ">=3.10"
 
-
 dependencies = [
     "boto3>=1.35.91",
     "click>=8.1.8",
@@ -28,13 +27,12 @@ dependencies = [
 dev = [
     "ipykernel>=6.29.5",
     "lark>=1.2.2",
-    "pytest>=8.3.4",
-    "pre-commit>=4.2.0",
-    "ruff>=0.9.1",
     "torch>=2.6.0",
     "torchvision>=0.21.0",
     "flatten-dict>=0.4.2",
 ]
+
+test = ["pytest>=8.3.4", "pre-commit>=4.2.0", "ruff>=0.9.1"]
 
 [project.scripts]
 hafnia = 'cli.__main__:main'
@@ -47,7 +45,7 @@ build-backend = "hatchling.build"
 packages = ["src/cli", "src/hafnia"]
 
 [tool.uv]
-default-groups = "all"
+default-groups = ["test"]
 
 [tool.ruff]
 lint.select = ["I", "E", "F"]
