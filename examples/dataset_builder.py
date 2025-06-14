@@ -10,9 +10,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import datasets
-from datasets import ClassLabel, DatasetDict
-
 import mdi
+from datasets import ClassLabel, DatasetDict
 
 # dataset = mdi.load_dataset("mnist")
 # dataset = mdi.load_dataset("[ADD SOME CUSTOM DATASET SPECIFICATION]")

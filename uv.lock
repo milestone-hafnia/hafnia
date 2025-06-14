@@ -580,11 +580,13 @@ dev = [
     { name = "flatten-dict" },
     { name = "ipykernel" },
     { name = "lark" },
+    { name = "torch" },
+    { name = "torchvision" },
+]
+test = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
-    { name = "torch" },
-    { name = "torchvision" },
 ]
 
 [package.metadata]
@@ -608,11 +610,13 @@ dev = [
     { name = "flatten-dict", specifier = ">=0.4.2" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "lark", specifier = ">=1.2.2" },
+    { name = "torch", specifier = ">=2.6.0" },
+    { name = "torchvision", specifier = ">=0.21.0" },
+]
+test = [
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "ruff", specifier = ">=0.9.1" },
-    { name = "torch", specifier = ">=2.6.0" },
-    { name = "torchvision", specifier = ">=0.21.0" },
 ]
 
 [[package]]
