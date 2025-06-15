@@ -22,20 +22,13 @@ def experiment() -> None:
 @click.pass_obj
 def create(cfg: Config, name: str, source_dir: Path, exec_cmd: str, dataset_name: str, env_name: str) -> None:
     """Create a new experiment run"""
-    from hafnia.platform import (
-        create_experiment,
-        create_recipe,
-        get_dataset_id,
-        get_exp_environment_id,
-    )
+    from hafnia.platform import create_experiment, create_recipe, get_dataset_id, get_exp_environment_id
 
     if not source_dir.exists():
         raise click.ClickException(consts.ERROR_EXPERIMENT_DIR)
 
     try:
         dataset_id = get_dataset_id(dataset_name, cfg.get_platform_endpoint("datasets"), cfg.api_key)
-    except (IndexError, KeyError):
-        raise click.ClickException(f"Dataset '{dataset_name}' not found.")
     except Exception:
         raise click.ClickException(f"Error retrieving dataset '{dataset_name}'.")
 

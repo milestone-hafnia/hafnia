@@ -7,7 +7,7 @@ from datasets import Dataset, DatasetDict, load_from_disk
 
 from cli.config import Config
 from hafnia import utils
-from hafnia.log import logger
+from hafnia.log import user_logger
 from hafnia.platform import download_resource, get_dataset_id
 
 
@@ -15,7 +15,7 @@ def load_local(dataset_path: Path) -> Union[Dataset, DatasetDict]:
     """Load a Hugging Face dataset from a local directory path."""
     if not dataset_path.exists():
         raise ValueError(f"Can not load dataset, directory does not exist -- {dataset_path}")
-    logger.info(f"Loading data from {dataset_path.as_posix()}")
+    user_logger.info(f"Loading data from {dataset_path.as_posix()}")
     return load_from_disk(dataset_path.as_posix())
 
 
@@ -37,7 +37,7 @@ def download_or_get_dataset_path(
     dataset_path_sample = dataset_path_base / "sample"
 
     if dataset_path_sample.exists() and not force_redownload:
-        logger.info("Dataset found locally. Set 'force=True' or add `--force` flag with cli to re-download")
+        user_logger.info("Dataset found locally. Set 'force=True' or add `--force` flag with cli to re-download")
         return dataset_path_sample
 
     dataset_id = get_dataset_id(dataset_name, endpoint_dataset, api_key)

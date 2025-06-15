@@ -13,7 +13,7 @@ from datasets import DatasetDict
 from pydantic import BaseModel, field_validator
 
 from hafnia.data.factory import load_dataset
-from hafnia.log import logger
+from hafnia.log import sys_logger, user_logger
 from hafnia.utils import is_remote_job, now_as_str
 
 
@@ -49,7 +49,7 @@ class Entity(BaseModel):
         try:
             return float(v)
         except (ValueError, TypeError) as e:
-            logger.warning(f"Invalid value '{v}' provided, defaulting to -1.0: {e}")
+            user_logger.warning(f"Invalid value '{v}' provided, defaulting to -1.0: {e}")
             return -1.0
 
     @field_validator("ent_type", mode="before")
@@ -165,9 +165,9 @@ class HafniaLogger:
                 existing_params = {}
             existing_params.update(params)
             file_path.write_text(json.dumps(existing_params, indent=2))
-            logger.info(f"Saved parameters to {file_path}")
+            user_logger.info(f"Saved parameters to {file_path}")
         except Exception as e:
-            logger.error(f"Failed to save parameters to {file_path}: {e}")
+            user_logger.error(f"Failed to save parameters to {file_path}: {e}")
 
     def log_environment(self):
         environment_info = {
@@ -201,4 +201,4 @@ class HafniaLogger:
                 next_table = pa.concat_tables([prev, log_batch])
                 pq.write_table(next_table, self.log_file)
         except Exception as e:
-            logger.error(f"Failed to flush logs: {e}")
+            sys_logger.error(f"Failed to flush logs: {e}")

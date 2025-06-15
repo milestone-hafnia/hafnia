@@ -28,8 +28,8 @@ A command-line interface tool for managing data science experiments and resource
 ### Experiment Management
 
 - `hafnia runc launch <task>` - Launch a job within the image
-- `hafnia runc build <recipe_url> [state_file] [ecr_repository] [image_name]` - Build docker image with a given recipe
-- `hafnia runc build-local <recipe> [state_file] [image_name]` - Build recipe from local path as image with prefix - localhost
+- `hafnia runc build <recipe_url> --st [state_file] --repo [registry/repo]` - Build docker image with a given recipe
+- `hafnia runc build-local <recipe> --st [state_file] --repo [registry/repo | localhost]` - Build recipe from local path as image with prefix - localhost
 
 ## Configuration
 
@@ -97,3 +97,4 @@ Available environment variables:
 - `AWS_REGION` - AWS region for ECR and Secrets Manager operations
 - `RECIPE_DIR` - Directory containing recipe code (used by the `runc launch` command
 - `HAFNIA_CLOUD` – Allow emulate cloud behaviour
+- `HAFNIA_LOG` – Allow changing log level for messages 
