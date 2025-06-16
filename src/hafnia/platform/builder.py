@@ -14,7 +14,7 @@ from hafnia.log import sys_logger, user_logger
 from hafnia.platform import download_resource
 
 
-def validate_hrf(path: Path) -> None:
+def validate_recipe_format(path: Path) -> None:
     """Validate Hafnia Recipe Format submition"""
     hrf = zipfile.Path(path) if path.suffix == ".zip" else path
     required = {"src", "scripts", "Dockerfile"}
@@ -33,7 +33,7 @@ def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str, state_file: 
     with zipfile.ZipFile(recipe_path, "r") as zip_ref:
         zip_ref.extractall(output_dir)
 
-    validate_hrf(output_dir)
+    validate_recipe_format(output_dir)
 
     scripts_dir = output_dir / "scripts"
     if not any(scripts_dir.iterdir()):

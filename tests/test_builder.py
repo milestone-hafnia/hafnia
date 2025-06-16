@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from hafnia.platform.builder import check_registry, validate_hrf
+from hafnia.platform.builder import check_registry, validate_recipe_format
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def valid_recipe(tmp_path: Path) -> Path:
 
 def test_valid_recipe_structure(valid_recipe: Path) -> None:
     """Test validation with a correctly structured zip file."""
-    validate_hrf(valid_recipe)
+    validate_recipe_format(valid_recipe)
 
 
 def test_validate_recipe_no_scripts(tmp_path: Path) -> None:
@@ -34,7 +34,7 @@ def test_validate_recipe_no_scripts(tmp_path: Path) -> None:
         zipf.writestr("Dockerfile", "FROM python:3.9")
 
     with pytest.raises(FileNotFoundError) as excinfo:
-        validate_hrf(zip_path)
+        validate_recipe_format(zip_path)
 
     assert "Wrong recipe structure" in str(excinfo.value)
 
@@ -46,7 +46,7 @@ def test_invalid_recipe_structure(tmp_path: Path) -> None:
         zipf.writestr("README.md", "# Example readme")
 
     with pytest.raises(FileNotFoundError) as excinfo:
-        validate_hrf(zip_path)
+        validate_recipe_format(zip_path)
 
     error_msg = str(excinfo.value)
     assert "Wrong recipe structure" in error_msg
