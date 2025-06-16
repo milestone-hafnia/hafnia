@@ -31,7 +31,7 @@ def download_or_get_dataset_path(
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
     api_key = cfg.api_key
 
-    output_dir = output_dir or str(utils.PATH_DATASET)
+    output_dir = output_dir or str(utils.PATH_DATASETS)
     dataset_path_base = Path(output_dir).absolute() / dataset_name
     dataset_path_base.mkdir(exist_ok=True, parents=True)
     dataset_path_sample = dataset_path_base / "sample"
