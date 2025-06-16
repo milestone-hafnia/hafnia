@@ -20,7 +20,7 @@ def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Dict:
         json.JSONDecodeError: On invalid JSON response
     """
     params = {} if params is None else params
-    http = urllib3.PoolManager(timeout=5.0, retries=urllib3.Retry(3))
+    http = urllib3.PoolManager(retries=urllib3.Retry(3))
     try:
         response = http.request("GET", endpoint, fields=params, headers=headers)
         if response.status != 200:
@@ -48,7 +48,7 @@ def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes], multipart
         json.JSONDecodeError: If response isn't valid JSON
         ValueError: If data type is unsupported
     """
-    http = urllib3.PoolManager(timeout=5.0, retries=urllib3.Retry(3))
+    http = urllib3.PoolManager(retries=urllib3.Retry(3))
     try:
         if multipart:
             # Remove content-type header if present as urllib3 will set it

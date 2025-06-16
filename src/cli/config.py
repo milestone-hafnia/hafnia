@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, field_validator
 
 import cli.consts as consts
-from hafnia.log import logger
+from hafnia.log import user_logger
 
 PLATFORM_API_MAPPING = {
     "recipes": "/api/v1/recipes",
@@ -95,7 +95,9 @@ class Config:
     def add_profile(self, profile_name: str, profile: ConfigSchema, set_active: bool = False) -> None:
         profile_name = profile_name.strip()
         if profile_name in self.config_data.profiles:
-            logger.warning(f"Profile with name '{profile_name}' already exists, it will be overwritten by the new one.")
+            user_logger.warning(
+                f"Profile with name '{profile_name}' already exists, it will be overwritten by the new one."
+            )
 
         self.config_data.profiles[profile_name] = profile
         if set_active:
@@ -118,7 +120,7 @@ class Config:
                 data = json.load(f)
             return ConfigFileSchema(**data)
         except json.JSONDecodeError:
-            logger.error("Error decoding JSON file.")
+            user_logger.error("Error decoding JSON file.")
             raise ValueError("Failed to parse configuration file")
 
     def save_config(self) -> None:

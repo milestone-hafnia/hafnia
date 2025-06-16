@@ -68,6 +68,7 @@ def hf_2_torch_dataset(dataset: datasets.Dataset) -> torch.utils.data.Dataset:
     return dataset_torch
 
 
+@pytest.mark.slow
 def test_dataset_lengths(loaded_dataset):
     """Test that the dataset has the expected number of samples."""
     dataset = loaded_dataset["dataset"]
@@ -77,6 +78,7 @@ def test_dataset_lengths(loaded_dataset):
     assert actual_lengths == expected_lengths
 
 
+@pytest.mark.slow
 def test_dataset_features(loaded_dataset):
     """Test the features of the dataset based on task type."""
     dataset = loaded_dataset["dataset"]
@@ -127,6 +129,7 @@ def test_dataset_features(loaded_dataset):
             raise ValueError(f"Unknown task type: {task_type}")
 
 
+@pytest.mark.slow
 def test_dataset_draw_image_and_target(loaded_dataset):
     """Test data transformations and visualization."""
     dataset = loaded_dataset["dataset"]
@@ -151,6 +154,7 @@ def test_dataset_draw_image_and_target(loaded_dataset):
         pil_image.save(output_dir / f"visualized_{dataset_name}.png")
 
 
+@pytest.mark.slow
 def test_dataset_dataloader(loaded_dataset):
     """Test dataloader functionality."""
     dataset = loaded_dataset["dataset"]

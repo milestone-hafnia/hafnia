@@ -16,6 +16,7 @@ from cli.config import Config
         # Add other example scripts here
     ],
 )
+@pytest.mark.slow
 def test_example_scripts(script_path_str: str):
     if not Config().is_configured():
         pytest.skip("Not logged in to Hafnia")
