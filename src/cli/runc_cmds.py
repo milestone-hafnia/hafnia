@@ -56,9 +56,9 @@ def launch_local(cfg: Config, exec_cmd: str, dataset: str, image_name: str) -> N
         if not path_state_file.exists():
             raise click.ClickException("State file does not exist. Please build the image first.")
         state_dict = json.loads(path_state_file.read_text())
-        if "mdi_tag" not in state_dict:
-            raise click.ClickException("mdi_tag not found in state file. Please build the image first.")
-        image_name = state_dict["mdi_tag"]
+        if "image_tag" not in state_dict:
+            raise click.ClickException("'image_tag' not found in state file. Please build the image first.")
+        image_name = state_dict["image_tag"]
 
     docker_cmds = [
         "docker",
