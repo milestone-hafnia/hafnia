@@ -31,7 +31,7 @@ def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Dict:
         http.clear()
 
 
-def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes], multipart: bool = False) -> Dict:
+def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes, str], multipart: bool = False) -> Dict:
     """Posts data to backend endpoint.
 
     Args:

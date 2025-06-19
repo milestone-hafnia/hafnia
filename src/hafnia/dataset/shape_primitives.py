@@ -490,8 +490,8 @@ class Segmentation(Primitive):
         if not inplace:
             image = image.copy()
 
-        colormapping = np.array(get_n_colors(len(self.class_names)), dtype=np.uint8)
-        label_image = colormapping[self.mask]
+        color_mapping = np.array(get_n_colors(len(self.class_names)), dtype=np.uint8)
+        label_image = color_mapping[self.mask]
         blended = cv2.addWeighted(image, 0.5, label_image, 0.5, 0)
         return blended
 

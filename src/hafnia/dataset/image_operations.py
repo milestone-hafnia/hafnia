@@ -101,13 +101,36 @@ def concatenate_below(img0: np.ndarray, below_img: np.ndarray) -> np.ndarray:
     return frame_visualized
 
 
+def concatenate_below_resize_by_padding(img0: np.ndarray, below_img: np.ndarray):
+    max_width = max(img0.shape[1], below_img.shape[1])
+
+    if len(img0.shape) == 2:
+        img0 = cv2.cvtColor(img0, cv2.COLOR_GRAY2RGB)
+    if len(below_img.shape) == 2:
+        below_img = cv2.cvtColor(below_img, cv2.COLOR_GRAY2RGB)
+    img0_padded = resize_width_by_padding(img0, new_width=max_width)
+    below_img_padded = resize_width_by_padding(below_img, new_width=max_width)
+
+    return np.concatenate([img0_padded, below_img_padded], axis=0)
+
+
+def resize_width_by_padding(img0: np.ndarray, new_width: int) -> np.ndarray:
+    img0_new_shape = list(img0.shape)
+    img0_new_shape[1] = new_width
+    img0_padded = np.zeros(img0_new_shape, dtype=img0.dtype)
+    extra_width = new_width - img0.shape[1]
+    left_margin = extra_width // 2
+    img0_padded[:, left_margin : left_margin + img0.shape[1]] = img0
+    return img0_padded
+
+
 def append_text_below_frame(frame: np.ndarray, text: str) -> np.ndarray:
     font_size_px = int(frame.shape[0] * 0.1)  # 10% of the frame height
     font_size_px = max(font_size_px, 7)  # Ensure a minimum font size
     font_size_px = min(font_size_px, 50)  # Ensure a maximum font size
 
-    text_region = create_text_img(text, font_size_px=font_size_px, text_width=frame.shape[1])
-    frame_with_text = concatenate_below(frame, text_region)
+    text_region = create_text_img(text, font_size_px=font_size_px)
+    frame_with_text = concatenate_below_resize_by_padding(frame, text_region)
     return frame_with_text
 
 
