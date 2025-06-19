@@ -9,7 +9,7 @@ from hafnia.data import load_dataset
 
 if __name__ == "__main__":
     # Load Hugging Face dataset
-    dataset_splits = load_dataset("midwest-vehicle-detection")
+    dataset = load_dataset("midwest-vehicle-detection")
 
     # Define transforms
     train_transforms = v2.Compose(
@@ -27,13 +27,15 @@ if __name__ == "__main__":
             v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
+    dataset_train = dataset.create_split_dataset("train")
+    dataset_test = dataset.create_split_dataset("test")
 
     keep_metadata = True
     train_dataset = torch_helpers.TorchvisionDataset(
-        dataset_splits["train"], transforms=train_transforms, keep_metadata=keep_metadata
+        dataset_train, transforms=train_transforms, keep_metadata=keep_metadata
     )
     test_dataset = torch_helpers.TorchvisionDataset(
-        dataset_splits["test"], transforms=test_transforms, keep_metadata=keep_metadata
+        dataset_test, transforms=test_transforms, keep_metadata=keep_metadata
     )
 
     # Visualize sample
@@ -43,9 +45,7 @@ if __name__ == "__main__":
     pil_image.save("visualized_labels.png")
 
     # Create DataLoaders - using TorchVisionCollateFn
-    collate_fn = torch_helpers.TorchVisionCollateFn(
-        skip_stacking=["objects.bbox", "objects.class_idx"]
-    )
+    collate_fn = torch_helpers.TorchVisionCollateFn()
     train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 
     for images, targets in train_loader:

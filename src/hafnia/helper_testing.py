@@ -27,19 +27,18 @@ def get_path_micro_hafnia_dataset() -> Path:
 
 
 def get_sample_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Sample:
-    if dataset_name not in MICRO_DATASETS:
-        raise ValueError(f"Dataset name '{dataset_name}' is not recognized. Available options: {list(MICRO_DATASETS)}")
-    path_dataset = MICRO_DATASETS[dataset_name]
-    micro_dataset = get_micro_hafnia_dataset(
-        dataset_name=dataset_name, path_dataset=path_dataset, force_update=force_update
-    )
+    micro_dataset = get_micro_hafnia_dataset(dataset_name=dataset_name, force_update=force_update)
     sample_dict = micro_dataset[0]
     sample = Sample(**sample_dict)
     return sample
 
 
-def get_micro_hafnia_dataset(dataset_name: str, path_dataset: Path, force_update: bool = False) -> HafniaDataset:
+def get_micro_hafnia_dataset(dataset_name: str, force_update: bool = False) -> HafniaDataset:
     import pytest
+
+    if dataset_name not in MICRO_DATASETS:
+        raise ValueError(f"Dataset name '{dataset_name}' is not recognized. Available options: {list(MICRO_DATASETS)}")
+    path_dataset = MICRO_DATASETS[dataset_name]
 
     path_test_dataset = get_path_micro_hafnia_dataset() / dataset_name
     path_test_dataset_annotations = path_test_dataset / FILENAME_ANNOTATIONS_JSONL

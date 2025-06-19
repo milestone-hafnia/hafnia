@@ -11,6 +11,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from hafnia.dataset import dataset_helpers
+from hafnia.dataset.dataset_names import ColumnName
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -29,10 +30,55 @@ class AnonymizeByPixelation:
 
 
 def splits_by_ratios(dataset: "HafniaDataset", split_ratios: Dict[str, float], seed: int = 42) -> "HafniaDataset":
+    """
+    Divides the dataset into splits based on the provided ratios.
+
+    Example: Defining split ratios and applying the transformation
+
+    >>> dataset = HafniaDataset.read_from_path(Path("path/to/dataset"))
+    >>> split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
+    >>> dataset_with_splits = splits_by_ratios(dataset, split_ratios, seed=42)
+    Or use the function as a
+    >>> dataset_with_splits = dataset.splits_by_ratios(split_ratios, seed=42)
+    """
     n_items = len(dataset)
-    split_name_column = dataset_helpers.split_names_from_ratios(split_ratios=split_ratios, n_items=n_items, seed=seed)
+    split_name_column = dataset_helpers.create_split_name_list_from_ratios(
+        split_ratios=split_ratios, n_items=n_items, seed=seed
+    )
     table = dataset.table.with_columns(pl.Series(split_name_column).alias("split"))
     return dataset.update_table(table)
+
+
+def divide_split_into_multiple_splits(
+    dataset: "HafniaDataset",
+    divide_split_name: str,
+    split_ratios: Dict[str, float],
+) -> "HafniaDataset":
+    """
+    Divides a dataset split ('divide_split_name') into multiple splits based on the provided split
+    ratios ('split_ratios'). This is especially useful for some open datasets where they have only provide
+    two splits or only provide annotations for two splits. This function allows you to create additional
+    splits based on the provided ratios.
+
+    Example: Defining split ratios and applying the transformation
+    >>> dataset = HafniaDataset.read_from_path(Path("path/to/dataset"))
+    >>> divide_split_name = SplitName.TEST
+    >>> split_ratios = {SplitName.TEST: 0.8, SplitName.VAL: 0.2}
+    >>> dataset_with_splits = divide_split_into_multiple_splits(dataset, divide_split_name, split_ratios)
+    """
+    dataset_split_to_be_divided = dataset.create_split_dataset(split_name=divide_split_name)
+    if len(dataset_split_to_be_divided) == 0:
+        split_counts = dict(dataset.table.select(pl.col(ColumnName.SPLIT).value_counts()).iter_rows())
+        raise ValueError(
+            f"No samples in the '{divide_split_name}' split to divide into multiple splits. {split_counts=}"
+        )
+    assert len(dataset_split_to_be_divided) > 0, f"No samples in the '{divide_split_name}' split!"
+    dataset_split_to_be_divided = dataset_split_to_be_divided.split_by_ratios(split_ratios=split_ratios, seed=42)
+
+    remaining_data = dataset.table.filter(pl.col(ColumnName.SPLIT).is_in([divide_split_name]).not_())
+    new_table = pl.concat([remaining_data, dataset_split_to_be_divided.table], how="vertical")
+    dataset_new = dataset.update_table(new_table)
+    return dataset_new
 
 
 def shuffle_dataset(dataset: "HafniaDataset", seed: int = 42) -> "HafniaDataset":
@@ -56,7 +102,9 @@ def define_sample_set_by_size(dataset: "HafniaDataset", n_samples: int, seed: in
 
 
 def transform_images(
-    dataset: "HafniaDataset", transform: Callable[[np.ndarray], np.ndarray], path_output: Path
+    dataset: "HafniaDataset",
+    transform: Callable[[np.ndarray], np.ndarray],
+    path_output: Path,
 ) -> "HafniaDataset":
     new_paths = []
     for org_path in tqdm(dataset.table["file_name"].to_list(), desc="Transform images"):

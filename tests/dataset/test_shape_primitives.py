@@ -7,7 +7,7 @@ from hafnia.dataset.base_types import Primitive
 from hafnia.dataset.dataset_names import FieldName
 from hafnia.dataset.hafnia_dataset import Sample
 from hafnia.dataset.shape_primitives import (
-    COORDINATE_TYPES,
+    PRIMITIVE_TYPES,
     Bbox,
     Bitmask,
     Classification,
@@ -45,7 +45,7 @@ def assert_bbox_is_close(actual: Bbox, expected: Bbox, atol: float = 0.001):
     assert np.isclose(actual.top_left_y, expected.top_left_y, atol=atol)
 
 
-@pytest.mark.parametrize("TypePrimitive", COORDINATE_TYPES)
+@pytest.mark.parametrize("TypePrimitive", PRIMITIVE_TYPES)
 def test_sample_primitive_names(TypePrimitive: Type[Primitive]):
     sample = Sample(
         image_id="test_sample", file_name="test_image.jpg", width=100, height=100, split="test_split", is_sample=False

@@ -1,63 +1,107 @@
-from typing import List, Optional
+from typing import Dict, List, Optional, Type, Union
 
-import datasets
+import numpy as np
 import torch
 import torchvision
-from flatten_dict import flatten
+from flatten_dict import flatten, unflatten
 from PIL import Image, ImageDraw, ImageFont
 from torchvision import tv_tensors
 from torchvision import utils as tv_utils
 from torchvision.transforms import v2
 
+from hafnia.dataset.base_types import Primitive
+from hafnia.dataset.dataset_names import FieldName
+from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+from hafnia.dataset.shape_primitives import (
+    PRIMITIVE_COLUMN_NAMES,
+    Bbox,
+    Bitmask,
+    Classification,
+    Segmentation,
+    class_color_by_name,
+)
+
+
+def get_primitives_per_task_name_for_primitive(
+    sample: Sample, PrimitiveType: Type[Primitive], split_by_task_name: bool = True
+) -> Dict[str, List[Primitive]]:
+    if not hasattr(sample, PrimitiveType.column_name()):
+        return {}
+
+    primitives = getattr(sample, PrimitiveType.column_name())
+    if primitives is None:
+        return {}
+
+    primitives_by_task_name: Dict[str, List[Primitive]] = {}
+    for primitive in primitives:
+        if primitive.task_name not in primitives_by_task_name:
+            primitives_by_task_name[primitive.task_name] = []
+        primitives_by_task_name[primitive.task_name].append(primitive)
+    return primitives_by_task_name
+
 
 class TorchvisionDataset(torch.utils.data.Dataset):
     def __init__(
         self,
-        hf_dataset: datasets.Dataset,
+        dataset: HafniaDataset,
         transforms=None,
-        classification_tasks: Optional[List] = None,
-        object_tasks: Optional[List] = None,
-        segmentation_tasks: Optional[List] = None,
         keep_metadata: bool = False,
     ):
-        self.dataset = hf_dataset
+        self.dataset = dataset
+
         self.transforms = transforms
-        self.object_tasks = object_tasks or ["objects"]
-        self.segmentation_tasks = segmentation_tasks or ["segmentation"]
-        self.classification_tasks = classification_tasks or ["classification"]
         self.keep_metadata = keep_metadata
 
-    def __getitem__(self, idx):
-        sample = self.dataset[idx]
+    def __getitem__(self, idx: int):
+        sample_dict = self.dataset[idx]
+        sample = Sample(**sample_dict)
+        image = tv_tensors.Image(sample.read_image_pillow())
+        h, w = image.shape[-2:]
+        target_flat = {}
+        mask_tasks: Dict[str, List[Segmentation]] = get_primitives_per_task_name_for_primitive(sample, Segmentation)
+        for task_name, masks in mask_tasks.items():
+            raise NotImplementedError("Segmentation tasks are not yet implemented")
+            # target[f"{mask.task_name}.mask"] = tv_tensors.Mask(mask.mask)
 
-        # For now, we expect a dataset to always have an image field
-        image = tv_tensors.Image(sample.pop("image"))
+        class_tasks: Dict[str, List] = get_primitives_per_task_name_for_primitive(sample, Classification)
+        for task_name, classifications in class_tasks.items():
+            assert len(classifications) == 1, "Expected exactly one classification task per sample"
+            target_flat[f"{Classification.column_name()}.{task_name}"] = {
+                FieldName.CLASS_IDX: classifications[0].class_idx,
+                FieldName.CLASS_NAME: classifications[0].class_name,
+            }
 
-        img_shape = image.shape[-2:]
-        target = {}
+        bbox_tasks: Dict[str, List[Bbox]] = get_primitives_per_task_name_for_primitive(sample, Bbox)
+        for task_name, bboxes in bbox_tasks.items():
+            bboxes_list = [bbox.to_coco(image_height=h, image_width=w) for bbox in bboxes]
+            bboxes_tensor = torch.as_tensor(bboxes_list).reshape(-1, 4)
+            target_flat[f"{Bbox.column_name()}.{task_name}"] = {
+                FieldName.CLASS_IDX: [bbox.class_idx for bbox in bboxes],
+                FieldName.CLASS_NAME: [bbox.class_name for bbox in bboxes],
+                "bbox": tv_tensors.BoundingBoxes(bboxes_tensor, format="XYWH", canvas_size=(h, w)),
+            }
 
-        for segmentation_task in self.segmentation_tasks:
-            if segmentation_task in sample:
-                target[f"{segmentation_task}.mask"] = tv_tensors.Mask(sample[segmentation_task].pop("mask"))
-
-        for classification_task in self.classification_tasks:
-            if classification_task in sample:
-                target[f"{classification_task}.class_idx"] = sample[classification_task].pop("class_idx")
-
-        for object_task in self.object_tasks:
-            if object_task in sample:
-                bboxes_list = sample[object_task].pop("bbox")
-                bboxes = tv_tensors.BoundingBoxes(bboxes_list, format="XYWH", canvas_size=img_shape)
-                if bboxes.numel() == 0:
-                    bboxes = bboxes.reshape(-1, 4)
-                target[f"{object_task}.bbox"] = bboxes
-                target[f"{object_task}.class_idx"] = torch.tensor(sample[object_task].pop("class_idx"))
-
-        if self.keep_metadata:
-            target.update(flatten(sample, reducer="dot"))
+        bitmask_tasks: Dict[str, List[Bitmask]] = get_primitives_per_task_name_for_primitive(sample, Bitmask)
+        for task_name, bitmasks in bitmask_tasks.items():
+            bitmasks_np = np.array([bitmask.to_mask(img_height=h, img_width=w) for bitmask in bitmasks])
+            target_flat[f"{Bitmask.column_name()}.{task_name}"] = {
+                FieldName.CLASS_IDX: [bitmask.class_idx for bitmask in bitmasks],
+                FieldName.CLASS_NAME: [bitmask.class_name for bitmask in bitmasks],
+                "mask": tv_tensors.Mask(bitmasks_np),
+            }
 
         if self.transforms:
-            image, target = self.transforms(image, target)
+            image, target_flat = self.transforms(image, target_flat)
+
+        target = unflatten(target_flat, splitter="dot")  # Nested dictionary format
+
+        if self.keep_metadata:
+            sample_dict = sample_dict.copy()
+            drop_columns = PRIMITIVE_COLUMN_NAMES
+            for column in drop_columns:
+                if column in sample_dict:
+                    sample_dict.pop(column)
+            target.update(flatten(sample_dict, reducer="dot"))
 
         return image, target
 
@@ -65,16 +109,19 @@ class TorchvisionDataset(torch.utils.data.Dataset):
         return len(self.dataset)
 
 
-def draw_image_classification(visualize_image: torch.Tensor, text_label: str) -> torch.Tensor:
+def draw_image_classification(visualize_image: torch.Tensor, text_labels: Union[str, List[str]]) -> torch.Tensor:
+    if isinstance(text_labels, str):
+        text_labels = [text_labels]
+    text = "\n".join(text_labels)
     max_dim = max(visualize_image.shape[-2:])
-    font_size = max(int(max_dim * 0.1), 10)  # Minimum font size of 10
+    font_size = max(int(max_dim * 0.06), 10)  # Minimum font size of 10
     txt_font = ImageFont.load_default(font_size)
     dummie_draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
-    _, _, w, h = dummie_draw.textbbox((0, 0), text=text_label, font=txt_font)  # type: ignore[arg-type]
+    _, _, w, h = dummie_draw.textbbox((0, 0), text=text, font=txt_font)  # type: ignore[arg-type]
 
     text_image = Image.new("RGB", (int(w), int(h)))
     draw = ImageDraw.Draw(text_image)
-    draw.text((0, 0), text=text_label, font=txt_font)  # type: ignore[arg-type]
+    draw.text((0, 0), text=text, font=txt_font)  # type: ignore[arg-type]
     text_tensor = v2.functional.to_image(text_image)
 
     height = text_tensor.shape[-2] + visualize_image.shape[-2]
@@ -94,14 +141,7 @@ def draw_image_classification(visualize_image: torch.Tensor, text_label: str) ->
 def draw_image_and_targets(
     image: torch.Tensor,
     targets,
-    detection_tasks: Optional[List[str]] = None,
-    segmentation_tasks: Optional[List[str]] = None,
-    classification_tasks: Optional[List[str]] = None,
 ) -> torch.Tensor:
-    detection_tasks = detection_tasks or ["objects"]
-    segmentation_tasks = segmentation_tasks or ["segmentation"]
-    classification_tasks = classification_tasks or ["classification"]
-
     visualize_image = image.clone()
     if visualize_image.is_floating_point():
         visualize_image = image - torch.min(image)
@@ -109,39 +149,72 @@ def draw_image_and_targets(
 
     visualize_image = v2.functional.to_dtype(visualize_image, torch.uint8, scale=True)
 
-    for object_task in detection_tasks:
-        bbox_field = f"{object_task}.bbox"
-        if bbox_field in targets:
-            hugging_face_format = "xywh"
-            bbox = torchvision.ops.box_convert(targets[bbox_field], in_fmt=hugging_face_format, out_fmt="xyxy")
-            class_names_field = f"{object_task}.class_name"
-            class_names = targets.get(class_names_field, None)
-            visualize_image = tv_utils.draw_bounding_boxes(visualize_image, bbox, labels=class_names, width=2)
-
-    for segmentation_task in segmentation_tasks:
-        mask_field = f"{segmentation_task}.mask"
-        if mask_field in targets:
+    # NOTE: Order of drawing is important so visualizations are not overlapping in an undesired way
+    if Segmentation.column_name() in targets:
+        primtive_annotations = targets[Segmentation.column_name()]
+        for task_name, task_annotations in primtive_annotations.items():
+            raise NotImplementedError("Segmentation tasks are not yet implemented")
             mask = targets[mask_field].squeeze(0)
             masks_list = [mask == value for value in mask.unique()]
             masks = torch.stack(masks_list, dim=0).to(torch.bool)
             visualize_image = tv_utils.draw_segmentation_masks(visualize_image, masks=masks, alpha=0.5)
 
-    for classification_task in classification_tasks:
-        classification_field = f"{classification_task}.class_idx"
-        if classification_field in targets:
-            text_label = f"[{targets[classification_field]}]"
-            classification_name_field = f"{classification_task}.class_name"
-            if classification_name_field in targets:
-                text_label = text_label + f" {targets[classification_name_field]}"
-            visualize_image = draw_image_classification(visualize_image, text_label)
+    if Bitmask.column_name() in targets:
+        primtive_annotations = targets[Bitmask.column_name()]
+        for task_name, task_annotations in primtive_annotations.items():
+            colors = [class_color_by_name(class_name) for class_name in task_annotations[FieldName.CLASS_NAME]]
+            visualize_image = tv_utils.draw_segmentation_masks(
+                image=visualize_image,
+                masks=task_annotations["mask"],
+                colors=colors,
+            )
+
+    if Bbox.column_name() in targets:
+        primtive_annotations = targets[Bbox.column_name()]
+        for task_name, task_annotations in primtive_annotations.items():
+            bboxes = torchvision.ops.box_convert(task_annotations["bbox"], in_fmt="xywh", out_fmt="xyxy")
+            colors = [class_color_by_name(class_name) for class_name in task_annotations[FieldName.CLASS_NAME]]
+            visualize_image = tv_utils.draw_bounding_boxes(
+                image=visualize_image,
+                boxes=bboxes,
+                labels=task_annotations[FieldName.CLASS_NAME],
+                width=2,
+                colors=colors,
+            )
+
+    # Important that classification is drawn last as it will change image dimensions
+    if Classification.column_name() in targets:
+        primtive_annotations = targets[Classification.column_name()]
+        text_labels = []
+        for task_name, task_annotations in primtive_annotations.items():
+            if task_name == Classification.default_task_name():
+                text_label = task_annotations[FieldName.CLASS_NAME]
+            else:
+                text_label = f"{task_name}: {task_annotations[FieldName.CLASS_NAME]}"
+            text_labels.append(text_label)
+        visualize_image = draw_image_classification(visualize_image, text_labels)
     return visualize_image
 
 
 class TorchVisionCollateFn:
     def __init__(self, skip_stacking: Optional[List] = None):
         if skip_stacking is None:
-            skip_stacking = []
-        self.skip_stacking_list = skip_stacking
+            skip_stacking = [f"{Bbox.column_name()}.*", f"{Bitmask.column_name()}.*"]
+
+        self.wild_card_skip_stacking = []
+        self.skip_stacking_list = []
+        for skip_name in skip_stacking:
+            if skip_name.endswith("*"):
+                self.wild_card_skip_stacking.append(skip_name[:-1])  # Remove the trailing '*'
+            else:
+                self.skip_stacking_list.append(skip_name)
+
+    def skip_key_name(self, key_name: str) -> bool:
+        if key_name in self.skip_stacking_list:
+            return True
+        if any(key_name.startswith(wild_card) for wild_card in self.wild_card_skip_stacking):
+            return True
+        return False
 
     def __call__(self, batch):
         images, targets = tuple(zip(*batch, strict=False))
@@ -150,21 +223,22 @@ class TorchVisionCollateFn:
 
         targets_modified = {k: [d[k] for d in targets] for k in targets[0]}
         for key_name, item_values in targets_modified.items():
-            if key_name not in self.skip_stacking_list:
-                first_element = item_values[0]
-                if isinstance(first_element, torch.Tensor):
-                    item_values = torch.stack(item_values)
-                elif isinstance(first_element, (int, float)):
-                    item_values = torch.tensor(item_values)
-                elif isinstance(first_element, (str, list)):
-                    # Skip stacking for certain types such as strings and lists
-                    pass
-                if isinstance(first_element, tv_tensors.Mask):
-                    item_values = tv_tensors.Mask(item_values)
-                elif isinstance(first_element, tv_tensors.Image):
-                    item_values = tv_tensors.Image(item_values)
-                elif isinstance(first_element, tv_tensors.BoundingBoxes):
-                    item_values = tv_tensors.BoundingBoxes(item_values)
-                targets_modified[key_name] = item_values
+            if self.skip_key_name(key_name):
+                continue
+            first_element = item_values[0]
+            if isinstance(first_element, torch.Tensor):
+                item_values = torch.stack(item_values)
+            elif isinstance(first_element, (int, float)):
+                item_values = torch.tensor(item_values)
+            elif isinstance(first_element, (str, list)):
+                # Skip stacking for certain types such as strings and lists
+                pass
+            if isinstance(first_element, tv_tensors.Mask):
+                item_values = tv_tensors.Mask(item_values)
+            elif isinstance(first_element, tv_tensors.Image):
+                item_values = tv_tensors.Image(item_values)
+            elif isinstance(first_element, tv_tensors.BoundingBoxes):
+                item_values = tv_tensors.BoundingBoxes(item_values)
+            targets_modified[key_name] = item_values
 
         return images, targets_modified

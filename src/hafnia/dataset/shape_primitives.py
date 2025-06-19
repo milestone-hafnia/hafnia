@@ -18,11 +18,11 @@ class Classification(Primitive):
     class_idx: Optional[int] = None  # Class index, e.g. 0 for "car" if it is the first class
     object_id: Optional[str] = None  # Unique identifier for the object, e.g. "12345123"
     confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification
+    ground_truth: bool = True  # Whether this is ground truth or a prediction
+
     draw_label: bool = True  # Whether to draw the label
 
-    task_name: str = (
-        ""  # Task name to support multiple Classification tasks in the same dataset. "" defaults to "classification"
-    )
+    task_name: str = ""  # To support multiple Classification tasks in the same dataset. "" defaults to "classification"
     meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
 
     @staticmethod
@@ -74,6 +74,7 @@ class Bbox(Primitive):
     class_idx: Optional[int] = None  # Class index, e.g. 0 for "car" if it is the first class
     object_id: Optional[str] = None  # Unique identifier for the object, e.g. "12345123"
     confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
+    ground_truth: bool = True  # Whether this is ground truth or a prediction
     draw_label: bool = True  # Whether to draw the label on the bounding box
 
     task_name: str = ""  # Task name to support multiple Bbox tasks in the same dataset. "" defaults to "bboxes"
@@ -103,6 +104,13 @@ class Bbox(Primitive):
             width=bbox_width / width,
             height=bbox_height / height,
         )
+
+    def to_bbox(self) -> Tuple[float, float, float, float]:
+        """
+        Converts Bbox to a tuple of (x_min, y_min, width, height) with normalized coordinates.
+        Values are floats in the range [0, 1].
+        """
+        return (self.top_left_x, self.top_left_y, self.width, self.height)
 
     def to_coco(self, image_height: int, image_width: int) -> Tuple[int, int, int, int]:
         xmin = round_int_clip_value(self.top_left_x * image_width, max_value=image_width)
@@ -204,6 +212,7 @@ class Polygon(Primitive):
     class_idx: Optional[int] = None  # This should match the string in 'FieldName.CLASS_IDX'
     object_id: Optional[str] = None  # This should match the string in 'FieldName.OBJECT_ID'
     confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
+    ground_truth: bool = True  # Whether this is ground truth or a prediction
 
     task_name: str = ""  # Task name to support multiple Polygon tasks in the same dataset. "" defaults to "polygon"
     meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
@@ -299,6 +308,7 @@ class Bitmask(Primitive):
     class_idx: Optional[int] = None  # This should match the string in 'FieldName.CLASS_IDX'
     object_id: Optional[str] = None  # This should match the string in 'FieldName.OBJECT_ID'
     confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
+    ground_truth: bool = True  # Whether this is ground truth or a prediction
     draw_label: bool = True  # Whether to draw the label inside the mask
 
     task_name: str = ""  # Task name to support multiple Bitmask tasks in the same dataset. "" defaults to "bitmask"
@@ -457,6 +467,7 @@ class Bitmask(Primitive):
 class Segmentation(Primitive):
     # mask: np.ndarray
     class_names: Optional[List[str]] = None  # This should match the string in 'FieldName.CLASS_NAME'
+    ground_truth: bool = True  # Whether this is ground truth or a prediction
 
     # confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification
     task_name: str = (
@@ -542,5 +553,6 @@ def anonymize_by_resizing(blur_region: np.ndarray, max_resolution: int = 20) -> 
     return blur_region_upsized
 
 
-COORDINATE_TYPES: List[Type[Primitive]] = [Bbox, Classification, Polygon, Bitmask]
-COORDINATE_NAME_TO_TYPE = {cls.__name__: cls for cls in COORDINATE_TYPES}
+PRIMITIVE_TYPES: List[Type[Primitive]] = [Bbox, Classification, Polygon, Bitmask]
+PRIMITIVE_NAME_TO_TYPE = {cls.__name__: cls for cls in PRIMITIVE_TYPES}
+PRIMITIVE_COLUMN_NAMES: List[str] = [PrimitiveType.column_name() for PrimitiveType in PRIMITIVE_TYPES]

@@ -12,10 +12,22 @@ from pydantic import BaseModel, ConfigDict
 from cli.config import Config
 from hafnia.dataset import shape_primitives
 from hafnia.dataset.base_types import Primitive
-from hafnia.dataset.dataset_names import ColumnName, DatasetVariant, DeploymentStage, FieldName, SplitName
+from hafnia.dataset.dataset_names import (
+    ColumnName,
+    DatasetVariant,
+    DeploymentStage,
+    FieldName,
+    SplitName,
+)
 from hafnia.dataset.hafnia_dataset import HafniaDataset, TaskInfo
 from hafnia.http import post
 from hafnia.platform import get_dataset_id
+
+
+def generate_bucket_name(dataset_name: str, deployment_stage: DeploymentStage) -> str:
+    # TODO: When moving to versioning we do NOT need 'staging' and 'production' specific buckets
+    # and the new name convention should be: f"hafnia-dataset-{dataset_name}"
+    return f"mdi-{deployment_stage.value}-{dataset_name}"
 
 
 class DbDataset(BaseModel, validate_assignment=True):
@@ -235,7 +247,11 @@ def calculate_distribution_values(
                 )
             )
     dist_values = sorted(
-        dist_values, key=lambda x: (x.distribution_category.distribution_type.name, x.distribution_category.name)
+        dist_values,
+        key=lambda x: (
+            x.distribution_category.distribution_type.name,
+            x.distribution_category.name,
+        ),
     )
     return dist_values
 
@@ -296,7 +312,8 @@ def dataset_info_from_dataset(
             dataset_split = dataset_variant.table.filter(pl.col(ColumnName.SPLIT).is_in(split_names))
 
             distribution_values = calculate_distribution_values(
-                dataset_split=dataset_split, distribution_tasks=dataset.info.distributions
+                dataset_split=dataset_split,
+                distribution_tasks=dataset.info.distributions,
             )
             report = DbSplitAnnotationsReport(
                 variant_type=VARIANT_TYPE_MAPPING[variant_type],
@@ -306,7 +323,7 @@ def dataset_info_from_dataset(
             )
 
             object_reports: List[DbAnnotatedObjectReport] = []
-            primitive_columns = [tPrimtive.column_name() for tPrimtive in shape_primitives.COORDINATE_TYPES]
+            primitive_columns = [tPrimtive.column_name() for tPrimtive in shape_primitives.PRIMITIVE_TYPES]
             if has_primitive(dataset_split, PrimitiveType=shape_primitives.Bbox):
                 bbox_column_name = shape_primitives.Bbox.column_name()
                 drop_columns = [col for col in primitive_columns if col != bbox_column_name]
@@ -323,7 +340,10 @@ def dataset_info_from_dataset(
                         continue
                     object_reports.append(
                         DbAnnotatedObjectReport(
-                            obj=DbAnnotatedObject(name=class_name, entity_type=EntityTypeChoices.OBJECT.value),
+                            obj=DbAnnotatedObject(
+                                name=class_name,
+                                entity_type=EntityTypeChoices.OBJECT.value,
+                            ),
                             unique_obj_ids=class_group["object_id"].n_unique(),
                             obj_instances=len(class_group),
                             annotation_type=[annotation_type],
@@ -349,9 +369,10 @@ def dataset_info_from_dataset(
                         pl.col(FieldName.TASK_NAME).is_in(classification_tasks)
                     )
 
-                    for (task_name, class_name), class_group in classification_df.group_by(
-                        FieldName.TASK_NAME, FieldName.CLASS_NAME
-                    ):
+                    for (
+                        task_name,
+                        class_name,
+                    ), class_group in classification_df.group_by(FieldName.TASK_NAME, FieldName.CLASS_NAME):
                         if class_name is None:
                             continue
                         if task_name == shape_primitives.Classification.default_task_name():
@@ -360,7 +381,10 @@ def dataset_info_from_dataset(
                             display_name = f"{task_name}.{class_name}"
                         object_reports.append(
                             DbAnnotatedObjectReport(
-                                obj=DbAnnotatedObject(name=display_name, entity_type=EntityTypeChoices.EVENT.value),
+                                obj=DbAnnotatedObject(
+                                    name=display_name,
+                                    entity_type=EntityTypeChoices.EVENT.value,
+                                ),
                                 unique_obj_ids=len(
                                     class_group
                                 ),  # Unique object IDs are not applicable for classification
@@ -389,7 +413,10 @@ def dataset_info_from_dataset(
                         continue
                     object_reports.append(
                         DbAnnotatedObjectReport(
-                            obj=DbAnnotatedObject(name=class_name, entity_type=EntityTypeChoices.OBJECT.value),
+                            obj=DbAnnotatedObject(
+                                name=class_name,
+                                entity_type=EntityTypeChoices.OBJECT.value,
+                            ),
                             unique_obj_ids=class_group["object_id"].n_unique(),
                             obj_instances=len(class_group),
                             annotation_type=[annotation_type],
@@ -412,11 +439,11 @@ def dataset_info_from_dataset(
 
             dataset_reports.append(report)
     dataset_name = dataset.info.dataset_name
-    # bucket_sample = generate_bucket_name(dataset_name, dataset_variant=DatasetVariant.SAMPLE, deployment_stage=deployment_stage)
+    bucket_sample = generate_bucket_name(dataset_name, deployment_stage=deployment_stage)
     dataset_info = DbDataset(
         name=dataset_name,
         version=dataset.info.version,
-        # s3_bucket_name=bucket_sample,
+        s3_bucket_name=bucket_sample,
         dataset_variants=dataset_variants,
         split_annotations_reports=dataset_reports,
         license_citation=dataset_meta_info.get("license_citation", None),
