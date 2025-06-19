@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Type
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import cv2
 import numpy as np
@@ -123,7 +123,7 @@ class Bbox(Primitive):
 
     def to_pixel_coordinates(
         self, image_shape: Tuple[int, int], as_int: bool = True, clip_values: bool = True
-    ) -> Tuple[float, float, float, float]:
+    ) -> Union[Tuple[float, float, float, float], Tuple[int, int, int, int]]:
         bb_height = self.height * image_shape[0]
         bb_width = self.width * image_shape[1]
         bb_top_left_x = self.top_left_x * image_shape[1]
@@ -165,6 +165,7 @@ class Bbox(Primitive):
         if not inplace:
             image = image.copy()
         xmin, ymin, xmax, ymax = self.to_pixel_coordinates(image_shape=image.shape[:2])
+        xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
 
         if color is None:
             color = np.mean(image[ymin:ymax, xmin:xmax], axis=(0, 1)).astype(np.uint8)
@@ -176,6 +177,7 @@ class Bbox(Primitive):
         if not inplace:
             image = image.copy()
         xmin, ymin, xmax, ymax = self.to_pixel_coordinates(image_shape=image.shape[:2])
+        xmin, ymin, xmax, ymax = int(xmin), int(ymin), int(xmax), int(ymax)
         blur_region = image[ymin:ymax, xmin:xmax]
         blur_region_upsized = anonymize_by_resizing(blur_region, max_resolution=max_resolution)
         image[ymin:ymax, xmin:xmax] = blur_region_upsized
@@ -286,8 +288,8 @@ class Polygon(Primitive):
 
         if color is None:
             mask = np.zeros_like(image[:, :, 0])
-            bitmask = cv2.fillPoly(mask, pts=[np.array(points)], color=255).astype(bool)
-            color = tuple(int(value) for value in np.mean(image[bitmask], axis=0))
+            bitmask = cv2.fillPoly(mask, pts=[np.array(points)], color=255).astype(bool)  # type: ignore[assignment]
+            color = tuple(int(value) for value in np.mean(image[bitmask], axis=0))  # type: ignore[assignment]
 
         cv2.fillPoly(image, [np.array(points)], color=color)
         return image
@@ -456,7 +458,7 @@ class Bitmask(Primitive):
         bitmask_np = self.to_mask(img_height=image.shape[0], img_width=image.shape[1])
 
         if color is None:
-            color = tuple(int(value) for value in np.mean(image[bitmask_np], axis=0))
+            color = tuple(int(value) for value in np.mean(image[bitmask_np], axis=0))  # type: ignore[assignment]
         image[bitmask_np] = color
         return image
 
@@ -490,7 +492,7 @@ class Segmentation(Primitive):
         if not inplace:
             image = image.copy()
 
-        color_mapping = np.array(get_n_colors(len(self.class_names)), dtype=np.uint8)
+        color_mapping = np.asarray(get_n_colors(len(self.class_names)), dtype=np.uint8)  # type: ignore[arg-type]
         label_image = color_mapping[self.mask]
         blended = cv2.addWeighted(image, 0.5, label_image, 0.5, 0)
         return blended
@@ -515,7 +517,7 @@ def text_org_from_left_bottom_to_centered(xy_org: tuple, text: str, font, font_s
     return xy_centered
 
 
-def round_int_clip_value(value: int, max_value: int) -> int:
+def round_int_clip_value(value: Union[int, float], max_value: int) -> int:
     return clip(value=int(round(value)), v_min=0, v_max=max_value)  # noqa: RUF046
 
 

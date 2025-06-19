@@ -152,10 +152,10 @@ def draw_image_and_targets(
         primitive_annotations = targets[Segmentation.column_name()]
         for task_name, task_annotations in primitive_annotations.items():
             raise NotImplementedError("Segmentation tasks are not yet implemented")
-            mask = targets[mask_field].squeeze(0)
-            masks_list = [mask == value for value in mask.unique()]
-            masks = torch.stack(masks_list, dim=0).to(torch.bool)
-            visualize_image = tv_utils.draw_segmentation_masks(visualize_image, masks=masks, alpha=0.5)
+            # mask = targets[mask_field].squeeze(0)
+            # masks_list = [mask == value for value in mask.unique()]
+            # masks = torch.stack(masks_list, dim=0).to(torch.bool)
+            # visualize_image = tv_utils.draw_segmentation_masks(visualize_image, masks=masks, alpha=0.5)
 
     if Bitmask.column_name() in targets:
         primitive_annotations = targets[Bitmask.column_name()]

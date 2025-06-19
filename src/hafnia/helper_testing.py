@@ -54,3 +54,5 @@ def get_micro_hafnia_dataset(dataset_name: str, force_update: bool = False) -> H
             "Sample image and metadata have been updated using 'force_update=True'. Set 'force_update=False' and rerun the test."
         )
     pytest.fail("Missing test sample image. Please rerun the test.")
+
+    return hafnia_dataset

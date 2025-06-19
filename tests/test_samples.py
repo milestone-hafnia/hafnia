@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 import datasets
 import numpy as np
 import pytest
@@ -35,7 +37,7 @@ DATASET_IDS = [dataset[0] for dataset in DATASETS_EXPECTED]
 
 
 @pytest.fixture(params=DATASETS_EXPECTED, ids=DATASET_IDS, scope="session")
-def loaded_dataset(request):
+def loaded_dataset(request) -> Dict[str, Any]:
     """Fixture that loads a dataset and returns it along with metadata."""
     if not Config().is_configured():
         pytest.skip("Not logged in to Hafnia")
@@ -98,7 +100,6 @@ def test_check_dataset(loaded_dataset, compare_to_expected_image):
 def test_dataset_draw_image_and_target(loaded_dataset, compare_to_expected_image):
     """Test data transformations and visualization."""
     dataset = loaded_dataset["dataset"]
-    dataset_name = loaded_dataset["dataset_name"]
     torch_dataset = hafnia_2_torch_dataset(dataset.create_split_dataset("train"))
 
     # Test single item transformation
