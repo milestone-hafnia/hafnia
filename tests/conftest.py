@@ -18,9 +18,15 @@ def compare_to_expected_image(request, cache) -> Callable:
     # that shows the actual and expected image side-by-side
     test_name: str = request.node.name
     pytest_cache_path: Path = cache._cachedir
+    node = request.node
 
     def callable_function(actual_image: np.ndarray, force_update: bool = False):
-        path_expected_images = get_path_expected_images()
+        store_expected_images_in_nested_folder = True
+        if store_expected_images_in_nested_folder:
+            test_script_name = node.nodeid.split("::")[0].replace(".py", "").split("/")[-1]
+            path_expected_images = get_path_expected_images() / test_script_name
+        else:
+            path_expected_images = get_path_expected_images()
         path_expected_images.mkdir(exist_ok=True)
 
         path_expected_image = path_expected_images / f"{test_name}.png"

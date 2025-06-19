@@ -30,6 +30,8 @@
     "cSpell.words": [
         "Bitmask",
         "bitmasks",
-        "HAFNIA"
+        "flatnonzero",
+        "HAFNIA",
+        "ndarray"
     ]
 }

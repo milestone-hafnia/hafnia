@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -52,7 +52,7 @@ class TorchvisionDataset(torch.utils.data.Dataset):
         self.transforms = transforms
         self.keep_metadata = keep_metadata
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict]:
         sample_dict = self.dataset[idx]
         sample = Sample(**sample_dict)
         image = tv_tensors.Image(sample.read_image_pillow())
@@ -151,8 +151,8 @@ def draw_image_and_targets(
 
     # NOTE: Order of drawing is important so visualizations are not overlapping in an undesired way
     if Segmentation.column_name() in targets:
-        primtive_annotations = targets[Segmentation.column_name()]
-        for task_name, task_annotations in primtive_annotations.items():
+        primitive_annotations = targets[Segmentation.column_name()]
+        for task_name, task_annotations in primitive_annotations.items():
             raise NotImplementedError("Segmentation tasks are not yet implemented")
             mask = targets[mask_field].squeeze(0)
             masks_list = [mask == value for value in mask.unique()]
@@ -160,8 +160,8 @@ def draw_image_and_targets(
             visualize_image = tv_utils.draw_segmentation_masks(visualize_image, masks=masks, alpha=0.5)
 
     if Bitmask.column_name() in targets:
-        primtive_annotations = targets[Bitmask.column_name()]
-        for task_name, task_annotations in primtive_annotations.items():
+        primitive_annotations = targets[Bitmask.column_name()]
+        for task_name, task_annotations in primitive_annotations.items():
             colors = [class_color_by_name(class_name) for class_name in task_annotations[FieldName.CLASS_NAME]]
             visualize_image = tv_utils.draw_segmentation_masks(
                 image=visualize_image,
@@ -170,8 +170,8 @@ def draw_image_and_targets(
             )
 
     if Bbox.column_name() in targets:
-        primtive_annotations = targets[Bbox.column_name()]
-        for task_name, task_annotations in primtive_annotations.items():
+        primitive_annotations = targets[Bbox.column_name()]
+        for task_name, task_annotations in primitive_annotations.items():
             bboxes = torchvision.ops.box_convert(task_annotations["bbox"], in_fmt="xywh", out_fmt="xyxy")
             colors = [class_color_by_name(class_name) for class_name in task_annotations[FieldName.CLASS_NAME]]
             visualize_image = tv_utils.draw_bounding_boxes(
@@ -184,9 +184,9 @@ def draw_image_and_targets(
 
     # Important that classification is drawn last as it will change image dimensions
     if Classification.column_name() in targets:
-        primtive_annotations = targets[Classification.column_name()]
+        primitive_annotations = targets[Classification.column_name()]
         text_labels = []
-        for task_name, task_annotations in primtive_annotations.items():
+        for task_name, task_annotations in primitive_annotations.items():
             if task_name == Classification.default_task_name():
                 text_label = task_annotations[FieldName.CLASS_NAME]
             else:
