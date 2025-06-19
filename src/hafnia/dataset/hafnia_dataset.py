@@ -326,7 +326,7 @@ class HafniaDataset:
             table = dataset_split.table
             row = {}
             row["Split"] = split_name
-            row["Sample "] = len(table)
+            row["Sample "] = str(len(table))
             for PrimitiveType in PRIMITIVE_TYPES:
                 column_name = PrimitiveType.column_name()
                 objects_df = create_primitive_table(table, PrimitiveType=PrimitiveType, keep_sample_data=False)
@@ -334,7 +334,7 @@ class HafniaDataset:
                     continue
                 for (task_name,), object_group in objects_df.group_by(FieldName.TASK_NAME):
                     count = len(object_group[FieldName.CLASS_NAME])
-                    row[f"{PrimitiveType.__name__}\n{task_name}"] = count
+                    row[f"{PrimitiveType.__name__}\n{task_name}"] = str(count)
             rows.append(row)
         print(f"Dataset stats in {time.time() - t0:.2f} seconds.")
 

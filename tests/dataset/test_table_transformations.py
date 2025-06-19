@@ -21,13 +21,17 @@ def test_create_primitive_table(dataset_name: str):
     for PrimitiveType in PrimitiveTypes:
         n_primitive_fields = len(PrimitiveType.model_fields)
         only_primitives = table_transformations.create_primitive_table(
-            table=hafnia_dataset.table, PrimitiveType=PrimitiveType, keep_sample_data=False
+            table=hafnia_dataset.table,
+            PrimitiveType=PrimitiveType,  # type: ignore[type-abstract]
+            keep_sample_data=False,
         )
         if only_primitives is not None:
             assert len(only_primitives.columns) <= n_primitive_fields
 
         all_columns = table_transformations.create_primitive_table(
-            table=hafnia_dataset.table, PrimitiveType=PrimitiveType, keep_sample_data=True
+            table=hafnia_dataset.table,
+            PrimitiveType=PrimitiveType,  # type: ignore[type-abstract]
+            keep_sample_data=True,
         )
 
         if all_columns is not None:

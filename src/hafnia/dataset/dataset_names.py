@@ -59,6 +59,6 @@ class SplitName:
 
 
 class DatasetVariant(Enum):
-    DUMP: str = "dump"
-    SAMPLE: str = "sample"
-    HIDDEN: str = "hidden"
+    DUMP = "dump"
+    SAMPLE = "sample"
+    HIDDEN = "hidden"

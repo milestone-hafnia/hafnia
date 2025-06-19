@@ -1,8 +1,11 @@
+from typing import Any, Dict
+
 import datasets
 import numpy as np
 import pytest
 import torch
 from torch.utils.data import DataLoader
+from torchvision import tv_tensors
 from torchvision.transforms import v2
 
 from cli.config import Config
@@ -10,6 +13,7 @@ from hafnia import torch_helpers
 from hafnia.data import load_dataset
 from hafnia.dataset.dataset_names import ColumnName
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample, check_hafnia_dataset
+from hafnia.dataset.shape_primitives import Bbox, Bitmask, Classification, Polygon, Segmentation
 
 FORCE_REDOWNLOAD = False
 
@@ -33,7 +37,7 @@ DATASET_IDS = [dataset[0] for dataset in DATASETS_EXPECTED]
 
 
 @pytest.fixture(params=DATASETS_EXPECTED, ids=DATASET_IDS, scope="session")
-def loaded_dataset(request):
+def loaded_dataset(request) -> Dict[str, Any]:
     """Fixture that loads a dataset and returns it along with metadata."""
     if not Config().is_configured():
         pytest.skip("Not logged in to Hafnia")
@@ -96,7 +100,6 @@ def test_check_dataset(loaded_dataset, compare_to_expected_image):
 def test_dataset_draw_image_and_target(loaded_dataset, compare_to_expected_image):
     """Test data transformations and visualization."""
     dataset = loaded_dataset["dataset"]
-    dataset_name = loaded_dataset["dataset_name"]
     torch_dataset = hafnia_2_torch_dataset(dataset.create_split_dataset("train"))
 
     # Test single item transformation
@@ -126,7 +129,44 @@ def test_dataset_dataloader(loaded_dataset):
 
     # Test iteration
     for images, targets in dataloader_train:
-        assert isinstance(images, torch.Tensor)
-        assert images.shape[0] == batch_size
-        assert images.shape[2:] == (224, 224)
-        break
+        break  # Break immediately to get the first batch
+
+    assert isinstance(images, torch.Tensor)
+    assert images.shape[0] == batch_size
+    assert images.shape[2:] == (224, 224)
+
+    for task in dataset.info.tasks:
+        task_name = f"{task.primitive.column_name()}.{task.name}"
+        class_idx_name = f"{task_name}.class_idx"
+        assert class_idx_name in targets
+        class_idx = targets[class_idx_name]
+
+        class_names_name = f"{task_name}.class_name"
+        assert class_names_name in targets
+        class_names = targets[class_names_name]
+        assert isinstance(class_names, list)
+
+        if task.primitive == Classification:
+            assert isinstance(class_idx, torch.Tensor)
+        elif task.primitive == Bbox:
+            assert isinstance(class_idx, list)
+            bboxes_name = f"{task_name}.bbox"
+            assert class_names_name in targets, f"Expected {class_names_name} in targets"
+            bboxes = targets[bboxes_name]
+            assert isinstance(bboxes, list)
+            if len(bboxes) > 0:
+                assert isinstance(bboxes[0], tv_tensors.BoundingBoxes)
+        elif task.primitive == Bitmask:
+            assert isinstance(class_idx, list)
+            bitmasks_name = f"{task_name}.mask"
+            assert bitmasks_name in targets, f"Expected {bitmasks_name} in targets"
+            bitmasks = targets[bitmasks_name]
+            assert isinstance(bitmasks, list)
+            if len(bitmasks) > 0:
+                assert isinstance(bitmasks[0], tv_tensors.Mask)
+        elif task.primitive == Polygon:
+            raise NotImplementedError("Polygon handling not implemented in this test")
+        elif task.primitive == Segmentation:
+            raise NotImplementedError("Segmentation handling not implemented in this test")
+        else:
+            raise ValueError(f"Unsupported task primitive: {task.primitive}")

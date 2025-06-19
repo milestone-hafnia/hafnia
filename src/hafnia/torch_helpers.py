@@ -93,16 +93,14 @@ class TorchvisionDataset(torch.utils.data.Dataset):
         if self.transforms:
             image, target_flat = self.transforms(image, target_flat)
 
-        target = unflatten(target_flat, splitter="dot")  # Nested dictionary format
-
         if self.keep_metadata:
             sample_dict = sample_dict.copy()
             drop_columns = PRIMITIVE_COLUMN_NAMES
             for column in drop_columns:
                 if column in sample_dict:
                     sample_dict.pop(column)
-            target.update(flatten(sample_dict, reducer="dot"))
 
+        target = flatten(target_flat, reducer="dot")
         return image, target
 
     def __len__(self):
@@ -148,16 +146,16 @@ def draw_image_and_targets(
         visualize_image = visualize_image / visualize_image.max()
 
     visualize_image = v2.functional.to_dtype(visualize_image, torch.uint8, scale=True)
-
+    targets = unflatten(targets, splitter="dot")  # Nested dictionary format
     # NOTE: Order of drawing is important so visualizations are not overlapping in an undesired way
     if Segmentation.column_name() in targets:
         primitive_annotations = targets[Segmentation.column_name()]
         for task_name, task_annotations in primitive_annotations.items():
             raise NotImplementedError("Segmentation tasks are not yet implemented")
-            mask = targets[mask_field].squeeze(0)
-            masks_list = [mask == value for value in mask.unique()]
-            masks = torch.stack(masks_list, dim=0).to(torch.bool)
-            visualize_image = tv_utils.draw_segmentation_masks(visualize_image, masks=masks, alpha=0.5)
+            # mask = targets[mask_field].squeeze(0)
+            # masks_list = [mask == value for value in mask.unique()]
+            # masks = torch.stack(masks_list, dim=0).to(torch.bool)
+            # visualize_image = tv_utils.draw_segmentation_masks(visualize_image, masks=masks, alpha=0.5)
 
     if Bitmask.column_name() in targets:
         primitive_annotations = targets[Bitmask.column_name()]

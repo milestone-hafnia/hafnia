@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 class Primitive(BaseModel, metaclass=ABCMeta):
     def model_post_init(self, context) -> None:
-        if self.task_name == "":
+        if self.task_name == "":  # type: ignore[has-type] # Hack because 'task_name' doesn't exist in base-class yet.
             self.task_name = self.default_task_name()
 
     @staticmethod

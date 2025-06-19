@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import boto3
 import polars as pl
@@ -30,7 +30,7 @@ def generate_bucket_name(dataset_name: str, deployment_stage: DeploymentStage) -
     return f"mdi-{deployment_stage.value}-{dataset_name}"
 
 
-class DbDataset(BaseModel, validate_assignment=True):
+class DbDataset(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
     name: str
     data_captured_start: Optional[datetime] = None
@@ -50,7 +50,7 @@ class DbDataset(BaseModel, validate_assignment=True):
     dataset_images: Optional[List[DatasetImage]] = None
 
 
-class DbDatasetVariant(BaseModel, validate_assignment=True):
+class DbDatasetVariant(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
     variant_type: VariantTypeChoices  # Required
     upload_date: Optional[datetime] = None
@@ -65,13 +65,13 @@ class DbDatasetVariant(BaseModel, validate_assignment=True):
     n_cameras: Optional[int] = None
 
 
-class DbAnnotatedObject(BaseModel, validate_assignment=True):
+class DbAnnotatedObject(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
     name: str
     entity_type: EntityTypeChoices
 
 
-class DbAnnotatedObjectReport(BaseModel, validate_assignment=True):
+class DbAnnotatedObjectReport(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
     obj: DbAnnotatedObject
     unique_obj_ids: Optional[int] = None
@@ -83,7 +83,7 @@ class DbAnnotatedObjectReport(BaseModel, validate_assignment=True):
     annotation_type: Optional[List[DbAnnotationType]] = None
 
 
-class DbDistributionValue(BaseModel, validate_assignment=True):
+class DbDistributionValue(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     distribution_category: DbDistributionCategory
     percentage: Optional[float] = None
 
@@ -94,7 +94,7 @@ class DbDistributionValue(BaseModel, validate_assignment=True):
         return DbDistributionValue(distribution_category=dist_category, percentage=percentage)
 
 
-class DbSplitAnnotationsReport(BaseModel, validate_assignment=True):
+class DbSplitAnnotationsReport(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
     variant_type: VariantTypeChoices  # Required
     split: str  # Required
@@ -103,12 +103,12 @@ class DbSplitAnnotationsReport(BaseModel, validate_assignment=True):
     distribution_values: Optional[List[DbDistributionValue]] = None
 
 
-class DbDistributionCategory(BaseModel, validate_assignment=True):
+class DbDistributionCategory(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     distribution_type: DbDistributionType
     name: str
 
 
-class DbAnnotationType(BaseModel, validate_assignment=True):
+class DbAnnotationType(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     name: str
 
 
@@ -120,7 +120,7 @@ class AnnotationType(Enum):
     InstanceSegmentation = "Instance Segmentation"
 
 
-class DbResolution(BaseModel, validate_assignment=True):
+class DbResolution(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     height: int
     width: int
 
@@ -149,11 +149,11 @@ class EntityTypeChoices(str, Enum):  # Should match `EntityTypeChoices` in `dipd
     EVENT = "EVENT"
 
 
-class DatasetImage(BaseModel, validate_assignment=True):
+class DatasetImage(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     img: str
 
 
-class DbDistributionType(BaseModel, validate_assignment=True):
+class DbDistributionType(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     name: str
 
 
@@ -194,8 +194,8 @@ def upload_dataset_details(cfg: Config, data: str, dataset_name: str) -> dict:
     headers = {"Authorization": cfg.api_key}
 
     print("Importing dataset details. This may take up to 30 seconds...")
-    data = post(endpoint=import_endpoint, headers=headers, data=data)
-    return data
+    data = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
+    return data  # type: ignore[return-value]
 
 
 def get_resolutions(dataset: HafniaDataset, max_resolutions_selected: int = 8) -> List[DbResolution]:
@@ -274,12 +274,12 @@ def dataset_info_from_dataset(
     dataset_reports = []
     dataset_meta_info = dataset.info.meta or {}
 
-    path_and_variant = []
+    path_and_variant: List[Tuple[Path, DatasetVariant]] = []
     if path_sample is not None:
-        path_and_variant.append([path_sample, DatasetVariant.SAMPLE])
+        path_and_variant.append((path_sample, DatasetVariant.SAMPLE))
 
     if path_hidden is not None:
-        path_and_variant.append([path_hidden, DatasetVariant.HIDDEN])
+        path_and_variant.append((path_hidden, DatasetVariant.HIDDEN))
 
     if len(path_and_variant) == 0:
         raise ValueError("At least one path must be provided for sample or hidden dataset.")
@@ -293,7 +293,7 @@ def dataset_info_from_dataset(
         size_bytes = get_folder_size(path_dataset)
         dataset_variants.append(
             DbDatasetVariant(
-                variant_type=VARIANT_TYPE_MAPPING[variant_type],
+                variant_type=VARIANT_TYPE_MAPPING[variant_type],  # type: ignore[index]
                 # upload_date: Optional[datetime] = None
                 size_bytes=size_bytes,
                 data_type=DataTypeChoices.images,
@@ -316,7 +316,7 @@ def dataset_info_from_dataset(
                 distribution_tasks=dataset.info.distributions,
             )
             report = DbSplitAnnotationsReport(
-                variant_type=VARIANT_TYPE_MAPPING[variant_type],
+                variant_type=VARIANT_TYPE_MAPPING[variant_type],  # type: ignore[index]
                 split=split_name,
                 sample_count=len(dataset_split),
                 distribution_values=distribution_values,
