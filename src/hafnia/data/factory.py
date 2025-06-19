@@ -1,22 +1,13 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Optional, Union
-
-from datasets import Dataset, DatasetDict, load_from_disk
+from typing import Optional
 
 from cli.config import Config
 from hafnia import utils
+from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.log import user_logger
 from hafnia.platform import download_resource, get_dataset_id
-
-
-def load_local(dataset_path: Path) -> Union[Dataset, DatasetDict]:
-    """Load a Hugging Face dataset from a local directory path."""
-    if not dataset_path.exists():
-        raise ValueError(f"Can not load dataset, directory does not exist -- {dataset_path}")
-    user_logger.info(f"Loading data from {dataset_path.as_posix()}")
-    return load_from_disk(dataset_path.as_posix())
 
 
 def download_or_get_dataset_path(
@@ -52,16 +43,20 @@ def download_or_get_dataset_path(
     raise RuntimeError("Failed to download dataset")
 
 
-def load_dataset(dataset_name: str, force_redownload: bool = False) -> Union[Dataset, DatasetDict]:
-    """Load a dataset either from a local path or from the Hafnia platform."""
-
+def get_dataset_path(dataset_name: str, force_redownload: bool = False) -> Path:
     if utils.is_remote_job():
-        path_dataset = Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))
-        return load_local(path_dataset)
+        return Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))
 
     path_dataset = download_or_get_dataset_path(
         dataset_name=dataset_name,
         force_redownload=force_redownload,
     )
-    dataset = load_local(path_dataset)
+    return path_dataset
+
+
+def load_dataset(dataset_name: str, force_redownload: bool = False) -> HafniaDataset:
+    """Load a dataset either from a local path or from the Hafnia platform."""
+
+    path_dataset = get_dataset_path(dataset_name, force_redownload=force_redownload)
+    dataset = HafniaDataset.read_from_path(path_dataset)
     return dataset

@@ -1,14 +1,76 @@
-import pprint
+from pathlib import Path
+from typing import List
+
+import numpy as np
+import rich
+from PIL import Image
 
 from hafnia.data import load_dataset
+from hafnia.dataset.dataset_names import SplitName
+from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+from hafnia.dataset.shape_primitives import Bbox, Bitmask, Classification, Polygon
 
+# Load dataset
 dataset = load_dataset("midwest-vehicle-detection")
 
-# Print information on each dataset split
-print(dataset)
+# Print dataset information
+dataset.print_stats()
 
-# View features of the train split
-pprint.pprint(dataset["train"].features)
+# Create a dataset split for training
+dataset_train = dataset.create_split_dataset("train")
 
-# Print sample from the training set
-pprint.pprint(dataset["train"][0])
+# Checkout built-in transformations in 'dataset_transformation' or 'HafniaDataset'
+dataset_val = dataset.create_split_dataset(SplitName.VAL)  # Use 'SplitName' to avoid magic strings
+
+small_dataset = dataset.sample(n_samples=10, seed=42)  # Sample 10 samples from the dataset
+shuffled_dataset = dataset.shuffle(seed=42)  # Shuffle the dataset
+
+split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
+new_dataset_splits = dataset.split_by_ratios(split_ratios)
+
+# Access the first sample in the training split - data is stored in a dictionary
+sample_dict = dataset_train[0]
+
+# Dataset can also be iterated to get sample data
+for sample_dict in dataset_train:
+    break
+
+# Unpack dict into a Sample-object! Important for data validation, useability, IDE completion and mypy hints
+sample: Sample = Sample(**sample_dict)
+
+objects: List[Bbox] = sample.objects  # Use 'sample.objects' access bounding boxes as a list of Bbox objects
+bitmasks: List[Bitmask] = sample.bitmasks  # Use 'sample.bitmasks' to access bitmasks as a list of Bitmask objects
+polygons: List[Polygon] = sample.polygons  # Use 'sample.polygons' to access polygons as a list of Polygon objects
+classifications: List[Classification] = sample.classifications  # As a list of Classification objects
+
+# Read image using the sample object
+image: np.ndarray = sample.read_image()
+
+# Visualize sample and annotations
+image_with_annotations = sample.draw_annotations()
+
+path_tmp = Path(".data/tmp")
+path_tmp.mkdir(parents=True, exist_ok=True)
+Image.fromarray(image_with_annotations).save(path_tmp / "sample_with_annotations.png")
+
+
+# Write dataset to disk
+path_dataset = path_tmp / "hafnia_dataset"
+dataset.write(path_dataset)  # --> Check that data is human readable
+
+# Load dataset from disk
+dataset_again = HafniaDataset.read_from_path(path_dataset)
+
+# Dataset information is stored in 'dataset.info'
+rich.print(dataset.info)
+
+# Annotations are stored in 'dataset.table' as a Polars DataFrame
+dataset.table.head(2)
+
+# Do dataset transformations and statistics on the Polars DataFrame
+n_objects = dataset.table["objects"].list.len().sum()
+n_objects = dataset.table[Bbox.column_name()].list.len().sum()  # Use Bbox.column_name() to avoid magic variables
+n_classifications = dataset.table[Classification.column_name()].list.len().sum()
+
+class_counts = dataset.table[Classification.column_name()].explode().struct.field("class_name").value_counts()
+rich.print(class_counts)

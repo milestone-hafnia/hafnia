@@ -1,15 +1,20 @@
 from pathlib import Path
-from typing import Optional, Type
+from typing import List, Optional, Type
 
 import polars as pl
 from tqdm import tqdm
 
+from hafnia.dataset import table_transformations
 from hafnia.dataset.base_types import Primitive
-from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, FILENAME_ANNOTATIONS_PARQUET
-from hafnia.dataset.shape_primitives import COORDINATE_TYPES, Classification
+from hafnia.dataset.dataset_names import (
+    FILENAME_ANNOTATIONS_JSONL,
+    FILENAME_ANNOTATIONS_PARQUET,
+    FieldName,
+)
+from hafnia.dataset.shape_primitives import PRIMITIVE_TYPES, Classification
 
 
-def objects_dataframe(
+def create_primitive_table(
     table: pl.DataFrame, PrimitiveType: Type[Primitive], keep_sample_data: bool = False
 ) -> Optional[pl.DataFrame]:
     """
@@ -25,16 +30,77 @@ def objects_dataframe(
 
     if keep_sample_data:
         # Drop other primitive columns to avoid conflicts
-        drop_columns = set(COORDINATE_TYPES) - {PrimitiveType, Classification}
+        drop_columns = set(PRIMITIVE_TYPES) - {PrimitiveType, Classification}
         remove_no_object_frames = remove_no_object_frames.drop(*[primitive.column_name() for primitive in drop_columns])
         # Rename columns "height", "width" and "meta" for sample to avoid conflicts with object fields names
         remove_no_object_frames = remove_no_object_frames.rename(
             {"height": "image.height", "width": "image.width", "meta": "image.meta"}
         )
-        remove_no_object_frames = remove_no_object_frames.explode(column_name).unnest(column_name)
+        objects_df = remove_no_object_frames.explode(column_name).unnest(column_name)
     else:
         objects_df = remove_no_object_frames.select(pl.col(column_name).explode().struct.unnest())
     return objects_df
+
+
+def filter_table_for_class_names(
+    table: pl.DataFrame, class_names: List[str], PrimitiveType: Type[Primitive]
+) -> Optional[pl.DataFrame]:
+    table_with_selected_class_names = table.filter(
+        pl.col(PrimitiveType.column_name())
+        .list.eval(pl.element().struct.field(FieldName.CLASS_NAME).is_in(class_names))
+        .list.any()
+    )
+
+    return table_with_selected_class_names
+
+
+def split_primitive_columns_by_task_name(
+    table: pl.DataFrame,
+    coordinate_types: Optional[List[Type[Primitive]]] = None,
+) -> pl.DataFrame:
+    """
+    Convert Primitive columns such as "objects" (Bbox) into a column for each task name.
+    For example, if the "objects" column (containing Bbox objects) has tasks "task1" and "task2".
+
+
+    This:
+    ─┬────────────┬─
+     ┆ objects    ┆
+     ┆ ---        ┆
+     ┆ list[struc ┆
+     ┆ t[11]]     ┆
+    ═╪════════════╪═
+    becomes this:
+    ─┬────────────┬────────────┬─
+     ┆ objects.   ┆ objects.   ┆
+     ┆ task1      ┆ task2      ┆
+     ┆ ---        ┆ ---        ┆
+     ┆ list[struc ┆ list[struc ┆
+     ┆ t[11]]     ┆ t[13]]     ┆
+    ═╪════════════╪════════════╪═
+
+    """
+    coordinate_types = coordinate_types or PRIMITIVE_TYPES
+    for PrimitiveType in coordinate_types:
+        col_name = PrimitiveType.column_name()
+
+        if col_name not in table.columns:
+            continue
+
+        if table[col_name].dtype != pl.List(pl.Struct):
+            continue
+
+        task_names = table[col_name].explode().struct.field(FieldName.TASK_NAME).unique().to_list()
+        table = table.with_columns(
+            [
+                pl.col(col_name)
+                .list.filter(pl.element().struct.field(FieldName.TASK_NAME).eq(task_name))
+                .alias(f"{col_name}.{task_name}")
+                for task_name in task_names
+            ]
+        )
+        table = table.drop(col_name)
+    return table
 
 
 def read_table_from_path(path: Path) -> pl.DataFrame:
@@ -67,3 +133,47 @@ def check_image_paths(table: pl.DataFrame) -> bool:
         raise FileNotFoundError(f"Some files are missing in the dataset: {len(missing_files)} files not found.")
 
     return True
+
+
+def unnest_classification_tasks(table: pl.DataFrame, strict: bool = True) -> pl.DataFrame:
+    """
+    Unnest classification tasks in table.
+    Classificiations tasks are all stored in the same column in the HafniaDataset table.
+    This function splits them into separate columns for each task name.
+
+    Type is converted from a list of structs (pl.List[pl.Struct]) to a struct (pl.Struct) column.
+
+    Converts classification column from this:
+       ─┬─────────────────┬─
+        ┆ classifications ┆
+        ┆ ---             ┆
+        ┆ list[struct[6]] ┆
+       ═╪═════════════════╪═
+
+    For example, if the classification column has tasks "task1" and "task2",
+       ─┬──────────────────┬──────────────────┬─
+        ┆ classifications. ┆ classifications. ┆
+        ┆ task1            ┆ task2            ┆
+        ┆ ---              ┆ ---              ┆
+        ┆ struct[6]        ┆ struct[6]        ┆
+       ═╪══════════════════╪══════════════════╪═
+
+    """
+    coordinate_types = [Classification]
+    table_out = table_transformations.split_primitive_columns_by_task_name(table, coordinate_types=coordinate_types)
+
+    classification_columns = [c for c in table_out.columns if c.startswith(Classification.column_name() + ".")]
+    for classification_column in classification_columns:
+        has_multiple_items_per_sample = all(table_out[classification_column].list.len() > 1)
+        if has_multiple_items_per_sample:
+            if strict:
+                raise ValueError(
+                    f"Column {classification_column} has multiple items per sample, but expected only one item."
+                )
+            else:
+                print(
+                    f"Warning: Unnesting of column '{classification_column}' is skipped because it has multiple items per sample."
+                )
+
+    table_out = table_out.with_columns([pl.col(c).list.first() for c in classification_columns])
+    return table_out

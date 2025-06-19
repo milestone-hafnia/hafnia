@@ -22,11 +22,14 @@
 
     "python.testing.pytestArgs": [
         "tests",
-        "-vv"
+        "-vv",
+        "--durations=20",
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "cSpell.words": [
+        "Bitmask",
+        "bitmasks",
         "HAFNIA"
     ]
 }

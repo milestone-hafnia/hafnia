@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from hafnia.dataset import image_operations
 from hafnia.helper_testing import get_path_expected_images
 
 
@@ -55,13 +56,20 @@ def compare_to_expected_image(request, cache) -> Callable:
                 color=color,
                 thickness=thickness,
             )
-            debug_image = np.hstack([expected_image, actual_image])
+            if actual_image.shape[0] != expected_image.shape[0]:
+                debug_image = image_operations.concatenate_right(expected_image, actual_image)
+            else:
+                debug_image = np.hstack([expected_image, actual_image])
 
-            path_debug_image = pytest_cache_path / f"{test_name}_debug.png"
-            io_helper.write_image(path_debug_image, debug_image)
+            # Parameterized test names include [ and ] e.g. 'test_check_dataset[coco-2017].png'
+            # These characters makes the file path unclickable when pytest prints the error message.
+            # Remove and replace with '---' to make the path clickable --> 'test_check_dataset---coco-2017.png'
+            clickable_test_name = test_name.replace("[", "---").replace("]", "---")
+            path_debug_image = pytest_cache_path / f"{clickable_test_name}debug.png"
+            Image.fromarray(debug_image).save(path_debug_image)
 
             pytest.fail(
-                f"Actual image does not match expected image. To see actual and expected image side-by-side check {path_debug_image} "
+                f"Actual image does not match expected image. To see actual and expected image side-by-side \ncheck this image: {path_debug_image} "
             )
 
     return callable_function

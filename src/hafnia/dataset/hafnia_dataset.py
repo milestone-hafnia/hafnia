@@ -27,14 +27,18 @@ from hafnia.dataset.dataset_names import (
     SplitName,
 )
 from hafnia.dataset.shape_primitives import (
-    COORDINATE_NAME_TO_TYPE,
-    COORDINATE_TYPES,
+    PRIMITIVE_NAME_TO_TYPE,
+    PRIMITIVE_TYPES,
     Bbox,
     Bitmask,
     Classification,
     Polygon,
 )
-from hafnia.dataset.table_transformations import check_image_paths, objects_dataframe, read_table_from_path
+from hafnia.dataset.table_transformations import (
+    check_image_paths,
+    create_primitive_table,
+    read_table_from_path,
+)
 
 
 class TaskInfo(BaseModel):
@@ -56,12 +60,12 @@ class TaskInfo(BaseModel):
     @classmethod
     def ensure_primitive(cls, primitive: Any) -> Any:
         if isinstance(primitive, str):
-            if primitive not in COORDINATE_NAME_TO_TYPE:
+            if primitive not in PRIMITIVE_NAME_TO_TYPE:
                 raise ValueError(
-                    f"Primitive '{primitive}' is not recognized. Available primitives: {list(COORDINATE_NAME_TO_TYPE.keys())}"
+                    f"Primitive '{primitive}' is not recognized. Available primitives: {list(PRIMITIVE_NAME_TO_TYPE.keys())}"
                 )
 
-            return COORDINATE_NAME_TO_TYPE[primitive]
+            return PRIMITIVE_NAME_TO_TYPE[primitive]
 
         if issubclass(primitive, Primitive):
             return primitive
@@ -80,7 +84,7 @@ class DatasetInfo(BaseModel):
     dataset_name: str
     version: str
     tasks: list[TaskInfo]
-    distributions: Optional[List[TaskInfo]] = None  # Tasks for deriving distributions
+    distributions: Optional[List[TaskInfo]] = None  # Distributions. TODO: FIX/REMOVE/CHANGE this
     meta: Optional[Dict[str, Any]] = None  # Metadata about the dataset, e.g. description, etc.
 
     def write_json(self, path: Path, indent: Optional[int] = 4) -> None:
@@ -102,6 +106,7 @@ class Sample(BaseModel):
     is_sample: bool  # Indicates if this is a sample (True) or a metadata entry (False)
     frame_number: Optional[int] = None  # Optional frame number for video datasets
     video_name: Optional[str] = None  # Optional video name for video datasets
+    remote_path: Optional[str] = None  # Optional remote path for the image, if applicable
     classifications: Optional[List[Classification]] = None  # Optional classification primitive
     objects: Optional[List[Bbox]] = None  # List of coordinate primitives, e.g., Bbox, Bitmask, etc.
     bitmasks: Optional[List[Bitmask]] = None  # List of bitmasks, if applicable
@@ -113,7 +118,7 @@ class Sample(BaseModel):
         """
         Returns a list of all annotations (classifications, objects, bitmasks, polygons) for the sample.
         """
-        primitive_types = primitive_types or COORDINATE_TYPES
+        primitive_types = primitive_types or PRIMITIVE_TYPES
         annotations_primitives = [
             getattr(self, primitive_type.column_name(), None) for primitive_type in primitive_types
         ]
@@ -123,12 +128,21 @@ class Sample(BaseModel):
 
         return list(annotations)
 
-    def read_image(self) -> np.ndarray:
+    def read_image_pillow(self) -> Image.Image:
+        """
+        Reads the image from the file path and returns it as a PIL Image.
+        Raises FileNotFoundError if the image file does not exist.
+        """
         path_image = Path(self.file_name)
         if not path_image.exists():
             raise FileNotFoundError(f"Image file {path_image} does not exist. Please check the file path.")
 
-        image = np.array(Image.open(str(path_image)))
+        image = Image.open(str(path_image))
+        return image
+
+    def read_image(self) -> np.ndarray:
+        image_pil = self.read_image_pillow()
+        image = np.array(image_pil)
         return image
 
     def draw_annotations(self, image: Optional[np.ndarray] = None) -> np.ndarray:
@@ -160,6 +174,7 @@ class HafniaDataset:
     sample = dataset_transformation.sample
     shuffle = dataset_transformation.shuffle_dataset
     split_by_ratios = dataset_transformation.splits_by_ratios
+    divide_split_into_multiple_splits = dataset_transformation.divide_split_into_multiple_splits
     sample_set_by_size = dataset_transformation.define_sample_set_by_size
 
     @staticmethod
@@ -312,9 +327,9 @@ class HafniaDataset:
             row = {}
             row["Split"] = split_name
             row["Sample "] = len(table)
-            for PrimitiveType in COORDINATE_TYPES:
+            for PrimitiveType in PRIMITIVE_TYPES:
                 column_name = PrimitiveType.column_name()
-                objects_df = objects_dataframe(table, PrimitiveType=PrimitiveType, keep_sample_data=False)
+                objects_df = create_primitive_table(table, PrimitiveType=PrimitiveType, keep_sample_data=False)
                 if objects_df is None:
                     continue
                 for (task_name,), object_group in objects_df.group_by(FieldName.TASK_NAME):
@@ -332,10 +347,15 @@ class HafniaDataset:
         rich.print(rich_table)
 
 
-def check_hafnia_dataset(path_dataset: Path) -> None:
-    print(f"Checking Hafnia dataset (This may take a while): {path_dataset}")
-
+def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
     dataset = HafniaDataset.read_from_path(path_dataset, check_files_exists=True)
+    check_hafnia_dataset(dataset)
+
+
+def check_hafnia_dataset(dataset: HafniaDataset):
+    print("Checking Hafnia dataset...")
+    assert isinstance(dataset.info.version, str) and len(dataset.info.version) > 0
+    assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0
 
     is_sample_list = set(dataset.table.select(pl.col(ColumnName.IS_SAMPLE)).unique().to_series().to_list())
     if True not in is_sample_list:
@@ -346,15 +366,15 @@ def check_hafnia_dataset(path_dataset: Path) -> None:
     if set(actual_splits) != set(expected_splits):
         raise ValueError(f"Expected all splits '{expected_splits}' in dataset, but got '{actual_splits}'. ")
 
-    defined_tasks = dataset.info.tasks
-    for task in defined_tasks:
-        primtive_name = task.primitive.__name__
+    expected_tasks = dataset.info.tasks
+    for task in expected_tasks:
+        primitive = task.primitive.__name__
         column_name = task.primitive.column_name()
         primitive_column = dataset.table[column_name]
         # msg_something_wrong = f"Something is wrong with the '{primtive_name}' task '{task.name}' in dataset '{dataset.name}'. "
         msg_something_wrong = (
             f"Something is wrong with the defined tasks ('info.tasks') in dataset '{dataset.info.dataset_name}'. \n"
-            f"For task '{task.name}' of primitive '{primtive_name}' "
+            f"For '{primitive=}' and '{task.name=}' "
         )
         if primitive_column.dtype == pl.Null:
             raise ValueError(msg_something_wrong + "the column is 'Null'. Please check the dataset.")
@@ -373,15 +393,49 @@ def check_hafnia_dataset(path_dataset: Path) -> None:
                 + f"the column '{column_name}' with {task.name=} has no defined classes. Please check the dataset."
             )
         defined_classes = set(task.class_names)
+
         if not actual_classes.issubset(defined_classes):
             raise ValueError(
                 msg_something_wrong
                 + f"the column '{column_name}' with {task.name=} we expected the actual classes in the dataset to \n"
                 f"to be a subset of the defined classes\n\t{actual_classes=} \n\t{defined_classes=}."
             )
+        # Check class_indices
+        mapped_indices = primitive_table[FieldName.CLASS_NAME].map_elements(
+            lambda x: task.class_names.index(x), return_dtype=pl.Int64
+        )
+        table_indices = primitive_table[FieldName.CLASS_IDX]
+
+        error_msg = msg_something_wrong + (
+            f"class indices in '{FieldName.CLASS_IDX}' column does not match classes ordering in 'task.class_names'"
+        )
+        assert mapped_indices.equals(table_indices), error_msg
+
+    distribution = dataset.info.distributions or []
+    distribution_names = [task.name for task in distribution]
+    # Check that tasks found in the 'dataset.table' matches the tasks defined in 'dataset.info.tasks'
+    for PrimitiveType in PRIMITIVE_TYPES:
+        column_name = PrimitiveType.column_name()
+        if column_name not in dataset.table.columns:
+            continue
+        objects_df = create_primitive_table(dataset.table, PrimitiveType=PrimitiveType, keep_sample_data=False)
+        if objects_df is None:
+            continue
+        for (task_name,), object_group in objects_df.group_by(FieldName.TASK_NAME):
+            has_task = any([t for t in expected_tasks if t.name == task_name and t.primitive == PrimitiveType])
+            if has_task:
+                continue
+            if task_name in distribution_names:
+                continue
+            class_names = object_group[FieldName.CLASS_NAME].unique().to_list()
+            raise ValueError(
+                f"Task name '{task_name}' for the '{PrimitiveType.__name__}' primitive is missing in "
+                f"'dataset.info.tasks' for dataset '{task_name}'. Missing task has the following "
+                f"classes: {class_names}. "
+            )
 
     for sample_dict in tqdm(dataset, desc="Checking samples in dataset"):
-        sample = Sample(**sample_dict)  # Checks format of all samples with pydantic validation # noqa: F841
+        sample = Sample(**sample_dict)  # Checks format of all samples with pydantic validation  # noqa: F841
 
 
 # if __name__ == "__main__":
