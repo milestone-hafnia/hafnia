@@ -9,17 +9,17 @@ from torchvision import tv_tensors
 from torchvision import utils as tv_utils
 from torchvision.transforms import v2
 
-from hafnia.dataset.base_types import Primitive
 from hafnia.dataset.dataset_names import FieldName
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
-from hafnia.dataset.shape_primitives import (
+from hafnia.dataset.primitives import (
     PRIMITIVE_COLUMN_NAMES,
-    Bbox,
-    Bitmask,
-    Classification,
-    Segmentation,
     class_color_by_name,
 )
+from hafnia.dataset.primitives.bbox import Bbox
+from hafnia.dataset.primitives.bitmask import Bitmask
+from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives.primitive import Primitive
+from hafnia.dataset.primitives.segmentation import Segmentation
 
 
 def get_primitives_per_task_name_for_primitive(

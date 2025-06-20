@@ -3,16 +3,14 @@ from typing import Type
 import numpy as np
 import pytest
 
-from hafnia.dataset.base_types import Primitive
 from hafnia.dataset.dataset_names import FieldName
 from hafnia.dataset.hafnia_dataset import Sample
-from hafnia.dataset.shape_primitives import (
-    PRIMITIVE_TYPES,
-    Bbox,
-    Bitmask,
-    Classification,
-    Polygon,
-)
+from hafnia.dataset.primitives import PRIMITIVE_TYPES
+from hafnia.dataset.primitives.bbox import Bbox
+from hafnia.dataset.primitives.bitmask import Bitmask
+from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives.polygon import Polygon
+from hafnia.dataset.primitives.primitive import Primitive
 
 
 def get_initialized_dummy_primitives_using_default_task_name(TypePrimitive: Type[Primitive]) -> Primitive:

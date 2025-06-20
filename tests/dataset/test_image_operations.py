@@ -4,8 +4,10 @@ import numpy as np
 import pytest
 
 from hafnia import helper_testing
-from hafnia.dataset import image_operations
-from hafnia.dataset.shape_primitives import Bbox, Bitmask, Polygon
+from hafnia.dataset.primitives.bbox import Bbox
+from hafnia.dataset.primitives.bitmask import Bitmask
+from hafnia.dataset.primitives.polygon import Polygon
+from hafnia.visualizations import image_visualizations
 
 
 @pytest.mark.parametrize("dataset_name", helper_testing.MICRO_DATASETS)
@@ -16,7 +18,7 @@ def test_mask_region(compare_to_expected_image: Callable, dataset_name: str):
         annotations = sample.get_annotations([Bitmask])
     else:
         annotations = sample.get_annotations()
-    masked_image = image_operations.draw_masks(image, annotations)
+    masked_image = image_visualizations.draw_masks(image, annotations)
     compare_to_expected_image(masked_image)
 
 
@@ -25,7 +27,7 @@ def test_draw_annotations(compare_to_expected_image: Callable, dataset_name: str
     sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     image = sample.read_image()
     annotations = sample.get_annotations()
-    masked_image = image_operations.draw_annotations(image, annotations)
+    masked_image = image_visualizations.draw_annotations(image, annotations)
     compare_to_expected_image(masked_image)
 
 
@@ -37,7 +39,7 @@ def test_blur_anonymization(compare_to_expected_image: Callable, dataset_name: s
         annotations = sample.get_annotations([Bitmask])
     else:
         annotations = sample.get_annotations([Bitmask, Bbox, Polygon])
-    masked_image = image_operations.draw_anonymize_by_blurring(image, annotations, anonymize_classes="all")
+    masked_image = image_visualizations.draw_anonymize_by_blurring(image, annotations, anonymize_classes="all")
     compare_to_expected_image(masked_image)
 
 

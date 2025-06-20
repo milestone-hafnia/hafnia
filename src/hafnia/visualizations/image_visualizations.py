@@ -1,61 +1,37 @@
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import cv2
 import numpy as np
 import numpy.typing as npt
 from PIL import Image
 
-from hafnia.dataset.base_types import Primitive
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
-from hafnia.dataset.shape_primitives import (
+from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
     Classification,
     Polygon,
     Segmentation,
 )
+from hafnia.dataset.primitives.primitive import Primitive
 
 
 def draw_anonymize_by_blurring(
     image: np.ndarray,
     primitives: List[Primitive],
     inplace: bool = False,
-    max_resolution: int = 20,
-    anonymize_classes: List[str] | None | str = None,
+    anonymization_settings: Optional[Dict[Type[Primitive], Dict]] = None,
 ) -> np.ndarray:
     if not inplace:
         image = image.copy()
 
-    if isinstance(anonymize_classes, str):
-        anonymize_classes = [anonymize_classes]
+    anonymization_settings = anonymization_settings or {}
 
-    anonymize_classes_default = [
-        "person",
-        "Person",
-        "face",
-        "faces",
-        "Faces",
-        "Faces_easy",
-        "Man",
-        "Human face",
-        "Human head",
-        "Woman",
-        "Girl",
-        "Boy",
-    ]
-
-    anonymize_classes = anonymize_classes or anonymize_classes_default
-
-    anonymize_all = "all" in anonymize_classes
-    if anonymize_all:
-        anonymize_primitives = primitives
-    else:
-        anonymize_primitives = [primitive for primitive in primitives if primitive.class_name in anonymize_classes]
-
-    for primitive in anonymize_primitives:
-        image = primitive.anonymize_by_blurring(image, inplace=True, max_resolution=max_resolution)
+    for primitive in primitives:
+        settings = anonymization_settings.get(type(primitive), {})
+        image = primitive.anonymize_by_blurring(image, inplace=True, **settings)
     return image
 
 
@@ -72,20 +48,16 @@ def draw_annotations(
     image: np.ndarray,
     primitives: List[Primitive],
     inplace: bool = False,
-    draw_settings: Optional[Dict] = None,
+    draw_settings: Optional[Dict[Type[Primitive], Dict]] = None,
 ) -> np.ndarray:
     if not inplace:
         image = image.copy()
     draw_settings = draw_settings or {}
     primitives_order = [Segmentation, Bitmask, Bbox, Polygon, Classification]
     primitives = sorted(primitives, key=lambda x: primitives_order.index(type(x)))
-    for type_str, draw_setting in draw_settings.items():
-        for primitive in primitives:
-            if type(primitive).__name__ == type_str:
-                for key, value in draw_setting.items():
-                    setattr(primitive, key, value)
     for primitive in primitives:
-        image = primitive.draw(image)
+        draw_settings_for_primitive = draw_settings.get(type(primitive), {})
+        image = primitive.draw(image, **draw_settings_for_primitive)
     return image
 
 
@@ -194,12 +166,14 @@ def save_dataset_sample_set_visualizations(
     path_dataset: Path,
     path_output_folder: Path,
     max_samples: int = 10,
-    draw_settings: Optional[Dict] = None,
+    draw_settings: Optional[Dict[Type[Primitive], Dict]] = None,
     anonymize_settings: Optional[Dict] = None,
 ) -> List[Path]:
     dataset = HafniaDataset.read_from_path(path_dataset)
     shutil.rmtree(path_output_folder, ignore_errors=True)
     path_output_folder.mkdir(parents=True)
+
+    draw_settings = draw_settings or {}
 
     paths = []
     dataset_shuffled = dataset.shuffle(seed=42)
@@ -210,8 +184,8 @@ def save_dataset_sample_set_visualizations(
 
         if anonymize_settings:
             for primitive_type, settings in anonymize_settings.items():
-                anonymize_ann = [ann for ann in annotations if ann.__class__.__name__ == primitive_type]
-                image = draw_anonymize_by_blurring(image, anonymize_ann, anonymize_classes=settings.get("class_names"))
+                primitive_draw_settings = draw_settings.get(type(primitive_type), {})
+                image = draw_anonymize_by_blurring(image, anonymize_ann, **primitive_draw_settings)
         image = draw_annotations(image, annotations, draw_settings=draw_settings)
 
         pil_image = Image.fromarray(image)

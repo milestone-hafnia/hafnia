@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from hafnia.dataset import image_operations
 from hafnia.helper_testing import get_path_expected_images
+from hafnia.visualizations import image_visualizations
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def compare_to_expected_image(request, cache) -> Callable:
                 thickness=thickness,
             )
             if actual_image.shape[0] != expected_image.shape[0]:
-                debug_image = image_operations.concatenate_right(expected_image, actual_image)
+                debug_image = image_visualizations.concatenate_right(expected_image, actual_image)
             else:
                 debug_image = np.hstack([expected_image, actual_image])
 

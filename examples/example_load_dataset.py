@@ -5,14 +5,23 @@ import numpy as np
 import rich
 from PIL import Image
 
-from hafnia.data import load_dataset
+from hafnia.data import get_dataset_path, load_dataset
 from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
-from hafnia.dataset.shape_primitives import Bbox, Bitmask, Classification, Polygon
+from hafnia.dataset.primitives.bbox import Bbox
+from hafnia.dataset.primitives.bitmask import Bitmask
+from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives.polygon import Polygon
 
 # Load dataset
+path_dataset = get_dataset_path("midwest-vehicle-detection")
+dataset = HafniaDataset.read_from_path(path_dataset)
+
+# Alternatively, you can use the 'load_dataset' function
 dataset = load_dataset("midwest-vehicle-detection")
 
+
+print(dataset.table.head(2))
 # Print dataset information
 dataset.print_stats()
 
