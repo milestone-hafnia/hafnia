@@ -4,7 +4,7 @@ from pathlib import Path
 from hafnia.dataset.dataset_names import DeploymentStage
 from hafnia.dataset.dataset_upload_helper import dataset_info_from_dataset
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
-from hafnia.dataset.shape_primitives import Classification
+from hafnia.dataset.primitives.classification import Classification
 
 
 def test_dataset_info_serializing_deserializing(tmp_path: Path):

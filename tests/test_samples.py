@@ -13,7 +13,11 @@ from hafnia import torch_helpers
 from hafnia.data import load_dataset
 from hafnia.dataset.dataset_names import ColumnName
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample, check_hafnia_dataset
-from hafnia.dataset.shape_primitives import Bbox, Bitmask, Classification, Polygon, Segmentation
+from hafnia.dataset.primitives.bbox import Bbox
+from hafnia.dataset.primitives.bitmask import Bitmask
+from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives.polygon import Polygon
+from hafnia.dataset.primitives.segmentation import Segmentation
 
 FORCE_REDOWNLOAD = False
 

@@ -5,13 +5,15 @@ import polars as pl
 from tqdm import tqdm
 
 from hafnia.dataset import table_transformations
-from hafnia.dataset.base_types import Primitive
 from hafnia.dataset.dataset_names import (
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
     FieldName,
 )
-from hafnia.dataset.shape_primitives import PRIMITIVE_TYPES, Classification
+from hafnia.dataset.primitives import PRIMITIVE_TYPES
+from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives.primitive import Primitive
+from hafnia.log import user_logger
 
 
 def create_primitive_table(
@@ -106,12 +108,12 @@ def split_primitive_columns_by_task_name(
 def read_table_from_path(path: Path) -> pl.DataFrame:
     path_annotations = path / FILENAME_ANNOTATIONS_PARQUET
     if path_annotations.exists():
-        print(f"Reading dataset annotations from Parquet file: {path_annotations}")
+        user_logger.info(f"Reading dataset annotations from Parquet file: {path_annotations}")
         return pl.read_parquet(path_annotations)
 
     path_annotations_jsonl = path / FILENAME_ANNOTATIONS_JSONL
     if path_annotations_jsonl.exists():
-        print(f"Reading dataset annotations from JSONL file: {path_annotations_jsonl}")
+        user_logger.info(f"Reading dataset annotations from JSONL file: {path_annotations_jsonl}")
         return pl.read_ndjson(path_annotations_jsonl)
 
     raise FileNotFoundError(
@@ -127,9 +129,9 @@ def check_image_paths(table: pl.DataFrame) -> bool:
             missing_files.append(org_path)
 
     if len(missing_files) > 0:
-        print(f"Missing files: {len(missing_files)}. Show first 5:")
+        user_logger.warning(f"Missing files: {len(missing_files)}. Show first 5:")
         for missing_file in missing_files[:5]:
-            print(f" - {missing_file}")
+            user_logger.warning(f" - {missing_file}")
         raise FileNotFoundError(f"Some files are missing in the dataset: {len(missing_files)} files not found.")
 
     return True
@@ -171,7 +173,7 @@ def unnest_classification_tasks(table: pl.DataFrame, strict: bool = True) -> pl.
                     f"Column {classification_column} has multiple items per sample, but expected only one item."
                 )
             else:
-                print(
+                user_logger.warning(
                     f"Warning: Unnesting of column '{classification_column}' is skipped because it has multiple items per sample."
                 )
 

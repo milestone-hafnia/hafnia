@@ -17,7 +17,6 @@ from rich.table import Table
 from tqdm import tqdm
 
 from hafnia.dataset import dataset_transformation
-from hafnia.dataset.base_types import Primitive
 from hafnia.dataset.dataset_names import (
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
@@ -26,19 +25,21 @@ from hafnia.dataset.dataset_names import (
     FieldName,
     SplitName,
 )
-from hafnia.dataset.shape_primitives import (
+from hafnia.dataset.primitives import (
     PRIMITIVE_NAME_TO_TYPE,
     PRIMITIVE_TYPES,
-    Bbox,
-    Bitmask,
-    Classification,
-    Polygon,
 )
+from hafnia.dataset.primitives.bbox import Bbox
+from hafnia.dataset.primitives.bitmask import Bitmask
+from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives.polygon import Polygon
+from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.table_transformations import (
     check_image_paths,
     create_primitive_table,
     read_table_from_path,
 )
+from hafnia.log import user_logger
 
 
 class TaskInfo(BaseModel):
@@ -146,11 +147,11 @@ class Sample(BaseModel):
         return image
 
     def draw_annotations(self, image: Optional[np.ndarray] = None) -> np.ndarray:
-        from hafnia.dataset import image_operations
+        from hafnia.visualizations import image_visualizations
 
         image = image or self.read_image()
         annotations = self.get_annotations()
-        annotations_visualized = image_operations.draw_annotations(image=image, primitives=annotations)
+        annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations)
         return annotations_visualized
 
 
@@ -255,7 +256,7 @@ class HafniaDataset:
         return HafniaDataset(table=table, info=dataset_info)
 
     def write(self, path_folder: Path, check_for_duplicates: bool = True) -> None:
-        print(f"Writing dataset to {path_folder}...")
+        user_logger.info(f"Writing dataset to {path_folder}...")
         if not path_folder.exists():
             path_folder.mkdir(parents=True)
 
@@ -336,7 +337,6 @@ class HafniaDataset:
                     count = len(object_group[FieldName.CLASS_NAME])
                     row[f"{PrimitiveType.__name__}\n{task_name}"] = str(count)
             rows.append(row)
-        print(f"Dataset stats in {time.time() - t0:.2f} seconds.")
 
         rich_table = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
         for i_row, row in enumerate(rows):
@@ -353,7 +353,7 @@ def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
 
 
 def check_hafnia_dataset(dataset: HafniaDataset):
-    print("Checking Hafnia dataset...")
+    user_logger.info("Checking Hafnia dataset...")
     assert isinstance(dataset.info.version, str) and len(dataset.info.version) > 0
     assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0
 
@@ -436,205 +436,3 @@ def check_hafnia_dataset(dataset: HafniaDataset):
 
     for sample_dict in tqdm(dataset, desc="Checking samples in dataset"):
         sample = Sample(**sample_dict)  # Checks format of all samples with pydantic validation  # noqa: F841
-
-
-# if __name__ == "__main__":
-#     from data_management.shape_primitives import COORDINATE_TYPES, Bbox, Classification
-#     from PIL import Image
-
-#     ## READ AND WRITE ###
-#     ## Using a hafnia dataset
-#     # path_hafnia_dataset = Path("src/data_management/encord_datasets/tiny_dataset/pipeline_data/extracted_images/hidden")
-#     path_hafnia_dataset = Path(
-#         "src/data_management/encord_datasets/midwest_vehicle_detection/pipeline_data/extracted_images/hidden"
-#     )
-#     # path_hafnia_dataset = Path("src/data_management/fiftyone_datasets/coco_2017/pipeline_data/extracted_images/hidden")
-
-#     # Read a hafnia dataset from path
-#     hafnia_dataset = HafniaDataset.read_from_path(path_hafnia_dataset)
-
-#     polars_table: pl.DataFrame = hafnia_dataset.table  # polars table
-#     dataset_info: DatasetInfo = hafnia_dataset.info  # DatasetInfo object
-#     rich.print(dataset_info)
-
-#     # stats:
-#     hafnia_dataset.print_stats()
-
-#     path_tmp = Path(".data") / "tmp_hafnia_dataset"
-#     if False:
-#         # Write a hafnia dataset to path
-#         hafnia_dataset.write(path_tmp)
-
-#     # Iterate dataset:
-#     for sample_dict in hafnia_dataset:
-#         sample = Sample(**sample_dict)
-#         image = sample.read_image()  # Read image from sample
-#         annotations_all = sample.get_annotations()  # Get all annotations from the sample
-#         annotations_bbox = sample.get_annotations(primitive_types=[Bbox])  # Get all annotations from the sample
-#         break
-
-#     # Make visualizations
-#     img_visualization = sample.draw_annotations()  # Draw annotations on the sample image
-#     Image.fromarray(img_visualization).save(path_tmp / "sample_visualized.png")
-
-#     # Dataset transforms
-#     dataset_sample = hafnia_dataset.create_sample_dataset()
-#     dataset_train = hafnia_dataset.create_split_dataset(SplitName.TRAIN)
-#     dataset_val = hafnia_dataset.create_split_dataset(SplitName.VAL)
-
-#     small_dataset = hafnia_dataset.sample(n_samples=10, seed=42)  # Sample 10 samples from the dataset
-#     shuffled_dataset = hafnia_dataset.shuffle(seed=42)  # Shuffle the dataset
-
-#     split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
-#     shuffled_dataset = hafnia_dataset.split_by_ratios(split_ratios)  # Shuffle the dataset
-
-#     #### Using polars to transform and get dataset stats ###
-
-#     # dataset: pl.DataFrame = pl.concat(dataset_spltis)
-#     # pprint.pprint(dataset.schema)
-
-#     # # Define your mapping here
-#     # class_name_mapping = {
-#     #     "Vehicle.Car": "car",
-#     #     "Person": "person",
-#     #     # Add more mappings as needed
-#     # }
-
-#     # # Remap class_name inside objects using Polars' internal functions'
-#     # UNMAPPED_CLASS_NAME = "UNMAPPED_CLASS_NAME"
-#     # COLUMN_NAME = "objects"
-#     # FIELD_NAME = "class_name"
-
-#     # # Rename dataset["objects"]
-#     # t0 = time.time()
-#     # try:
-#     #     dataset = dataset.with_columns(
-#     #         pl.col(COLUMN_NAME).list.eval(
-#     #             pl.element().struct.with_fields(pl.field(FIELD_NAME).replace_strict(class_name_mapping).alias(FIELD_NAME))
-#     #         )
-#     #     )
-#     # except pl.exceptions.InvalidOperationError:
-#     #     raise ValueError("The provided `class_name_mapping` does not match the class names in the dataset.")
-
-#     # dataset = dataset.with_columns(pl.col("objects").list.filter(pl.element().struct.field("class_name") == "MISSING").alias("objects"))
-
-#     # print(f"Remapped class names in dataset using Polars' internal functions in {time.time() - t0:.2f} seconds.")
-#     # dataset[0]["objects"][0][0]
-
-#     # # Keep only car and person objects
-#     # n_objects_before = dataset["objects"].list.len().sum()
-
-#     # # Keep only samples with objects.
-#     # dataset = dataset.filter(pl.col("objects").list.len() > 0)
-#     # dataset = dataset.with_columns(pl.col("objects").list.filter(pl.element().struct.field("class_name").is_in(["car", "person"])))
-
-#     # n_objects_after = dataset["objects"].list.len().sum()
-#     # dataset["objects"].list.len().sum()
-
-#     # t0 = time.time()
-#     # for row in dataset.iter_rows(named=True):
-#     #     pass
-
-#     # dataset.estimated_size(unit="mb")
-#     # dataset.drop(["bitmasks"]).estimated_size(unit="mb")
-#     # types = dataset["Weather"].unique().to_list()
-#     # dataset = dataset.cast({"Weather": pl.Enum(types)})
-
-#     # dataset.unnest(columns=["objects"])
-#     # dataset.write_ndjson()
-
-#     ## Create a hafnia dataset
-#     # Define classifications
-#     classifications = [
-#         Classification(
-#             class_name="Sunny/Clear", class_idx=0, object_id=None, draw_label=True, task_name="Weather", meta=None
-#         ),
-#         Classification(
-#             class_name="Twilight", class_idx=3, object_id=None, draw_label=True, task_name="Time of Day", meta=None
-#         ),
-#         Classification(
-#             class_name="Rural",
-#             class_idx=1,
-#             object_id=None,
-#             draw_label=True,
-#             task_name="Geographical Context",
-#             meta=None,
-#         ),
-#     ]
-
-#     # Define objects bounding boxes. It could also be other objects Bitmask, Polygon
-#     objects = [
-#         Bbox(
-#             height=0.10058,
-#             width=0.08105,
-#             top_left_x=0.54785,
-#             top_left_y=0.2207,
-#             class_name="Vehicle.Single_Truck",
-#             class_idx=6,
-#             object_id="aNJlrkmW",
-#             meta=None,
-#         ),
-#         Bbox(
-#             height=0.0322265625,
-#             width=0.0361328125,
-#             top_left_x=0.6318359375,
-#             top_left_y=0.2666015625,
-#             class_name="Vehicle.Car",
-#             class_idx=3,
-#             object_id="ZMeevOXB",
-#             draw_label=True,
-#             task_name="bboxes",
-#             meta=None,
-#         ),
-#     ]
-
-#     sample = Sample(
-#         image_id="8",
-#         file_name="data/video_968a1b31-4a22-4c3e-bf36-5cd60281954b_1fps_mp4_frame_00008.png",
-#         height=1080,
-#         width=1920,
-#         split="validation",
-#         is_sample=True,
-#         frame_number=None,
-#         video_name=None,
-#         meta={
-#             "video.data_duration": 120.0,
-#             "video.data_fps": 1.0,
-#             "videoDownload.from": "2024-07-10T18:30:00+0000",
-#             "videoDownload.downloadStart": "2024-08-26T11:02:10+0000",
-#             "dataset_hash": "9a0faaba-46d7-484a-91e8-b34b7c9ef236",
-#         },
-#         classifications=classifications,
-#         objects=objects,
-#     )
-
-#     ## To dict:
-#     sample_dict = sample.model_dump()
-#     sample_json_str = sample.model_dump_json()
-
-#     # To JSON string
-#     path_file = Path("sample.json")
-#     path_file.write_text(sample_json_str)
-
-#     # And back to Sample object
-#     sample_again = Sample.model_validate_json(path_file.read_text())
-
-#     samples = []
-#     for i_sample in range(10):  # Fake 10 samples
-#         # Create a copy of the sample with a unique image_id
-#         sample = sample.model_copy(deep=True)
-#         sample.image_id = f"sample_{i_sample}"
-
-#         samples.append(sample)
-
-#     dataset_info = DatasetInfo(
-#         dataset_name="test_dataset",
-#         version="0.1.0",
-#         tasks=[
-#             TaskInfo(primitive=Classification, class_names=["Sunny/Clear", "Twilight", "Rural"], name="Weather"),
-#             TaskInfo(primitive=Bbox, class_names=["Vehicle.Single_Truck", "Vehicle.Car"], name="bboxes"),
-#         ],
-#     )
-
-#     # Create a HafniaDataset from samples
-#     hafnia_dataset = HafniaDataset.from_samples(samples, info=dataset_info)

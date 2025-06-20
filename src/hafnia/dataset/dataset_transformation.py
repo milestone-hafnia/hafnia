@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import ColumnName
+from hafnia.log import user_logger
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -128,7 +129,7 @@ def transform_images(
 
 
 def rename_to_unique_image_names(dataset: "HafniaDataset", path_output: Path) -> "HafniaDataset":
-    print(f"Copy images to have unique filenames. New path is '{path_output}'")
+    user_logger.info(f"Copy images to have unique filenames. New path is '{path_output}'")
     shutil.rmtree(path_output, ignore_errors=True)  # Remove the output folder if it exists
     new_paths = []
     for org_path in tqdm(dataset.table["file_name"].to_list(), desc="- Rename/copy images"):

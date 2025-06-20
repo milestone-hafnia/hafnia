@@ -9,9 +9,13 @@ import boto3
 import polars as pl
 from pydantic import BaseModel, ConfigDict
 
+import hafnia.dataset.primitives.bbox
+import hafnia.dataset.primitives.bitmask
+import hafnia.dataset.primitives.classification
+import hafnia.dataset.primitives.polygon
+import hafnia.dataset.primitives.segmentation
 from cli.config import Config
-from hafnia.dataset import shape_primitives
-from hafnia.dataset.base_types import Primitive
+from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import (
     ColumnName,
     DatasetVariant,
@@ -20,7 +24,9 @@ from hafnia.dataset.dataset_names import (
     SplitName,
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset, TaskInfo
+from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.http import post
+from hafnia.log import user_logger
 from hafnia.platform import get_dataset_id
 
 
@@ -193,7 +199,7 @@ def upload_dataset_details(cfg: Config, data: str, dataset_name: str) -> dict:
     import_endpoint = f"{dataset_endpoint}/{dataset_id}/import"
     headers = {"Authorization": cfg.api_key}
 
-    print("Importing dataset details. This may take up to 30 seconds...")
+    user_logger.info("Importing dataset details. This may take up to 30 seconds...")
     data = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
     return data  # type: ignore[return-value]
 
@@ -211,7 +217,7 @@ def has_primitive(dataset: Union[HafniaDataset, pl.DataFrame], PrimitiveType: Ty
     col_name = PrimitiveType.column_name()
     table = dataset.table if isinstance(dataset, HafniaDataset) else dataset
     if col_name not in table.columns:
-        print(f"Warning: No field called '{col_name}' was found for '{PrimitiveType.__name__}'.")
+        user_logger.warning(f"Warning: No field called '{col_name}' was found for '{PrimitiveType.__name__}'.")
         return False
 
     if table[col_name].dtype == pl.Null:
@@ -227,7 +233,7 @@ def calculate_distribution_values(
 
     if len(distribution_tasks) == 0:
         return []
-    classification_column = shape_primitives.Classification.column_name()
+    classification_column = hafnia.dataset.primitives.classification.Classification.column_name()
     classifications = dataset_split.select(pl.col(classification_column).explode())
     classifications = classifications.filter(pl.col(classification_column).is_not_null()).unnest(classification_column)
     classifications = classifications.filter(
@@ -323,9 +329,9 @@ def dataset_info_from_dataset(
             )
 
             object_reports: List[DbAnnotatedObjectReport] = []
-            primitive_columns = [tPrimtive.column_name() for tPrimtive in shape_primitives.PRIMITIVE_TYPES]
-            if has_primitive(dataset_split, PrimitiveType=shape_primitives.Bbox):
-                bbox_column_name = shape_primitives.Bbox.column_name()
+            primitive_columns = [tPrimtive.column_name() for tPrimtive in primitives.PRIMITIVE_TYPES]
+            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.bbox.Bbox):
+                bbox_column_name = hafnia.dataset.primitives.bbox.Bbox.column_name()
                 drop_columns = [col for col in primitive_columns if col != bbox_column_name]
                 drop_columns.append(FieldName.META)
                 df_per_instance = dataset_split.rename({"height": "image.height", "width": "image.width"})
@@ -354,11 +360,13 @@ def dataset_info_from_dataset(
                         )
                     )
 
-            if has_primitive(dataset_split, PrimitiveType=shape_primitives.Classification):
+            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.classification.Classification):
                 annotation_type = DbAnnotationType(name=AnnotationType.ImageClassification.value)
-                col_name = shape_primitives.Classification.column_name()
+                col_name = hafnia.dataset.primitives.classification.Classification.column_name()
                 classification_tasks = [
-                    task.name for task in dataset.info.tasks if task.primitive == shape_primitives.Classification
+                    task.name
+                    for task in dataset.info.tasks
+                    if task.primitive == hafnia.dataset.primitives.classification.Classification
                 ]
                 has_classification_data = dataset_split[col_name].dtype != pl.List(pl.Null)
                 if has_classification_data:
@@ -375,7 +383,7 @@ def dataset_info_from_dataset(
                     ), class_group in classification_df.group_by(FieldName.TASK_NAME, FieldName.CLASS_NAME):
                         if class_name is None:
                             continue
-                        if task_name == shape_primitives.Classification.default_task_name():
+                        if task_name == hafnia.dataset.primitives.classification.Classification.default_task_name():
                             display_name = class_name  # Prefix class name with task name
                         else:
                             display_name = f"{task_name}.{class_name}"
@@ -393,11 +401,11 @@ def dataset_info_from_dataset(
                             )
                         )
 
-            if has_primitive(dataset_split, PrimitiveType=shape_primitives.Segmentation):
+            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.segmentation.Segmentation):
                 raise NotImplementedError("Not Implemented yet")
 
-            if has_primitive(dataset_split, PrimitiveType=shape_primitives.Bitmask):
-                col_name = shape_primitives.Bitmask.column_name()
+            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.bitmask.Bitmask):
+                col_name = hafnia.dataset.primitives.bitmask.Bitmask.column_name()
                 drop_columns = [col for col in primitive_columns if col != col_name]
                 drop_columns.append(FieldName.META)
                 df_per_instance = dataset_split.rename({"height": "image.height", "width": "image.width"})
@@ -427,7 +435,7 @@ def dataset_info_from_dataset(
                         )
                     )
 
-            if has_primitive(dataset_split, PrimitiveType=shape_primitives.Polygon):
+            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.polygon.Polygon):
                 raise NotImplementedError("Not Implemented yet")
 
             # Sort object reports by name to more easily compare between versions
