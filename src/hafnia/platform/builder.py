@@ -92,23 +92,26 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str) -> N
     sys_logger.debug("Build cmd: `{}`".format(" ".join(cmd)))
     sys_logger.info(f"Building and pushing Docker image with BuildKit (buildx); cache repo: {remote_cache or 'none'}")
     result = None
+    output = ""
+    errors = []
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        output = (result.stdout or "") + (result.stderr or "")
     except subprocess.CalledProcessError as e:
-        error_output = e.stderr if e.stderr else str(e)
+        output = (e.stdout or "") + (e.stderr or "")
         error_pattern = r"ERROR: (.+?)(?:\n|$)"
-        matches = re.findall(error_pattern, error_output)
-        if not matches:
-            raise RuntimeError(f"Docker build failed: {error_output}")
-        if re.search(r"image tag '([^']+)' already exists", matches[-1]):
+        errors = re.findall(error_pattern, output)
+        if not errors:
+            raise RuntimeError(f"Docker build failed: {output}")
+        if re.search(r"image tag '([^']+)' already exists", errors[-1]):
             sys_logger.warning("Image {} already exists in the registry.".format(docker_tag.rsplit("/")[-1]))
             return
-        raise RuntimeError(f"Docker build failed: {error_output}")
+        raise RuntimeError(f"Docker build failed: {output}")
     finally:
-        stage_pattern = r"\[\d+/\d+\][^\n]*"
-        std_out = result.stdout if result is not None else error_output
-        stages = re.findall(stage_pattern, std_out, re.MULTILINE)
+        stage_pattern = r"^.*\[\d+/\d+\][^\n]*"
+        stages = re.findall(stage_pattern, output, re.MULTILINE)
         user_logger.info("\n".join(stages))
+        sys_logger.debug(output)
 
 
 def check_registry(docker_image: str) -> Optional[str]:
