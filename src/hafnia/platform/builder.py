@@ -1,7 +1,7 @@
 import json
 import os
+import re
 import subprocess
-import tempfile
 import zipfile
 from hashlib import sha256
 from pathlib import Path
@@ -58,7 +58,7 @@ def buildx_available() -> bool:
         return False
 
 
-def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta_file: str) -> None:
+def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str) -> None:
     """
     Build a Docker image using the provided Dockerfile.
 
@@ -73,12 +73,12 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
 
     cmd = ["docker", "build", "--platform", "linux/amd64", "-t", docker_tag, "-f", dockerfile]
 
-    remote_cache = os.getenv("REMOTE_CACHE_REPO")
+    remote_cache = os.getenv("EXPERIMENT_CACHE_ECR")
     cloud_mode = os.getenv("HAFNIA_CLOUD", "false").lower() in ["true", "1", "yes"]
 
     if buildx_available():
         cmd.insert(1, "buildx")
-        cmd += ["--build-arg", "BUILDKIT_INLINE_CACHE=1", "--metadata-file", meta_file]
+        cmd += ["--build-arg", "BUILDKIT_INLINE_CACHE=1"]
         if cloud_mode:
             cmd += ["--push"]
         if remote_cache:
@@ -91,11 +91,24 @@ def build_dockerfile(dockerfile: str, docker_context: str, docker_tag: str, meta
     cmd.append(docker_context)
     sys_logger.debug("Build cmd: `{}`".format(" ".join(cmd)))
     sys_logger.info(f"Building and pushing Docker image with BuildKit (buildx); cache repo: {remote_cache or 'none'}")
+    result = None
     try:
-        subprocess.run(cmd, check=True)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
-        sys_logger.error(f"Docker build failed: {e}")
-        raise RuntimeError(f"Docker build failed: {e}")
+        error_output = e.stderr if e.stderr else str(e)
+        error_pattern = r"ERROR: (.+?)(?:\n|$)"
+        matches = re.findall(error_pattern, error_output)
+        if not matches:
+            raise RuntimeError(f"Docker build failed: {error_output}")
+        if re.search(r"image tag '([^']+)' already exists", matches[-1]):
+            sys_logger.warning("Image {} already exists in the registry.".format(docker_tag.rsplit("/")[-1]))
+            return
+        raise RuntimeError(f"Docker build failed: {error_output}")
+    finally:
+        stage_pattern = r"\[\d+/\d+\][^\n]*"
+        std_out = result.stdout if result is not None else error_output
+        stages = re.findall(stage_pattern, std_out, re.MULTILINE)
+        user_logger.info("\n".join(stages))
 
 
 def check_registry(docker_image: str) -> Optional[str]:
@@ -127,18 +140,8 @@ def build_image(metadata: Dict, registry_repo: str, state_file: str = "state.jso
     docker_image = f"{registry_repo}:{metadata['digest']}"
     image_exists = check_registry(docker_image) is not None
     if image_exists:
-        sys_logger.info(f"Tag already in ECR – skipping build of {docker_image}.")
+        sys_logger.info("Image {} already exists in the registry.".format(docker_image.rsplit("/")[-1]))
     else:
-        with tempfile.NamedTemporaryFile() as meta_tmp:
-            meta_file = meta_tmp.name
-            build_dockerfile(
-                metadata["dockerfile"], Path(metadata["dockerfile"]).parent.as_posix(), docker_image, meta_file
-            )
-            with open(meta_file) as m:
-                try:
-                    build_meta = json.load(m)
-                    metadata["local_digest"] = build_meta["containerimage.digest"]
-                except Exception:
-                    metadata["local_digest"] = ""
+        build_dockerfile(metadata["dockerfile"], Path(metadata["dockerfile"]).parent.as_posix(), docker_image)
     metadata.update({"image_tag": docker_image, "image_exists": image_exists})
     Path(state_file).write_text(json.dumps(metadata, indent=2))
