@@ -26,7 +26,6 @@ class Bbox(Primitive):
     object_id: Optional[str] = None  # Unique identifier for the object, e.g. "12345123"
     confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
     ground_truth: bool = True  # Whether this is ground truth or a prediction
-    draw_label: bool = True  # Whether to draw the label on the bounding box
 
     task_name: str = ""  # Task name to support multiple Bbox tasks in the same dataset. "" defaults to "bboxes"
     meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
@@ -92,7 +91,7 @@ class Bbox(Primitive):
 
         return xmin, ymin, xmax, ymax
 
-    def draw(self, image: np.ndarray, inplace: bool = False) -> np.ndarray:
+    def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
         if not inplace:
             image = image.copy()
         xmin, ymin, xmax, ymax = self.to_pixel_coordinates(image_shape=image.shape[:2])
@@ -102,7 +101,7 @@ class Bbox(Primitive):
         font = cv2.FONT_HERSHEY_SIMPLEX
         margin = 5
         bottom_left = (xmin + margin, ymax - margin)
-        if self.draw_label:
+        if draw_label:
             cv2.putText(
                 img=image, text=class_name, org=bottom_left, fontFace=font, fontScale=0.75, color=color, thickness=2
             )

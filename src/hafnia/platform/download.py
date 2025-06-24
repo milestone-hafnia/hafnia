@@ -9,7 +9,7 @@ from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
 
 
-def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:
+def get_resource_credentials(endpoint: str, api_key: str) -> Dict[str, Any]:
     """
     Retrieve credentials for accessing the recipe stored in S3 (or another resource)
     by calling a DIP endpoint with the API key.
@@ -30,9 +30,9 @@ def get_resource_creds(endpoint: str, api_key: str) -> Dict[str, Any]:
         RuntimeError: If the call to fetch the credentials fails for any reason.
     """
     try:
-        creds = fetch(endpoint, headers={"Authorization": api_key, "accept": "application/json"})
+        credentials = fetch(endpoint, headers={"Authorization": api_key, "accept": "application/json"})
         sys_logger.debug("Successfully retrieved credentials from DIP endpoint.")
-        return creds
+        return credentials
     except Exception as e:
         sys_logger.error(f"Failed to fetch credentials from endpoint: {e}")
         raise RuntimeError(f"Failed to retrieve credentials: {e}") from e
@@ -76,8 +76,8 @@ def download_resource(resource_url: str, destination: str, api_key: str) -> Dict
         ValueError: If the S3 ARN is invalid or no objects found under prefix.
         RuntimeError: If S3 calls fail with an unexpected error.
     """
-    res_creds = get_resource_creds(resource_url, api_key)
-    s3_arn = res_creds["s3_path"]
+    res_credentials = get_resource_credentials(resource_url, api_key)
+    s3_arn = res_credentials["s3_path"]
     arn_prefix = "arn:aws:s3:::"
     if not s3_arn.startswith(arn_prefix):
         raise ValueError(f"Invalid S3 ARN: {s3_arn}")
@@ -90,9 +90,9 @@ def download_resource(resource_url: str, destination: str, api_key: str) -> Dict
     output_path.mkdir(parents=True, exist_ok=True)
     s3_client = boto3.client(
         "s3",
-        aws_access_key_id=res_creds["access_key"],
-        aws_secret_access_key=res_creds["secret_key"],
-        aws_session_token=res_creds["session_token"],
+        aws_access_key_id=res_credentials["access_key"],
+        aws_secret_access_key=res_credentials["secret_key"],
+        aws_session_token=res_credentials["session_token"],
     )
     downloaded_files = []
     try:

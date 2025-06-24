@@ -188,7 +188,7 @@ sample_dict = dataset[0]
 
 for sample_dict in dataset:
     sample = Sample(**sample_dict)
-    print(sample.image_id, sample.objects)
+    print(sample.sample_id, sample.objects)
     break
 ```
 Not that it is possible to create a `Sample` object from the sample dictionary.
@@ -226,7 +226,6 @@ Sample(
             object_id=None,
             confidence=None,
             ground_truth=True,
-            draw_label=True,
             task_name='Weather',
             meta=None
         ),
@@ -236,7 +235,6 @@ Sample(
             object_id=None,
             confidence=None,
             ground_truth=True,
-            draw_label=True,
             task_name='Time of Day',
             meta=None
         ),
@@ -253,7 +251,6 @@ Sample(
             object_id='cXT4NRVu',
             confidence=None,
             ground_truth=True,
-            draw_label=True,
             task_name='bboxes',
             meta=None
         ),
@@ -267,7 +264,6 @@ Sample(
             object_id='MelbIIDU',
             confidence=None,
             ground_truth=True,
-            draw_label=True,
             task_name='bboxes',
             meta=None
         ),

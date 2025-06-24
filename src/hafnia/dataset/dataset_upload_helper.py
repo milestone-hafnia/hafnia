@@ -205,7 +205,9 @@ def upload_dataset_details(cfg: Config, data: str, dataset_name: str) -> dict:
 
 
 def get_resolutions(dataset: HafniaDataset, max_resolutions_selected: int = 8) -> List[DbResolution]:
-    unique_resolutions = dataset.table.select([pl.col("height"), pl.col("width")]).unique().sort(by=["height", "width"])
+    unique_resolutions = (
+        dataset.samples.select([pl.col("height"), pl.col("width")]).unique().sort(by=["height", "width"])
+    )
     if len(unique_resolutions) > max_resolutions_selected:
         skip_size = len(unique_resolutions) // max_resolutions_selected
         unique_resolutions = unique_resolutions.gather_every(skip_size)
@@ -215,7 +217,7 @@ def get_resolutions(dataset: HafniaDataset, max_resolutions_selected: int = 8) -
 
 def has_primitive(dataset: Union[HafniaDataset, pl.DataFrame], PrimitiveType: Type[Primitive]) -> bool:
     col_name = PrimitiveType.column_name()
-    table = dataset.table if isinstance(dataset, HafniaDataset) else dataset
+    table = dataset.samples if isinstance(dataset, HafniaDataset) else dataset
     if col_name not in table.columns:
         user_logger.warning(f"Warning: No field called '{col_name}' was found for '{PrimitiveType.__name__}'.")
         return False
@@ -315,7 +317,7 @@ def dataset_info_from_dataset(
 
         for split_name in SplitChoices:
             split_names = SPLIT_CHOICE_MAPPING[split_name]
-            dataset_split = dataset_variant.table.filter(pl.col(ColumnName.SPLIT).is_in(split_names))
+            dataset_split = dataset_variant.samples.filter(pl.col(ColumnName.SPLIT).is_in(split_names))
 
             distribution_values = calculate_distribution_values(
                 dataset_split=dataset_split,
@@ -350,13 +352,13 @@ def dataset_info_from_dataset(
                                 name=class_name,
                                 entity_type=EntityTypeChoices.OBJECT.value,
                             ),
-                            unique_obj_ids=class_group["object_id"].n_unique(),
+                            unique_obj_ids=class_group[FieldName.OBJECT_ID].n_unique(),
                             obj_instances=len(class_group),
                             annotation_type=[annotation_type],
                             avg_area=class_group["area"].mean(),
                             min_area=class_group["area"].min(),
                             max_area=class_group["area"].max(),
-                            average_count_per_image=len(class_group) / class_group["image_id"].n_unique(),
+                            average_count_per_image=len(class_group) / class_group[ColumnName.SAMPLE_INDEX].n_unique(),
                         )
                     )
 
@@ -425,10 +427,10 @@ def dataset_info_from_dataset(
                                 name=class_name,
                                 entity_type=EntityTypeChoices.OBJECT.value,
                             ),
-                            unique_obj_ids=class_group["object_id"].n_unique(),
+                            unique_obj_ids=class_group[FieldName.OBJECT_ID].n_unique(),
                             obj_instances=len(class_group),
                             annotation_type=[annotation_type],
-                            average_count_per_image=len(class_group) / class_group["image_id"].n_unique(),
+                            average_count_per_image=len(class_group) / class_group[ColumnName.SAMPLE_INDEX].n_unique(),
                             avg_area=avg_area,
                             min_area=min_area,
                             max_area=max_area,

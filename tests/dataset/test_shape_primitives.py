@@ -45,9 +45,7 @@ def assert_bbox_is_close(actual: Bbox, expected: Bbox, atol: float = 0.001):
 
 @pytest.mark.parametrize("TypePrimitive", PRIMITIVE_TYPES)
 def test_sample_primitive_names(TypePrimitive: Type[Primitive]):
-    sample = Sample(
-        image_id="test_sample", file_name="test_image.jpg", width=100, height=100, split="test_split", is_sample=False
-    )
+    sample = Sample(file_name="test_image.jpg", width=100, height=100, split="test_split", is_sample=False)
 
     for expected_field in FieldName.fields():
         assert expected_field in TypePrimitive.__annotations__, (

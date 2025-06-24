@@ -16,14 +16,14 @@ from hafnia.dataset.table_transformations import unnest_classification_tasks
 @pytest.mark.parametrize("dataset_name", helper_testing.MICRO_DATASETS)
 def test_create_primitive_table(dataset_name: str):
     hafnia_dataset = helper_testing.get_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
-    hafnia_dataset.table
+    hafnia_dataset.samples
 
     PrimitiveTypes = [Classification, Bbox, Bitmask]
 
     for PrimitiveType in PrimitiveTypes:
         n_primitive_fields = len(PrimitiveType.model_fields)
         only_primitives = table_transformations.create_primitive_table(
-            table=hafnia_dataset.table,
+            samples_table=hafnia_dataset.samples,
             PrimitiveType=PrimitiveType,  # type: ignore[type-abstract]
             keep_sample_data=False,
         )
@@ -31,7 +31,7 @@ def test_create_primitive_table(dataset_name: str):
             assert len(only_primitives.columns) <= n_primitive_fields
 
         all_columns = table_transformations.create_primitive_table(
-            table=hafnia_dataset.table,
+            samples_table=hafnia_dataset.samples,
             PrimitiveType=PrimitiveType,  # type: ignore[type-abstract]
             keep_sample_data=True,
         )
@@ -43,9 +43,9 @@ def test_create_primitive_table(dataset_name: str):
 def test_filter_table_for_class_names():
     hafnia_dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
 
-    n_samples_before_filtering = len(hafnia_dataset.table)
+    n_samples_before_filtering = len(hafnia_dataset.samples)
     table_after = table_transformations.filter_table_for_class_names(
-        table=hafnia_dataset.table,
+        samples_table=hafnia_dataset.samples,
         class_names=["Vehicle.Car"],
         PrimitiveType=Bbox,
     )
@@ -56,7 +56,7 @@ def test_filter_table_for_class_names():
 
 def test_split_primitive_columns_by_task_name():
     dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
-    table = dataset.table
+    table = dataset.samples
 
     def check_expected_column_names(table_before, table_after, PrimitiveTypes: List[Type[Primitive]]):
         for PrimitiveType in PrimitiveTypes:
@@ -82,7 +82,7 @@ def test_split_primitive_columns_by_task_name():
 
 def test_unnest_classification_tasks():
     dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
-    table = dataset.table
+    table = dataset.samples
 
     table_unnested = unnest_classification_tasks(table)
 

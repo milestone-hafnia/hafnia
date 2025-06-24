@@ -1,6 +1,5 @@
 from typing import Any, Dict
 
-import datasets
 import numpy as np
 import pytest
 import torch
@@ -22,20 +21,17 @@ from hafnia.dataset.primitives.segmentation import Segmentation
 FORCE_REDOWNLOAD = False
 
 DATASETS_EXPECTED = [
-    (
-        "midwest-vehicle-detection",
-        {"train": 172, "validation": 21, "test": 21},
-        "ObjectDetection",
-    ),
-    ("mnist", {"train": 176, "test": 18, "validation": 6}, "ImageClassification"),
-    ("caltech-101", {"train": 156, "validation": 24, "test": 20}, "ImageClassification"),
-    ("caltech-256", {"train": 163, "validation": 17, "test": 20}, "ImageClassification"),
-    ("cifar10", {"train": 171, "validation": 4, "test": 25}, "ImageClassification"),
-    ("cifar100", {"train": 428, "validation": 13, "test": 59}, "ImageClassification"),
-    # ("easyportrait", {"train": 32, "test": 20, "validation": 10}, "Segmentation"),
-    ("coco-2017", {"train": 192, "validation": 8, "test": 8}, "ObjectDetection"),
-    # ("sama-coco", {"train": 99, "validation": 1, "test": 1}, "ObjectDetection"),
-    # ("open-images-v7", {"train": 91, "validation": 3, "test": 9}, "ObjectDetection"),
+    ("midwest-vehicle-detection", {"train": 172, "validation": 21, "test": 21}),
+    ("tiny-dataset", {"train": 3, "validation": 2, "test": 3}),
+    ("mnist", {"train": 176, "test": 18, "validation": 6}),
+    ("caltech-101", {"train": 156, "validation": 24, "test": 20}),
+    ("caltech-256", {"train": 163, "validation": 17, "test": 20}),
+    ("cifar10", {"train": 171, "validation": 4, "test": 25}),
+    ("cifar100", {"train": 428, "validation": 13, "test": 59}),
+    # ("easyportrait", {"train": 32, "test": 20, "validation": 10}),
+    ("coco-2017", {"train": 192, "validation": 4, "test": 4}),
+    # ("sama-coco", {"train": 99, "validation": 1, "test": 1}),
+    # ("open-images-v7", {"train": 91, "validation": 3, "test": 9}),
 ]
 DATASET_IDS = [dataset[0] for dataset in DATASETS_EXPECTED]
 
@@ -46,18 +42,17 @@ def loaded_dataset(request) -> Dict[str, Any]:
     if not Config().is_configured():
         pytest.skip("Not logged in to Hafnia")
 
-    dataset_name, expected_lengths, task_type = request.param
+    dataset_name, expected_lengths = request.param
     dataset = load_dataset(dataset_name, force_redownload=FORCE_REDOWNLOAD)
 
     return {
         "dataset": dataset,
         "dataset_name": dataset_name,
         "expected_lengths": expected_lengths,
-        "task_type": task_type,
     }
 
 
-def hafnia_2_torch_dataset(dataset: datasets.Dataset) -> torch.utils.data.Dataset:
+def hafnia_2_torch_dataset(dataset: HafniaDataset) -> torch.utils.data.Dataset:
     # Define transforms
     transforms = v2.Compose(
         [
@@ -79,10 +74,10 @@ def hafnia_2_torch_dataset(dataset: datasets.Dataset) -> torch.utils.data.Datase
 @pytest.mark.slow
 def test_dataset_lengths(loaded_dataset):
     """Test that the dataset has the expected number of samples."""
-    dataset: HafniaDataset = loaded_dataset["dataset"]
+    dataset = loaded_dataset["dataset"]
     expected_split_counts = loaded_dataset["expected_lengths"]
 
-    actual_split_counts = dict(dataset.table[ColumnName.SPLIT].value_counts().iter_rows())
+    actual_split_counts = dict(dataset.samples[ColumnName.SPLIT].value_counts().iter_rows())
     assert actual_split_counts == expected_split_counts
 
 

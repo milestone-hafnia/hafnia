@@ -28,9 +28,11 @@
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "cSpell.words": [
+        "bboxes",
         "Bitmask",
         "bitmasks",
         "flatnonzero",
+        "fromarray",
         "HAFNIA",
         "ndarray"
     ]

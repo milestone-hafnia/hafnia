@@ -1,7 +1,7 @@
 from hafnia.platform.download import (
     download_resource,
     download_single_object,
-    get_resource_creds,
+    get_resource_credentials,
 )
 from hafnia.platform.experiment import (
     create_experiment,
@@ -17,5 +17,5 @@ __all__ = [
     "create_experiment",
     "download_resource",
     "download_single_object",
-    "get_resource_creds",
+    "get_resource_credentials",
 ]

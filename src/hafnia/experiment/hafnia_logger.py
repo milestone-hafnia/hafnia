@@ -9,10 +9,10 @@ from typing import Dict, Optional, Union
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from datasets import DatasetDict
 from pydantic import BaseModel, field_validator
 
 from hafnia.data.factory import load_dataset
+from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.log import sys_logger, user_logger
 from hafnia.utils import is_remote_job, now_as_str
 
@@ -92,7 +92,7 @@ class HafniaLogger:
         self.schema = Entity.create_schema()
         self.log_environment()
 
-    def load_dataset(self, dataset_name: str) -> DatasetDict:
+    def load_dataset(self, dataset_name: str) -> HafniaDataset:
         """
         Load a dataset from the specified path.
         """

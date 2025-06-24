@@ -1,7 +1,9 @@
 import collections
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict
 
+import numpy as np
 import pytest
 
 from hafnia.dataset import dataset_helpers
@@ -66,3 +68,12 @@ def test_create_split_name_list_from_ratios(test_case: CreateSplitNameListFromRa
     assert split_names_have_been_shuffled
     assert len(split_names) == test_case.n_items
     assert dict(collections.Counter(split_names)) == test_case.expected_lengths
+
+
+def test_save_image_with_hash_name(tmp_path: Path):
+    dummy_image = (255 * np.random.rand(100, 100, 3)).astype(np.uint8)  # Create a dummy image
+    path_image = dataset_helpers.save_image_with_hash_name(dummy_image, tmp_path)
+    filename_from_path = dataset_helpers.filename_as_hash_from_path(path_image)
+    assert filename_from_path == path_image.name
+    assert path_image.exists()
+    assert path_image.suffix in [".png"]

@@ -39,7 +39,8 @@ def test_blur_anonymization(compare_to_expected_image: Callable, dataset_name: s
         annotations = sample.get_annotations([Bitmask])
     else:
         annotations = sample.get_annotations([Bitmask, Bbox, Polygon])
-    masked_image = image_visualizations.draw_anonymize_by_blurring(image, annotations, anonymize_classes="all")
+
+    masked_image = image_visualizations.draw_anonymize_by_blurring(image, annotations)
     compare_to_expected_image(masked_image)
 
 

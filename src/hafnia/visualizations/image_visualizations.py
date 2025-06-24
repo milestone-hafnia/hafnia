@@ -22,13 +22,19 @@ def draw_anonymize_by_blurring(
     image: np.ndarray,
     primitives: List[Primitive],
     inplace: bool = False,
+    class_names: Union[List[str], str] = "all",
     anonymization_settings: Optional[Dict[Type[Primitive], Dict]] = None,
 ) -> np.ndarray:
     if not inplace:
         image = image.copy()
 
     anonymization_settings = anonymization_settings or {}
-
+    if isinstance(class_names, str) and class_names == "all":
+        primitives = primitives
+    elif isinstance(class_names, list):
+        primitives = [primitive for primitive in primitives if primitive.class_name in class_names]
+    else:
+        raise ValueError(f"Invalid class_names type: {type(class_names)}. Expected 'all' or a list of class names.")
     for primitive in primitives:
         settings = anonymization_settings.get(type(primitive), {})
         image = primitive.anonymize_by_blurring(image, inplace=True, **settings)
@@ -167,7 +173,7 @@ def save_dataset_sample_set_visualizations(
     path_output_folder: Path,
     max_samples: int = 10,
     draw_settings: Optional[Dict[Type[Primitive], Dict]] = None,
-    anonymize_settings: Optional[Dict] = None,
+    anonymize_settings: Optional[Dict[Type[Primitive], Dict]] = None,
 ) -> List[Path]:
     dataset = HafniaDataset.read_from_path(path_dataset)
     shutil.rmtree(path_output_folder, ignore_errors=True)
@@ -183,9 +189,7 @@ def save_dataset_sample_set_visualizations(
         annotations = sample.get_annotations()
 
         if anonymize_settings:
-            for primitive_type, settings in anonymize_settings.items():
-                primitive_draw_settings = draw_settings.get(type(primitive_type), {})
-                image = draw_anonymize_by_blurring(image, anonymize_ann, **primitive_draw_settings)
+            image = draw_anonymize_by_blurring(image, annotations, anonymization_settings=anonymize_settings)
         image = draw_annotations(image, annotations, draw_settings=draw_settings)
 
         pil_image = Image.fromarray(image)

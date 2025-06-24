@@ -21,7 +21,7 @@ dataset = HafniaDataset.read_from_path(path_dataset)
 dataset = load_dataset("midwest-vehicle-detection")
 
 
-print(dataset.table.head(2))
+print(dataset.samples.head(2))
 # Print dataset information
 dataset.print_stats()
 
@@ -74,12 +74,12 @@ dataset_again = HafniaDataset.read_from_path(path_dataset)
 rich.print(dataset.info)
 
 # Annotations are stored in 'dataset.table' as a Polars DataFrame
-dataset.table.head(2)
+dataset.samples.head(2)
 
 # Do dataset transformations and statistics on the Polars DataFrame
-n_objects = dataset.table["objects"].list.len().sum()
-n_objects = dataset.table[Bbox.column_name()].list.len().sum()  # Use Bbox.column_name() to avoid magic variables
-n_classifications = dataset.table[Classification.column_name()].list.len().sum()
+n_objects = dataset.samples["objects"].list.len().sum()
+n_objects = dataset.samples[Bbox.column_name()].list.len().sum()  # Use Bbox.column_name() to avoid magic variables
+n_classifications = dataset.samples[Classification.column_name()].list.len().sum()
 
-class_counts = dataset.table[Classification.column_name()].explode().struct.field("class_name").value_counts()
+class_counts = dataset.samples[Classification.column_name()].explode().struct.field("class_name").value_counts()
 rich.print(class_counts)

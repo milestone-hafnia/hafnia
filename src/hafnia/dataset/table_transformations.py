@@ -17,18 +17,20 @@ from hafnia.log import user_logger
 
 
 def create_primitive_table(
-    table: pl.DataFrame, PrimitiveType: Type[Primitive], keep_sample_data: bool = False
+    samples_table: pl.DataFrame, PrimitiveType: Type[Primitive], keep_sample_data: bool = False
 ) -> Optional[pl.DataFrame]:
     """
     Returns a DataFrame with objects of the specified primitive type.
     """
     column_name = PrimitiveType.column_name()
-    has_primitive_column = (column_name in table.columns) and (table[column_name].dtype == pl.List(pl.Struct))
+    has_primitive_column = (column_name in samples_table.columns) and (
+        samples_table[column_name].dtype == pl.List(pl.Struct)
+    )
     if not has_primitive_column:
         return None
 
     # Remove frames without objects
-    remove_no_object_frames = table.filter(pl.col(column_name).list.len() > 0)
+    remove_no_object_frames = samples_table.filter(pl.col(column_name).list.len() > 0)
 
     if keep_sample_data:
         # Drop other primitive columns to avoid conflicts
@@ -45,9 +47,9 @@ def create_primitive_table(
 
 
 def filter_table_for_class_names(
-    table: pl.DataFrame, class_names: List[str], PrimitiveType: Type[Primitive]
+    samples_table: pl.DataFrame, class_names: List[str], PrimitiveType: Type[Primitive]
 ) -> Optional[pl.DataFrame]:
-    table_with_selected_class_names = table.filter(
+    table_with_selected_class_names = samples_table.filter(
         pl.col(PrimitiveType.column_name())
         .list.eval(pl.element().struct.field(FieldName.CLASS_NAME).is_in(class_names))
         .list.any()
@@ -57,7 +59,7 @@ def filter_table_for_class_names(
 
 
 def split_primitive_columns_by_task_name(
-    table: pl.DataFrame,
+    samples_table: pl.DataFrame,
     coordinate_types: Optional[List[Type[Primitive]]] = None,
 ) -> pl.DataFrame:
     """
@@ -86,14 +88,14 @@ def split_primitive_columns_by_task_name(
     for PrimitiveType in coordinate_types:
         col_name = PrimitiveType.column_name()
 
-        if col_name not in table.columns:
+        if col_name not in samples_table.columns:
             continue
 
-        if table[col_name].dtype != pl.List(pl.Struct):
+        if samples_table[col_name].dtype != pl.List(pl.Struct):
             continue
 
-        task_names = table[col_name].explode().struct.field(FieldName.TASK_NAME).unique().to_list()
-        table = table.with_columns(
+        task_names = samples_table[col_name].explode().struct.field(FieldName.TASK_NAME).unique().to_list()
+        samples_table = samples_table.with_columns(
             [
                 pl.col(col_name)
                 .list.filter(pl.element().struct.field(FieldName.TASK_NAME).eq(task_name))
@@ -101,8 +103,8 @@ def split_primitive_columns_by_task_name(
                 for task_name in task_names
             ]
         )
-        table = table.drop(col_name)
-    return table
+        samples_table = samples_table.drop(col_name)
+    return samples_table
 
 
 def read_table_from_path(path: Path) -> pl.DataFrame:

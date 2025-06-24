@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, Union
@@ -16,8 +15,9 @@ from pydantic import BaseModel, field_serializer, field_validator
 from rich.table import Table
 from tqdm import tqdm
 
-from hafnia.dataset import dataset_transformation
+from hafnia.dataset import dataset_helpers, dataset_transformation
 from hafnia.dataset.dataset_names import (
+    DATASET_FILENAMES,
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
     FILENAME_DATASET_INFO,
@@ -99,15 +99,15 @@ class DatasetInfo(BaseModel):
 
 
 class Sample(BaseModel):
-    image_id: str
     file_name: str
     height: int
     width: int
     split: str  # Split name, e.g., "train", "val", "test"
     is_sample: bool  # Indicates if this is a sample (True) or a metadata entry (False)
-    frame_number: Optional[int] = None  # Optional frame number for video datasets
-    video_name: Optional[str] = None  # Optional video name for video datasets
+    collection_index: Optional[int] = None  # Optional e.g. frame number for video datasets
+    collection_id: Optional[str] = None  # Optional e.g. video name for video datasets
     remote_path: Optional[str] = None  # Optional remote path for the image, if applicable
+    sample_index: Optional[int] = None  # Don't manually set this, it is used for indexing samples in the dataset.
     classifications: Optional[List[Classification]] = None  # Optional classification primitive
     objects: Optional[List[Bbox]] = None  # List of coordinate primitives, e.g., Bbox, Bitmask, etc.
     bitmasks: Optional[List[Bitmask]] = None  # List of bitmasks, if applicable
@@ -158,16 +158,16 @@ class Sample(BaseModel):
 @dataclass
 class HafniaDataset:
     info: DatasetInfo
-    table: pl.DataFrame
+    samples: pl.DataFrame
 
     def __getitem__(self, item: int) -> Dict[str, Any]:
-        return self.table.row(index=item, named=True)
+        return self.samples.row(index=item, named=True)
 
     def __len__(self) -> int:
-        return len(self.table)
+        return len(self.samples)
 
     def __iter__(self):
-        for row in self.table.iter_rows(named=True):
+        for row in self.samples.iter_rows(named=True):
             yield row
 
     # Dataset transformations
@@ -179,25 +179,23 @@ class HafniaDataset:
     sample_set_by_size = dataset_transformation.define_sample_set_by_size
 
     @staticmethod
-    def from_samples(samples: List, info: DatasetInfo) -> "HafniaDataset":
-        sample = samples[0]
+    def from_samples_list(samples_list: List, info: DatasetInfo) -> "HafniaDataset":
+        sample = samples_list[0]
         if isinstance(sample, Sample):
-            json_samples = [sample.model_dump(mode="json") for sample in samples]
+            json_samples = [sample.model_dump(mode="json") for sample in samples_list]
         elif isinstance(sample, dict):
-            json_samples = samples
+            json_samples = samples_list
         else:
             raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
 
-        table = pl.from_records(json_samples)
+        table = pl.from_records(json_samples).drop(ColumnName.SAMPLE_INDEX)
+        table = table.with_row_index(name=ColumnName.SAMPLE_INDEX)  # Add sample index column
 
-        has_unique_image_ids = table.select(pl.col("image_id").is_unique().all()).item()
-        if not has_unique_image_ids:
-            raise ValueError("Dataset contains non-unique image IDs. Please ensure all image IDs are unique.")
-        return HafniaDataset(info=info, table=table)
+        return HafniaDataset(info=info, samples=table)
 
     def as_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
-        if "split" not in self.table.columns:
-            raise ValueError("Dataset must contain a 'split' column.")
+        if ColumnName.SPLIT not in self.samples.columns:
+            raise ValueError(f"Dataset must contain a '{ColumnName.SPLIT}' column.")
 
         splits = {}
         for split_name in SplitName.valid_splits():
@@ -206,9 +204,9 @@ class HafniaDataset:
         return splits
 
     def create_sample_dataset(self) -> "HafniaDataset":
-        if "is_sample" not in self.table.columns:
-            raise ValueError("Dataset must contain an 'is_sample' column.")
-        table = self.table.filter(pl.col("is_sample"))
+        if ColumnName.IS_SAMPLE not in self.samples.columns:
+            raise ValueError(f"Dataset must contain an '{ColumnName.IS_SAMPLE}' column.")
+        table = self.samples.filter(pl.col(ColumnName.IS_SAMPLE))
         return self.update_table(table)
 
     def create_split_dataset(self, split_name: Union[str | List[str]]) -> "HafniaDataset":
@@ -221,7 +219,7 @@ class HafniaDataset:
             if name not in SplitName.valid_splits():
                 raise ValueError(f"Invalid split name: {split_name}. Valid splits are: {SplitName.valid_splits()}")
 
-        filtered_dataset = self.table.filter(pl.col(ColumnName.SPLIT).is_in(split_names))
+        filtered_dataset = self.samples.filter(pl.col(ColumnName.SPLIT).is_in(split_names))
         return self.update_table(filtered_dataset)
 
     def get_task_by_name(self, task_name: str) -> TaskInfo:
@@ -231,7 +229,7 @@ class HafniaDataset:
         raise ValueError(f"Task with name {task_name} not found in dataset info.")
 
     def update_table(self, table: pl.DataFrame) -> "HafniaDataset":
-        return HafniaDataset(info=self.info.model_copy(), table=table)
+        return HafniaDataset(info=self.info.model_copy(), samples=table)
 
     @staticmethod
     def read_from_path(path_folder: Path, check_files_exists: bool = True) -> "HafniaDataset":
@@ -253,42 +251,42 @@ class HafniaDataset:
         )
         if check_files_exists:
             check_image_paths(table)
-        return HafniaDataset(table=table, info=dataset_info)
+        return HafniaDataset(samples=table, info=dataset_info)
 
-    def write(self, path_folder: Path, check_for_duplicates: bool = True) -> None:
+    def write(self, path_folder: Path, name_by_hash: bool = True, add_version: bool = False) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         if not path_folder.exists():
             path_folder.mkdir(parents=True)
-
-        if check_for_duplicates:
-            file_paths = [Path(str_path).name for str_path in self.table["file_name"].to_list()]
-            is_not_unique_filenames = len(file_paths) != len(set(file_paths))
-            if is_not_unique_filenames:
-                raise ValueError(
-                    "Dataset contains non-unique filenames - this will overwrite images when writing to disk. "
-                    "The issue often occurs when the same filename is used in multiple splits or folders for different images "
-                    "E.g. train/0001.jpg and val/0001.jpg or car/0001.jpg and person/0001.jpg."
-                )
+        path_folder_images = path_folder / "data"
+        path_folder_images.mkdir(parents=True, exist_ok=True)
 
         new_relative_paths = []
-        for org_path in tqdm(self.table["file_name"].to_list(), desc="- Copy images"):
+        for org_path in tqdm(self.samples["file_name"].to_list(), desc="- Copy images"):
             org_path = Path(org_path)
             if not org_path.exists():
                 raise FileNotFoundError(f"File {org_path} does not exist in the dataset.")
-
-            new_path = path_folder / "data" / Path(org_path).name
+            if name_by_hash:
+                filename = dataset_helpers.filename_as_hash_from_path(org_path)
+            else:
+                filename = Path(org_path).name
+            new_path = path_folder_images / filename
             if not new_path.exists():
-                new_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(org_path, new_path)
 
             if not new_path.exists():
                 raise FileNotFoundError(f"File {new_path} does not exist in the dataset.")
             new_relative_paths.append(str(new_path.relative_to(path_folder)))
 
-        table = self.table.with_columns(pl.Series(new_relative_paths).alias("file_name"))
+        table = self.samples.with_columns(pl.Series(new_relative_paths).alias("file_name"))
         table.write_ndjson(path_folder / FILENAME_ANNOTATIONS_JSONL)  # Json for readability
         table.write_parquet(path_folder / FILENAME_ANNOTATIONS_PARQUET)  # Parquet for speed
         self.info.write_json(path_folder / FILENAME_DATASET_INFO)
+
+        if add_version:
+            path_version = path_folder / "versions" / f"{self.info.version}"
+            path_version.mkdir(parents=True, exist_ok=True)
+            for filename in DATASET_FILENAMES:
+                shutil.copy2(path_folder / filename, path_version / filename)
 
     def __eq__(self, value) -> bool:
         if not isinstance(value, HafniaDataset):
@@ -297,21 +295,20 @@ class HafniaDataset:
         if self.info != value.info:
             return False
 
-        if not isinstance(self.table, pl.DataFrame) or not isinstance(value.table, pl.DataFrame):
+        if not isinstance(self.samples, pl.DataFrame) or not isinstance(value.samples, pl.DataFrame):
             return False
 
-        if not self.table.equals(value.table):
+        if not self.samples.equals(value.samples):
             return False
         return True
 
     def print_stats(self) -> None:
-        t0 = time.time()
         table_base = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
         table_base.add_column("Property", style="cyan")
         table_base.add_column("Value")
         table_base.add_row("Dataset Name", self.info.dataset_name)
         table_base.add_row("Version", self.info.version)
-        table_base.add_row("Number of samples", str(len(self.table)))
+        table_base.add_row("Number of samples", str(len(self.samples)))
         rich.print(table_base)
         rich.print(self.info.tasks)
 
@@ -324,7 +321,7 @@ class HafniaDataset:
         rows = []
         for split_name, splits in splits_sets.items():
             dataset_split = self.create_split_dataset(splits)
-            table = dataset_split.table
+            table = dataset_split.samples
             row = {}
             row["Split"] = split_name
             row["Sample "] = str(len(table))
@@ -357,11 +354,11 @@ def check_hafnia_dataset(dataset: HafniaDataset):
     assert isinstance(dataset.info.version, str) and len(dataset.info.version) > 0
     assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0
 
-    is_sample_list = set(dataset.table.select(pl.col(ColumnName.IS_SAMPLE)).unique().to_series().to_list())
+    is_sample_list = set(dataset.samples.select(pl.col(ColumnName.IS_SAMPLE)).unique().to_series().to_list())
     if True not in is_sample_list:
         raise ValueError(f"The dataset should contain '{ColumnName.IS_SAMPLE}=True' samples")
 
-    actual_splits = dataset.table.select(pl.col(ColumnName.SPLIT)).unique().to_series().to_list()
+    actual_splits = dataset.samples.select(pl.col(ColumnName.SPLIT)).unique().to_series().to_list()
     expected_splits = SplitName.valid_splits()
     if set(actual_splits) != set(expected_splits):
         raise ValueError(f"Expected all splits '{expected_splits}' in dataset, but got '{actual_splits}'. ")
@@ -370,7 +367,7 @@ def check_hafnia_dataset(dataset: HafniaDataset):
     for task in expected_tasks:
         primitive = task.primitive.__name__
         column_name = task.primitive.column_name()
-        primitive_column = dataset.table[column_name]
+        primitive_column = dataset.samples[column_name]
         # msg_something_wrong = f"Something is wrong with the '{primtive_name}' task '{task.name}' in dataset '{dataset.name}'. "
         msg_something_wrong = (
             f"Something is wrong with the defined tasks ('info.tasks') in dataset '{dataset.info.dataset_name}'. \n"
@@ -416,9 +413,9 @@ def check_hafnia_dataset(dataset: HafniaDataset):
     # Check that tasks found in the 'dataset.table' matches the tasks defined in 'dataset.info.tasks'
     for PrimitiveType in PRIMITIVE_TYPES:
         column_name = PrimitiveType.column_name()
-        if column_name not in dataset.table.columns:
+        if column_name not in dataset.samples.columns:
             continue
-        objects_df = create_primitive_table(dataset.table, PrimitiveType=PrimitiveType, keep_sample_data=False)
+        objects_df = create_primitive_table(dataset.samples, PrimitiveType=PrimitiveType, keep_sample_data=False)
         if objects_df is None:
             continue
         for (task_name,), object_group in objects_df.group_by(FieldName.TASK_NAME):

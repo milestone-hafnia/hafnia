@@ -1,10 +1,11 @@
 from pathlib import Path
 
 # from data_management import utils
-from hafnia.dataset.dataset_names import DeploymentStage
+from hafnia.dataset.dataset_names import ColumnName, DeploymentStage
 from hafnia.dataset.dataset_upload_helper import dataset_info_from_dataset
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.primitives.classification import Classification
+from hafnia.helper_testing import get_micro_hafnia_dataset, get_path_micro_hafnia_dataset
 
 
 def test_dataset_info_serializing_deserializing(tmp_path: Path):
@@ -39,7 +40,6 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
 
     samples = [
         Sample(
-            image_id=str(path),
             file_name=str(path),
             height=100,
             width=200,
@@ -49,17 +49,19 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
         )
         for path in path_files
     ]
-    dataset = HafniaDataset.from_samples(samples=samples, info=dataset_info)
-
+    dataset = HafniaDataset.from_samples_list(samples_list=samples, info=dataset_info)
     dataset.write(path_dataset)
 
     dataset_reloaded = HafniaDataset.read_from_path(path_dataset)
-
-    assert dataset == dataset_reloaded
+    assert dataset_reloaded.info == dataset.info
+    table_expected = dataset.samples.drop(ColumnName.FILE_NAME)
+    table_actual = dataset_reloaded.samples.drop(ColumnName.FILE_NAME)
+    assert table_expected.equals(table_actual), "The samples tables do not match after reloading the dataset."
 
 
 def test_dataset_info_from_dataset():
-    path_dataset = Path("tests/data/micro_test_datasets") / "tiny-dataset"
+    dataset_name = "tiny-dataset"
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.read_from_path(path_dataset)
     dataset_info = dataset_info_from_dataset(
         dataset=dataset,
@@ -73,6 +75,5 @@ def test_dataset_info_from_dataset():
 
 
 def test_dataset_stats():
-    path_dataset_sample = Path("tests/data/micro_test_datasets") / "tiny-dataset"
-    dataset = HafniaDataset.read_from_path(path_dataset_sample)
+    dataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
     dataset.print_stats()

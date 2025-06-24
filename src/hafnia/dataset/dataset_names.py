@@ -5,6 +5,12 @@ FILENAME_DATASET_INFO = "dataset_info.json"
 FILENAME_ANNOTATIONS_JSONL = "annotations.jsonl"
 FILENAME_ANNOTATIONS_PARQUET = "annotations.parquet"
 
+DATASET_FILENAMES = [
+    FILENAME_DATASET_INFO,
+    FILENAME_ANNOTATIONS_JSONL,
+    FILENAME_ANNOTATIONS_PARQUET,
+]
+
 
 class DeploymentStage(Enum):
     STAGING = "staging"
@@ -38,12 +44,13 @@ class FieldName:
 
 
 class ColumnName:
-    IMAGE_ID: str = "image_id"
+    SAMPLE_INDEX: str = "sample_index"
     FILE_NAME: str = "file_name"
     HEIGHT: str = "height"
     WIDTH: str = "width"
     SPLIT: str = "split"
     IS_SAMPLE: str = "is_sample"
+    REMOTE_PATH: str = "remote_path"  # Path to the file in remote storage, e.g. S3
     META: str = "meta"
 
 

@@ -28,7 +28,6 @@ class Bitmask(Primitive):
     object_id: Optional[str] = None  # This should match the string in 'FieldName.OBJECT_ID'
     confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
     ground_truth: bool = True  # Whether this is ground truth or a prediction
-    draw_label: bool = True  # Whether to draw the label inside the mask
 
     task_name: str = ""  # Task name to support multiple Bitmask tasks in the same dataset. "" defaults to "bitmask"
     meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
@@ -128,7 +127,7 @@ class Bitmask(Primitive):
         bitmask_np[self.top : self.top + self.height, self.left : self.left + self.width] = region_mask
         return bitmask_np
 
-    def draw(self, image: np.ndarray, inplace: bool = False) -> np.ndarray:
+    def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
         if not inplace:
             image = image.copy()
         if image.ndim == 2:  # for grayscale/monochromatic images
@@ -144,7 +143,7 @@ class Bitmask(Primitive):
         image_masked[bitmask_np] = color
         cv2.addWeighted(src1=image, alpha=0.3, src2=image_masked, beta=0.7, gamma=0, dst=image)
 
-        if self.draw_label:
+        if draw_label:
             # Determines the center of mask
             xy = np.stack(np.nonzero(bitmask_np))
             xy_org = tuple(np.median(xy, axis=1).astype(int))[::-1]

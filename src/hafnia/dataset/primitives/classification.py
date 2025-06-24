@@ -14,8 +14,6 @@ class Classification(Primitive):
     confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification
     ground_truth: bool = True  # Whether this is ground truth or a prediction
 
-    draw_label: bool = True  # Whether to draw the label
-
     task_name: str = ""  # To support multiple Classification tasks in the same dataset. "" defaults to "classification"
     meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
 
@@ -30,8 +28,8 @@ class Classification(Primitive):
     def calculate_area(self) -> float:
         return 1.0
 
-    def draw(self, image: np.ndarray, inplace: bool = False) -> np.ndarray:
-        if self.draw_label is False:
+    def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
+        if draw_label is False:
             return image
         from hafnia.visualizations import image_visualizations
 

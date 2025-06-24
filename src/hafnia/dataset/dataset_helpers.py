@@ -1,6 +1,12 @@
+import io
 import math
 import random
+from pathlib import Path
 from typing import Dict, List
+
+import numpy as np
+import xxhash
+from PIL import Image
 
 
 def create_split_name_list_from_ratios(split_ratios: Dict[str, float], n_items: int, seed: int = 42) -> List[str]:
@@ -12,6 +18,36 @@ def create_split_name_list_from_ratios(split_ratios: Dict[str, float], n_items: 
     random.Random(seed).shuffle(split_name_column)  # Shuffle the split names
 
     return split_name_column
+
+
+def hash_file_xxhash(path: Path, chunk_size: int = 262144) -> str:
+    hasher = xxhash.xxh3_64()
+
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):  # 8192, 16384, 32768, 65536
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def hash_from_bytes(data: bytes) -> str:
+    hasher = xxhash.xxh3_64()
+    hasher.update(data)
+    return hasher.hexdigest()
+
+
+def save_image_with_hash_name(image: np.ndarray, path_folder: Path) -> Path:
+    pil_image = Image.fromarray(image)
+    buffer = io.BytesIO()
+    pil_image.save(buffer, format="PNG")
+    hash_value = hash_from_bytes(buffer.getvalue())
+    path_image = Path(path_folder) / f"{hash_value}.png"
+    pil_image.save(path_image)
+    return path_image
+
+
+def filename_as_hash_from_path(path_image: Path) -> str:
+    hash = hash_file_xxhash(path_image)
+    return f"{hash}{path_image.suffix}"
 
 
 def split_sizes_from_ratios(n_items: int, split_ratios: Dict[str, float]) -> Dict[str, int]:
