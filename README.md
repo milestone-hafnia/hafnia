@@ -7,8 +7,8 @@ The package includes the following interfaces:
 
 - `cli`: A Command Line Interface (CLI) to 1) configure/connect to Hafnia's [Training-aaS](https://hafnia.readme.io/docs/training-as-a-service) and 2) create and 
 launch recipe scripts.
-- `hafnia`: A python package with helper functions to load and interact with sample datasets and an experiment
- tracker (`HafniaLogger`). 
+- `hafnia`: A python package including `HafniaDataset` to manage datasets and `HafniaLogger` to do 
+experiment tracking.
 
 
 ## The Concept: Training as a Service (Training-aaS)
@@ -63,115 +63,223 @@ With Hafnia configured on your local machine, it is now possible to download
 and explore the dataset sample with a python script:
 
 ```python
-from hafnia.data import load_dataset
+from hafnia.data import load_dataset, get_dataset_path
+from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-dataset_splits = load_dataset("mnist")
+# To download the sample dataset use:
+path_dataset = get_dataset_path("midwest-vehicle-detection")
 ```
 
-### Dataset Format
-The returned sample dataset is a [hugging face dataset](https://huggingface.co/docs/datasets/index) 
-and contains train, validation and test splits. 
+This will download the dataset sample `midwest-vehicle-detection` to the local `.data/datasets/` folder
+in a human readable format. 
+
+Images are stored in the `data` folder, general dataset information is stored in `dataset_info.json`  
+and annotations are stored as both `annotations.jsonl`(jsonl) and `annotations.parquet`.
+
+```bash
+$ cd .data/datasets/
+$ tree midwest-vehicle-detection
+midwest-vehicle-detection
+└── sample
+    ├── annotations.jsonl
+    ├── annotations.parquet
+    ├── data
+    │   ├── video_0026a86b-2f43-49f2-a17c-59244d10a585_1fps_mp4_frame_00000.png
+    │   ....
+    │   ├── video_ff17d777-e783-44e2-9bff-a4adac73de4b_1fps_mp4_frame_00000.png
+    │   └── video_ff17d777-e783-44e2-9bff-a4adac73de4b_1fps_mp4_frame_00100.png
+    └── dataset_info.json
+
+3 directories, 217 files
+```
+
+You can interact with data as you want, but we also provide `HafniaDataset`
+for loading/saving, managing and interacting with the dataset.
+
+We recommend to visit and potentially execute the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py) 
+to see how to use the `HafniaDataset` class and its methods.
+
+Below is a short introduction to the `HafniaDataset` class.
 
 ```python
-print(dataset_splits)
+from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
-# Output:
->>> DatasetDict({
-    train: Dataset({
-        features: ['image_id', 'image', 'height', 'width', 'objects', 'Weather', 'Surface Conditions'],
-        num_rows: 172
-    })
-    validation: Dataset({
-        features: ['image_id', 'image', 'height', 'width', 'objects', 'Weather', 'Surface Conditions'],
-        num_rows: 21
-    })
-    test: Dataset({
-        features: ['image_id', 'image', 'height', 'width', 'objects', 'Weather', 'Surface Conditions'],
-        num_rows: 21
-    })
-})
+# Load dataset
+dataset = HafniaDataset.read_from_path(path_dataset)
 
+# Alternatively, you can use the 'load_dataset' function to download and load dataset in one go.
+# dataset = load_dataset("midwest-vehicle-detection")
+
+# Print dataset information
+dataset.print_stats()
+
+# Create a dataset split for training
+dataset_train = dataset.create_split_dataset("train")
 ```
 
-A Hugging Face dataset is a dictionary with splits, where each split is a `Dataset` object.
-Each `Dataset` is structured as a table with a set of columns (also called features) and a row for each sample.
+The `HafniaDataset` object provides a convenient way to interact with the dataset, including methods for 
+creating splits, accessing samples, printing statistics, saving to and loading from disk.
 
-The features of the dataset can be viewed with the `features` attribute.
+In essence, the `HafniaDataset` class contains `dataset.info` with dataset information 
+and `dataset.table` with annotations as a polars DataFrame
+
 ```python
-# View features of the train split
-pprint.pprint(dataset["train"].features)
-{'Surface Conditions': ClassLabel(names=['Dry', 'Wet'], id=None),
- 'Weather': ClassLabel(names=['Clear', 'Foggy'], id=None),
- 'height': Value(dtype='int64', id=None),
- 'image': Image(mode=None, decode=True, id=None),
- 'image_id': Value(dtype='int64', id=None),
- 'objects': Sequence(feature={'bbox': Sequence(feature=Value(dtype='int64',
-                                                             id=None),
-                                               length=-1,
-                                               id=None),
-                              'class_idx': ClassLabel(names=['Vehicle.Bicycle',
-                                                             'Vehicle.Motorcycle',
-                                                             'Vehicle.Car',
-                                                             'Vehicle.Van',
-                                                             'Vehicle.RV',
-                                                             'Vehicle.Single_Truck',
-                                                             'Vehicle.Combo_Truck',
-                                                             'Vehicle.Pickup_Truck',
-                                                             'Vehicle.Trailer',
-                                                             'Vehicle.Emergency_Vehicle',
-                                                             'Vehicle.Bus',
-                                                             'Vehicle.Heavy_Duty_Vehicle'],
-                                                      id=None),
-                              'class_name': Value(dtype='string', id=None),
-                              'id': Value(dtype='string', id=None)},
-                     length=-1,
-                     id=None),
- 'width': Value(dtype='int64', id=None)}
+# Annotations are stored in a polars DataFrame
+print(dataset.table.head(2))
+shape: (2, 14)
+┌──────────┬────────────────────────────────┬────────┬───────┬───┬───────────────────────────────┬──────────┬──────────┬───────────────────────────────┐
+│ image_id ┆ file_name                      ┆ height ┆ width ┆ … ┆ objects                       ┆ bitmasks ┆ polygons ┆ meta                          │
+│ ---      ┆ ---                            ┆ ---    ┆ ---   ┆   ┆ ---                           ┆ ---      ┆ ---      ┆ ---                           │
+│ str      ┆ str                            ┆ i64    ┆ i64   ┆   ┆ list[struct[12]]              ┆ null     ┆ null     ┆ struct[5]                     │
+╞══════════╪════════════════════════════════╪════════╪═══════╪═══╪═══════════════════════════════╪══════════╪══════════╪═══════════════════════════════╡
+│ 7800     ┆ /home/ubuntu/code/hafnia/.data ┆ 1080   ┆ 1920  ┆ … ┆ [{0.0492,0.0357,0.2083,0.23," ┆ null     ┆ null     ┆ {120.0,1.0,"2024-07-10T18:30: │
+│          ┆ …                              ┆        ┆       ┆   ┆ V…                            ┆          ┆          ┆ 0…                            │
+│ 7900     ┆ /home/ubuntu/code/hafnia/.data ┆ 1080   ┆ 1920  ┆ … ┆ [{0.146382,0.078704,0.42963,0 ┆ null     ┆ null     ┆ {120.0,1.0,"2024-07-10T18:30: │
+│          ┆ …                              ┆        ┆       ┆   ┆ .…                            ┆          ┆          ┆ 0…                            │
+└──────────┴────────────────────────────────┴────────┴───────┴───┴───────────────────────────────┴──────────┴──────────┴───────────────────────────────┘
 ```
 
-View the first sample in the training set:
 ```python
-# Print sample from the training set
-pprint.pprint(dataset["train"][0])
-
-{'image': <PIL.PngImagePlugin.PngImageFile image mode=RGB size=1920x1080 at 0x79D6292C5ED0>,
- 'image_id': 4920,
- 'height': 1080,
- 'Weather': 0,
- 'Surface Conditions': 0,
- 'objects': {'bbox': [[441, 180, 121, 126],
-                      [549, 151, 131, 103],
-                      [1845, 722, 68, 130],
-                      [1810, 571, 110, 149]],
-             'class_idx': [7, 7, 2, 2],
-             'class_name': ['Vehicle.Pickup_Truck',
-                            'Vehicle.Pickup_Truck',
-                            'Vehicle.Car',
-                            'Vehicle.Car'],
-             'id': ['HW6WiLAJ', 'T/ccFpRi', 'CS0O8B6W', 'DKrJGzjp']},
- 'width': 1920}
-
+# General dataset information is stored in `dataset.info`
+rich.print(dataset.info)
+DatasetInfo(
+    dataset_name='midwest-vehicle-detection',
+    version='1.0.0',
+    tasks=[
+        TaskInfo(
+            primitive=<class 'hafnia.dataset.primitives.Bbox'>,
+            class_names=[
+                'Person',
+                'Vehicle.Bicycle',
+                'Vehicle.Motorcycle',
+                'Vehicle.Car',
+                'Vehicle.Van',
+                'Vehicle.RV',
+                'Vehicle.Single_Truck',
+                'Vehicle.Combo_Truck',
+                'Vehicle.Pickup_Truck',
+                'Vehicle.Trailer',
+                'Vehicle.Emergency_Vehicle',
+                'Vehicle.Bus',
+                'Vehicle.Heavy_Duty_Vehicle'
+            ],
+            name='bboxes'
+        ),
+        TaskInfo(primitive=<class 'hafnia.dataset.primitives.Classification'>, class_names=['Clear', 'Foggy'], name='Weather'),
+        TaskInfo(primitive=<class 'hafnia.dataset.primitives.Classification'>, class_names=['Dry', 'Wet'], name='Surface Conditions')
+    ],
+    meta={
+        'n_videos': 109,
+        'n_cameras': 20,
+        'duration': 13080.0,
+        'duration_average': 120.0,
+        ...
+    }
+)
 ```
 
-For hafnia based datasets, we want to standardized how a dataset and dataset tasks are represented.
-We have defined a set of features that are common across all datasets in the Hafnia data library.
+You can iterate and access samples in the dataset using the `HafniaDataset` object.
+Each sample contain image and annotations information. 
 
-- `image`: The image itself, stored as a PIL image
-- `height`: The height of the image in pixels
-- `width`: The width of the image in pixels
-- `[IMAGE_CLASSIFICATION_TASK]`: [Optional] Image classification tasks are top-level `ClassLabel` feature. 
-  `ClassLabel` is a Hugging Face feature that maps class indices to class names. 
-  In above example we have two classification tasks:
-  - `Weather`: Classifies the weather conditions in the image, with possible values `Clear` and `Foggy`
-  - `Surface Conditions`: Classifies the surface conditions in the image, with possible values `Dry` and `Wet`
-- `objects`: A dictionary containing information about objects in the image, including:
-  - `bbox`: Bounding boxes for each object, represented with a list of bounding box coordinates 
-  `[xmin, ymin, bbox_width, bbox_height]`. Each bounding box is defined with a top-left corner coordinate 
-  `(xmin, ymin)` and bounding box width and height `(bbox_width, bbox_height)` in pixels.
-  - `class_idx`: Class indices for each detected object. This is a
-  `ClassLabel` feature that maps to the `class_name` feature.
-  - `class_name`: Class names for each detected object
-  - `id`: Unique identifiers for each detected object
+```python
+from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+# Access the first sample in the dataset either by index or by iterating over the dataset
+sample_dict = dataset[0]
+
+for sample_dict in dataset:
+    sample = Sample(**sample_dict)
+    print(sample.sample_id, sample.objects)
+    break
+```
+Not that it is possible to create a `Sample` object from the sample dictionary.
+This is useful for accessing the image and annotations in a structured way.
+
+```python
+# By unpacking the sample dictionary, you can create a `Sample` object.
+sample = Sample(**sample_dict)
+
+# Use the `Sample` object to easily read image and draw annotations
+image = sample.read_image()
+image_annotations = sample.draw_annotations()
+```
+
+Note that the `Sample` object contains all information about the sample, including image and metadata.
+It also contain annotations as primitive types such as `Bbox`, `Classification`. 
+
+```python
+rich.print(sample)
+Sample(
+    image_id='7800',
+    file_name='data/video_0026a86b-2f43-49f2-a17c-59244d10a585_1fps_mp4_frame_0
+0000.png',
+    height=1080,
+    width=1920,
+    split='test',
+    is_sample=True,
+    frame_number=None,
+    video_name=None,
+    remote_path=None,
+    classifications=[
+        Classification(
+            class_name='Clear',
+            class_idx=0,
+            object_id=None,
+            confidence=None,
+            ground_truth=True,
+            task_name='Weather',
+            meta=None
+        ),
+        Classification(
+            class_name='Day',
+            class_idx=3,
+            object_id=None,
+            confidence=None,
+            ground_truth=True,
+            task_name='Time of Day',
+            meta=None
+        ),
+        ...
+    ],
+    objects=[
+        Bbox(
+            height=0.0492,
+            width=0.0357,
+            top_left_x=0.2083,
+            top_left_y=0.23,
+            class_name='Vehicle.Car',
+            class_idx=3,
+            object_id='cXT4NRVu',
+            confidence=None,
+            ground_truth=True,
+            task_name='bboxes',
+            meta=None
+        ),
+        Bbox(
+            height=0.0457,
+            width=0.0408,
+            top_left_x=0.2521,
+            top_left_y=0.2153,
+            class_name='Vehicle.Car',
+            class_idx=3,
+            object_id='MelbIIDU',
+            confidence=None,
+            ground_truth=True,
+            task_name='bboxes',
+            meta=None
+        ),
+        ...
+    ],
+    bitmasks=None,  # Optional a list of Bitmask objects List[Bitmask]
+    polygons=None,  # Optional a list of Polygon objects List[Polygon]
+    meta={
+        'video.data_duration': 120.0,
+        'video.data_fps': 1.0,
+        ...
+    }
+)
+```
+
+To learn more, view and potentially execute the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py). 
 
 ### Dataset Locally vs. Training-aaS
 An important feature of `load_dataset` is that it will return the full dataset 

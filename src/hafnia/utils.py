@@ -14,7 +14,7 @@ from rich import print as rprint
 from hafnia.log import sys_logger, user_logger
 
 PATH_DATA = Path("./.data")
-PATH_DATASET = PATH_DATA / "datasets"
+PATH_DATASETS = PATH_DATA / "datasets"
 PATH_RECIPES = PATH_DATA / "recipes"
 FILENAME_HAFNIAIGNORE = ".hafniaignore"
 DEFAULT_IGNORE_SPECIFICATION = [

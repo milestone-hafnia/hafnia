@@ -1,0 +1,108 @@
+{
+    "dataset_name": "tiny-dataset",
+    "version": "0.0.1",
+    "tasks": [
+        {
+            "primitive": "Bbox",
+            "class_names": [
+                "Person",
+                "Vehicle.Bicycle",
+                "Vehicle.Motorcycle",
+                "Vehicle.Car",
+                "Vehicle.Van",
+                "Vehicle.RV",
+                "Vehicle.Single_Truck",
+                "Vehicle.Combo_Truck",
+                "Vehicle.Pickup_Truck",
+                "Vehicle.Trailer",
+                "Vehicle.Emergency_Vehicle",
+                "Vehicle.Bus",
+                "Vehicle.Heavy_Duty_Vehicle"
+            ],
+            "name": "bboxes"
+        },
+        {
+            "primitive": "Classification",
+            "class_names": [
+                "Sunny/Clear",
+                "Rainy"
+            ],
+            "name": "Weather"
+        },
+        {
+            "primitive": "Classification",
+            "class_names": [
+                "Twilight.Dusk",
+                "Sunrise/Sunset",
+                "Sunrise/Sunset.Sunrise",
+                "Day",
+                "Twilight",
+                "Twilight.Dawn",
+                "Sunrise/Sunset.Sunset",
+                "Night"
+            ],
+            "name": "Time of Day"
+        }
+    ],
+    "distributions": [
+        {
+            "primitive": "Classification",
+            "class_names": [
+                "Sunny/Clear",
+                "Rainy"
+            ],
+            "name": "Weather"
+        },
+        {
+            "primitive": "Classification",
+            "class_names": [
+                "Twilight.Dusk",
+                "Sunrise/Sunset",
+                "Sunrise/Sunset.Sunrise",
+                "Day",
+                "Twilight",
+                "Twilight.Dawn",
+                "Sunrise/Sunset.Sunset",
+                "Night"
+            ],
+            "name": "Time of Day"
+        },
+        {
+            "primitive": "Classification",
+            "class_names": [
+                "Urban",
+                "Rural",
+                "Forest",
+                "Desert",
+                "Polar"
+            ],
+            "name": "Geographical Context"
+        },
+        {
+            "primitive": "Classification",
+            "class_names": [
+                "Day",
+                "Sunrise/Sunset",
+                "Sunrise/Sunset.Sunset",
+                "Twilight",
+                "Twilight.Dawn",
+                "Twilight.Dusk"
+            ],
+            "name": "Time of Day"
+        }
+    ],
+    "meta": {
+        "annotation_project_id": "d8cd6a5b-32da-42fb-9bab-b20b327cca9a",
+        "n_videos": 1,
+        "n_cameras": 1,
+        "duration": 120.0,
+        "duration_average": 120.0,
+        "frame_rate": 1.0,
+        "data_captured_start": "2024-07-10T18:30:00Z",
+        "data_captured_end": "2024-07-10T18:30:00Z",
+        "data_received_start": "2024-08-26T11:02:10Z",
+        "data_received_end": "2024-08-26T11:02:10Z",
+        "annotation_dataset_id": "9a0faaba-46d7-484a-91e8-b34b7c9ef236",
+        "license_citation": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Hafnia Dataset: Tiny Dataset},\n    url = https://mdi.milestonesys.com/datasets/070b3bd5-0266-4446-a318-052c993558ef,\n    note = {Part of the Hafnia project},\n    version = {0.0.1},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}"
+    }
+}

@@ -31,7 +31,7 @@ def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Dict:
         http.clear()
 
 
-def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes], multipart: bool = False) -> Dict:
+def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes, str], multipart: bool = False) -> Dict:
     """Posts data to backend endpoint.
 
     Args:
@@ -64,9 +64,11 @@ def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes], multipart
                 with open(data, "rb") as f:
                     body = f.read()
                 response = http.request("POST", endpoint, body=body, headers=headers)
-            elif isinstance(data, dict):
+            elif isinstance(data, (str, dict)):
+                if isinstance(data, dict):
+                    data = json.dumps(data)
                 headers["Content-Type"] = "application/json"
-                response = http.request("POST", endpoint, body=json.dumps(data), headers=headers)
+                response = http.request("POST", endpoint, body=data, headers=headers)
             elif isinstance(data, bytes):
                 response = http.request("POST", endpoint, body=data, headers=headers)
             else:

@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-import pyarrow as pa
+import polars as pl
 import pytest
 
 from hafnia.experiment.hafnia_logger import EntityType, HafniaLogger
@@ -27,11 +27,10 @@ def test_basic_scalar_logging(logger: HafniaLogger) -> None:
 
     logger.log_scalar("test_scalar", 43.0, 2)
 
-    table = pa.parquet.read_table(logger.log_file)
-    df = table.to_pandas()
+    df = pl.read_parquet(logger.log_file)
     assert len(df) == 2
-    assert df.iloc[0]["value"] == 42.0
-    assert df.iloc[1]["value"] == 43.0
+    assert df[0]["value"].item() == 42.0
+    assert df[1]["value"].item() == 43.0
 
 
 def test_metric_logging(logger: HafniaLogger) -> None:
@@ -41,13 +40,12 @@ def test_metric_logging(logger: HafniaLogger) -> None:
     assert logger.log_file.exists()
 
     # Verify the data
-    table = pa.parquet.read_table(logger.log_file)
-    df = table.to_pandas()
+    df = pl.read_parquet(logger.log_file)
 
-    metrics_df = df[df["ent_type"] == EntityType.METRIC.value]
+    metrics_df = df.filter(df["ent_type"].eq(EntityType.METRIC.value))
     assert len(metrics_df) == 2
-    assert "accuracy" in metrics_df["name"].values
-    assert "loss" in metrics_df["name"].values
+    assert "accuracy" in metrics_df["name"].to_list()
+    assert "loss" in metrics_df["name"].to_list()
 
 
 def test_config_logging(logger: HafniaLogger):
