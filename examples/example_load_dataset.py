@@ -13,6 +13,12 @@ from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.polygon import Polygon
 
+# First ensure that you have the Hafnia CLI installed and configured.
+# You can install it via pip:
+#   pip install hafnia
+# And configure it with your Hafnia account:
+#   hafnia configure
+
 # Load dataset
 path_dataset = get_dataset_path("midwest-vehicle-detection")
 dataset = HafniaDataset.read_from_path(path_dataset)
@@ -21,7 +27,12 @@ dataset = HafniaDataset.read_from_path(path_dataset)
 dataset = load_dataset("midwest-vehicle-detection")
 
 
-print(dataset.samples.head(2))
+# Dataset information is stored in 'dataset.info'
+rich.print(dataset.info)
+
+# Annotations are stored in 'dataset.table' as a Polars DataFrame
+dataset.samples.head(2)
+
 # Print dataset information
 dataset.print_stats()
 
@@ -36,6 +47,14 @@ shuffled_dataset = dataset.shuffle(seed=42)  # Shuffle the dataset
 
 split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
 new_dataset_splits = dataset.split_by_ratios(split_ratios)
+
+# Write dataset to disk
+path_tmp = Path(".data/tmp")
+path_dataset = path_tmp / "hafnia_dataset"
+dataset.write(path_dataset)  # --> Check that data is human readable
+
+# Load dataset from disk
+dataset_again = HafniaDataset.read_from_path(path_dataset)
 
 # Access the first sample in the training split - data is stored in a dictionary
 sample_dict = dataset_train[0]
@@ -58,23 +77,10 @@ image: np.ndarray = sample.read_image()
 # Visualize sample and annotations
 image_with_annotations = sample.draw_annotations()
 
-path_tmp = Path(".data/tmp")
+
 path_tmp.mkdir(parents=True, exist_ok=True)
 Image.fromarray(image_with_annotations).save(path_tmp / "sample_with_annotations.png")
 
-
-# Write dataset to disk
-path_dataset = path_tmp / "hafnia_dataset"
-dataset.write(path_dataset)  # --> Check that data is human readable
-
-# Load dataset from disk
-dataset_again = HafniaDataset.read_from_path(path_dataset)
-
-# Dataset information is stored in 'dataset.info'
-rich.print(dataset.info)
-
-# Annotations are stored in 'dataset.table' as a Polars DataFrame
-dataset.samples.head(2)
 
 # Do dataset transformations and statistics on the Polars DataFrame
 n_objects = dataset.samples["objects"].list.len().sum()
@@ -83,3 +89,16 @@ n_classifications = dataset.samples[Classification.column_name()].list.len().sum
 
 class_counts = dataset.samples[Classification.column_name()].explode().struct.field("class_name").value_counts()
 rich.print(class_counts)
+
+
+## Create a new dataset from samples
+
+sample = Sample(
+    file_name="path/to/image.jpg",
+    height=480,
+    width=640,
+    split="train",
+    is_sample=True,
+    objects=[Bbox(x=10, y=20, width=100, height=200, class_name="car")],
+    classifications=[Classification(class_name="vehicle", class_idx=0)],
+)
