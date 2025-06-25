@@ -11,7 +11,7 @@ from cli.config import Config
     "script_path_str",
     [
         "examples/example_torchvision_dataloader.py",
-        "examples/example_load_dataset.py",
+        "examples/example_hafnia_dataset.py",
         "examples/example_logger.py",
         # Add other example scripts here
     ],
