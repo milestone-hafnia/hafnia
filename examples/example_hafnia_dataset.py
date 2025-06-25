@@ -7,7 +7,7 @@ from PIL import Image
 
 from hafnia.data import get_dataset_path, load_dataset
 from hafnia.dataset.dataset_names import SplitName
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
@@ -92,13 +92,35 @@ rich.print(class_counts)
 
 
 ## Create a new dataset from samples
+fake_samples = []
+for i_fake_sample in range(5):
+    bboxes = [Bbox(top_left_x=10, top_left_y=20, width=100, height=200, class_name="car")]
+    classifications = [Classification(class_name="vehicle", class_idx=0)]
+    sample = Sample(
+        file_name=f"path/to/image_{i_fake_sample:05}.jpg",
+        height=480,
+        width=640,
+        split="train",
+        is_sample=True,
+        objects=bboxes,
+        classifications=classifications,
+    )
 
-sample = Sample(
-    file_name="path/to/image.jpg",
-    height=480,
-    width=640,
-    split="train",
-    is_sample=True,
-    objects=[Bbox(x=10, y=20, width=100, height=200, class_name="car")],
-    classifications=[Classification(class_name="vehicle", class_idx=0)],
+    fake_samples.append(sample)
+fake_dataset_info = DatasetInfo(
+    dataset_name="fake-dataset",
+    version="0.0.1",
+    tasks=[
+        TaskInfo(primitive=Bbox, class_names=["car", "truck", "bus"]),
+        TaskInfo(primitive=Classification, class_names=["vehicle", "pedestrian", "cyclist"]),
+    ],
 )
+fake_dataset = HafniaDataset.from_samples_list(samples_list=fake_samples, info=fake_dataset_info)
+
+
+## A hafnia dataset can also be used for storing predictions per sample set 'ground_truth=False' and add 'confidence'.
+bboxes_predictions = [
+    Bbox(top_left_x=10, top_left_y=20, width=100, height=200, class_name="car", ground_truth=False, confidence=0.9)
+]
+
+classifications_predictions = [Classification(class_name="vehicle", class_idx=0, ground_truth=False, confidence=0.95)]
