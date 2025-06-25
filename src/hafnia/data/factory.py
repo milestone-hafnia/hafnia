@@ -47,14 +47,14 @@ def download_or_get_dataset_path(
     api_key = cfg.api_key
 
     output_dir = output_dir or str(utils.PATH_DATASETS)
-    dataset_path_base = Path(output_dir).absolute() / dataset_name
-    dataset_path_base.mkdir(exist_ok=True, parents=True)
-    dataset_path_sample = dataset_path_base / "sample"
+    dataset_path_sample = Path(output_dir).absolute() / dataset_name
 
-    if dataset_path_sample.exists() and not force_redownload:
+    is_dataset_valid = HafniaDataset.check_dataset_path(dataset_path_sample, raise_error=False)
+    if is_dataset_valid and not force_redownload:
         user_logger.info("Dataset found locally. Set 'force=True' or add `--force` flag with cli to re-download")
         return dataset_path_sample
 
+    dataset_path_sample.mkdir(exist_ok=True, parents=True)
     dataset_id = get_dataset_id(dataset_name, endpoint_dataset, api_key)
     dataset_access_info_url = f"{endpoint_dataset}/{dataset_id}/temporary-credentials"
 
@@ -82,7 +82,7 @@ def download_or_get_dataset_path(
         description="Downloading annotations",
     )
 
-    dataset = HafniaDataset.read_from_path(dataset_path_sample, check_files_exists=False)
+    dataset = HafniaDataset.read_from_path(dataset_path_sample, check_for_images=False)
     fast_copy_files_s3(
         src_paths=dataset.samples[dataset_names.ColumnName.REMOTE_PATH].to_list(),
         dst_paths=dataset.samples[dataset_names.ColumnName.FILE_NAME].to_list(),

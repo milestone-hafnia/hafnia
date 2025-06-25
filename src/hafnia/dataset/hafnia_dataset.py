@@ -232,15 +232,32 @@ class HafniaDataset:
         return HafniaDataset(info=self.info.model_copy(), samples=table)
 
     @staticmethod
-    def read_from_path(path_folder: Path, check_files_exists: bool = True) -> "HafniaDataset":
-        if not path_folder.exists():
-            raise FileNotFoundError(f"Path {path_folder} does not exist.")
+    def check_dataset_path(path_dataset: Path, raise_error: bool = True) -> bool:
+        """
+        Checks if the dataset path exists and contains the required files.
+        Returns True if the dataset is valid, otherwise raises an error or returns False.
+        """
+        if not path_dataset.exists():
+            if raise_error:
+                raise FileNotFoundError(f"Dataset path {path_dataset} does not exist.")
+            return False
 
-        path_dataset_info = path_folder / FILENAME_DATASET_INFO
-        if not path_dataset_info.exists():
-            raise FileNotFoundError(
-                f"Dataset info file '{path_dataset_info.name}' not found in '{path_dataset_info.parent}'."
-            )
+        required_files = [
+            FILENAME_DATASET_INFO,
+            FILENAME_ANNOTATIONS_JSONL,
+            FILENAME_ANNOTATIONS_PARQUET,
+        ]
+        for filename in required_files:
+            if not (path_dataset / filename).exists():
+                if raise_error:
+                    raise FileNotFoundError(f"Required file {filename} not found in {path_dataset}.")
+                return False
+
+        return True
+
+    @staticmethod
+    def read_from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
+        HafniaDataset.check_dataset_path(path_folder, raise_error=True)
 
         dataset_info = DatasetInfo.from_json_file(path_folder / FILENAME_DATASET_INFO)
         table = read_table_from_path(path_folder)
@@ -249,7 +266,7 @@ class HafniaDataset:
         table = table.with_columns(
             pl.concat_str([pl.lit(str(path_folder.absolute()) + os.sep), pl.col("file_name")]).alias("file_name")
         )
-        if check_files_exists:
+        if check_for_images:
             check_image_paths(table)
         return HafniaDataset(samples=table, info=dataset_info)
 
@@ -345,7 +362,7 @@ class HafniaDataset:
 
 
 def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
-    dataset = HafniaDataset.read_from_path(path_dataset, check_files_exists=True)
+    dataset = HafniaDataset.read_from_path(path_dataset, check_for_images=True)
     check_hafnia_dataset(dataset)
 
 
