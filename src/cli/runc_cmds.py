@@ -38,7 +38,7 @@ def runc():
 @click.pass_obj
 def launch_local(cfg: Config, exec_cmd: str, dataset: str, image_name: str) -> None:
     """Launch a job within the image."""
-    from hafnia.data.factory import download_or_get_dataset_path
+    from hafnia.platform.datasets import download_or_get_dataset_path
 
     is_local_dataset = "/" in dataset
     if is_local_dataset:
