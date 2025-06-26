@@ -21,9 +21,9 @@ A command-line interface tool for managing data science experiments and resource
 - `hafnia profile rm <profile_name>` - Remove a specific profile
 - `hafnia profile active` - Show detailed information about the active profile
 
-### Data Management
+### Dataset Management
 
-- `hafnia data get <url> <destination>` - Download resource from Hafnia platform to local destination
+- `hafnia dataset download mnist --force` - Download sample datasets
 
 ### Experiment Management
 
@@ -64,13 +64,7 @@ hafnia profile rm old-profile
 hafnia clear
 
 # Download a dataset sample
-hafnia data download mnist
-
-# Add '--force' to re-download dataset
-hafnia data download mnist --force
-
-# Download a resource from the platform
-hafnia data get https://api.mdi.milestonesys.com/api/v1/datasets/my-dataset ./data
+hafnia dataset download mnist --force
 
 # Build a Docker image from a recipe
 hafnia runc build https://api.mdi.milestonesys.com/api/v1/recipes/my-recipe

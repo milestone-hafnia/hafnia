@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import click
 
-from cli import consts, data_cmds, experiment_cmds, profile_cmds, recipe_cmds, runc_cmds
+from cli import consts, dataset_cmds, experiment_cmds, profile_cmds, recipe_cmds, runc_cmds
 from cli.config import Config, ConfigSchema
 
 
@@ -46,7 +46,7 @@ def clear(cfg: Config) -> None:
 
 
 main.add_command(profile_cmds.profile)
-main.add_command(data_cmds.data)
+main.add_command(dataset_cmds.dataset)
 main.add_command(runc_cmds.runc)
 main.add_command(experiment_cmds.experiment)
 main.add_command(recipe_cmds.recipe)

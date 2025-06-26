@@ -55,7 +55,7 @@ Copy the key and save it for later use.
 1. Download `mnist` from terminal to verify that your configuration is working.  
 
     ```bash
-    hafnia data download mnist --force
+    hafnia dataset download mnist --force
     ```
 
 ## Getting started: Loading datasets samples
@@ -441,7 +441,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Create virtual environment and install python dependencies
 
 ```bash
-uv sync
+uv sync --dev
 ```
 
  Run tests:
