@@ -2,12 +2,12 @@ from pathlib import Path
 from typing import Optional
 
 import click
-import rich
+from rich import print as rprint
 
 import cli.consts as consts
 from cli.config import Config
 from hafnia import utils
-from hafnia.platform.datasets import TABLE_FIELDS, create_rich_table_from_dataset
+from hafnia.platform.datasets import create_rich_table_from_dataset
 
 
 @click.group()
@@ -17,15 +17,8 @@ def dataset():
 
 
 @dataset.command("ls")
-@click.option(
-    "--sort-by",
-    "-s",
-    default="name",
-    type=click.Choice(list(TABLE_FIELDS.values()), case_sensitive=False),
-    help="Sort datasets by specified field",
-)
 @click.pass_obj
-def dataset_list(cfg: Config, sort_by: str) -> None:
+def dataset_list(cfg: Config) -> None:
     """List available datasets on Hafnia platform"""
 
     from hafnia.platform.datasets import dataset_list
@@ -35,8 +28,8 @@ def dataset_list(cfg: Config, sort_by: str) -> None:
     except Exception:
         raise click.ClickException(consts.ERROR_GET_RESOURCE)
 
-    table = create_rich_table_from_dataset(datasets, sort_by=sort_by)
-    rich.print(table)
+    table = create_rich_table_from_dataset(datasets)
+    rprint(table)
 
 
 @dataset.command("download")

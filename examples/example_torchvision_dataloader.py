@@ -8,6 +8,7 @@ from hafnia import torch_helpers
 from hafnia.data import load_dataset
 
 if __name__ == "__main__":
+    torch.manual_seed(1)
     # Load Hugging Face dataset
     dataset = load_dataset("midwest-vehicle-detection")
 

@@ -12,6 +12,7 @@ import polars as pl
 import rich
 from PIL import Image
 from pydantic import BaseModel, field_serializer, field_validator
+from rich import print as rprint
 from rich.table import Table
 from tqdm import tqdm
 
@@ -326,8 +327,8 @@ class HafniaDataset:
         table_base.add_row("Dataset Name", self.info.dataset_name)
         table_base.add_row("Version", self.info.version)
         table_base.add_row("Number of samples", str(len(self.samples)))
-        rich.print(table_base)
-        rich.print(self.info.tasks)
+        rprint(table_base)
+        rprint(self.info.tasks)
 
         splits_sets = {
             "All": SplitName.valid_splits(),
@@ -358,7 +359,7 @@ class HafniaDataset:
                 for column_name in row.keys():
                     rich_table.add_column(column_name, justify="left", style="cyan")
             rich_table.add_row(*[str(value) for value in row.values()])
-        rich.print(rich_table)
+        rprint(rich_table)
 
 
 def check_hafnia_dataset_from_path(path_dataset: Path) -> None:

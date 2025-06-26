@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
-import rich
 from PIL import Image
+from rich import print as rprint
 
 from hafnia.data import get_dataset_path, load_dataset
 from hafnia.dataset.dataset_names import SplitName
@@ -28,7 +28,7 @@ dataset = load_dataset("midwest-vehicle-detection")
 
 
 # Dataset information is stored in 'dataset.info'
-rich.print(dataset.info)
+rprint(dataset.info)
 
 # Annotations are stored in 'dataset.table' as a Polars DataFrame
 dataset.samples.head(2)
@@ -89,7 +89,7 @@ n_classifications = dataset.samples[Classification.column_name()].list.len().sum
 
 class_counts = dataset.samples[Classification.column_name()].explode().struct.field("class_name").value_counts()
 class_counts = dataset.samples[Bbox.column_name()].explode().struct.field("class_name").value_counts()
-rich.print(dict(class_counts.iter_rows()))
+rprint(dict(class_counts.iter_rows()))
 
 
 ## Bring-your-own-data: Create a new dataset from samples

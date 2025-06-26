@@ -148,9 +148,9 @@ TABLE_FIELDS = {
 }
 
 
-def create_rich_table_from_dataset(datasets: List[Dict[str, str]], sort_by="name") -> rich.table.Table:
+def create_rich_table_from_dataset(datasets: List[Dict[str, str]]) -> rich.table.Table:
     datasets = extend_dataset_details(datasets)
-    datasets = sorted(datasets, key=lambda x: x[sort_by].lower())
+    datasets = sorted(datasets, key=lambda x: x["name"].lower())
 
     table = rich.table.Table(title="Available Datasets")
     for i_dataset, dataset in enumerate(datasets):
@@ -168,6 +168,6 @@ def extend_dataset_details(datasets: List[Dict[str, Any]]) -> List[Dict[str, Any
     for dataset in datasets:
         for variant in dataset["dataset_variants"]:
             variant_type = variant["variant_type"]
-            dataset[f"{variant_type}.samples"] = str(variant["number_of_data_items"])
+            dataset[f"{variant_type}.samples"] = variant["number_of_data_items"]
             dataset[f"{variant_type}.size"] = utils.size_human_readable(variant["size_bytes"])
     return datasets
