@@ -34,6 +34,7 @@
         "flatnonzero",
         "fromarray",
         "HAFNIA",
-        "ndarray"
+        "ndarray",
+        "rprint"
     ]
 }

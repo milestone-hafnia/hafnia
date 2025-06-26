@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
-import rich
 from PIL import Image
+from rich import print as rprint
 
 from hafnia.data import get_dataset_path, load_dataset
 from hafnia.dataset.dataset_names import SplitName
@@ -28,7 +28,7 @@ dataset = load_dataset("midwest-vehicle-detection")
 
 
 # Dataset information is stored in 'dataset.info'
-rich.print(dataset.info)
+rprint(dataset.info)
 
 # Annotations are stored in 'dataset.table' as a Polars DataFrame
 dataset.samples.head(2)
@@ -88,10 +88,11 @@ n_objects = dataset.samples[Bbox.column_name()].list.len().sum()  # Use Bbox.col
 n_classifications = dataset.samples[Classification.column_name()].list.len().sum()
 
 class_counts = dataset.samples[Classification.column_name()].explode().struct.field("class_name").value_counts()
-rich.print(class_counts)
+class_counts = dataset.samples[Bbox.column_name()].explode().struct.field("class_name").value_counts()
+rprint(dict(class_counts.iter_rows()))
 
 
-## Create a new dataset from samples
+## Bring-your-own-data: Create a new dataset from samples
 fake_samples = []
 for i_fake_sample in range(5):
     bboxes = [Bbox(top_left_x=10, top_left_y=20, width=100, height=200, class_name="car")]
@@ -105,8 +106,9 @@ for i_fake_sample in range(5):
         objects=bboxes,
         classifications=classifications,
     )
-
     fake_samples.append(sample)
+
+
 fake_dataset_info = DatasetInfo(
     dataset_name="fake-dataset",
     version="0.0.1",

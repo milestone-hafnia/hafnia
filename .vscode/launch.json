@@ -48,16 +48,17 @@
             ],
         },
         {
-            "name": "debug (hafnia data download mnist)",
+            "name": "debug (hafnia dataset X)",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/cli/__main__.py",
             "args": [
-                "data",
-                "download",
-                "mnist",
+                "dataset",
+                "ls"
+                //"download",
+                //"mnist",
                 //"./.data",
-                "--force"
+                //"--force"
             ]
         }
     ]

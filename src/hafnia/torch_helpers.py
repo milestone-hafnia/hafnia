@@ -20,6 +20,7 @@ from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.segmentation import Segmentation
+from hafnia.log import user_logger
 
 
 def get_primitives_per_task_name_for_primitive(
@@ -219,7 +220,19 @@ class TorchVisionCollateFn:
         if "image" not in self.skip_stacking_list:
             images = torch.stack(images)
 
-        targets_modified = {k: [d[k] for d in targets] for k in targets[0]}
+        keys_min = set(targets[0])
+        keys_max = set(targets[0])
+        for target in targets:
+            keys_min = keys_min.intersection(target)
+            keys_max = keys_max.union(target)
+
+        if keys_min != keys_max:
+            user_logger.warning(
+                "Not all images in the batch contain the same targets. To solve for missing targets "
+                f"the following keys {keys_max - keys_min} are dropped from the batch "
+            )
+
+        targets_modified = {k: [d[k] for d in targets] for k in keys_min}
         for key_name, item_values in targets_modified.items():
             if self.skip_key_name(key_name):
                 continue
