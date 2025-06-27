@@ -1,15 +1,82 @@
 from pathlib import Path
-from typing import Any, Dict
+from typing import Dict
 
 import boto3
 from botocore.exceptions import ClientError
+from pydantic import BaseModel, field_validator
 from tqdm import tqdm
 
 from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
 
+ARN_PREFIX = "arn:aws:s3:::"
 
-def get_resource_credentials(endpoint: str, api_key: str) -> Dict[str, Any]:
+
+class ResourceCredentials(BaseModel):
+    access_key: str
+    secret_key: str
+    session_token: str
+    s3_arn: str
+
+    @staticmethod
+    def fix_naming(payload: Dict[str, str]) -> "ResourceCredentials":
+        """
+        The endpoint returns a payload with a key called 's3_path', but it
+        is actually an ARN path (starts with arn:aws:s3::). This method renames it to 's3_arn' for consistency.
+        """
+        if "s3_path" in payload and payload["s3_path"].startswith(ARN_PREFIX):
+            payload["s3_arn"] = payload.pop("s3_path")
+        return ResourceCredentials(**payload)
+
+    @field_validator("s3_arn")
+    @classmethod
+    def validate_s3_arn(cls, value: str) -> str:
+        """Validate s3_arn to ensure it starts with 'arn:aws:s3:::'"""
+        if not value.startswith("arn:aws:s3:::"):
+            raise ValueError(f"Invalid S3 ARN: {value}. It should start with 'arn:aws:s3:::'")
+        return value
+
+    def s3_path(self) -> str:
+        """
+        Extracts the S3 path from the ARN.
+        Example: arn:aws:s3:::my-bucket/my-prefix -> my-bucket/my-prefix
+        """
+        return self.s3_arn[len(ARN_PREFIX) :]
+
+    def s3_uri(self) -> str:
+        """
+        Converts the S3 ARN to a URI format.
+        Example: arn:aws:s3:::my-bucket/my-prefix -> s3://my-bucket/my-prefix
+        """
+        return f"s3://{self.s3_path()}"
+
+    def bucket_name(self) -> str:
+        """
+        Extracts the bucket name from the S3 ARN.
+        Example: arn:aws:s3:::my-bucket/my-prefix -> my-bucket
+        """
+        return self.s3_path().split("/")[0]
+
+    def object_key(self) -> str:
+        """
+        Extracts the object key from the S3 ARN.
+        Example: arn:aws:s3:::my-bucket/my-prefix -> my-prefix
+        """
+        return "/".join(self.s3_path().split("/")[1:])
+
+    def aws_credentials(self) -> Dict[str, str]:
+        """
+        Returns the AWS credentials as a dictionary.
+        """
+        environment_vars = {
+            "AWS_ACCESS_KEY_ID": self.access_key,
+            "AWS_SECRET_ACCESS_KEY": self.secret_key,
+            "AWS_SESSION_TOKEN": self.session_token,
+        }
+        return environment_vars
+
+
+def get_resource_credentials(endpoint: str, api_key: str) -> ResourceCredentials:
     """
     Retrieve credentials for accessing the recipe stored in S3 (or another resource)
     by calling a DIP endpoint with the API key.
@@ -18,19 +85,14 @@ def get_resource_credentials(endpoint: str, api_key: str) -> Dict[str, Any]:
         endpoint (str): The endpoint URL to fetch credentials from.
 
     Returns:
-        Dict[str, Any]: Dictionary containing the credentials, for example:
-            {
-                "access_key": str,
-                "secret_key": str,
-                "session_token": str,
-                "s3_path": str
-            }
+        ResourceCredentials
 
     Raises:
         RuntimeError: If the call to fetch the credentials fails for any reason.
     """
     try:
-        credentials = fetch(endpoint, headers={"Authorization": api_key, "accept": "application/json"})
+        credentials_dict = fetch(endpoint, headers={"Authorization": api_key, "accept": "application/json"})
+        credentials = ResourceCredentials.fix_naming(credentials_dict)
         sys_logger.debug("Successfully retrieved credentials from DIP endpoint.")
         return credentials
     except Exception as e:
@@ -77,22 +139,17 @@ def download_resource(resource_url: str, destination: str, api_key: str) -> Dict
         RuntimeError: If S3 calls fail with an unexpected error.
     """
     res_credentials = get_resource_credentials(resource_url, api_key)
-    s3_arn = res_credentials["s3_path"]
-    arn_prefix = "arn:aws:s3:::"
-    if not s3_arn.startswith(arn_prefix):
-        raise ValueError(f"Invalid S3 ARN: {s3_arn}")
 
-    s3_path = s3_arn[len(arn_prefix) :]
-    bucket_name, *key_parts = s3_path.split("/")
-    key = "/".join(key_parts)
+    bucket_name = res_credentials.bucket_name()
+    key = res_credentials.object_key()
 
     output_path = Path(destination)
     output_path.mkdir(parents=True, exist_ok=True)
     s3_client = boto3.client(
         "s3",
-        aws_access_key_id=res_credentials["access_key"],
-        aws_secret_access_key=res_credentials["secret_key"],
-        aws_session_token=res_credentials["session_token"],
+        aws_access_key_id=res_credentials.access_key,
+        aws_secret_access_key=res_credentials.secret_key,
+        aws_session_token=res_credentials.session_token,
     )
     downloaded_files = []
     try:

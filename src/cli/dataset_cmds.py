@@ -46,13 +46,13 @@ def dataset_list(cfg: Config) -> None:
 def data_download(cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool) -> Path:
     """Download dataset from Hafnia platform"""
 
-    from hafnia.platform.datasets import download_or_get_dataset_path
+    from hafnia.platform import datasets
 
     try:
-        path_dataset = download_or_get_dataset_path(
+        path_dataset = datasets.download_or_get_dataset_path(
             dataset_name=dataset_name,
             cfg=cfg,
-            output_dir=destination,
+            path_datasets_folder=destination,
             force_redownload=force,
         )
     except Exception:

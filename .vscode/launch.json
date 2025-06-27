@@ -54,11 +54,10 @@
             "program": "${workspaceFolder}/src/cli/__main__.py",
             "args": [
                 "dataset",
-                "ls"
-                //"download",
-                //"mnist",
+                "download",
+                "mnist",
                 //"./.data",
-                //"--force"
+                "--force"
             ]
         }
     ]
