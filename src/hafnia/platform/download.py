@@ -17,6 +17,7 @@ class ResourceCredentials(BaseModel):
     secret_key: str
     session_token: str
     s3_arn: str
+    region: str
 
     @staticmethod
     def fix_naming(payload: Dict[str, str]) -> "ResourceCredentials":
@@ -26,6 +27,9 @@ class ResourceCredentials(BaseModel):
         """
         if "s3_path" in payload and payload["s3_path"].startswith(ARN_PREFIX):
             payload["s3_arn"] = payload.pop("s3_path")
+
+        if "region" not in payload:
+            payload["region"] = "eu-west-1"
         return ResourceCredentials(**payload)
 
     @field_validator("s3_arn")
@@ -72,6 +76,7 @@ class ResourceCredentials(BaseModel):
             "AWS_ACCESS_KEY_ID": self.access_key,
             "AWS_SECRET_ACCESS_KEY": self.secret_key,
             "AWS_SESSION_TOKEN": self.session_token,
+            "AWS_REGION": self.region,
         }
         return environment_vars
 

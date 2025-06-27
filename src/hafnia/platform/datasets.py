@@ -91,6 +91,20 @@ def download_dataset_from_access_endpoint(endpoint: str, api_key: str, path_data
     )
 
 
+def fast_copy_files_s3(
+    src_paths: List[str],
+    dst_paths: List[str],
+    append_envs: Optional[Dict[str, str]] = None,
+    description: str = "Copying files",
+) -> List[str]:
+    if len(src_paths) != len(dst_paths):
+        raise ValueError("Source and destination paths must have the same length.")
+
+    cmds = [f"cp {src} {dst}" for src, dst in zip(src_paths, dst_paths)]
+    lines = execute_s5cmd_commands(cmds, append_envs=append_envs, description=description)
+    return lines
+
+
 def execute_s5cmd_commands(
     commands: List[str],
     append_envs: Optional[Dict[str, str]] = None,
@@ -115,23 +129,22 @@ def execute_s5cmd_commands(
             universal_newlines=True,
             env=envs,
         )
+
+        error_lines = []
         lines = []
         for line in tqdm(process.stdout, total=len(commands), desc=description):
+            if "ERROR" in line or "error" in line:
+                error_lines.append(line.strip())
             lines.append(line.strip())
-    return lines
 
-
-def fast_copy_files_s3(
-    src_paths: List[str],
-    dst_paths: List[str],
-    append_envs: Optional[Dict[str, str]] = None,
-    description: str = "Copying files",
-) -> List[str]:
-    if len(src_paths) != len(dst_paths):
-        raise ValueError("Source and destination paths must have the same length.")
-
-    cmds = [f"cp {src} {dst}" for src, dst in zip(src_paths, dst_paths)]
-    lines = execute_s5cmd_commands(cmds, append_envs=append_envs, description=description)
+        if len(error_lines) > 0:
+            show_n_lines = min(5, len(error_lines))
+            str_error_lines = "\n".join(error_lines[:show_n_lines])
+            user_logger.error(
+                f"Detected {len(error_lines)} errors occurred while executing a total of {len(commands)} "
+                f" commands with s5cmd. The first {show_n_lines} is printed below:\n{str_error_lines}"
+            )
+            raise RuntimeError("Errors occurred during s5cmd execution.")
     return lines
 
 
