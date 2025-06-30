@@ -121,22 +121,20 @@ The `HafniaDataset` object provides a convenient way to interact with the datase
 creating splits, accessing samples, printing statistics, saving to and loading from disk.
 
 In essence, the `HafniaDataset` class contains `dataset.info` with dataset information 
-and `dataset.table` with annotations as a polars DataFrame
+and `dataset.samples` with annotations as a polars DataFrame
 
 ```python
 # Annotations are stored in a polars DataFrame
-print(dataset.table.head(2))
+print(dataset.samples.head(2))
 shape: (2, 14)
-┌──────────┬────────────────────────────────┬────────┬───────┬───┬───────────────────────────────┬──────────┬──────────┬───────────────────────────────┐
-│ image_id ┆ file_name                      ┆ height ┆ width ┆ … ┆ objects                       ┆ bitmasks ┆ polygons ┆ meta                          │
-│ ---      ┆ ---                            ┆ ---    ┆ ---   ┆   ┆ ---                           ┆ ---      ┆ ---      ┆ ---                           │
-│ str      ┆ str                            ┆ i64    ┆ i64   ┆   ┆ list[struct[12]]              ┆ null     ┆ null     ┆ struct[5]                     │
-╞══════════╪════════════════════════════════╪════════╪═══════╪═══╪═══════════════════════════════╪══════════╪══════════╪═══════════════════════════════╡
-│ 7800     ┆ /home/ubuntu/code/hafnia/.data ┆ 1080   ┆ 1920  ┆ … ┆ [{0.0492,0.0357,0.2083,0.23," ┆ null     ┆ null     ┆ {120.0,1.0,"2024-07-10T18:30: │
-│          ┆ …                              ┆        ┆       ┆   ┆ V…                            ┆          ┆          ┆ 0…                            │
-│ 7900     ┆ /home/ubuntu/code/hafnia/.data ┆ 1080   ┆ 1920  ┆ … ┆ [{0.146382,0.078704,0.42963,0 ┆ null     ┆ null     ┆ {120.0,1.0,"2024-07-10T18:30: │
-│          ┆ …                              ┆        ┆       ┆   ┆ .…                            ┆          ┆          ┆ 0…                            │
-└──────────┴────────────────────────────────┴────────┴───────┴───┴───────────────────────────────┴──────────┴──────────┴───────────────────────────────┘
+┌──────────────┬─────────────────────────────────┬────────┬───────┬───┬─────────────────────────────────┬──────────┬──────────┬─────────────────────────────────┐
+│ sample_index ┆ file_name                       ┆ height ┆ width ┆ … ┆ objects                         ┆ bitmasks ┆ polygons ┆ meta                            │
+│ ---          ┆ ---                             ┆ ---    ┆ ---   ┆   ┆ ---                             ┆ ---      ┆ ---      ┆ ---                             │
+│ u32          ┆ str                             ┆ i64    ┆ i64   ┆   ┆ list[struct[11]]                ┆ null     ┆ null     ┆ struct[5]                       │
+╞══════════════╪═════════════════════════════════╪════════╪═══════╪═══╪═════════════════════════════════╪══════════╪══════════╪═════════════════════════════════╡
+│ 0            ┆ /home/ubuntu/code/hafnia/.data… ┆ 1080   ┆ 1920  ┆ … ┆ [{0.0492,0.0357,0.2083,0.23,"V… ┆ null     ┆ null     ┆ {120.0,1.0,"2024-07-10T18:30:0… │
+│ 100          ┆ /home/ubuntu/code/hafnia/.data… ┆ 1080   ┆ 1920  ┆ … ┆ [{0.146382,0.078704,0.42963,0.… ┆ null     ┆ null     ┆ {120.0,1.0,"2024-07-10T18:30:0… │
+└──────────────┴─────────────────────────────────┴────────┴───────┴───┴─────────────────────────────────┴──────────┴──────────┴─────────────────────────────────┘
 ```
 
 ```python
@@ -209,16 +207,15 @@ It also contain annotations as primitive types such as `Bbox`, `Classification`.
 ```python
 rich.print(sample)
 Sample(
-    image_id='7800',
-    file_name='data/video_0026a86b-2f43-49f2-a17c-59244d10a585_1fps_mp4_frame_0
-0000.png',
+    sample_index=120,
+    file_name='/home/ubuntu/code/hafnia/.data/datasets/midwest-vehicle-detection/data/343403325f27e390.png',
     height=1080,
     width=1920,
-    split='test',
+    split='train',
     is_sample=True,
-    frame_number=None,
-    video_name=None,
-    remote_path=None,
+    collection_index=None,
+    collection_id=None,
+    remote_path='s3://mdi-production-midwest-vehicle-detection/sample/data/343403325f27e390.png',
     classifications=[
         Classification(
             class_name='Clear',
