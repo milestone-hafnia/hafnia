@@ -1,5 +1,34 @@
-import hashlib
-import shutil
+"""
+Hafnia dataset transformations that takes and returns a HafniaDataset object.
+
+All functions here will have a corresponding function in both the HafniaDataset class
+and a corresponding SerializableFunction class in the `builder/dataset_transformations.py` file.
+
+This allows each function to be used in three ways:
+
+```python
+from hafnia.dataset.operations import dataset_transformations
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.builder.dataset_transformations import SplitByRatios
+
+split_by_ratios = {"train": 0.8, "val": 0.1, "test": 0.1}
+
+# Option 1: Using the function directly
+dataset = dataset_transformations.splits_by_ratios(dataset, split_ratios=split_by_ratios)
+
+# Option 2: Using the method of the HafniaDataset class
+dataset = dataset.splits_by_ratios(split_ratios=split_by_ratios)
+
+# Option 3: Using the SerializableFunction class
+serializable_transform = SplitByRatios(split_ratios=split_by_ratios)
+dataset = serializable_transform(dataset)
+```
+
+Tests will ensure that all functions in this file will have a corresponding function in the
+HafniaDataset class and a SerializableFunction class in the `builder/dataset_transformations.py` file and
+that the signatures match.
+"""
+
 from pathlib import Path
 from random import Random
 from typing import TYPE_CHECKING, Callable, Dict
@@ -12,7 +41,6 @@ from tqdm import tqdm
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import ColumnName
-from hafnia.log import user_logger
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -50,7 +78,7 @@ def splits_by_ratios(dataset: "HafniaDataset", split_ratios: Dict[str, float], s
     return dataset.update_table(table)
 
 
-def divide_split_into_multiple_splits(
+def split_into_multiple_splits(
     dataset: "HafniaDataset",
     divide_split_name: str,
     split_ratios: Dict[str, float],
@@ -65,7 +93,7 @@ def divide_split_into_multiple_splits(
     >>> dataset = HafniaDataset.read_from_path(Path("path/to/dataset"))
     >>> divide_split_name = SplitName.TEST
     >>> split_ratios = {SplitName.TEST: 0.8, SplitName.VAL: 0.2}
-    >>> dataset_with_splits = divide_split_into_multiple_splits(dataset, divide_split_name, split_ratios)
+    >>> dataset_with_splits = split_into_multiple_splits(dataset, divide_split_name, split_ratios)
     """
     dataset_split_to_be_divided = dataset.create_split_dataset(split_name=divide_split_name)
     if len(dataset_split_to_be_divided) == 0:
@@ -74,7 +102,7 @@ def divide_split_into_multiple_splits(
             f"No samples in the '{divide_split_name}' split to divide into multiple splits. {split_counts=}"
         )
     assert len(dataset_split_to_be_divided) > 0, f"No samples in the '{divide_split_name}' split!"
-    dataset_split_to_be_divided = dataset_split_to_be_divided.split_by_ratios(split_ratios=split_ratios, seed=42)
+    dataset_split_to_be_divided = dataset_split_to_be_divided.splits_by_ratios(split_ratios=split_ratios, seed=42)
 
     remaining_data = dataset.samples.filter(pl.col(ColumnName.SPLIT).is_in([divide_split_name]).not_())
     new_table = pl.concat([remaining_data, dataset_split_to_be_divided.samples], how="vertical")
@@ -82,7 +110,7 @@ def divide_split_into_multiple_splits(
     return dataset_new
 
 
-def shuffle_dataset(dataset: "HafniaDataset", seed: int = 42) -> "HafniaDataset":
+def shuffle(dataset: "HafniaDataset", seed: int = 42) -> "HafniaDataset":
     table = dataset.samples.sample(n=len(dataset), with_replacement=False, seed=seed, shuffle=True)
     return dataset.update_table(table)
 
@@ -100,6 +128,18 @@ def define_sample_set_by_size(dataset: "HafniaDataset", n_samples: int, seed: in
 
     table = dataset.samples.with_columns(pl.Series(is_sample_column).alias("is_sample"))
     return dataset.update_table(table)
+
+
+def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
+    """
+    Merges two Hafnia datasets by concatenating their samples and updating the split names.
+    """
+    ## Currently, only a very naive merging is implemented.
+    # In the future we need to verify that the class and tasks are compatible.
+    # Do they have similar classes and tasks? What to do if they don't?
+    # For now, we just concatenate the samples and keep the split names as they are.
+    merged_samples = pl.concat([dataset0.samples, dataset1.samples], how="vertical")
+    return dataset0.update_table(merged_samples)
 
 
 def transform_images(
@@ -126,62 +166,3 @@ def transform_images(
 
     table = dataset.samples.with_columns(pl.Series(new_paths).alias("file_name"))
     return dataset.update_table(table)
-
-
-def rename_to_unique_image_names(dataset: "HafniaDataset", path_output: Path) -> "HafniaDataset":
-    user_logger.info(f"Copy images to have unique filenames. New path is '{path_output}'")
-    shutil.rmtree(path_output, ignore_errors=True)  # Remove the output folder if it exists
-    new_paths = []
-    for org_path in tqdm(dataset.samples["file_name"].to_list(), desc="- Rename/copy images"):
-        org_path = Path(org_path)
-        if not org_path.exists():
-            raise FileNotFoundError(f"File {org_path} does not exist in the dataset.")
-
-        hash_name = hashlib.md5(str(org_path).encode()).hexdigest()[
-            :6
-        ]  # Generate a unique name based on the original file name
-        new_path = path_output / "data" / f"{hash_name}_{org_path.name}"
-        if not new_path.parent.exists():
-            new_path.parent.mkdir(parents=True, exist_ok=True)
-
-        shutil.copyfile(org_path, new_path)  # Copy the original file to the new path
-        new_paths.append(str(new_path))
-
-    table = dataset.samples.with_columns(pl.Series(new_paths).alias("file_name"))
-    return dataset.update_table(table)
-
-
-### Hafnia Dataset Transformations ###
-class SplitsByRatios:
-    def __init__(self, split_ratios: dict, seed: int = 42):
-        self.split_ratios = split_ratios
-        self.seed = seed
-
-    def __call__(self, dataset: "HafniaDataset") -> "HafniaDataset":
-        return splits_by_ratios(dataset, self.split_ratios, self.seed)
-
-
-class ShuffleDataset:
-    def __init__(self, seed: int = 42):
-        self.seed = seed
-
-    def __call__(self, dataset: "HafniaDataset") -> "HafniaDataset":
-        return shuffle_dataset(dataset, self.seed)
-
-
-class SampleSetBySize:
-    def __init__(self, n_samples: int, seed: int = 42):
-        self.n_samples = n_samples
-        self.seed = seed
-
-    def __call__(self, dataset: "HafniaDataset") -> "HafniaDataset":
-        return define_sample_set_by_size(dataset, self.n_samples, self.seed)
-
-
-class TransformImages:
-    def __init__(self, transform: Callable[[np.ndarray], np.ndarray], path_output: Path):
-        self.transform = transform
-        self.path_output = path_output
-
-    def __call__(self, dataset: "HafniaDataset") -> "HafniaDataset":
-        return transform_images(dataset, self.transform, self.path_output)

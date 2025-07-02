@@ -1,11 +1,19 @@
 from pathlib import Path
 
-# from data_management import utils
+import pytest
+
 from hafnia.dataset.dataset_names import ColumnName, DeploymentStage
 from hafnia.dataset.dataset_upload_helper import dataset_info_from_dataset
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+
+# from data_management import utils
+from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.primitives.classification import Classification
-from hafnia.helper_testing import get_micro_hafnia_dataset, get_path_micro_hafnia_dataset
+from hafnia.helper_testing import (
+    get_hafnia_functions_from_module,
+    get_micro_hafnia_dataset,
+    get_path_micro_hafnia_dataset,
+)
 
 
 def test_dataset_info_serializing_deserializing(tmp_path: Path):
@@ -52,17 +60,39 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
     dataset = HafniaDataset.from_samples_list(samples_list=samples, info=dataset_info)
     dataset.write(path_dataset)
 
-    dataset_reloaded = HafniaDataset.read_from_path(path_dataset)
+    dataset_reloaded = HafniaDataset.from_path(path_dataset)
     assert dataset_reloaded.info == dataset.info
     table_expected = dataset.samples.drop(ColumnName.FILE_NAME)
     table_actual = dataset_reloaded.samples.drop(ColumnName.FILE_NAME)
     assert table_expected.equals(table_actual), "The samples tables do not match after reloading the dataset."
 
 
+@pytest.mark.parametrize("function_name", get_hafnia_functions_from_module(dataset_transformations))
+def test_hafnia_dataset_has_all_dataset_transforms(function_name: str):
+    module_filename = Path(dataset_transformations.__file__).name
+    module_stem = module_filename.split(".")[0]
+    assert hasattr(HafniaDataset, function_name), (
+        f"HafniaDataset expect that all functions in {module_filename} also exists as methods in HafniaDataset. "
+        f"Function {function_name} is missing in HafniaDataset. "
+        f"Please add '{function_name} = {module_stem}.{function_name}' to HafniaDataset class."
+    )
+
+
+@pytest.mark.parametrize("function_name", get_hafnia_functions_from_module(dataset_stats))
+def test_hafnia_dataset_has_all_dataset_stats_functions(function_name: str):
+    module_filename = Path(dataset_stats.__file__).name
+    module_stem = module_filename.split(".")[0]
+    assert hasattr(HafniaDataset, function_name), (
+        f"HafniaDataset expect that all functions in {module_filename} also exists as methods in HafniaDataset. "
+        f"Function {function_name} is missing in HafniaDataset. "
+        f"Please add '{function_name} = {module_stem}.{function_name}' to HafniaDataset class."
+    )
+
+
 def test_dataset_info_from_dataset():
     dataset_name = "tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
-    dataset = HafniaDataset.read_from_path(path_dataset)
+    dataset = HafniaDataset.from_path(path_dataset)
     dataset_info = dataset_info_from_dataset(
         dataset=dataset,
         deployment_stage=DeploymentStage.STAGING,

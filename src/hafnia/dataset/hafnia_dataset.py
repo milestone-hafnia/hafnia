@@ -16,7 +16,7 @@ from rich import print as rprint
 from rich.table import Table
 from tqdm import tqdm
 
-from hafnia.dataset import dataset_helpers, dataset_transformation
+from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import (
     DATASET_FILENAMES,
     FILENAME_ANNOTATIONS_JSONL,
@@ -25,6 +25,12 @@ from hafnia.dataset.dataset_names import (
     ColumnName,
     FieldName,
     SplitName,
+)
+from hafnia.dataset.operations import dataset_stats, dataset_transformations
+from hafnia.dataset.operations.table_transformations import (
+    check_image_paths,
+    create_primitive_table,
+    read_table_from_path,
 )
 from hafnia.dataset.primitives import (
     PRIMITIVE_NAME_TO_TYPE,
@@ -35,11 +41,6 @@ from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.primitive import Primitive
-from hafnia.dataset.table_transformations import (
-    check_image_paths,
-    create_primitive_table,
-    read_table_from_path,
-)
 from hafnia.log import user_logger
 
 
@@ -172,12 +173,16 @@ class HafniaDataset:
             yield row
 
     # Dataset transformations
-    apply_image_transform = dataset_transformation.transform_images
-    sample = dataset_transformation.sample
-    shuffle = dataset_transformation.shuffle_dataset
-    split_by_ratios = dataset_transformation.splits_by_ratios
-    divide_split_into_multiple_splits = dataset_transformation.divide_split_into_multiple_splits
-    sample_set_by_size = dataset_transformation.define_sample_set_by_size
+    transform_images = dataset_transformations.transform_images
+    sample = dataset_transformations.sample
+    shuffle = dataset_transformations.shuffle
+    splits_by_ratios = dataset_transformations.splits_by_ratios
+    split_into_multiple_splits = dataset_transformations.split_into_multiple_splits
+    define_sample_set_by_size = dataset_transformations.define_sample_set_by_size
+    merge = dataset_transformations.merge
+
+    # Dataset stats
+    split_counts = dataset_stats.split_counts
 
     @staticmethod
     def from_samples_list(samples_list: List, info: DatasetInfo) -> "HafniaDataset":
@@ -193,6 +198,18 @@ class HafniaDataset:
         table = table.with_row_index(name=ColumnName.SAMPLE_INDEX)  # Add sample index column
 
         return HafniaDataset(info=info, samples=table)
+
+    @staticmethod
+    def from_name(name: str, force_redownload: bool = False, download_files: bool = True) -> "HafniaDataset":
+        """
+        Load a dataset by its name. The dataset must be registered in the Hafnia platform.
+        """
+        from hafnia.platform.datasets import download_or_get_dataset_path
+
+        dataset_path = download_or_get_dataset_path(
+            dataset_name=name, force_redownload=force_redownload, download_files=download_files
+        )
+        return HafniaDataset.from_path(dataset_path, check_for_images=download_files)
 
     def as_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
         if ColumnName.SPLIT not in self.samples.columns:
@@ -257,7 +274,7 @@ class HafniaDataset:
         return True
 
     @staticmethod
-    def read_from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
+    def from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
         HafniaDataset.check_dataset_path(path_folder, raise_error=True)
 
         dataset_info = DatasetInfo.from_json_file(path_folder / FILENAME_DATASET_INFO)
@@ -363,7 +380,7 @@ class HafniaDataset:
 
 
 def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
-    dataset = HafniaDataset.read_from_path(path_dataset, check_for_images=True)
+    dataset = HafniaDataset.from_path(path_dataset, check_for_images=True)
     check_hafnia_dataset(dataset)
 
 

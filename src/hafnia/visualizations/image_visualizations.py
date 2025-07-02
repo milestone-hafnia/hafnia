@@ -175,7 +175,7 @@ def save_dataset_sample_set_visualizations(
     draw_settings: Optional[Dict[Type[Primitive], Dict]] = None,
     anonymize_settings: Optional[Dict[Type[Primitive], Dict]] = None,
 ) -> List[Path]:
-    dataset = HafniaDataset.read_from_path(path_dataset)
+    dataset = HafniaDataset.from_path(path_dataset)
     shutil.rmtree(path_output_folder, ignore_errors=True)
     path_output_folder.mkdir(parents=True)
 

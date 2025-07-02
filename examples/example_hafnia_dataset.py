@@ -21,7 +21,7 @@ from hafnia.dataset.primitives.polygon import Polygon
 
 # Load dataset
 path_dataset = get_dataset_path("midwest-vehicle-detection")
-dataset = HafniaDataset.read_from_path(path_dataset)
+dataset = HafniaDataset.from_path(path_dataset)
 
 # Alternatively, you can use the 'load_dataset' function
 dataset = load_dataset("midwest-vehicle-detection")
@@ -39,14 +39,14 @@ dataset.print_stats()
 # Create a dataset split for training
 dataset_train = dataset.create_split_dataset("train")
 
-# Checkout built-in transformations in 'dataset_transformation' or 'HafniaDataset'
+# Checkout built-in transformations in 'operations/dataset_transformations' or 'HafniaDataset'
 dataset_val = dataset.create_split_dataset(SplitName.VAL)  # Use 'SplitName' to avoid magic strings
 
 small_dataset = dataset.sample(n_samples=10, seed=42)  # Sample 10 samples from the dataset
 shuffled_dataset = dataset.shuffle(seed=42)  # Shuffle the dataset
 
 split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
-new_dataset_splits = dataset.split_by_ratios(split_ratios)
+new_dataset_splits = dataset.splits_by_ratios(split_ratios)
 
 # Write dataset to disk
 path_tmp = Path(".data/tmp")
@@ -54,7 +54,7 @@ path_dataset = path_tmp / "hafnia_dataset"
 dataset.write(path_dataset)  # --> Check that data is human readable
 
 # Load dataset from disk
-dataset_again = HafniaDataset.read_from_path(path_dataset)
+dataset_again = HafniaDataset.from_path(path_dataset)
 
 # Access the first sample in the training split - data is stored in a dictionary
 sample_dict = dataset_train[0]

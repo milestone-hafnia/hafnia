@@ -10,7 +10,11 @@ from tqdm import tqdm
 
 from cli.config import Config
 from hafnia import utils
-from hafnia.dataset import dataset_names
+from hafnia.dataset.builder.builder_helpers import (
+    convert_to_explicit_specification,
+    get_dataset_path_from_specification,
+)
+from hafnia.dataset.dataset_names import DATASET_FILENAMES, ColumnName
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.http import fetch
 from hafnia.log import user_logger
@@ -37,13 +41,14 @@ def download_or_get_dataset_path(
     cfg: Optional[Config] = None,
     path_datasets_folder: Optional[str] = None,
     force_redownload: bool = False,
+    download_files: bool = True,
 ) -> Path:
     """Download or get the path of the dataset."""
     if utils.is_remote_job():
         return Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))
 
-    path_datasets_folder = path_datasets_folder or str(utils.PATH_DATASETS)
-    path_dataset = Path(path_datasets_folder).absolute() / dataset_name
+    specification_explicit = convert_to_explicit_specification(dataset_name)
+    path_dataset = get_dataset_path_from_specification(specification_explicit, path_datasets=path_datasets_folder)
 
     is_dataset_valid = HafniaDataset.check_dataset_path(path_dataset, raise_error=False)
     if is_dataset_valid and not force_redownload:
@@ -57,22 +62,30 @@ def download_or_get_dataset_path(
 
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
     dataset_id = get_dataset_id(dataset_name=dataset_name, endpoint=endpoint_dataset, api_key=api_key)
+    if dataset_id is None:
+        raise ValueError(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
     access_dataset_endpoint = f"{endpoint_dataset}/{dataset_id}/temporary-credentials"
 
     download_dataset_from_access_endpoint(
         endpoint=access_dataset_endpoint,
         api_key=api_key,
         path_dataset=path_dataset,
+        download_files=download_files,
     )
     return path_dataset
 
 
-def download_dataset_from_access_endpoint(endpoint: str, api_key: str, path_dataset: Path) -> None:
+def download_dataset_from_access_endpoint(
+    endpoint: str,
+    api_key: str,
+    path_dataset: Path,
+    download_files: bool = True,
+) -> None:
     resource_credentials = get_resource_credentials(endpoint, api_key)
 
-    local_dataset_paths = [str(path_dataset / filename) for filename in dataset_names.DATASET_FILENAMES]
+    local_dataset_paths = [str(path_dataset / filename) for filename in DATASET_FILENAMES]
     s3_uri = resource_credentials.s3_uri()
-    s3_dataset_files = [f"{s3_uri}/{filename}" for filename in dataset_names.DATASET_FILENAMES]
+    s3_dataset_files = [f"{s3_uri}/{filename}" for filename in DATASET_FILENAMES]
 
     envs = resource_credentials.aws_credentials()
     fast_copy_files_s3(
@@ -82,10 +95,13 @@ def download_dataset_from_access_endpoint(endpoint: str, api_key: str, path_data
         description="Downloading annotations",
     )
 
-    dataset = HafniaDataset.read_from_path(path_dataset, check_for_images=False)
+    if not download_files:
+        return
+
+    dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
     fast_copy_files_s3(
-        src_paths=dataset.samples[dataset_names.ColumnName.REMOTE_PATH].to_list(),
-        dst_paths=dataset.samples[dataset_names.ColumnName.FILE_NAME].to_list(),
+        src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
+        dst_paths=dataset.samples[ColumnName.FILE_NAME].to_list(),
         append_envs=envs,
         description="Downloading images",
     )

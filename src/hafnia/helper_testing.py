@@ -1,6 +1,10 @@
+from inspect import getmembers, isfunction, signature
 from pathlib import Path
+from types import FunctionType
+from typing import Callable, Dict
 
 from hafnia import utils
+from hafnia.dataset.builder import builders
 from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, DatasetVariant
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
@@ -38,7 +42,7 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
     if path_test_dataset_annotations.exists() and not force_update:
         return path_test_dataset
 
-    hafnia_dataset = HafniaDataset.read_from_path(path_dataset / DatasetVariant.SAMPLE.value)
+    hafnia_dataset = HafniaDataset.from_path(path_dataset / DatasetVariant.SAMPLE.value)
     hafnia_dataset = hafnia_dataset.sample(n_samples=3, seed=42)
     hafnia_dataset.write(path_test_dataset)
 
@@ -59,5 +63,23 @@ def get_sample_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Sa
 
 def get_micro_hafnia_dataset(dataset_name: str, force_update: bool = False) -> HafniaDataset:
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=force_update)
-    hafnia_dataset = HafniaDataset.read_from_path(path_dataset)
+    hafnia_dataset = HafniaDataset.from_path(path_dataset)
     return hafnia_dataset
+
+
+def get_hafnia_functions_from_module(python_module) -> Dict[str, FunctionType]:
+    def dataset_is_first_arg(func: Callable) -> bool:
+        """
+        Check if the function has 'HafniaDataset' as the first parameter.
+        """
+        func_signature = signature(func)
+        params = func_signature.parameters
+        if len(params) == 0:
+            return False
+        first_argument_type = list(params.values())[0]
+
+        annotation_as_str = builders.annotation_as_string(first_argument_type.annotation)
+        return annotation_as_str == "HafniaDataset"
+
+    functions = {func[0]: func[1] for func in getmembers(python_module, isfunction) if dataset_is_first_arg(func[1])}
+    return functions
