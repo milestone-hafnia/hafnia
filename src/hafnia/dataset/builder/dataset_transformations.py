@@ -27,14 +27,15 @@ from hafnia.dataset.builder.builders import SerializableFunction
 from hafnia.dataset.operations import dataset_transformations
 
 
-class Sample(SerializableFunction):
+class SelectSamples(SerializableFunction):
     n_samples: int
     shuffle: bool = False
     seed: int = 42
+    with_replacement: bool = False
 
     @staticmethod
     def get_function():
-        return dataset_transformations.sample
+        return dataset_transformations.select_samples
 
 
 class Shuffle(SerializableFunction):

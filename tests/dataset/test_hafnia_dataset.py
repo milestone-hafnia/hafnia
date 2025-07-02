@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -69,22 +70,22 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
 
 @pytest.mark.parametrize("function_name", get_hafnia_functions_from_module(dataset_transformations))
 def test_hafnia_dataset_has_all_dataset_transforms(function_name: str):
-    module_filename = Path(dataset_transformations.__file__).name
-    module_stem = module_filename.split(".")[0]
+    module_filename = os.sep.join(Path(dataset_transformations.__file__).parts[-2:])
+    module_stem = dataset_transformations.__name__.split(".")[-1]
     assert hasattr(HafniaDataset, function_name), (
-        f"HafniaDataset expect that all functions in {module_filename} also exists as methods in HafniaDataset. "
-        f"Function {function_name} is missing in HafniaDataset. "
+        f"HafniaDataset expect that all functions in '{module_filename}' also exists as methods in HafniaDataset.\n"
+        f"Function '{function_name}' is missing in HafniaDataset.\n"
         f"Please add '{function_name} = {module_stem}.{function_name}' to HafniaDataset class."
     )
 
 
 @pytest.mark.parametrize("function_name", get_hafnia_functions_from_module(dataset_stats))
 def test_hafnia_dataset_has_all_dataset_stats_functions(function_name: str):
-    module_filename = Path(dataset_stats.__file__).name
-    module_stem = module_filename.split(".")[0]
+    module_filename = os.sep.join(Path(dataset_stats.__file__).parts[-2:])
+    module_stem = dataset_stats.__name__.split(".")[-1]
     assert hasattr(HafniaDataset, function_name), (
-        f"HafniaDataset expect that all functions in {module_filename} also exists as methods in HafniaDataset. "
-        f"Function {function_name} is missing in HafniaDataset. "
+        f"HafniaDataset expect that all functions in '{module_filename}' also exists as methods in HafniaDataset.\n"
+        f"Function '{function_name}' is missing in HafniaDataset.\n"
         f"Please add '{function_name} = {module_stem}.{function_name}' to HafniaDataset class."
     )
 

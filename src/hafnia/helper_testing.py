@@ -43,7 +43,7 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
         return path_test_dataset
 
     hafnia_dataset = HafniaDataset.from_path(path_dataset / DatasetVariant.SAMPLE.value)
-    hafnia_dataset = hafnia_dataset.sample(n_samples=3, seed=42)
+    hafnia_dataset = hafnia_dataset.select_samples(n_samples=3, seed=42)
     hafnia_dataset.write(path_test_dataset)
 
     if force_update:
@@ -65,6 +65,15 @@ def get_micro_hafnia_dataset(dataset_name: str, force_update: bool = False) -> H
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=force_update)
     hafnia_dataset = HafniaDataset.from_path(path_dataset)
     return hafnia_dataset
+
+
+def is_hafnia_configured() -> bool:
+    """
+    Check if Hafnia is configured by verifying if the API key is set.
+    """
+    from cli.config import Config
+
+    return Config().is_configured()
 
 
 def get_hafnia_functions_from_module(python_module) -> Dict[str, FunctionType]:

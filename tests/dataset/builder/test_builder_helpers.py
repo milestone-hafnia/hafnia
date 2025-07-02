@@ -6,7 +6,7 @@ import pytest
 
 from hafnia.dataset.builder.builder_helpers import convert_to_explicit_specification
 from hafnia.dataset.builder.builders import DatasetBuilder, DatasetFromName, DatasetFromPath, DatasetMerger, Transforms
-from hafnia.dataset.builder.dataset_transformations import Sample, Shuffle
+from hafnia.dataset.builder.dataset_transformations import SelectSamples, Shuffle
 
 
 @dataclass
@@ -14,9 +14,6 @@ class TestUseCaseImplicit2Explicit:
     name: str
     implicit_specification: Any
     expected_explicit_specification: DatasetBuilder
-
-    def __str__(self):
-        return self.name
 
 
 @pytest.mark.parametrize(
@@ -44,10 +41,10 @@ class TestUseCaseImplicit2Explicit:
         ),
         TestUseCaseImplicit2Explicit(
             name="list to Transforms",
-            implicit_specification=["dataset1", Sample(n_samples=10), Shuffle()],
+            implicit_specification=["dataset1", SelectSamples(n_samples=10), Shuffle()],
             expected_explicit_specification=Transforms(
                 loader=DatasetFromName(name="dataset1", force_redownload=False),
-                transforms=[Sample(n_samples=10), Shuffle()],
+                transforms=[SelectSamples(n_samples=10), Shuffle()],
             ),
         ),
         TestUseCaseImplicit2Explicit(
@@ -79,11 +76,11 @@ class TestUseCaseImplicit2Explicit:
             name="Transforms to Transforms (no change)",
             implicit_specification=Transforms(
                 loader=DatasetFromName(name="dataset1", force_redownload=False),
-                transforms=[Sample(n_samples=10), Shuffle()],
+                transforms=[SelectSamples(n_samples=10), Shuffle()],
             ),
             expected_explicit_specification=Transforms(
                 loader=DatasetFromName(name="dataset1", force_redownload=False),
-                transforms=[Sample(n_samples=10), Shuffle()],
+                transforms=[SelectSamples(n_samples=10), Shuffle()],
             ),
         ),
         TestUseCaseImplicit2Explicit(
@@ -91,10 +88,10 @@ class TestUseCaseImplicit2Explicit:
             implicit_specification=(
                 DatasetFromName(name="dataset1", force_redownload=False),
                 Path("path/to/dataset"),
-                ["dataset2", Sample(n_samples=5), Shuffle()],
+                ["dataset2", SelectSamples(n_samples=5), Shuffle()],
                 Transforms(
                     loader=DatasetFromName(name="dataset2", force_redownload=False),
-                    transforms=[Sample(n_samples=5), Shuffle()],
+                    transforms=[SelectSamples(n_samples=5), Shuffle()],
                 ),
                 ("dataset2", DatasetFromName(name="dataset3", force_redownload=False)),
                 "dataset4",
@@ -105,11 +102,11 @@ class TestUseCaseImplicit2Explicit:
                     DatasetFromPath(path_folder=Path("path/to/dataset"), check_for_images=True),
                     Transforms(
                         loader=DatasetFromName(name="dataset2", force_redownload=False),
-                        transforms=[Sample(n_samples=5), Shuffle()],
+                        transforms=[SelectSamples(n_samples=5), Shuffle()],
                     ),
                     Transforms(
                         loader=DatasetFromName(name="dataset2", force_redownload=False),
-                        transforms=[Sample(n_samples=5), Shuffle()],
+                        transforms=[SelectSamples(n_samples=5), Shuffle()],
                     ),
                     DatasetMerger(
                         builders=[

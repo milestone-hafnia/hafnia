@@ -115,8 +115,16 @@ def shuffle(dataset: "HafniaDataset", seed: int = 42) -> "HafniaDataset":
     return dataset.update_table(table)
 
 
-def sample(dataset: "HafniaDataset", n_samples: int, shuffle: bool = True, seed: int = 42) -> "HafniaDataset":
-    table = dataset.samples.sample(n=n_samples, with_replacement=False, seed=seed, shuffle=shuffle)
+def select_samples(
+    dataset: "HafniaDataset",
+    n_samples: int,
+    shuffle: bool = True,
+    seed: int = 42,
+    with_replacement: bool = False,
+) -> "HafniaDataset":
+    if not with_replacement:
+        n_samples = min(n_samples, len(dataset))
+    table = dataset.samples.sample(n=n_samples, with_replacement=with_replacement, seed=seed, shuffle=shuffle)
     return dataset.update_table(table)
 
 

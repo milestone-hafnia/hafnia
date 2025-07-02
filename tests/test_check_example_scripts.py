@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from cli.config import Config
+from hafnia.helper_testing import is_hafnia_configured
 
 
 @pytest.mark.parametrize(
@@ -13,12 +13,13 @@ from cli.config import Config
         "examples/example_torchvision_dataloader.py",
         "examples/example_hafnia_dataset.py",
         "examples/example_logger.py",
+        "examples/example_dataset_builder.py",
         # Add other example scripts here
     ],
 )
 @pytest.mark.slow
 def test_example_scripts(script_path_str: str):
-    if not Config().is_configured():
+    if not is_hafnia_configured():
         pytest.skip("Not logged in to Hafnia")
 
     script_path = Path(script_path_str)

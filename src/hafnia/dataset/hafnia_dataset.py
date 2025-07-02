@@ -174,7 +174,7 @@ class HafniaDataset:
 
     # Dataset transformations
     transform_images = dataset_transformations.transform_images
-    sample = dataset_transformations.sample
+    select_samples = dataset_transformations.select_samples
     shuffle = dataset_transformations.shuffle
     splits_by_ratios = dataset_transformations.splits_by_ratios
     split_into_multiple_splits = dataset_transformations.split_into_multiple_splits

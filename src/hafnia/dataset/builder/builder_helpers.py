@@ -39,12 +39,12 @@ def convert_to_explicit_specification(spec: Any) -> DatasetBuilder:
 
     Example: Dataset builder from list (loader and transformations):
     ```python
-    dataset_specification = ["mnist", Sample(n_samples=20), Shuffle(seed=123)]
+    dataset_specification = ["mnist", SelectSamples(n_samples=20), Shuffle(seed=123)]
     explicit_specification = convert_implicit_dataset_specification_to_explicit(dataset_specification)
     >>> explicit_specification
     Transforms(
         loader=DatasetFromName(dataset_name='mnist', force_redownload=False),
-        transforms=[Sample(n_samples=20), Shuffle(seed=123)]
+        transforms=[SelectSamples(n_samples=20), Shuffle(seed=123)]
     )
     ```
 

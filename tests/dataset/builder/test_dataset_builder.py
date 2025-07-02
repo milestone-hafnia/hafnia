@@ -11,7 +11,7 @@ from hafnia.dataset.builder.builders import (
     SerializableFunction,
     Transforms,
 )
-from hafnia.dataset.builder.dataset_transformations import Sample, Shuffle, SplitsByRatios
+from hafnia.dataset.builder.dataset_transformations import SelectSamples, Shuffle, SplitsByRatios
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.operations import dataset_transformations
 from hafnia.helper_testing import get_hafnia_functions_from_module
@@ -24,14 +24,14 @@ def get_dataset_specification() -> DatasetBuilder:
             Transforms(
                 loader=DatasetFromName(name="mnist", force_redownload=False),
                 transforms=[
-                    Sample(n_samples=20, shuffle=True, seed=42),
+                    SelectSamples(n_samples=20, shuffle=True, seed=42),
                     Shuffle(seed=123),
                 ],
             ),
             Transforms(
                 loader=DatasetFromName(name="mnist", force_redownload=False),
                 transforms=[
-                    Sample(n_samples=30, shuffle=True, seed=42),
+                    SelectSamples(n_samples=30, shuffle=True, seed=42),
                     SplitsByRatios(split_ratios={"train": 0.8, "val": 0.1, "test": 0.1}, seed=42),
                 ],
             ),
@@ -119,7 +119,7 @@ def test_dataset_specification_serialization_deserialization_json():
         Transforms(
             loader=DatasetFromName(name="mnist", force_redownload=False),
             transforms=[
-                Sample(n_samples=20, shuffle=True, seed=42),
+                SelectSamples(n_samples=20, shuffle=True, seed=42),
                 Shuffle(seed=123),
             ],
         ),

@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from torchvision import tv_tensors
 from torchvision.transforms import v2
 
-from cli.config import Config
 from hafnia import torch_helpers
 from hafnia.data import load_dataset
 from hafnia.dataset.dataset_names import ColumnName
@@ -17,6 +16,7 @@ from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.segmentation import Segmentation
+from hafnia.helper_testing import is_hafnia_configured
 
 FORCE_REDOWNLOAD = False
 
@@ -39,7 +39,7 @@ DATASET_IDS = [dataset[0] for dataset in DATASETS_EXPECTED]
 @pytest.fixture(params=DATASETS_EXPECTED, ids=DATASET_IDS, scope="session")
 def loaded_dataset(request) -> Dict[str, Any]:
     """Fixture that loads a dataset and returns it along with metadata."""
-    if not Config().is_configured():
+    if not is_hafnia_configured():
         pytest.skip("Not logged in to Hafnia")
 
     dataset_name, expected_lengths = request.param

@@ -42,7 +42,7 @@ dataset_train = dataset.create_split_dataset("train")
 # Checkout built-in transformations in 'operations/dataset_transformations' or 'HafniaDataset'
 dataset_val = dataset.create_split_dataset(SplitName.VAL)  # Use 'SplitName' to avoid magic strings
 
-small_dataset = dataset.sample(n_samples=10, seed=42)  # Sample 10 samples from the dataset
+small_dataset = dataset.select_samples(n_samples=10, seed=42)  # Selects 10 samples from the dataset
 shuffled_dataset = dataset.shuffle(seed=42)  # Shuffle the dataset
 
 split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
