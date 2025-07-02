@@ -14,7 +14,7 @@ from hafnia.dataset.builder.builders import (
 from hafnia.dataset.builder.dataset_transformations import SelectSamples, Shuffle, SplitsByRatios
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.operations import dataset_transformations
-from hafnia.helper_testing import get_hafnia_functions_from_module
+from hafnia.helper_testing import get_hafnia_functions_from_module, is_hafnia_configured
 from hafnia.utils import snake_to_pascal_case
 
 
@@ -129,7 +129,8 @@ def test_run_dataset_builders(dataset_builder: DatasetBuilder):
     """
     Test that LoadDataset builder can be created and serialized.
     """
-
+    if not is_hafnia_configured():
+        pytest.skip("Hafnia is not configured, skipping dataset builder tests.")
     # Ensure that the dataset builder can be called and returns a HafniaDataset
     dataset: HafniaDataset = dataset_builder()
     assert isinstance(dataset, HafniaDataset), "Dataset is not an instance of HafniaDataset"
