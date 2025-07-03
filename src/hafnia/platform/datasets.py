@@ -10,11 +10,11 @@ from tqdm import tqdm
 
 from cli.config import Config
 from hafnia import utils
-from hafnia.dataset.builder.builder_helpers import (
-    convert_to_explicit_specification,
-    get_dataset_path_from_specification,
+from hafnia.dataset.data_recipe.data_recipe_helpers import (
+    convert_to_explicit_recipe_form,
+    get_dataset_path_from_recipe,
 )
-from hafnia.dataset.dataset_names import DATASET_FILENAMES, ColumnName
+from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED, ColumnName
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.http import fetch
 from hafnia.log import user_logger
@@ -47,8 +47,8 @@ def download_or_get_dataset_path(
     if utils.is_remote_job():
         return Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))
 
-    specification_explicit = convert_to_explicit_specification(dataset_name)
-    path_dataset = get_dataset_path_from_specification(specification_explicit, path_datasets=path_datasets_folder)
+    recipe_explicit = convert_to_explicit_recipe_form(dataset_name)
+    path_dataset = get_dataset_path_from_recipe(recipe_explicit, path_datasets=path_datasets_folder)
 
     is_dataset_valid = HafniaDataset.check_dataset_path(path_dataset, raise_error=False)
     if is_dataset_valid and not force_redownload:
@@ -83,9 +83,9 @@ def download_dataset_from_access_endpoint(
 ) -> None:
     resource_credentials = get_resource_credentials(endpoint, api_key)
 
-    local_dataset_paths = [str(path_dataset / filename) for filename in DATASET_FILENAMES]
+    local_dataset_paths = [str(path_dataset / filename) for filename in DATASET_FILENAMES_REQUIRED]
     s3_uri = resource_credentials.s3_uri()
-    s3_dataset_files = [f"{s3_uri}/{filename}" for filename in DATASET_FILENAMES]
+    s3_dataset_files = [f"{s3_uri}/{filename}" for filename in DATASET_FILENAMES_REQUIRED]
 
     envs = resource_credentials.aws_credentials()
     fast_copy_files_s3(

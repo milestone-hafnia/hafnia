@@ -13,7 +13,7 @@ from hafnia.helper_testing import is_hafnia_configured
         "examples/example_torchvision_dataloader.py",
         "examples/example_hafnia_dataset.py",
         "examples/example_logger.py",
-        "examples/example_dataset_builder.py",
+        "examples/example_dataset_recipe.py",
         # Add other example scripts here
     ],
 )

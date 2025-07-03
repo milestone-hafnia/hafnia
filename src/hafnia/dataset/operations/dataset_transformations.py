@@ -2,30 +2,30 @@
 Hafnia dataset transformations that takes and returns a HafniaDataset object.
 
 All functions here will have a corresponding function in both the HafniaDataset class
-and a corresponding SerializableFunction class in the `builder/dataset_transformations.py` file.
+and a corresponding RecipeTransform class in the `data_recipe/recipe_transformations.py` file.
 
 This allows each function to be used in three ways:
 
 ```python
 from hafnia.dataset.operations import dataset_transformations
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.builder.dataset_transformations import SplitByRatios
+from hafnia.dataset.data_recipe.recipe_transformations import SplitByRatios
 
 split_by_ratios = {"train": 0.8, "val": 0.1, "test": 0.1}
 
 # Option 1: Using the function directly
-dataset = dataset_transformations.splits_by_ratios(dataset, split_ratios=split_by_ratios)
+dataset = recipe_transformations.splits_by_ratios(dataset, split_ratios=split_by_ratios)
 
 # Option 2: Using the method of the HafniaDataset class
 dataset = dataset.splits_by_ratios(split_ratios=split_by_ratios)
 
-# Option 3: Using the SerializableFunction class
+# Option 3: Using the RecipeTransform class
 serializable_transform = SplitByRatios(split_ratios=split_by_ratios)
 dataset = serializable_transform(dataset)
 ```
 
 Tests will ensure that all functions in this file will have a corresponding function in the
-HafniaDataset class and a SerializableFunction class in the `builder/dataset_transformations.py` file and
+HafniaDataset class and a RecipeTransform class in the `data_recipe/recipe_transformations.py` file and
 that the signatures match.
 """
 

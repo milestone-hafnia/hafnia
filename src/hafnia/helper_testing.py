@@ -4,7 +4,7 @@ from types import FunctionType
 from typing import Callable, Dict
 
 from hafnia import utils
-from hafnia.dataset.builder import builders
+from hafnia.dataset.data_recipe import data_recipes
 from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, DatasetVariant
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
@@ -87,7 +87,7 @@ def get_hafnia_functions_from_module(python_module) -> Dict[str, FunctionType]:
             return False
         first_argument_type = list(params.values())[0]
 
-        annotation_as_str = builders.annotation_as_string(first_argument_type.annotation)
+        annotation_as_str = data_recipes.annotation_as_string(first_argument_type.annotation)
         return annotation_as_str == "HafniaDataset"
 
     functions = {func[0]: func[1] for func in getmembers(python_module, isfunction) if dataset_is_first_arg(func[1])}

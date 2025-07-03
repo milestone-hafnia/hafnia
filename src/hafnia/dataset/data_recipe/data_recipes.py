@@ -20,7 +20,7 @@ class Serializable:
     @classmethod
     def get_nested_subclasses(cls) -> List[type["Serializable"]]:
         """Recursively get all subclasses of a class."""
-        from hafnia.dataset.builder import dataset_transformations  # noqa F401
+        from hafnia.dataset.data_recipe import recipe_transformations  # noqa F401
 
         all_subclasses = []
         for subclass in cls.__subclasses__():
@@ -47,6 +47,11 @@ class Serializable:
         data = json.loads(json_str)
         return Serializable.from_dict(data)
 
+    @staticmethod
+    def from_json_file(path_json: Path) -> "Serializable":
+        json_str = path_json.read_text(encoding="utf-8")
+        return Serializable.from_json_str(json_str)
+
 
 def annotation_as_string(annotation: Union[type, str]) -> str:
     """Convert type annotation to string."""
@@ -57,10 +62,48 @@ def annotation_as_string(annotation: Union[type, str]) -> str:
     return str(annotation)
 
 
-class SerializableFunction(BaseModel, Serializable, ABC):
-    def __call__(self, *args) -> HafniaDataset:
+class RecipeTransform(BaseModel, Serializable, ABC):
+    """
+    This base class is used to define a recipe transform that can be serialized and deserialized.
+    An important trick/feature/property of this class is that it is defined by a function that takes a HafniaDataset
+    as the first argument. This allows the transform to be called like a function, while still
+    being a Pydantic model that can be serialized and deserialized.
+
+    Example of defining a RecipeTransform based on the `dataset_transformations.shuffle` function:
+
+    ```python
+
+    class Shuffle(RecipeTransform):
+        seed: int = 42
+
+        @staticmethod
+        def get_function():
+            return dataset_transformations.shuffle
+    ```
+
+    This class can then be used in a recipe as follows:
+    ```python
+    from hafnia.dataset.data_recipe.recipe_transformations import Shuffle
+    dataset: HafniaDataset = ...  # Load or create a HafniaDataset instance
+    shuffle_transform = Shuffle(seed=42)
+    dataset: HafniaDataset = shuffle_transform(dataset)
+    ```
+
+    The 'check_signature' method will check if the function signature defined in `get_function()`
+    matches the Pydantic model fields for all subclasses of `RecipeTransform`. In the
+    above example with `Shuffle`. `Shuffle.check_signature()` will check that the
+    `dataset_transformations.shuffle`-function has exactly one argument `seed` of type `int` with a default value
+    of 42 that it returns a `HafniaDataset`.
+
+    """
+
+    def build(self, *args) -> HafniaDataset:
         kwargs = {name: getattr(self, name) for name in self.model_fields.keys()}
         return self.get_function()(*args, **kwargs)
+
+    def __call__(self, *args) -> HafniaDataset:
+        """Allow the transform to be called like a function."""
+        return self.build(*args)
 
     @staticmethod
     @abstractmethod
@@ -98,46 +141,44 @@ class SerializableFunction(BaseModel, Serializable, ABC):
         return f"{self.__class__.__name__}"
 
 
-class Transforms(BaseModel, Serializable):
-    loader: DatasetBuilder
-    transforms: List[SerializableFunction]
+class RecipeTransforms(BaseModel, Serializable):
+    recipe: DataRecipe
+    transforms: List[RecipeTransform]
 
-    def __call__(self) -> HafniaDataset:
+    def build(self) -> HafniaDataset:
         """Apply all transforms to the dataset."""
-        dataset = self.loader()
+        dataset = self.recipe.build()
         for transform in self.transforms:
-            dataset = transform(dataset)
+            dataset = transform.build(dataset)
         return dataset
 
     @field_validator("transforms", mode="plain")
     @classmethod
-    def validate_transforms(cls, transforms: List[Union[Dict, SerializableFunction]]) -> List[SerializableFunction]:
-        transforms_validated: List[SerializableFunction] = []
+    def validate_transforms(cls, transforms: List[Union[Dict, RecipeTransform]]) -> List[RecipeTransform]:
+        transforms_validated: List[RecipeTransform] = []
         for transform in transforms:
             if isinstance(transform, dict):
                 transform = Serializable.from_dict(transform)  # type: ignore[assignment]
-            if not isinstance(transform, SerializableFunction):
-                raise TypeError(
-                    f"All transforms must be instances of SerializableFunction, got {type(transform).__name__}."
-                )
+            if not isinstance(transform, RecipeTransform):
+                raise TypeError(f"All transforms must be instances of RecipeTransform, got {type(transform).__name__}.")
             transforms_validated.append(transform)
         return transforms_validated
 
     @field_serializer("transforms")
-    def serialize_transforms(self, transforms: List[SerializableFunction]) -> List[dict]:
+    def serialize_transforms(self, transforms: List[RecipeTransform]) -> List[dict]:
         """Serialize transforms to a list of dictionaries."""
-        return [transform.model_dump() for transform in self.transforms]
+        return [transform.model_dump() for transform in transforms]
 
     def short_name(self) -> str:
         """Return a short name for the transforms."""
-        loader_name = self.loader.short_name()
+        recipe_name = self.recipe.short_name()
         short_name_transforms = [transform.short_name() for transform in self.transforms]
-        short_names = [loader_name, *short_name_transforms]
+        short_names = [recipe_name, *short_name_transforms]
         transforms_str = ",".join(short_names)
-        return f"[{transforms_str}]"
+        return f"Transform({transforms_str})"
 
 
-class DatasetFromName(SerializableFunction):
+class DatasetRecipeFromName(RecipeTransform):
     name: str
     force_redownload: bool = False
     download_files: bool = True
@@ -150,7 +191,7 @@ class DatasetFromName(SerializableFunction):
         return self.name
 
 
-class DatasetFromPath(SerializableFunction):
+class DatasetRecipeFromPath(RecipeTransform):
     path_folder: Path
     check_for_images: bool = True
 
@@ -161,32 +202,32 @@ class DatasetFromPath(SerializableFunction):
     def short_name(self) -> str:
         max_parent_paths_to_include = 3
         path_parts = self.path_folder.parts[-max_parent_paths_to_include:]
-        short_path = "-".join(path_parts)
-        return short_path
+        short_path = "|".join(path_parts)
+        return f'"{short_path}"'
 
 
-class DatasetMerger(BaseModel, Serializable):
-    builders: List[DatasetBuilder]
+class RecipeMerger(BaseModel, Serializable):
+    recipes: List[DataRecipe]
 
-    def __call__(self) -> HafniaDataset:
-        """Concatenate datasets from all loaders."""
-        if len(self.builders) == 0:
-            raise ValueError("At least one loader must be provided.")
+    def build(self) -> HafniaDataset:
+        """Concatenate recipes."""
+        if len(self.recipes) == 0:
+            raise ValueError("At least one recipe must be provided.")
 
-        dataset_builders = self.builders.copy()
-        first_dataset_builder: DatasetBuilder = dataset_builders.pop(0)
-        dataset_merged: HafniaDataset = first_dataset_builder()  # Call the first loader to get the initial dataset
-        for loader in dataset_builders:  # Iterate the remaining loaders
-            dataset: HafniaDataset = loader()
+        data_recipes = self.recipes.copy()
+        first_data_recipe: DataRecipe = data_recipes.pop(0)
+        dataset_merged: HafniaDataset = first_data_recipe.build()  # Call the first recipe to get the initial dataset
+        for recipe in data_recipes:  # Iterate the remaining recipes
+            dataset: HafniaDataset = recipe.build()
             dataset_merged = dataset_merged.merge(dataset)
 
         return dataset_merged
 
     def short_name(self) -> str:
         """Return a short name for the merged dataset."""
-        names = [builder.short_name() for builder in self.builders]
-        str_names = ",".join(names)
-        return f"({str_names})"
+        recipe_names = [recipe.short_name() for recipe in self.recipes]
+        str_recipe_names = ",".join(recipe_names)
+        return f"Merge({str_recipe_names})"
 
 
-DatasetBuilder = Union[Transforms, DatasetFromName, DatasetFromPath, DatasetMerger]
+DataRecipe = Union[RecipeTransforms, DatasetRecipeFromName, DatasetRecipeFromPath, RecipeMerger]

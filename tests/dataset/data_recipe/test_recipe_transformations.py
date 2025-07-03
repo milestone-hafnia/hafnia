@@ -1,4 +1,4 @@
-from hafnia.dataset.builder.dataset_transformations import (
+from hafnia.dataset.data_recipe.recipe_transformations import (
     DefineSampleSetBySize,
     SelectSamples,
     Shuffle,

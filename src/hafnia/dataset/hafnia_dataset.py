@@ -18,10 +18,11 @@ from tqdm import tqdm
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import (
-    DATASET_FILENAMES,
+    DATASET_FILENAMES_REQUIRED,
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
     FILENAME_DATASET_INFO,
+    FILENAME_RECIPE_JSON,
     ColumnName,
     FieldName,
     SplitName,
@@ -211,6 +212,48 @@ class HafniaDataset:
         )
         return HafniaDataset.from_path(dataset_path, check_for_images=download_files)
 
+    @staticmethod
+    def from_recipe(dataset_recipe: Any) -> "HafniaDataset":
+        """
+        Load a dataset from a recipe. The recipe can be a string (name of the dataset), a dictionary, or a DataRecipe object.
+        """
+        from hafnia.dataset.data_recipe.data_recipe_helpers import convert_to_explicit_recipe_form
+        from hafnia.dataset.data_recipe.data_recipes import DataRecipe
+
+        recipe_explicit: DataRecipe = convert_to_explicit_recipe_form(dataset_recipe)
+
+        return recipe_explicit.build()  # Build dataset from the recipe
+
+    @staticmethod
+    def from_recipe_to_disk(
+        dataset_recipe: Any,
+        force_redownload: bool = False,
+        path_datasets: Optional[Union[Path, str]] = None,
+    ) -> Path:
+        from hafnia.dataset.data_recipe.data_recipe_helpers import (
+            convert_to_explicit_recipe_form,
+            get_dataset_path_from_recipe,
+        )
+        from hafnia.dataset.data_recipe.data_recipes import DataRecipe
+
+        recipe_explicit: DataRecipe = convert_to_explicit_recipe_form(dataset_recipe)
+        path_dataset = get_dataset_path_from_recipe(recipe_explicit, path_datasets=path_datasets)
+
+        if force_redownload:
+            shutil.rmtree(path_dataset, ignore_errors=True)
+
+        if HafniaDataset.check_dataset_path(path_dataset, raise_error=False):
+            return path_dataset
+
+        path_dataset.mkdir(parents=True, exist_ok=True)
+        path_recipe_json = path_dataset / FILENAME_RECIPE_JSON
+        path_recipe_json.write_text(recipe_explicit.model_dump_json(indent=4))
+
+        dataset: HafniaDataset = recipe_explicit.build()
+        dataset.write(path_dataset)
+
+        return path_dataset
+
     def as_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
         if ColumnName.SPLIT not in self.samples.columns:
             raise ValueError(f"Dataset must contain a '{ColumnName.SPLIT}' column.")
@@ -320,7 +363,7 @@ class HafniaDataset:
         if add_version:
             path_version = path_folder / "versions" / f"{self.info.version}"
             path_version.mkdir(parents=True, exist_ok=True)
-            for filename in DATASET_FILENAMES:
+            for filename in DATASET_FILENAMES_REQUIRED:
                 shutil.copy2(path_folder / filename, path_version / filename)
 
     def __eq__(self, value) -> bool:
