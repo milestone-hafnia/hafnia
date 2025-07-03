@@ -1,3 +1,4 @@
+import hashlib
 import os
 import time
 import zipfile
@@ -135,3 +136,21 @@ def show_recipe_content(recipe_path: Path, style: str = "emoji", depth_limit: in
 def is_remote_job() -> bool:
     """Check if the current job is running in HAFNIA cloud environment."""
     return os.getenv("HAFNIA_CLOUD", "false").lower() == "true"
+
+
+def pascal_to_snake_case(name: str) -> str:
+    """
+    Convert PascalCase to snake_case.
+    """
+    return "".join(["_" + char.lower() if char.isupper() else char for char in name]).lstrip("_")
+
+
+def snake_to_pascal_case(name: str) -> str:
+    """
+    Convert snake_case to PascalCase.
+    """
+    return "".join(word.capitalize() for word in name.split("_"))
+
+
+def hash_from_string(s: str) -> str:
+    return hashlib.md5(s.encode()).hexdigest()

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 import torchvision
 import torchvision.transforms.functional
@@ -43,11 +45,14 @@ if __name__ == "__main__":
     image, targets = train_dataset[0]
     visualize_image = torch_helpers.draw_image_and_targets(image=image, targets=targets)
     pil_image = torchvision.transforms.functional.to_pil_image(visualize_image)
-    pil_image.save("visualized_labels.png")
+
+    path_tmp = Path(".data/tmp")
+    path_tmp.mkdir(parents=True, exist_ok=True)
+    pil_image.save(path_tmp / "visualized_labels.png")
 
     # Create DataLoaders - using TorchVisionCollateFn
     collate_fn = torch_helpers.TorchVisionCollateFn()
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
+    train_loader = DataLoader(train_dataset, batch_size=5, shuffle=True, collate_fn=collate_fn)
 
     for images, targets in train_loader:
         print(f"Batch of images: {len(images)}")

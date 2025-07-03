@@ -4,12 +4,12 @@ from typing import List, Optional, Type
 import polars as pl
 from tqdm import tqdm
 
-from hafnia.dataset import table_transformations
 from hafnia.dataset.dataset_names import (
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
     FieldName,
 )
+from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.primitive import Primitive
