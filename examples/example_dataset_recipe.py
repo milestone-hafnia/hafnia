@@ -2,6 +2,7 @@ from pathlib import Path
 
 from rich import print as rprint
 
+from hafnia.data.factory import load_dataset
 from hafnia.dataset.data_recipe.data_recipe_helpers import convert_to_explicit_recipe_form
 from hafnia.dataset.data_recipe.data_recipes import (
     DataRecipe,
@@ -44,6 +45,14 @@ rprint(dataset_recipe)
 
 # To actually generate the dataset, you call build() on the recipe.
 merged_dataset: HafniaDataset = dataset_recipe.build()
+
+# Or use the `load_dataset` function to load the dataset directly.
+merged_dataset: HafniaDataset = load_dataset(dataset_recipe)
+# You get a few extra things when using `load_dataset`.
+# 1) You can use an implicit form of the recipe (described later).
+# 2) The dataset is cached if it exists, so you don't have to
+#    download or rebuild the dataset every time.
+
 assert len(merged_dataset) == 20
 
 # Recipes can be infinitely nested and combined.
@@ -74,7 +83,7 @@ dataset_recipe = RecipeMerger(
 )
 
 
-# To actually build the dataset, you call the build() method on the recipe.
+# Now you can build the dataset from the recipe.
 dataset: HafniaDataset = dataset_recipe.build()
 assert len(dataset) == 450  # 20 + 30 + 2x200
 
