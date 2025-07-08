@@ -113,6 +113,17 @@ class Config:
 
     def load_config(self) -> ConfigFileSchema:
         """Load configuration from file."""
+
+        # Environment variables has higher priority than config file
+        HAFNIA_API_KEY = os.getenv("HAFNIA_API_KEY")
+        HAFNIA_PLATFORM_URL = os.getenv("HAFNIA_PLATFORM_URL")
+        if HAFNIA_API_KEY and HAFNIA_PLATFORM_URL:
+            cfg = ConfigFileSchema(
+                active_profile="default",
+                profiles={"default": ConfigSchema(platform_url=HAFNIA_PLATFORM_URL, api_key=HAFNIA_API_KEY)},
+            )
+            return cfg
+
         if not self.config_path.exists():
             return ConfigFileSchema()
         try:

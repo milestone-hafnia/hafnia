@@ -1,10 +1,9 @@
 from inspect import getmembers, isfunction, signature
 from pathlib import Path
 from types import FunctionType
-from typing import Callable, Dict
+from typing import Any, Callable, Dict, Union, get_origin
 
 from hafnia import utils
-from hafnia.dataset.data_recipe import data_recipes
 from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, DatasetVariant
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
@@ -76,6 +75,21 @@ def is_hafnia_configured() -> bool:
     return Config().is_configured()
 
 
+def is_typing_type(annotation: Any) -> bool:
+    return get_origin(annotation) is not None
+
+
+def annotation_as_string(annotation: Union[type, str]) -> str:
+    """Convert type annotation to string."""
+    if isinstance(annotation, str):
+        return annotation.replace("'", "")
+    if is_typing_type(annotation):  # Is using typing types like List, Dict, etc.
+        return str(annotation).replace("typing.", "")
+    if hasattr(annotation, "__name__"):
+        return annotation.__name__
+    return str(annotation)
+
+
 def get_hafnia_functions_from_module(python_module) -> Dict[str, FunctionType]:
     def dataset_is_first_arg(func: Callable) -> bool:
         """
@@ -87,7 +101,7 @@ def get_hafnia_functions_from_module(python_module) -> Dict[str, FunctionType]:
             return False
         first_argument_type = list(params.values())[0]
 
-        annotation_as_str = data_recipes.annotation_as_string(first_argument_type.annotation)
+        annotation_as_str = annotation_as_string(first_argument_type.annotation)
         return annotation_as_str == "HafniaDataset"
 
     functions = {func[0]: func[1] for func in getmembers(python_module, isfunction) if dataset_is_first_arg(func[1])}

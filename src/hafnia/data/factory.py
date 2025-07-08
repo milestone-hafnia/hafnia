@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from hafnia import utils
-from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset import HafniaDataset, get_or_create_dataset_path_from_recipe
 
 
 def load_dataset(recipe: Any, force_redownload: bool = False) -> HafniaDataset:
@@ -18,6 +18,6 @@ def get_dataset_path(recipe: Any, force_redownload: bool = False) -> Path:
     if utils.is_remote_job():
         return Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))
 
-    path_dataset = HafniaDataset.from_recipe_to_disk(recipe, force_redownload=force_redownload)
+    path_dataset = get_or_create_dataset_path_from_recipe(recipe, force_redownload=force_redownload)
 
     return path_dataset
