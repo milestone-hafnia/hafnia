@@ -1,4 +1,11 @@
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+
+import pytest
+
 from hafnia.dataset.dataset_names import ColumnName
+from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe, FromName
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
     DefineSampleSetBySize,
     SelectSamples,
@@ -6,8 +13,101 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
     SplitIntoMultipleSplits,
     SplitsByRatios,
 )
+from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.helper_testing import get_micro_hafnia_dataset
+
+
+@dataclass
+class TestCaseRecipeTransform:
+    recipe_transform: RecipeTransform
+    as_code: str
+    short_name: str
+
+    def as_dataset_recipe(self) -> DatasetRecipe:
+        return DatasetRecipe(creation=FromName(name="test"), operations=[self.recipe_transform])
+
+
+def get_test_cases() -> list[TestCaseRecipeTransform]:
+    return [
+        TestCaseRecipeTransform(
+            recipe_transform=SelectSamples(n_samples=10, shuffle=True, seed=42),
+            as_code="select_samples(n_samples=10, shuffle=True, seed=42, with_replacement=False)",
+            short_name="SelectSamples",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=Shuffle(seed=123),
+            as_code="shuffle(seed=123)",
+            short_name="Shuffle",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=SplitsByRatios(split_ratios={"train": 0.5, "val": 0.25, "test": 0.25}, seed=42),
+            as_code="splits_by_ratios(split_ratios={'train': 0.5, 'val': 0.25, 'test': 0.25}, seed=42)",
+            short_name="SplitsByRatios",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=DefineSampleSetBySize(n_samples=100),
+            as_code="define_sample_set_by_size(n_samples=100, seed=42)",
+            short_name="DefineSampleSetBySize",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=SplitIntoMultipleSplits(split_name="test", split_ratios={"test": 0.5, "val": 0.5}),
+            as_code="split_into_multiple_splits(split_name='test', split_ratios={'test': 0.5, 'val': 0.5})",
+            short_name="SplitIntoMultipleSplits",
+        ),
+    ]
+
+
+def test_check_that_all_recipe_transforms_has_a_test_case():
+    """
+    Ensure that all recipe transformations are tested.
+    This is useful to ensure that new transformations are added to the test suite.
+    """
+    in_test_recipe_transforms = {tc.recipe_transform.__class__ for tc in get_test_cases()}
+    recipe_transforms = set(RecipeTransform.get_nested_subclasses())
+
+    transforms_missing_tests = recipe_transforms.difference(in_test_recipe_transforms)
+    missing_transforms = {tr.__name__ for tr in transforms_missing_tests}
+    error_msg = (
+        f"We expect all recipe transformations to have a test case, but have found '{RecipeTransform.__name__}' "
+        f"classes/subclasses that are not tested. \nPlease add a '{TestCaseRecipeTransform.__name__}' "
+        f"for the {missing_transforms=} in the list of test cases found in '{get_test_cases.__name__}()' "
+        "to ensure they are tested."
+    )
+
+    assert len(transforms_missing_tests) == 0, error_msg
+
+
+@pytest.mark.parametrize("test_case", get_test_cases(), ids=lambda tc: tc.as_code)
+def test_cases_serialization_deserialization_of_recipe_transform(test_case: TestCaseRecipeTransform):
+    dataset_recipe = test_case.as_dataset_recipe()
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".json") as tmp_file:
+        path_json = Path(tmp_file.name)
+        dataset_recipe.as_json_file(path_json)
+        dataset_recipe_again = DatasetRecipe.from_json_file(path_json)
+
+    assert dataset_recipe_again == dataset_recipe
+
+
+@pytest.mark.parametrize("test_case", get_test_cases(), ids=lambda tc: tc.as_code)
+def test_cases_as_code(test_case: TestCaseRecipeTransform):
+    """
+    Test that the `as_code` method of the recipe transformation returns the expected string representation.
+    """
+    code_str = test_case.recipe_transform.as_code(keep_default_fields=True, as_kwargs=True)
+
+    assert code_str == test_case.as_code
+
+
+@pytest.mark.parametrize("test_case", get_test_cases(), ids=lambda tc: tc.as_code)
+def test_cases_as_short_name(test_case: TestCaseRecipeTransform):
+    """
+    Test that the `as_short_name` method of the recipe transformation returns the expected string representation.
+    """
+    short_name = test_case.recipe_transform.as_short_name()
+
+    assert short_name == test_case.short_name
 
 
 def test_sample_transformation():
@@ -113,7 +213,7 @@ def test_split_into_multiple_splits():
 
     # Create a test split in the dataset
 
-    split_transformation = SplitIntoMultipleSplits(divide_split_name=divide_split_name, split_ratios=split_ratios)
+    split_transformation = SplitIntoMultipleSplits(split_name=divide_split_name, split_ratios=split_ratios)
     new_dataset = split_transformation.build(dataset)
 
     expected_split_counts = {"train": int(0.5 * n_samples), "test": int(0.25 * n_samples), "val": int(0.25 * n_samples)}

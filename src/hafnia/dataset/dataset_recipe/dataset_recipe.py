@@ -173,11 +173,9 @@ class DatasetRecipe(Serializable):
         return recipe
 
     def split_into_multiple_splits(
-        recipe: DatasetRecipe, divide_split_name: str, split_ratios: Dict[str, float]
+        recipe: DatasetRecipe, split_name: str, split_ratios: Dict[str, float]
     ) -> DatasetRecipe:
-        operation = recipe_transforms.SplitIntoMultipleSplits(
-            divide_split_name=divide_split_name, split_ratios=split_ratios
-        )
+        operation = recipe_transforms.SplitIntoMultipleSplits(split_name=split_name, split_ratios=split_ratios)
         recipe.append_operation(operation)
         return recipe
 
@@ -308,7 +306,7 @@ class FromMerge(RecipeCreation):
     def get_function():
         return HafniaDataset.merge
 
-    def as_short_name(self):
+    def as_short_name(self) -> str:
         merger = FromMerger(recipes=[self.recipe0, self.recipe1])
         return merger.as_short_name()
 
@@ -325,5 +323,5 @@ class FromMerger(RecipeCreation):
     def get_function():
         return HafniaDataset.from_merger
 
-    def as_short_name(self):
+    def as_short_name(self) -> str:
         return f"Merger({','.join(recipe.as_short_name() for recipe in self.recipes)})"

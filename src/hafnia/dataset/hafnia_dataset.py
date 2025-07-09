@@ -301,31 +301,29 @@ class HafniaDataset:
 
     def split_into_multiple_splits(
         dataset: "HafniaDataset",
-        divide_split_name: str,
+        split_name: str,
         split_ratios: Dict[str, float],
     ) -> "HafniaDataset":
         """
-        Divides a dataset split ('divide_split_name') into multiple splits based on the provided split
+        Divides a dataset split ('split_name') into multiple splits based on the provided split
         ratios ('split_ratios'). This is especially useful for some open datasets where they have only provide
         two splits or only provide annotations for two splits. This function allows you to create additional
         splits based on the provided ratios.
 
         Example: Defining split ratios and applying the transformation
         >>> dataset = HafniaDataset.read_from_path(Path("path/to/dataset"))
-        >>> divide_split_name = SplitName.TEST
+        >>> split_name = SplitName.TEST
         >>> split_ratios = {SplitName.TEST: 0.8, SplitName.VAL: 0.2}
-        >>> dataset_with_splits = split_into_multiple_splits(dataset, divide_split_name, split_ratios)
+        >>> dataset_with_splits = split_into_multiple_splits(dataset, split_name, split_ratios)
         """
-        dataset_split_to_be_divided = dataset.create_split_dataset(split_name=divide_split_name)
+        dataset_split_to_be_divided = dataset.create_split_dataset(split_name=split_name)
         if len(dataset_split_to_be_divided) == 0:
             split_counts = dict(dataset.samples.select(pl.col(ColumnName.SPLIT).value_counts()).iter_rows())
-            raise ValueError(
-                f"No samples in the '{divide_split_name}' split to divide into multiple splits. {split_counts=}"
-            )
-        assert len(dataset_split_to_be_divided) > 0, f"No samples in the '{divide_split_name}' split!"
+            raise ValueError(f"No samples in the '{split_name}' split to divide into multiple splits. {split_counts=}")
+        assert len(dataset_split_to_be_divided) > 0, f"No samples in the '{split_name}' split!"
         dataset_split_to_be_divided = dataset_split_to_be_divided.splits_by_ratios(split_ratios=split_ratios, seed=42)
 
-        remaining_data = dataset.samples.filter(pl.col(ColumnName.SPLIT).is_in([divide_split_name]).not_())
+        remaining_data = dataset.samples.filter(pl.col(ColumnName.SPLIT).is_in([split_name]).not_())
         new_table = pl.concat([remaining_data, dataset_split_to_be_divided.samples], how="vertical")
         dataset_new = dataset.update_table(new_table)
         return dataset_new

@@ -199,6 +199,14 @@ class IntegrationTestUseCase:
             recipe=("mnist", ("mnist", ["mnist", SelectSamples(n_samples=10), Shuffle()])),
             short_name="Merger(mnist,Merger(mnist,Recipe(mnist,SelectSamples,Shuffle)))",
         ),
+        IntegrationTestUseCase(
+            recipe=DatasetRecipe.from_name(name="mnist")
+            .select_samples(n_samples=30)
+            .splits_by_ratios(split_ratios={"train": 0.8, "test": 0.2})
+            .split_into_multiple_splits(split_name="test", split_ratios={"val": 0.5, "test": 0.5})
+            .define_sample_set_by_size(n_samples=10),
+            short_name="Recipe(mnist,SelectSamples,SplitsByRatios,SplitIntoMultipleSplits,DefineSampleSetBySize)",
+        ),
     ],
     ids=lambda test_case: test_case.short_name,  # To use the name of the test case as the ID for clarity
 )

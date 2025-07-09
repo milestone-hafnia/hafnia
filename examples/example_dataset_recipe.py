@@ -11,46 +11,57 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-### Introducing DataRecipe ###
-# A DataRecipe is a blueprint for the dataset you want to create.
+### Introducing DatasetRecipe ###
+# A DatasetRecipe is a recipe for the dataset you want to create.
 # The recipe itself is not executed - this is just a specification of the dataset you want!
 
-# Dataset recipe from name
-dataset_recipe: DatasetRecipe = DatasetRecipe.from_name(name="mnist")
+# A DatasetRecipe is an important concept in Hafnia as it allows you to merge multiple datasets
+# and transformations in a single recipe. This is especially useful for Training as a Service (TaaS)
+# where you need to define the dataset you want as a configuration and load it in the TaaS platform.
 
+# The 'DatasetRecipe' interface is similar to the 'HafniaDataset' interface.
+# To demonstrate, we will first create a dataset with the regular 'HafniaDataset' interface.
+# This line will get the "mnist" dataset, shuffle it, and select 20 samples.
+dataset = HafniaDataset.from_name(name="mnist").shuffle().select_samples(n_samples=20)
 
-# Dataset recipe from path
-dataset_recipe: DatasetRecipe = DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
+# Now the same dataset is created using the 'DatasetRecipe' interface.
+dataset_recipe = DatasetRecipe.from_name(name="mnist").shuffle().select_samples(n_samples=20)
+dataset = dataset_recipe.build()
+# Note that the interface is similar, but to actually create the dataset you need to call `build()` on the recipe.
 
-# Merge recipes into one recipe
-dataset_recipe: DatasetRecipe = DatasetRecipe.from_merger(
+# An important feature of a 'DatasetRecipe' is that the recipe itself - and not the dataset - can be saved as a file
+# and loaded from file. Meaning you can easily save, share, load and build the dataset later or in a different
+# environment.
+# In programming language, the recipe can be serialized to JSON and deserialized back to the original python object
+# recipe.
+# For TaaS, this is the only way to include multiple datasets during training.
+
+# This is how it looks like in practice:
+# 1) Save the dataset recipe to a file
+path_json = Path(".data/tmp/dataset_recipe.json")
+dataset_recipe.as_json_file(path_json)
+
+# 2) The recipe can be loaded from the file
+dataset_recipe_again = DatasetRecipe.from_json_file(path_json)
+
+# We can verify that the loaded recipe is the same as the original recipe.
+assert dataset_recipe_again == dataset_recipe
+
+# Additionally, you can get the python code for creating the same recipe.
+dataset_recipe.as_code()
+
+# Example: DatasetRecipe from Path
+dataset_recipe = DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
+
+# Example: DatasetRecipe by merging multiple dataset recipes
+dataset_recipe = DatasetRecipe.from_merger(
     recipes=[
         DatasetRecipe.from_name(name="mnist"),
         DatasetRecipe.from_name(name="mnist"),
     ]
 )
 
-# Recipe with transformations
-dataset_recipe: DatasetRecipe = (
-    DatasetRecipe.from_name(name="mnist").select_samples(n_samples=20, shuffle=True, seed=42).shuffle(seed=123)
-)
-
-rprint(dataset_recipe.as_json_str())
-
-# To actually generate the dataset, you call build() on the recipe.
-merged_dataset: HafniaDataset = dataset_recipe.build()
-
-# Or use the `load_dataset` function to load the dataset directly.
-merged_dataset: HafniaDataset = load_dataset(dataset_recipe)
-# You get a few extra things when using `load_dataset`.
-# 1) You can use an implicit form of the recipe (described later).
-# 2) The dataset is cached if it exists, so you don't have to
-#    download or rebuild the dataset every time.
-
-assert len(merged_dataset) == 20
-
-# Recipes can be infinitely nested and combined.
-# This includes: loading, sampling, shuffling, splitting, and merging datasets.
+# Example: Recipes can be infinitely nested and combined.
 dataset_recipe = DatasetRecipe.from_merger(
     recipes=[
         DatasetRecipe.from_merger(
@@ -68,37 +79,51 @@ dataset_recipe = DatasetRecipe.from_merger(
 
 # Now you can build the dataset from the recipe.
 dataset: HafniaDataset = dataset_recipe.build()
-assert len(dataset) == 450  # 20 + 30 + 2x200
+assert len(dataset) == 450  # 2x200 + 30 + 20
 
-# An important feature of the dataset recipe is that it can be serialized to JSON
-# and deserialize back to the original recipe. Meaning that the dataset recipe can be saved, shared,
-# loaded and built as a dataset.
-#
-# This allows you to do the following:
-# 1) For model training, a desired dataset can be defined from a configuration file - without changing the code.
-#    Improving configurability and reproducibility of your experiments.
-# 2) The data recipe is also useful for Training as a Service (TaaS) as it allows you to define the dataset
-#    you want in a configuration file and load it in the TaaS platform.
-# 3) Finally, creating a recipe file requires you to define
+# Finally, you can print the dataset recipe to see what it contains.
+rprint(dataset_recipe)  # as a python object
+print(dataset_recipe.as_json_str())  # as a JSON string
 
 
-path_json = Path(".data/tmp/dataset_recipe.json")
-dataset_recipe.as_json_file(path_json)
+# Example: Using the 'load_dataset' function
+merged_dataset: HafniaDataset = load_dataset(dataset_recipe)
+# You get a few extra things when using `load_dataset`.
+# 1) You get the dataset directly - you don't have to call `build()` on the recipe.
+# 2) The dataset is cached if it already exists, so you don't have to
+#    download or rebuild the dataset on the second run.
+# 3) You can use an implicit form of the recipe. One example of this is that you just specify
+#    the dataset name `load_dataset("mnist")` or path `load_dataset(Path(".data/datasets/mnist"))`
 
-# And load the dataset recipe from a file
-dataset_recipe_again = DatasetRecipe.from_json_file(path_json)
 
-assert dataset_recipe_again == dataset_recipe
+### DatasetRecipe Implicit Form ###
+# Below we demonstrate the difference between implicit and explicit forms of dataset recipes.
+# Example: Get dataset by name with implicit and explicit forms
+dataset = load_dataset("mnist")  # Implicit form
+dataset = load_dataset(DatasetRecipe.from_name(name="mnist"))  # Explicit form
+
+# Example: Get dataset from path with implicit and explicit forms:
+dataset = load_dataset(Path(".data/datasets/mnist"))  # Implicit form
+dataset = load_dataset(DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist")))  # Explicit form
+
+# Example: Merge datasets with implicit and explicit forms
+dataset = load_dataset(("mnist", "mnist"))  # Implicit form
+dataset = load_dataset(  # Explicit form
+    DatasetRecipe.from_merger(
+        recipes=[
+            DatasetRecipe.from_name(name="mnist"),
+            DatasetRecipe.from_name(name="mnist"),
+        ]
+    )
+)
+
+# Example: Define a dataset with transformations using implicit and explicit forms
+dataset = load_dataset(["mnist", SelectSamples(n_samples=20), Shuffle()])  # Implicit form
+dataset = load_dataset(DatasetRecipe.from_name(name="mnist").select_samples(n_samples=20).shuffle())  # Explicit form
 
 
-## Data recipe in implicit form
-# Above recipe becomes very verbose for many operations. To simplify this, you can use an implicit form.
-# The implicit form allows you to specify datasets in a more concise way using below rules:
-#    str: Will get a dataset by name -> In explicit form it becomes 'DatasetRecipe.from_name'
-#    Path: Will get a dataset from path -> In explicit form it becomes 'DatasetRecipe.from_path'
-#    tuple: Will merge datasets specified in the tuple -> In explicit form it becomes 'DatasetRecipe.from_merger'
-#    list: Will define a dataset followed by a list of transformations -> In explicit form it becomes 'DatasetRecipe()'
-
+# Example: Complex nested example with implicit vs explicit forms
+# Implicit form of a complex dataset recipe
 split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
 implicit_recipe = (
     ("mnist", "mnist"),
@@ -106,10 +131,35 @@ implicit_recipe = (
     ["mnist", SelectSamples(n_samples=20), Shuffle()],
 )
 
+# Explicit form of the same complex dataset recipe
+explicit_recipe = DatasetRecipe.from_merger(
+    recipes=[
+        DatasetRecipe.from_merger(
+            recipes=[
+                DatasetRecipe.from_name(name="mnist"),
+                DatasetRecipe.from_name(name="mnist"),
+            ]
+        ),
+        DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
+        .select_samples(n_samples=30)
+        .splits_by_ratios(split_ratios=split_ratio),
+        DatasetRecipe.from_name(name="mnist").select_samples(n_samples=20).shuffle(),
+    ]
+)
 
-# Test the conversion function
-explicit_recipe = DatasetRecipe.from_implicit_form(implicit_recipe)
+# The implicit form uses the following rules:
+#    str: Will get a dataset by name -> In explicit form it becomes 'DatasetRecipe.from_name'
+#    Path: Will get a dataset from path -> In explicit form it becomes 'DatasetRecipe.from_path'
+#    tuple: Will merge datasets specified in the tuple -> In explicit form it becomes 'DatasetRecipe.from_merger'
+#    list: Will define a dataset followed by a list of transformations -> In explicit form it becomes chained method calls
+# Generally, we recommend using the explicit form over the implicit form when multiple datasets and transformations are involved.
+
+
+# To convert from implicit to explicit recipe form, you can use the `from_implicit_form` method.
+explicit_recipe_from_implicit = DatasetRecipe.from_implicit_form(implicit_recipe)
 rprint("Converted explicit recipe:")
-rprint(explicit_recipe)
+rprint(explicit_recipe_from_implicit)
 
-assert explicit_recipe == dataset_recipe_again
+# Verify that the conversion produces the same result
+assert explicit_recipe_from_implicit == explicit_recipe
+rprint("✓ Conversion successful - recipes are equivalent!")

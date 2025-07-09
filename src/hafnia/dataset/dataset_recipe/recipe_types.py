@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from pydantic import BaseModel, computed_field
 
@@ -28,19 +28,19 @@ class Serializable(BaseModel, ABC):
         return all_subclasses
 
     @classmethod
-    def name_to_type_mapping(cls) -> dict[str, type["Serializable"]]:
+    def name_to_type_mapping(cls) -> Dict[str, type["Serializable"]]:
         """Create a mapping from class names to class types."""
         return {subclass.__name__: subclass for subclass in cls.get_nested_subclasses()}
 
     @staticmethod
-    def from_dict(data: dict) -> "Serializable":
+    def from_dict(data: Dict) -> "Serializable":
         dataset_spec_args = data.copy()
         dataset_type_name = dataset_spec_args.pop("__type__", None)
         name_to_type_mapping = Serializable.name_to_type_mapping()
         SerializableClass = name_to_type_mapping[dataset_type_name]
         return SerializableClass(**dataset_spec_args)
 
-    def get_kwargs(self, keep_default_fields: bool) -> dict:
+    def get_kwargs(self, keep_default_fields: bool) -> Dict:
         """Return a dictionary of fields that are not set to their default values."""
         kwargs = dict(self)
         kwargs.pop("__type__", None)
@@ -92,9 +92,13 @@ def recursive_as_code(value: Any, keep_default_fields: bool = False, as_kwargs: 
         return f"[{as_str}]"
 
     elif isinstance(value, dict):
-        raise NotImplementedError(
-            "Was not implemented, but it wasn't needed. But we might need to handle dicts in the future."
-        )
+        as_strs = []
+        for key, item in value.items():
+            str_item = recursive_as_code(item, keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)
+            as_strs.append(f"{key!r}: {str_item}")
+        as_str = ", ".join(as_strs)
+        return "{" + as_str + "}"
+
     return f"{value!r}"
 
 
@@ -132,6 +136,5 @@ class RecipeTransform(Serializable):
         kwargs = dict(self)
         return self.get_function()(dataset=dataset, **kwargs)
 
-    def as_short_name(self):
-        # return self.as_code(keep_default_fields=False, as_kwargs=True)
+    def as_short_name(self) -> str:
         return self.__class__.__name__

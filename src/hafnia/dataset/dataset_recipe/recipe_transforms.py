@@ -36,7 +36,7 @@ class SplitsByRatios(RecipeTransform):
 
 
 class SplitIntoMultipleSplits(RecipeTransform):
-    divide_split_name: str
+    split_name: str
     split_ratios: Dict[str, float]
 
     @staticmethod

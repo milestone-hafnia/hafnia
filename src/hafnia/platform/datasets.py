@@ -17,7 +17,7 @@ from hafnia.dataset.dataset_recipe.dataset_recipe import (
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.http import fetch
-from hafnia.log import user_logger
+from hafnia.log import sys_logger, user_logger
 from hafnia.platform import get_dataset_id
 from hafnia.platform.download import get_resource_credentials
 from hafnia.utils import timed
@@ -60,7 +60,7 @@ def download_or_get_dataset_path(
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
     dataset_id = get_dataset_id(dataset_name=dataset_name, endpoint=endpoint_dataset, api_key=api_key)
     if dataset_id is None:
-        raise ValueError(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
+        sys_logger.error(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
     access_dataset_endpoint = f"{endpoint_dataset}/{dataset_id}/temporary-credentials"
 
     download_dataset_from_access_endpoint(
