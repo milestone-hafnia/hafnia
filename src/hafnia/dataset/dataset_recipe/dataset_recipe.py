@@ -185,11 +185,11 @@ class DatasetRecipe(Serializable):
         return recipe
 
     ### Conversions ###
-    def as_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
-        str_operations = [self.creation.as_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)]
+    def as_python_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
+        str_operations = [self.creation.as_python_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)]
         if self.operations:
             for op in self.operations:
-                str_operations.append(op.as_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs))
+                str_operations.append(op.as_python_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs))
         operations_str = ".".join(str_operations)
         return operations_str
 

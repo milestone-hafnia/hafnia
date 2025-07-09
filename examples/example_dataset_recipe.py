@@ -48,7 +48,7 @@ dataset_recipe_again = DatasetRecipe.from_json_file(path_json)
 assert dataset_recipe_again == dataset_recipe
 
 # Additionally, you can get the python code for creating the same recipe.
-dataset_recipe.as_code()
+dataset_recipe.as_python_code()
 
 # Example: DatasetRecipe from Path
 dataset_recipe = DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))

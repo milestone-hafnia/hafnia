@@ -228,7 +228,7 @@ def test_cases_integration_tests(recipe_use_case: IntegrationTestUseCase):
     )
 
     # Smoke test: Convert to code representation
-    code_str = dataset_recipe.as_code()
+    code_str = dataset_recipe.as_python_code()
     assert isinstance(code_str, str), "Code representation of dataset recipe is not a string"
 
     # Smoke test: Convert to JSON representation and back

@@ -60,7 +60,7 @@ class Serializable(BaseModel, ABC):
     def as_short_name(self) -> str:
         pass
 
-    def as_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
+    def as_python_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
         """Generate code representation of the operation."""
         kwargs = self.get_kwargs(keep_default_fields=keep_default_fields)
 
@@ -81,7 +81,7 @@ class Serializable(BaseModel, ABC):
 
 def recursive_as_code(value: Any, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
     if isinstance(value, Serializable):
-        return value.as_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)
+        return value.as_python_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)
 
     elif isinstance(value, list):
         as_strs = []
@@ -120,10 +120,10 @@ class RecipeCreation(Serializable):
             kwargs_recipes_as_datasets[key] = value
         return self.get_function()(**kwargs_recipes_as_datasets)
 
-    def as_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
+    def as_python_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
         """Generate code representation of the operation."""
-        as_code = Serializable.as_code(self, keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)
-        return f"DatasetRecipe.{as_code}"
+        as_python_code = Serializable.as_python_code(self, keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)
+        return f"DatasetRecipe.{as_python_code}"
 
 
 class RecipeTransform(Serializable):
