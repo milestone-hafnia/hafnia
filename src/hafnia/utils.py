@@ -153,4 +153,4 @@ def snake_to_pascal_case(name: str) -> str:
 
 
 def hash_from_string(s: str) -> str:
-    return hashlib.md5(s.encode()).hexdigest()
+    return hashlib.md5(s.encode("utf-8")).hexdigest()
