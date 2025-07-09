@@ -1,11 +1,12 @@
 from enum import Enum
 from typing import List
 
+FILENAME_RECIPE_JSON = "recipe.json"
 FILENAME_DATASET_INFO = "dataset_info.json"
 FILENAME_ANNOTATIONS_JSONL = "annotations.jsonl"
 FILENAME_ANNOTATIONS_PARQUET = "annotations.parquet"
 
-DATASET_FILENAMES = [
+DATASET_FILENAMES_REQUIRED = [
     FILENAME_DATASET_INFO,
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,

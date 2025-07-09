@@ -4,6 +4,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from random import Random
 from typing import Any, Dict, List, Optional, Type, Union
 
 import more_itertools
@@ -16,15 +17,22 @@ from rich import print as rprint
 from rich.table import Table
 from tqdm import tqdm
 
-from hafnia.dataset import dataset_helpers, dataset_transformation
+from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import (
-    DATASET_FILENAMES,
+    DATASET_FILENAMES_REQUIRED,
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
     FILENAME_DATASET_INFO,
+    FILENAME_RECIPE_JSON,
     ColumnName,
     FieldName,
     SplitName,
+)
+from hafnia.dataset.operations import dataset_stats, dataset_transformations
+from hafnia.dataset.operations.table_transformations import (
+    check_image_paths,
+    create_primitive_table,
+    read_table_from_path,
 )
 from hafnia.dataset.primitives import (
     PRIMITIVE_NAME_TO_TYPE,
@@ -35,11 +43,6 @@ from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.primitive import Primitive
-from hafnia.dataset.table_transformations import (
-    check_image_paths,
-    create_primitive_table,
-    read_table_from_path,
-)
 from hafnia.log import user_logger
 
 
@@ -171,13 +174,33 @@ class HafniaDataset:
         for row in self.samples.iter_rows(named=True):
             yield row
 
-    # Dataset transformations
-    apply_image_transform = dataset_transformation.transform_images
-    sample = dataset_transformation.sample
-    shuffle = dataset_transformation.shuffle_dataset
-    split_by_ratios = dataset_transformation.splits_by_ratios
-    divide_split_into_multiple_splits = dataset_transformation.divide_split_into_multiple_splits
-    sample_set_by_size = dataset_transformation.define_sample_set_by_size
+    @staticmethod
+    def from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
+        HafniaDataset.check_dataset_path(path_folder, raise_error=True)
+
+        dataset_info = DatasetInfo.from_json_file(path_folder / FILENAME_DATASET_INFO)
+        table = read_table_from_path(path_folder)
+
+        # Convert from relative paths to absolute paths
+        table = table.with_columns(
+            pl.concat_str([pl.lit(str(path_folder.absolute()) + os.sep), pl.col("file_name")]).alias("file_name")
+        )
+        if check_for_images:
+            check_image_paths(table)
+        return HafniaDataset(samples=table, info=dataset_info)
+
+    @staticmethod
+    def from_name(name: str, force_redownload: bool = False, download_files: bool = True) -> "HafniaDataset":
+        """
+        Load a dataset by its name. The dataset must be registered in the Hafnia platform.
+        """
+        from hafnia.dataset.hafnia_dataset import HafniaDataset
+        from hafnia.platform.datasets import download_or_get_dataset_path
+
+        dataset_path = download_or_get_dataset_path(
+            dataset_name=name, force_redownload=force_redownload, download_files=download_files
+        )
+        return HafniaDataset.from_path(dataset_path, check_for_images=download_files)
 
     @staticmethod
     def from_samples_list(samples_list: List, info: DatasetInfo) -> "HafniaDataset":
@@ -193,6 +216,140 @@ class HafniaDataset:
         table = table.with_row_index(name=ColumnName.SAMPLE_INDEX)  # Add sample index column
 
         return HafniaDataset(info=info, samples=table)
+
+    @staticmethod
+    def from_recipe(dataset_recipe: Any) -> "HafniaDataset":
+        """
+        Load a dataset from a recipe. The recipe can be a string (name of the dataset), a dictionary, or a DataRecipe object.
+        """
+        from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
+
+        recipe_explicit = DatasetRecipe.from_implicit_form(dataset_recipe)
+
+        return recipe_explicit.build()  # Build dataset from the recipe
+
+    @staticmethod
+    def from_merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
+        return HafniaDataset.merge(dataset0, dataset1)
+
+    @staticmethod
+    def from_recipe_with_cache(
+        dataset_recipe: Any,
+        force_redownload: bool = False,
+        path_datasets: Optional[Union[Path, str]] = None,
+    ) -> "HafniaDataset":
+        """
+        Loads a dataset from a recipe and caches it to disk.
+        If the dataset is already cached, it will be loaded from the cache.
+        """
+
+        path_dataset = get_or_create_dataset_path_from_recipe(dataset_recipe, path_datasets=path_datasets)
+        return HafniaDataset.from_path(path_dataset, check_for_images=False)
+
+    @staticmethod
+    def from_merger(
+        datasets: List[HafniaDataset],
+    ) -> "HafniaDataset":
+        """
+        Merges multiple Hafnia datasets into one.
+        """
+        if len(datasets) == 0:
+            raise ValueError("No datasets to merge. Please provide at least one dataset.")
+
+        if len(datasets) == 1:
+            return datasets[0]
+
+        merged_dataset = datasets[0]
+        remaining_datasets = datasets[1:]
+        for dataset in remaining_datasets:
+            merged_dataset = HafniaDataset.merge(merged_dataset, dataset)
+        return merged_dataset
+
+    # Dataset transformations
+    transform_images = dataset_transformations.transform_images
+
+    def shuffle(dataset: HafniaDataset, seed: int = 42) -> HafniaDataset:
+        table = dataset.samples.sample(n=len(dataset), with_replacement=False, seed=seed, shuffle=True)
+        return dataset.update_table(table)
+
+    def select_samples(
+        dataset: "HafniaDataset", n_samples: int, shuffle: bool = True, seed: int = 42, with_replacement: bool = False
+    ) -> "HafniaDataset":
+        if not with_replacement:
+            n_samples = min(n_samples, len(dataset))
+        table = dataset.samples.sample(n=n_samples, with_replacement=with_replacement, seed=seed, shuffle=shuffle)
+        return dataset.update_table(table)
+
+    def splits_by_ratios(dataset: "HafniaDataset", split_ratios: Dict[str, float], seed: int = 42) -> "HafniaDataset":
+        """
+        Divides the dataset into splits based on the provided ratios.
+
+        Example: Defining split ratios and applying the transformation
+
+        >>> dataset = HafniaDataset.read_from_path(Path("path/to/dataset"))
+        >>> split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
+        >>> dataset_with_splits = splits_by_ratios(dataset, split_ratios, seed=42)
+        Or use the function as a
+        >>> dataset_with_splits = dataset.splits_by_ratios(split_ratios, seed=42)
+        """
+        n_items = len(dataset)
+        split_name_column = dataset_helpers.create_split_name_list_from_ratios(
+            split_ratios=split_ratios, n_items=n_items, seed=seed
+        )
+        table = dataset.samples.with_columns(pl.Series(split_name_column).alias("split"))
+        return dataset.update_table(table)
+
+    def split_into_multiple_splits(
+        dataset: "HafniaDataset",
+        split_name: str,
+        split_ratios: Dict[str, float],
+    ) -> "HafniaDataset":
+        """
+        Divides a dataset split ('split_name') into multiple splits based on the provided split
+        ratios ('split_ratios'). This is especially useful for some open datasets where they have only provide
+        two splits or only provide annotations for two splits. This function allows you to create additional
+        splits based on the provided ratios.
+
+        Example: Defining split ratios and applying the transformation
+        >>> dataset = HafniaDataset.read_from_path(Path("path/to/dataset"))
+        >>> split_name = SplitName.TEST
+        >>> split_ratios = {SplitName.TEST: 0.8, SplitName.VAL: 0.2}
+        >>> dataset_with_splits = split_into_multiple_splits(dataset, split_name, split_ratios)
+        """
+        dataset_split_to_be_divided = dataset.create_split_dataset(split_name=split_name)
+        if len(dataset_split_to_be_divided) == 0:
+            split_counts = dict(dataset.samples.select(pl.col(ColumnName.SPLIT).value_counts()).iter_rows())
+            raise ValueError(f"No samples in the '{split_name}' split to divide into multiple splits. {split_counts=}")
+        assert len(dataset_split_to_be_divided) > 0, f"No samples in the '{split_name}' split!"
+        dataset_split_to_be_divided = dataset_split_to_be_divided.splits_by_ratios(split_ratios=split_ratios, seed=42)
+
+        remaining_data = dataset.samples.filter(pl.col(ColumnName.SPLIT).is_in([split_name]).not_())
+        new_table = pl.concat([remaining_data, dataset_split_to_be_divided.samples], how="vertical")
+        dataset_new = dataset.update_table(new_table)
+        return dataset_new
+
+    def define_sample_set_by_size(dataset: "HafniaDataset", n_samples: int, seed: int = 42) -> "HafniaDataset":
+        is_sample_indices = Random(seed).sample(range(len(dataset)), n_samples)
+        is_sample_column = [False for _ in range(len(dataset))]
+        for idx in is_sample_indices:
+            is_sample_column[idx] = True
+
+        table = dataset.samples.with_columns(pl.Series(is_sample_column).alias("is_sample"))
+        return dataset.update_table(table)
+
+    def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
+        """
+        Merges two Hafnia datasets by concatenating their samples and updating the split names.
+        """
+        ## Currently, only a very naive merging is implemented.
+        # In the future we need to verify that the class and tasks are compatible.
+        # Do they have similar classes and tasks? What to do if they don't?
+        # For now, we just concatenate the samples and keep the split names as they are.
+        merged_samples = pl.concat([dataset0.samples, dataset1.samples], how="vertical")
+        return dataset0.update_table(merged_samples)
+
+    # Dataset stats
+    split_counts = dataset_stats.split_counts
 
     def as_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
         if ColumnName.SPLIT not in self.samples.columns:
@@ -256,21 +413,6 @@ class HafniaDataset:
 
         return True
 
-    @staticmethod
-    def read_from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
-        HafniaDataset.check_dataset_path(path_folder, raise_error=True)
-
-        dataset_info = DatasetInfo.from_json_file(path_folder / FILENAME_DATASET_INFO)
-        table = read_table_from_path(path_folder)
-
-        # Convert from relative paths to absolute paths
-        table = table.with_columns(
-            pl.concat_str([pl.lit(str(path_folder.absolute()) + os.sep), pl.col("file_name")]).alias("file_name")
-        )
-        if check_for_images:
-            check_image_paths(table)
-        return HafniaDataset(samples=table, info=dataset_info)
-
     def write(self, path_folder: Path, name_by_hash: bool = True, add_version: bool = False) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         if not path_folder.exists():
@@ -303,7 +445,7 @@ class HafniaDataset:
         if add_version:
             path_version = path_folder / "versions" / f"{self.info.version}"
             path_version.mkdir(parents=True, exist_ok=True)
-            for filename in DATASET_FILENAMES:
+            for filename in DATASET_FILENAMES_REQUIRED:
                 shutil.copy2(path_folder / filename, path_version / filename)
 
     def __eq__(self, value) -> bool:
@@ -363,8 +505,37 @@ class HafniaDataset:
 
 
 def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
-    dataset = HafniaDataset.read_from_path(path_dataset, check_for_images=True)
+    dataset = HafniaDataset.from_path(path_dataset, check_for_images=True)
     check_hafnia_dataset(dataset)
+
+
+def get_or_create_dataset_path_from_recipe(
+    dataset_recipe: Any,
+    force_redownload: bool = False,
+    path_datasets: Optional[Union[Path, str]] = None,
+) -> Path:
+    from hafnia.dataset.dataset_recipe.dataset_recipe import (
+        DatasetRecipe,
+        get_dataset_path_from_recipe,
+    )
+
+    recipe: DatasetRecipe = DatasetRecipe.from_implicit_form(dataset_recipe)
+    path_dataset = get_dataset_path_from_recipe(recipe, path_datasets=path_datasets)
+
+    if force_redownload:
+        shutil.rmtree(path_dataset, ignore_errors=True)
+
+    if HafniaDataset.check_dataset_path(path_dataset, raise_error=False):
+        return path_dataset
+
+    path_dataset.mkdir(parents=True, exist_ok=True)
+    path_recipe_json = path_dataset / FILENAME_RECIPE_JSON
+    path_recipe_json.write_text(recipe.model_dump_json(indent=4))
+
+    dataset: HafniaDataset = recipe.build()
+    dataset.write(path_dataset)
+
+    return path_dataset
 
 
 def check_hafnia_dataset(dataset: HafniaDataset):
