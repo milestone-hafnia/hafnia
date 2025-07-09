@@ -92,7 +92,7 @@ def check_signature(cls):
 
 
 @pytest.mark.parametrize("recipe_transform", Serializable.get_nested_subclasses())
-def test_serializable_functions_check_signature(recipe_transform: Serializable):
+def test_cases_serializable_functions_check_signature(recipe_transform: Serializable):
     """
     RecipeTransform converts a function into a serializable class.
     It ensures that the function signature is the same as the expected model fields.
@@ -105,7 +105,7 @@ def test_serializable_functions_check_signature(recipe_transform: Serializable):
 
 
 @pytest.mark.parametrize("recipe_transform", Serializable.get_nested_subclasses())
-def test_check_dataset_transformations_have_builders(recipe_transform: Serializable):
+def test_cases_check_dataset_transformations_have_builders(recipe_transform: Serializable):
     """
     Ensure that all dataset transformations have a corresponding RecipeTransform.
     """
@@ -210,7 +210,7 @@ class IntegrationTestUseCase:
     ],
     ids=lambda test_case: test_case.short_name,  # To use the name of the test case as the ID for clarity
 )
-def test_recipes_integration_tests(recipe_use_case: IntegrationTestUseCase):
+def test_cases_integration_tests(recipe_use_case: IntegrationTestUseCase):
     """
     Test that LoadDataset recipe can be created and serialized.
     """

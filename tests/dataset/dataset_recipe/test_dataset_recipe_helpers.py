@@ -109,7 +109,7 @@ class TestUseCaseImplicit2Explicit:
     ],
     ids=lambda test_case: test_case.name,  # To use the name of the test case as the ID for clarity
 )
-def test_implicit_to_explicit_conversion(test_case: TestUseCaseImplicit2Explicit):
+def test_cases_implicit_to_explicit_conversion(test_case: TestUseCaseImplicit2Explicit):
     actual_recipe = DatasetRecipe.from_implicit_form(test_case.recipe_implicit)
 
     assert isinstance(actual_recipe, DatasetRecipe)  # type: ignore
