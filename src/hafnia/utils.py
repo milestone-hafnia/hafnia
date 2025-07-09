@@ -133,7 +133,7 @@ def show_recipe_content(recipe_path: Path, style: str = "emoji", depth_limit: in
     user_logger.info(f"Recipe size: {size_human_readable(os.path.getsize(recipe_path))}. Max size 800 MiB")
 
 
-def is_remote_job() -> bool:
+def is_hafnia_cloud_job() -> bool:
     """Check if the current job is running in HAFNIA cloud environment."""
     return os.getenv("HAFNIA_CLOUD", "false").lower() == "true"
 

@@ -14,7 +14,7 @@ from pydantic import BaseModel, field_validator
 from hafnia.data.factory import load_dataset
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.log import sys_logger, user_logger
-from hafnia.utils import is_remote_job, now_as_str
+from hafnia.utils import is_hafnia_cloud_job, now_as_str
 
 
 class EntityType(Enum):
@@ -101,7 +101,7 @@ class HafniaLogger:
 
     def path_local_experiment(self) -> Path:
         """Get the path for local experiment."""
-        if is_remote_job():
+        if is_hafnia_cloud_job():
             raise RuntimeError("Cannot access local experiment path in remote job.")
         return self._local_experiment_path
 
@@ -110,7 +110,7 @@ class HafniaLogger:
         if "MDI_CHECKPOINT_DIR" in os.environ:
             return Path(os.environ["MDI_CHECKPOINT_DIR"])
 
-        if is_remote_job():
+        if is_hafnia_cloud_job():
             return Path("/opt/ml/checkpoints")
         return self.path_local_experiment() / "checkpoints"
 
@@ -119,7 +119,7 @@ class HafniaLogger:
         if "MDI_ARTIFACT_DIR" in os.environ:
             return Path(os.environ["MDI_ARTIFACT_DIR"])
 
-        if is_remote_job():
+        if is_hafnia_cloud_job():
             return Path("/opt/ml/output/data")
 
         return self.path_local_experiment() / "data"
@@ -129,7 +129,7 @@ class HafniaLogger:
         if "MDI_MODEL_DIR" in os.environ:
             return Path(os.environ["MDI_MODEL_DIR"])
 
-        if is_remote_job():
+        if is_hafnia_cloud_job():
             return Path("/opt/ml/model")
 
         return self.path_local_experiment() / "model"
