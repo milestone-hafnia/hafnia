@@ -6,7 +6,7 @@ from click.testing import CliRunner
 
 import cli.__main__ as cli
 import cli.consts as consts
-from cli.config import Config, ConfigSchema
+from cli.config import Config, ConfigFileSchema, ConfigSchema
 
 
 @pytest.fixture
@@ -127,3 +127,51 @@ class TestProfile:
             result = cli_runner.invoke(cli.main, ["profile", "rm", "default"])
             assert result.exit_code != 0
             assert consts.ERROR_PROFILE_REMOVE_ACTIVE in result.output
+
+
+def test_setting_environment_variables(tmp_path: Path):
+    # 1) Environment variables when no config file is present
+    path_fake_config_file = tmp_path / "env_settings" / "config.json"
+
+    env = {
+        "MDI_CONFIG_PATH": str(path_fake_config_file),
+        "HAFNIA_API_KEY": "ApiKey fake",
+        "HAFNIA_PLATFORM_URL": "https://fake.hafnia.ai",
+    }
+
+    another_fake_profile_schema = ConfigFileSchema(
+        active_profile="another_fake_profile",
+        profiles={
+            "another_fake_profile": ConfigSchema(
+                platform_url="https://another_fake.hafnia.ai", api_key="ApiKey another_fake_api_key"
+            )
+        },
+    )
+
+    # Test 1: Verify environment variables are used correctly when no config file is present
+    with pytest.MonkeyPatch.context() as mp:
+        for key, value in env.items():
+            mp.setenv(key, value)
+        config = Config()
+
+        assert config.api_key == env["HAFNIA_API_KEY"]
+        assert config.platform_url == env["HAFNIA_PLATFORM_URL"]
+
+    # Create a fake config file with another profile
+    path_fake_config_file.write_text(another_fake_profile_schema.model_dump_json())
+
+    # Test 2: Verify that the "MDI_CONFIG_PATH" environment variable is used to load the config file
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MDI_CONFIG_PATH", str(path_fake_config_file))
+        config = Config()
+        # assert config.active_profile == another_fake_profile_schema.active_profile
+        assert config.api_key == another_fake_profile_schema.profiles[config.active_profile].api_key
+        assert config.platform_url == another_fake_profile_schema.profiles[config.active_profile].platform_url
+
+    # Test 3: Verify environment variables override config file when both are present
+    with pytest.MonkeyPatch.context() as mp:
+        for key, value in env.items():
+            mp.setenv(key, value)
+        config = Config()
+        assert config.api_key == env["HAFNIA_API_KEY"]
+        assert config.platform_url == env["HAFNIA_PLATFORM_URL"]

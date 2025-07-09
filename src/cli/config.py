@@ -80,7 +80,7 @@ class Config:
     def __init__(self, config_path: Optional[Path] = None) -> None:
         self.config_path = self.resolve_config_path(config_path)
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        self.config_data = self.load_config()
+        self.config_data = Config.load_config(self.config_path)
 
     def resolve_config_path(self, path: Optional[Path] = None) -> Path:
         if path:
@@ -111,23 +111,25 @@ class Config:
         endpoint = self.config.platform_url + PLATFORM_API_MAPPING[method]
         return endpoint
 
-    def load_config(self) -> ConfigFileSchema:
+    @staticmethod
+    def load_config(config_path: Path) -> ConfigFileSchema:
         """Load configuration from file."""
 
         # Environment variables has higher priority than config file
         HAFNIA_API_KEY = os.getenv("HAFNIA_API_KEY")
         HAFNIA_PLATFORM_URL = os.getenv("HAFNIA_PLATFORM_URL")
         if HAFNIA_API_KEY and HAFNIA_PLATFORM_URL:
+            HAFNIA_PROFILE_NAME = os.getenv("HAFNIA_PROFILE_NAME", "default").strip()
             cfg = ConfigFileSchema(
-                active_profile="default",
-                profiles={"default": ConfigSchema(platform_url=HAFNIA_PLATFORM_URL, api_key=HAFNIA_API_KEY)},
+                active_profile=HAFNIA_PROFILE_NAME,
+                profiles={HAFNIA_PROFILE_NAME: ConfigSchema(platform_url=HAFNIA_PLATFORM_URL, api_key=HAFNIA_API_KEY)},
             )
             return cfg
 
-        if not self.config_path.exists():
+        if not config_path.exists():
             return ConfigFileSchema()
         try:
-            with open(self.config_path.as_posix(), "r") as f:
+            with open(config_path.as_posix(), "r") as f:
                 data = json.load(f)
             return ConfigFileSchema(**data)
         except json.JSONDecodeError:
