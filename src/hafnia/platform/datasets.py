@@ -80,7 +80,7 @@ def download_dataset_from_access_endpoint(
 ) -> None:
     resource_credentials = get_resource_credentials(endpoint, api_key)
 
-    local_dataset_paths = [str(path_dataset / filename) for filename in DATASET_FILENAMES_REQUIRED]
+    local_dataset_paths = [(path_dataset / filename).as_posix() for filename in DATASET_FILENAMES_REQUIRED]
     s3_uri = resource_credentials.s3_uri()
     s3_dataset_files = [f"{s3_uri}/{filename}" for filename in DATASET_FILENAMES_REQUIRED]
 
@@ -94,7 +94,6 @@ def download_dataset_from_access_endpoint(
 
     if not download_files:
         return
-
     dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
     fast_copy_files_s3(
         src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
@@ -124,8 +123,10 @@ def execute_s5cmd_commands(
     description: str = "Executing s5cmd commands",
 ) -> List[str]:
     append_envs = append_envs or {}
-    with tempfile.NamedTemporaryFile(suffix=".txt") as tmp_file:
-        tmp_file_path = Path(tmp_file.name)
+    # In Windows default "Temp" directory can not be deleted that is why we need to create a
+    # temporary directory.
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tmp_file_path = Path(temp_dir, "s5cmd_exec.txt")
         tmp_file_path.write_text("\n".join(commands))
         run_cmds = [
             "s5cmd",
