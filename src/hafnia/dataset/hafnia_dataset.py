@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -182,9 +181,8 @@ class HafniaDataset:
         table = read_table_from_path(path_folder)
 
         # Convert from relative paths to absolute paths
-        table = table.with_columns(
-            pl.concat_str([pl.lit(str(path_folder.absolute()) + os.sep), pl.col("file_name")]).alias("file_name")
-        )
+        dataset_root = path_folder.absolute().as_posix() + "/"
+        table = table.with_columns((dataset_root + pl.col("file_name")).alias("file_name"))
         if check_for_images:
             check_image_paths(table)
         return HafniaDataset(samples=table, info=dataset_info)

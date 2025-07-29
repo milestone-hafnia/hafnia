@@ -14,7 +14,7 @@ MICRO_DATASETS = {
 
 
 def get_path_workspace() -> Path:
-    return Path(__file__).parents[2]
+    return Path(__file__).parents[1]
 
 
 def get_path_expected_images() -> Path:

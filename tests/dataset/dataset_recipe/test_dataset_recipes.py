@@ -14,8 +14,8 @@ from hafnia.dataset.dataset_recipe.dataset_recipe import (
 from hafnia.dataset.dataset_recipe.recipe_transforms import SelectSamples, Shuffle
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeCreation, RecipeTransform, Serializable
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.helper_testing import annotation_as_string, is_hafnia_configured
 from hafnia.utils import pascal_to_snake_case
+from tests.helper_testing import annotation_as_string, is_hafnia_configured
 
 
 def get_data_recipe() -> DatasetRecipe:
