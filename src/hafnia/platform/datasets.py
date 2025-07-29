@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -126,7 +127,7 @@ def execute_s5cmd_commands(
     # In Windows default "Temp" directory can not be deleted that is why we need to create a
     # temporary directory.
     with tempfile.TemporaryDirectory() as temp_dir:
-        tmp_file_path = Path(temp_dir, "s5cmd_exec.txt")
+        tmp_file_path = Path(temp_dir, f"{uuid.uuid4().hex}.txt")
         tmp_file_path.write_text("\n".join(commands))
         run_cmds = [
             "s5cmd",
