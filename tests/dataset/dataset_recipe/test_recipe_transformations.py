@@ -15,7 +15,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
 )
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.helper_testing import get_micro_hafnia_dataset
+from tests.helper_testing import get_micro_hafnia_dataset
 
 
 @dataclass

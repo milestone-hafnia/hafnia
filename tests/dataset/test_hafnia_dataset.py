@@ -10,7 +10,7 @@ from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, Ta
 # from data_management import utils
 from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.primitives.classification import Classification
-from hafnia.helper_testing import (
+from tests.helper_testing import (
     get_hafnia_functions_from_module,
     get_micro_hafnia_dataset,
     get_path_micro_hafnia_dataset,

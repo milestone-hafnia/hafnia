@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from hafnia.helper_testing import is_hafnia_configured
+from tests.helper_testing import is_hafnia_configured
 
 
 @pytest.mark.parametrize(

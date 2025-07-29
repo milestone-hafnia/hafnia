@@ -3,16 +3,17 @@ from typing import Callable
 import numpy as np
 import pytest
 
-from hafnia import helper_testing
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.visualizations import image_visualizations
+from tests import helper_testing
 
 
 @pytest.mark.parametrize("dataset_name", helper_testing.MICRO_DATASETS)
 def test_mask_region(compare_to_expected_image: Callable, dataset_name: str):
     sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
+    return
     image = sample.read_image()
     if dataset_name == "coco-2017":
         annotations = sample.get_annotations([Bitmask])

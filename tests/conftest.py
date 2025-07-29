@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from hafnia.helper_testing import get_path_expected_images
 from hafnia.visualizations import image_visualizations
+from tests.helper_testing import get_path_expected_images
 
 
 @pytest.fixture
