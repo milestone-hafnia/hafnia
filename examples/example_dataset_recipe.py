@@ -29,20 +29,24 @@ dataset_recipe = DatasetRecipe.from_name(name="mnist").shuffle().select_samples(
 dataset = dataset_recipe.build()
 # Note that the interface is similar, but to actually create the dataset you need to call `build()` on the recipe.
 
-# An important feature of a 'DatasetRecipe' is that the recipe itself - and not the dataset - can be saved as a file
-# and loaded from file. Meaning you can easily save, share, load and build the dataset later or in a different
-# environment.
-# In programming language, the recipe can be serialized to JSON and deserialized back to the original python object
-# recipe.
+# Unlike the HafniaDataset, a DatasetRecipe does not execute operations. It only registers
+# the operations applied to the recipe and can be used to build the dataset later.
+# You can print the dataset recipe to the operations that were applied to it.
+rprint(dataset_recipe)
+
+# Or as a JSON string:
+json_str: str = dataset_recipe.as_json_str()
+rprint(json_str)
+
+# This is an important feature of a 'DatasetRecipe' it only registers operations and that the recipe itself
+# - and not the dataset - can be saved as a file and loaded from file.
+# Meaning you can easily save, share, load and build the dataset later or in a different environment.
 # For TaaS, this is the only way to include multiple datasets during training.
 
-# This is how it looks like in practice:
-# 1) Save the dataset recipe to a file
-path_json = Path(".data/tmp/dataset_recipe.json")
-dataset_recipe.as_json_file(path_json)
 
-# 2) The recipe can be loaded from the file
-dataset_recipe_again = DatasetRecipe.from_json_file(path_json)
+# 2) The recipe can be loaded from json string
+dataset_recipe_again: DatasetRecipe = DatasetRecipe.from_json_str(json_str)
+# dataset_recipe_again.build()
 
 # We can verify that the loaded recipe is the same as the original recipe.
 assert dataset_recipe_again == dataset_recipe
