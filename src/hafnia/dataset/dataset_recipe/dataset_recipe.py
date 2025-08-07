@@ -216,6 +216,16 @@ class DatasetRecipe(Serializable):
         json_str = self.as_json_str(indent=indent)
         path_json.write_text(json_str, encoding="utf-8")
 
+    ### Helper methods ###
+    def get_dataset_names(self) -> List[str]:
+        """
+        Get all dataset names added with 'from_name'.
+        Function recursively gathers dataset names.
+        """
+        if self.creation is None:
+            return []
+        return self.creation.get_dataset_names()
+
     ### Validation and Serialization ###
     @field_validator("creation", mode="plain")
     @classmethod
@@ -284,6 +294,9 @@ class FromPath(RecipeCreation):
     def as_short_name(self) -> str:
         return f"'{self.path_folder}'".replace(os.sep, "|")
 
+    def get_dataset_names(self) -> List[str]:
+        return []  # Only counts 'from_name' datasets
+
 
 class FromName(RecipeCreation):
     name: str
@@ -297,6 +310,9 @@ class FromName(RecipeCreation):
     def as_short_name(self) -> str:
         return self.name
 
+    def get_dataset_names(self) -> List[str]:
+        return [self.name]
+
 
 class FromMerge(RecipeCreation):
     recipe0: DatasetRecipe
@@ -309,6 +325,11 @@ class FromMerge(RecipeCreation):
     def as_short_name(self) -> str:
         merger = FromMerger(recipes=[self.recipe0, self.recipe1])
         return merger.as_short_name()
+
+    def get_dataset_names(self) -> List[str]:
+        """Get the dataset names from the merged recipes."""
+        names = [*self.recipe0.creation.get_dataset_names(), *self.recipe1.creation.get_dataset_names()]
+        return names
 
 
 class FromMerger(RecipeCreation):
@@ -325,3 +346,40 @@ class FromMerger(RecipeCreation):
 
     def as_short_name(self) -> str:
         return f"Merger({','.join(recipe.as_short_name() for recipe in self.recipes)})"
+
+    def get_dataset_names(self) -> List[str]:
+        """Get the dataset names from the merged recipes."""
+        names = []
+        for recipe in self.recipes:
+            names.extend(recipe.creation.get_dataset_names())
+        return names
+
+
+def extract_dataset_names_from_json_dict(data: dict) -> list[str]:
+    """
+    Extract dataset names recursively from a JSON dictionary added with 'from_name'.
+
+    Even if the same functionality is achieved with `DatasetRecipe.get_dataset_names()`,
+    we want to keep this function in 'dipdatalib' to extract dataset names from json dictionaries
+    directly.
+    """
+    creation_field = data.get("creation")
+    if creation_field is None:
+        return []
+    if creation_field.get("__type__") == "FromName":
+        return [creation_field["name"]]
+    elif creation_field.get("__type__") == "FromMerge":
+        recipe_names = ["recipe0", "recipe1"]
+        dataset_name = []
+        for recipe_name in recipe_names:
+            recipe = creation_field.get(recipe_name)
+            if recipe is None:
+                continue
+            dataset_name.extend(extract_dataset_names_from_json_dict(recipe))
+        return dataset_name
+    elif creation_field.get("__type__") == "FromMerger":
+        dataset_name = []
+        for recipe in creation_field.get("recipes", []):
+            dataset_name.extend(extract_dataset_names_from_json_dict(recipe))
+        return dataset_name
+    return []

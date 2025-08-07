@@ -55,10 +55,12 @@ def test_configure(cli_runner: CliRunner, empty_config: Config, api_key: str) ->
 
 
 def test_configure_api_key_autofix(cli_runner: CliRunner, empty_config: Config, api_key: str) -> None:
-    # The submitted api should always contain an "ApiKey " prefix.
-    # Namely the submitted api key should be in this form "ApiKey [API_KEY]"
-    # Many users submit the api key without the prefix.
-    # This test ensures that the CLI will automatically add the prefix if it is missing.
+    """
+    The submitted api key should always contain an "ApiKey " prefix.
+    Namely the submitted api key should be in this form "ApiKey [HASH_VALUE]"
+    Many users submit the api key without the prefix.
+    This test ensures that the CLI will automatically add the prefix if missing.
+    """
     inputs = f"default\nfake-api-key-with-out-prefix\n{consts.DEFAULT_API_URL}\n"
     result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
     assert result.exit_code == 0

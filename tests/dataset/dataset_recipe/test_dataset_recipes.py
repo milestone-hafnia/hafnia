@@ -1,4 +1,5 @@
 import inspect
+import json
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,7 @@ import pytest
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
     FromMerger,
+    extract_dataset_names_from_json_dict,
     get_dataset_path_from_recipe,
 )
 from hafnia.dataset.dataset_recipe.recipe_transforms import SelectSamples, Shuffle
@@ -258,3 +260,44 @@ def test_cases_integration_tests(recipe_use_case: IntegrationTestUseCase):
 
     assert isinstance(dataset, HafniaDataset), "Dataset is not an instance of HafniaDataset"
     # assert isinstance(dataset, HafniaDataset), "Dataset is not an instance of HafniaDataset"
+
+
+def test_get_dataset_names():
+    expected_dataset_names = {"dataset0", "dataset1", "dataset2", "dataset3", "dataset4", "dataset5", "dataset6"}
+    nested_recipe = DatasetRecipe.from_merger(
+        recipes=[
+            DatasetRecipe.from_merger(
+                recipes=[
+                    DatasetRecipe.from_name(name="dataset0"),
+                    DatasetRecipe.from_name(name="dataset1"),
+                    DatasetRecipe.from_merge(
+                        recipe0=DatasetRecipe.from_name(name="dataset2"),
+                        recipe1=DatasetRecipe.from_name(name="dataset3"),
+                    ),
+                ]
+            ),
+            DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
+            .select_samples(n_samples=30)
+            .splits_by_ratios(split_ratios={"train": 0.8, "val": 0.1, "test": 0.1}),
+            DatasetRecipe.from_name(name="dataset4").select_samples(n_samples=20).shuffle(),
+            DatasetRecipe.from_merger(
+                recipes=[
+                    DatasetRecipe.from_name(name="dataset5"),
+                    DatasetRecipe.from_name(name="dataset6"),
+                ]
+            ),
+        ]
+    )
+
+    assert set(nested_recipe.get_dataset_names()) == expected_dataset_names, "Dataset names do not match expected names"
+
+    json_str = nested_recipe.as_json_str()
+    nested_recipe.as_json_file(path_json=Path("nested_recipe.json"))
+    data_dict = json.loads(json_str)
+
+    dataset_names = extract_dataset_names_from_json_dict(data_dict)
+    assert set(dataset_names) == expected_dataset_names, (
+        f"If this function fails, you should be concerned !! The '{extract_dataset_names_from_json_dict.__name__}' "
+        "function is copy/pasted to 'dipdatalib' to extract dataset names from json dictionaries directly. "
+        "If this test fails, please fix the function and copy/paste the function to dipdatalib as well."
+    )
