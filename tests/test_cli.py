@@ -47,10 +47,45 @@ def config_with_profiles(test_config_path: Path, profile_data: dict) -> Config:
 
 
 def test_configure(cli_runner: CliRunner, empty_config: Config, api_key: str) -> None:
-    inputs = f"default\ntest-api-key\n{consts.DEFAULT_API_URL}\n"
+    inputs = f"default\nApiKey some-fake-test-api-key\n{consts.DEFAULT_API_URL}\n"
     result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
     assert result.exit_code == 0
     assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
+    assert "ApiKey some" in result.output
+
+
+def test_configure_api_key_autofix(cli_runner: CliRunner, empty_config: Config, api_key: str) -> None:
+    # The submitted api should always contain an "ApiKey " prefix.
+    # Namely the submitted api key should be in this form "ApiKey [API_KEY]"
+    # Many users submit the api key without the prefix.
+    # This test ensures that the CLI will automatically add the prefix if it is missing.
+    inputs = f"default\nfake-api-key-with-out-prefix\n{consts.DEFAULT_API_URL}\n"
+    result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
+    assert result.exit_code == 0
+    assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
+    assert "ApiKey fake" in result.output, (
+        "'ApiKey ' was not added automatically. API key should be automatically prefixed with 'ApiKey ' when missing"
+    )
+
+
+def test_create_profile(cli_runner: CliRunner, empty_config: Config, api_key: str) -> None:
+    fake_api_key = "SomeFakeApiKey123"
+    args = [
+        "profile",
+        "create",
+        fake_api_key,
+        "--name",
+        "test_profile",
+        "--api-url",
+        consts.DEFAULT_API_URL,
+        "--activate",
+    ]
+
+    result = cli_runner.invoke(cli.main, args)
+    assert result.exit_code == 0
+    assert f"ApiKey {fake_api_key[:3]}" in result.output, (
+        "'ApiKey ' was not added automatically. API key should be automatically prefixed with 'ApiKey ' when missing"
+    )
 
 
 class TestProfile:

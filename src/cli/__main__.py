@@ -20,19 +20,15 @@ def configure(cfg: Config) -> None:
 
     profile_name = click.prompt("Profile Name", type=str, default=consts.DEFAULT_PROFILE_NAME)
     profile_name = profile_name.strip()
-    try:
-        cfg.add_profile(profile_name, ConfigSchema(), set_active=True)
-    except ValueError:
-        raise click.ClickException(consts.ERROR_CREATE_PROFILE)
+
+    cfg.check_profile_name(profile_name)
 
     api_key = click.prompt("Hafnia API Key", type=str, hide_input=True)
-    try:
-        cfg.api_key = api_key.strip()
-    except ValueError as e:
-        click.echo(f"Error: {str(e)}", err=True)
-        return
+
     platform_url = click.prompt("Hafnia Platform URL", type=str, default=consts.DEFAULT_API_URL)
-    cfg.platform_url = platform_url.strip()
+
+    cfg_profile = ConfigSchema(api_key=api_key, platform_url=platform_url)
+    cfg.add_profile(profile_name, cfg_profile, set_active=True)
     cfg.save_config()
     profile_cmds.profile_show(cfg)
 

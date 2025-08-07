@@ -26,6 +26,9 @@ class ConfigSchema(BaseModel):
     def validate_api_key(cls, value: str) -> str:
         if value is not None and len(value) < 10:
             raise ValueError("API key is too short.")
+        if not value.startswith("ApiKey "):
+            value = f"ApiKey {value}"
+
         return value
 
 
@@ -51,6 +54,7 @@ class Config:
         if profile_name not in self.config_data.profiles:
             raise ValueError(f"Profile '{profile_name}' does not exist.")
         self.config_data.active_profile = profile_name
+        self.save_config()
 
     @property
     def config(self) -> ConfigSchema:
@@ -92,13 +96,18 @@ class Config:
 
         return Path.home() / ".hafnia" / "config.json"
 
-    def add_profile(self, profile_name: str, profile: ConfigSchema, set_active: bool = False) -> None:
-        profile_name = profile_name.strip()
+    def check_profile_name(self, profile_name: str) -> None:
+        if not profile_name or not isinstance(profile_name, str):
+            raise ValueError("Profile name must be a non-empty string.")
+
         if profile_name in self.config_data.profiles:
             user_logger.warning(
                 f"Profile with name '{profile_name}' already exists, it will be overwritten by the new one."
             )
 
+    def add_profile(self, profile_name: str, profile: ConfigSchema, set_active: bool = False) -> None:
+        profile_name = profile_name.strip()
+        self.check_profile_name(profile_name)
         self.config_data.profiles[profile_name] = profile
         if set_active:
             self.config_data.active_profile = profile_name
