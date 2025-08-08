@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, field_validator
 
 import cli.consts as consts
-from hafnia.log import user_logger
+from hafnia.log import sys_logger, user_logger
 
 PLATFORM_API_MAPPING = {
     "recipes": "/api/v1/recipes",
@@ -27,6 +27,7 @@ class ConfigSchema(BaseModel):
         if value is not None and len(value) < 10:
             raise ValueError("API key is too short.")
         if not value.startswith("ApiKey "):
+            sys_logger.warning("API key is missing the 'ApiKey ' prefix. Prefix is being added automatically.")
             value = f"ApiKey {value}"
 
         return value
