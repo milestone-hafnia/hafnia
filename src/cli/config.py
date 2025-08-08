@@ -23,9 +23,13 @@ class ConfigSchema(BaseModel):
     api_key: Optional[str] = None
 
     @field_validator("api_key")
-    def validate_api_key(cls, value: str) -> str:
-        if value is not None and len(value) < 10:
+    def validate_api_key(cls, value: Optional[str]) -> str:
+        if value is None:
+            return value
+
+        if len(value) < 10:
             raise ValueError("API key is too short.")
+
         if not value.startswith("ApiKey "):
             sys_logger.warning("API key is missing the 'ApiKey ' prefix. Prefix is being added automatically.")
             value = f"ApiKey {value}"
