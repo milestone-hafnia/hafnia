@@ -1,3 +1,5 @@
+import collections
+from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
@@ -93,6 +95,11 @@ def test_check_dataset(loaded_dataset, compare_to_expected_image):
     image = sample.draw_annotations()
 
     compare_to_expected_image(image)
+
+    # We are arranging dataset files in multiple sub-folders to avoid S3 rate limits.
+    # This test checks that the dataset files are distributed across multiple sub-folders.
+    unique_sub_folders = collections.Counter([Path(path).parent.name for path in dataset.samples[ColumnName.FILE_NAME]])
+    assert len(unique_sub_folders) > 1, "Expected dataset files to be distributed across sub-folders"
 
 
 @pytest.mark.slow

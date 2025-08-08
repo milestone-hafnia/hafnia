@@ -26,11 +26,10 @@ dataset = HafniaDataset.from_path(path_dataset)
 # Alternatively, you can use the 'load_dataset' function
 dataset = load_dataset("midwest-vehicle-detection")
 
-
 # Dataset information is stored in 'dataset.info'
 rprint(dataset.info)
 
-# Annotations are stored in 'dataset.table' as a Polars DataFrame
+# Annotations are stored in 'dataset.samples' as a Polars DataFrame
 dataset.samples.head(2)
 
 # Print dataset information
@@ -49,13 +48,28 @@ shuffled_dataset = dataset.shuffle(seed=42)  # Shuffle the dataset
 split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
 new_dataset_splits = dataset.splits_by_ratios(split_ratios)
 
+# Support Chaining Operations (load, shuffle, select samples)
+dataset = load_dataset("midwest-vehicle-detection").shuffle(seed=42).select_samples(n_samples=10)
+
+
 # Write dataset to disk
 path_tmp = Path(".data/tmp")
 path_dataset = path_tmp / "hafnia_dataset"
-dataset.write(path_dataset)  # --> Check that data is human readable
+dataset.write(path_dataset)
 
 # Load dataset from disk
 dataset_again = HafniaDataset.from_path(path_dataset)
+
+
+# Want custom dataset transformations or statistics? Use the polars table (dataset.samples) directly
+n_objects = dataset.samples["objects"].list.len().sum()
+n_objects = dataset.samples[Bbox.column_name()].list.len().sum()  # Use Bbox.column_name() to avoid magic variables
+n_classifications = dataset.samples[Classification.column_name()].list.len().sum()
+
+class_counts = dataset.samples[Classification.column_name()].explode().struct.field("class_name").value_counts()
+class_counts = dataset.samples[Bbox.column_name()].explode().struct.field("class_name").value_counts()
+rprint(dict(class_counts.iter_rows()))
+
 
 # Access the first sample in the training split - data is stored in a dictionary
 sample_dict = dataset_train[0]
@@ -78,25 +92,15 @@ image: np.ndarray = sample.read_image()
 # Visualize sample and annotations
 image_with_annotations = sample.draw_annotations()
 
-
+# Save the image with annotations to a temporary directory
 path_tmp.mkdir(parents=True, exist_ok=True)
 Image.fromarray(image_with_annotations).save(path_tmp / "sample_with_annotations.png")
-
-
-# Do dataset transformations and statistics on the Polars DataFrame
-n_objects = dataset.samples["objects"].list.len().sum()
-n_objects = dataset.samples[Bbox.column_name()].list.len().sum()  # Use Bbox.column_name() to avoid magic variables
-n_classifications = dataset.samples[Classification.column_name()].list.len().sum()
-
-class_counts = dataset.samples[Classification.column_name()].explode().struct.field("class_name").value_counts()
-class_counts = dataset.samples[Bbox.column_name()].explode().struct.field("class_name").value_counts()
-rprint(dict(class_counts.iter_rows()))
 
 
 ## Bring-your-own-data: Create a new dataset from samples
 fake_samples = []
 for i_fake_sample in range(5):
-    bboxes = [Bbox(top_left_x=10, top_left_y=20, width=100, height=200, class_name="car")]
+    bboxes = [Bbox(top_left_x=0.1, top_left_y=0.20, width=0.1, height=0.2, class_name="car")]
     classifications = [Classification(class_name="vehicle", class_idx=0)]
     sample = Sample(
         file_name=f"path/to/image_{i_fake_sample:05}.jpg",
@@ -120,8 +124,14 @@ fake_dataset_info = DatasetInfo(
 )
 fake_dataset = HafniaDataset.from_samples_list(samples_list=fake_samples, info=fake_dataset_info)
 
+# Coming soon! Upload your dataset to the Hafnia Platform
+# fake_dataset.upload_to_hafnia()
 
-## A hafnia dataset can also be used for storing predictions per sample set 'ground_truth=False' and add 'confidence'.
+# Coming soon! Create your own dataset details page in Hafnia
+# fake_dataset.upload_dataset_details()
+
+## Storing predictions: A hafnia dataset can also be used for storing predictions per sample
+# set 'ground_truth=False' and add 'confidence'.
 bboxes_predictions = [
     Bbox(top_left_x=10, top_left_y=20, width=100, height=200, class_name="car", ground_truth=False, confidence=0.9)
 ]

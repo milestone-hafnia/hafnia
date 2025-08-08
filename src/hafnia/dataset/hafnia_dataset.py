@@ -411,30 +411,18 @@ class HafniaDataset:
 
         return True
 
-    def write(self, path_folder: Path, name_by_hash: bool = True, add_version: bool = False) -> None:
+    def write(self, path_folder: Path, add_version: bool = False) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         if not path_folder.exists():
             path_folder.mkdir(parents=True)
-        path_folder_images = path_folder / "data"
-        path_folder_images.mkdir(parents=True, exist_ok=True)
 
         new_relative_paths = []
         for org_path in tqdm(self.samples["file_name"].to_list(), desc="- Copy images"):
-            org_path = Path(org_path)
-            if not org_path.exists():
-                raise FileNotFoundError(f"File {org_path} does not exist in the dataset.")
-            if name_by_hash:
-                filename = dataset_helpers.filename_as_hash_from_path(org_path)
-            else:
-                filename = Path(org_path).name
-            new_path = path_folder_images / filename
-            if not new_path.exists():
-                shutil.copy2(org_path, new_path)
-
-            if not new_path.exists():
-                raise FileNotFoundError(f"File {new_path} does not exist in the dataset.")
+            new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
+                path_source=Path(org_path),
+                path_dataset_root=path_folder,
+            )
             new_relative_paths.append(str(new_path.relative_to(path_folder)))
-
         table = self.samples.with_columns(pl.Series(new_relative_paths).alias("file_name"))
         table.write_ndjson(path_folder / FILENAME_ANNOTATIONS_JSONL)  # Json for readability
         table.write_parquet(path_folder / FILENAME_ANNOTATIONS_PARQUET)  # Parquet for speed

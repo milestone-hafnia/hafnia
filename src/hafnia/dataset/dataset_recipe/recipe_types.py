@@ -108,6 +108,10 @@ class RecipeCreation(Serializable):
     def get_function() -> Callable[..., "HafniaDataset"]:
         pass
 
+    @abstractmethod
+    def get_dataset_names(self) -> List[str]:
+        pass
+
     def build(self) -> "HafniaDataset":
         from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 

@@ -62,7 +62,12 @@ def download_or_get_dataset_path(
     dataset_id = get_dataset_id(dataset_name=dataset_name, endpoint=endpoint_dataset, api_key=api_key)
     if dataset_id is None:
         sys_logger.error(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
-    access_dataset_endpoint = f"{endpoint_dataset}/{dataset_id}/temporary-credentials"
+
+    if utils.is_hafnia_cloud_job():
+        credentials_endpoint_suffix = "temporary-credentials-hidden"  # Access to hidden datasets
+    else:
+        credentials_endpoint_suffix = "temporary-credentials"  # Access to sample dataset
+    access_dataset_endpoint = f"{endpoint_dataset}/{dataset_id}/{credentials_endpoint_suffix}"
 
     download_dataset_from_access_endpoint(
         endpoint=access_dataset_endpoint,
