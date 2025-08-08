@@ -292,7 +292,7 @@ class FromPath(RecipeCreation):
         return HafniaDataset.from_path
 
     def as_short_name(self) -> str:
-        return f"'{self.path_folder}'".replace(os.sep, "|")
+        return f"'{self.path_folder}'".replace(os.sep, "-")
 
     def get_dataset_names(self) -> List[str]:
         return []  # Only counts 'from_name' datasets

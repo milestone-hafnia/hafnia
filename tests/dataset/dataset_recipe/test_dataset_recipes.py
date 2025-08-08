@@ -173,7 +173,7 @@ class IntegrationTestUseCase:
         ),
         IntegrationTestUseCase(
             recipe=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
-            short_name="'.data|datasets|mnist'",
+            short_name="'.data-datasets-mnist'",
         ),
         IntegrationTestUseCase(
             recipe=DatasetRecipe.from_merger(
@@ -182,14 +182,14 @@ class IntegrationTestUseCase:
                     DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
                 ]
             ),
-            short_name="Merger(mnist,'.data|datasets|mnist')",
+            short_name="Merger(mnist,'.data-datasets-mnist')",
         ),
         IntegrationTestUseCase(
             recipe=DatasetRecipe.from_merge(
                 recipe0=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
                 recipe1=DatasetRecipe.from_name(name="mnist", force_redownload=False),
             ),
-            short_name="Merger('.data|datasets|mnist',mnist)",
+            short_name="Merger('.data-datasets-mnist',mnist)",
         ),
         IntegrationTestUseCase(
             recipe=DatasetRecipe.from_name(name="mnist", force_redownload=False)
