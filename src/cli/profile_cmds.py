@@ -56,6 +56,7 @@ def profile_create(cfg: Config, name: str, api_url: str, api_key: str, activate:
     cfg_profile = ConfigSchema(platform_url=api_url, api_key=api_key)
 
     cfg.add_profile(profile_name=name, profile=cfg_profile, set_active=activate)
+    profile_show(cfg)
 
 
 @profile.command("rm")
@@ -87,7 +88,7 @@ def profile_active(cfg: Config) -> None:
 
 
 def profile_show(cfg: Config) -> None:
-    masked_key = f"{cfg.api_key[:4]}...{cfg.api_key[-4:]}" if len(cfg.api_key) > 8 else "****"
+    masked_key = f"{cfg.api_key[:11]}...{cfg.api_key[-4:]}" if len(cfg.api_key) > 20 else "****"
     console = Console()
 
     table = Table(title=f"{consts.PROFILE_TABLE_HEADER} {cfg.active_profile}", show_header=False)

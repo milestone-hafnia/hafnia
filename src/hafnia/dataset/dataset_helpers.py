@@ -1,6 +1,7 @@
 import io
 import math
 import random
+import shutil
 from pathlib import Path
 from typing import Dict, List
 
@@ -21,7 +22,7 @@ def create_split_name_list_from_ratios(split_ratios: Dict[str, float], n_items: 
 
 
 def hash_file_xxhash(path: Path, chunk_size: int = 262144) -> str:
-    hasher = xxhash.xxh3_64()
+    hasher = xxhash.xxh3_128()
 
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(chunk_size), b""):  # 8192, 16384, 32768, 65536
@@ -30,7 +31,7 @@ def hash_file_xxhash(path: Path, chunk_size: int = 262144) -> str:
 
 
 def hash_from_bytes(data: bytes) -> str:
-    hasher = xxhash.xxh3_64()
+    hasher = xxhash.xxh3_128()
     hasher.update(data)
     return hasher.hexdigest()
 
@@ -40,14 +41,46 @@ def save_image_with_hash_name(image: np.ndarray, path_folder: Path) -> Path:
     buffer = io.BytesIO()
     pil_image.save(buffer, format="PNG")
     hash_value = hash_from_bytes(buffer.getvalue())
-    path_image = Path(path_folder) / f"{hash_value}.png"
+    path_image = Path(path_folder) / relative_path_from_hash(hash=hash_value, suffix=".png")
+    path_image.parent.mkdir(parents=True, exist_ok=True)
     pil_image.save(path_image)
     return path_image
 
 
-def filename_as_hash_from_path(path_image: Path) -> str:
-    hash = hash_file_xxhash(path_image)
-    return f"{hash}{path_image.suffix}"
+def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Path) -> Path:
+    """
+    Copies a file to a dataset root directory with a hash-based name and sub-directory structure.
+
+    E.g. for an "image.png" with hash "dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4", the image will be copied to
+    'path_dataset_root / "data" / "dfe" / "dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4.png"'
+    Notice that the hash is used for both the filename and the subfolder name.
+
+    Placing image/video files into multiple sub-folders (instead of one large folder) is seemingly
+    unnecessary, but it is actually a requirement when the dataset is later downloaded from S3.
+
+    The reason is that AWS has a rate limit of 3500 ops/sec per prefix (sub-folder) in S3 - meaning we can "only"
+    download 3500 files per second from a single folder (prefix) in S3.
+
+    For even a single user, we found that this limit was being reached when files are stored in single folder (prefix)
+    in S3. To support multiple users and concurrent experiments, we are required to separate files into
+    multiple sub-folders (prefixes) in S3 to not hit the rate limit.
+    """
+
+    if not path_source.exists():
+        raise FileNotFoundError(f"Source file {path_source} does not exist.")
+
+    hash_value = hash_file_xxhash(path_source)
+    path_file = path_dataset_root / relative_path_from_hash(hash=hash_value, suffix=path_source.suffix)
+    path_file.parent.mkdir(parents=True, exist_ok=True)
+    if not path_file.exists():
+        shutil.copy2(path_source, path_file)
+
+    return path_file
+
+
+def relative_path_from_hash(hash: str, suffix: str) -> Path:
+    path_file = Path("data") / hash[:3] / f"{hash}{suffix}"
+    return path_file
 
 
 def split_sizes_from_ratios(n_items: int, split_ratios: Dict[str, float]) -> Dict[str, int]:
