@@ -91,22 +91,34 @@ def download_dataset_from_access_endpoint(
     s3_dataset_files = [f"{s3_uri}/{filename}" for filename in DATASET_FILENAMES_REQUIRED]
 
     envs = resource_credentials.aws_credentials()
-    fast_copy_files_s3(
-        src_paths=s3_dataset_files,
-        dst_paths=local_dataset_paths,
-        append_envs=envs,
-        description="Downloading annotations",
-    )
+    try:
+        fast_copy_files_s3(
+            src_paths=s3_dataset_files,
+            dst_paths=local_dataset_paths,
+            append_envs=envs,
+            description="Downloading annotations",
+        )
+    except ValueError as e:
+        user_logger.error(f"Failed to download annotations: {e}")
+        return
 
     if not download_files:
         return
     dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
-    fast_copy_files_s3(
-        src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
-        dst_paths=dataset.samples[ColumnName.FILE_NAME].to_list(),
-        append_envs=envs,
-        description="Downloading images",
-    )
+    try:
+        fast_copy_files_s3(
+            src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
+            dst_paths=dataset.samples[ColumnName.FILE_NAME].to_list(),
+            append_envs=envs,
+            description="Downloading images",
+        )
+    except ValueError as e:
+        user_logger.error(f"Failed to download images: {e}")
+        return
+
+
+def is_s5cmd_available() -> bool:
+    return shutil.which("s5cmd") is not None
 
 
 def fast_copy_files_s3(
@@ -117,7 +129,8 @@ def fast_copy_files_s3(
 ) -> List[str]:
     if len(src_paths) != len(dst_paths):
         raise ValueError("Source and destination paths must have the same length.")
-
+    if not is_s5cmd_available():
+        raise ValueError("`s5cmd` command is not available. Please install it before downloading.")
     cmds = [f"cp {src} {dst}" for src, dst in zip(src_paths, dst_paths)]
     lines = execute_s5cmd_commands(cmds, append_envs=append_envs, description=description)
     return lines
