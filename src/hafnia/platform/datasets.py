@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import uuid
 from pathlib import Path
@@ -91,22 +92,30 @@ def download_dataset_from_access_endpoint(
     s3_dataset_files = [f"{s3_uri}/{filename}" for filename in DATASET_FILENAMES_REQUIRED]
 
     envs = resource_credentials.aws_credentials()
-    fast_copy_files_s3(
-        src_paths=s3_dataset_files,
-        dst_paths=local_dataset_paths,
-        append_envs=envs,
-        description="Downloading annotations",
-    )
+    try:
+        fast_copy_files_s3(
+            src_paths=s3_dataset_files,
+            dst_paths=local_dataset_paths,
+            append_envs=envs,
+            description="Downloading annotations",
+        )
+    except ValueError as e:
+        user_logger.error(f"Failed to download annotations: {e}")
+        return
 
     if not download_files:
         return
     dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
-    fast_copy_files_s3(
-        src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
-        dst_paths=dataset.samples[ColumnName.FILE_NAME].to_list(),
-        append_envs=envs,
-        description="Downloading images",
-    )
+    try:
+        fast_copy_files_s3(
+            src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
+            dst_paths=dataset.samples[ColumnName.FILE_NAME].to_list(),
+            append_envs=envs,
+            description="Downloading images",
+        )
+    except ValueError as e:
+        user_logger.error(f"Failed to download images: {e}")
+        return
 
 
 def fast_copy_files_s3(
@@ -117,7 +126,6 @@ def fast_copy_files_s3(
 ) -> List[str]:
     if len(src_paths) != len(dst_paths):
         raise ValueError("Source and destination paths must have the same length.")
-
     cmds = [f"cp {src} {dst}" for src, dst in zip(src_paths, dst_paths)]
     lines = execute_s5cmd_commands(cmds, append_envs=append_envs, description=description)
     return lines
@@ -134,11 +142,9 @@ def execute_s5cmd_commands(
     with tempfile.TemporaryDirectory() as temp_dir:
         tmp_file_path = Path(temp_dir, f"{uuid.uuid4().hex}.txt")
         tmp_file_path.write_text("\n".join(commands))
-        run_cmds = [
-            "s5cmd",
-            "run",
-            str(tmp_file_path),
-        ]
+        s5cmd_bin = (Path(sys.executable).parent / "s5cmd").absolute().as_posix()
+        run_cmds = [s5cmd_bin, "run", str(tmp_file_path)]
+        sys_logger.debug(run_cmds)
         envs = os.environ.copy()
         envs.update(append_envs)
 
