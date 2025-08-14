@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import uuid
 from pathlib import Path
@@ -117,10 +118,6 @@ def download_dataset_from_access_endpoint(
         return
 
 
-def is_s5cmd_available() -> bool:
-    return shutil.which("s5cmd") is not None
-
-
 def fast_copy_files_s3(
     src_paths: List[str],
     dst_paths: List[str],
@@ -129,8 +126,6 @@ def fast_copy_files_s3(
 ) -> List[str]:
     if len(src_paths) != len(dst_paths):
         raise ValueError("Source and destination paths must have the same length.")
-    if not is_s5cmd_available():
-        raise ValueError("`s5cmd` command is not available. Please install it before downloading.")
     cmds = [f"cp {src} {dst}" for src, dst in zip(src_paths, dst_paths)]
     lines = execute_s5cmd_commands(cmds, append_envs=append_envs, description=description)
     return lines
@@ -147,11 +142,9 @@ def execute_s5cmd_commands(
     with tempfile.TemporaryDirectory() as temp_dir:
         tmp_file_path = Path(temp_dir, f"{uuid.uuid4().hex}.txt")
         tmp_file_path.write_text("\n".join(commands))
-        run_cmds = [
-            "s5cmd",
-            "run",
-            str(tmp_file_path),
-        ]
+        s5cmd_bin = (Path(sys.executable).parent / "s5cmd").absolute().as_posix()
+        run_cmds = [s5cmd_bin, "run", str(tmp_file_path)]
+        sys_logger.debug(run_cmds)
         envs = os.environ.copy()
         envs.update(append_envs)
 
