@@ -87,6 +87,9 @@ class HafniaLogger:
         for path in create_paths:
             path.mkdir(parents=True, exist_ok=True)
 
+        path_file = self.path_model() / "STORE_YOUR_MODEL_HERE"
+        path_file.touch(exist_ok=True)
+
         self.dataset_name: Optional[str] = None
         self.log_file = self._path_artifacts() / self.EXPERIMENT_FILE
         self.schema = Entity.create_schema()

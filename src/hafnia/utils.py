@@ -97,7 +97,7 @@ def archive_dir(
 
     user_logger.info(f" Creating zip archive of '{recipe_path}'")
     include_files = filter_recipe_files(recipe_path, path_ignore_file)
-    with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
+    with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zip_ref:
         for str_filepath in include_files:
             full_path = recipe_path / str_filepath
             zip_ref.write(full_path, str_filepath)

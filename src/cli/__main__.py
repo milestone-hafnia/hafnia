@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import importlib
+
 import click
 
 from cli import consts, dataset_cmds, experiment_cmds, profile_cmds, recipe_cmds, runc_cmds
@@ -6,9 +8,11 @@ from cli.config import Config, ConfigSchema
 
 
 @click.group()
+@click.version_option(version=importlib.metadata.version("hafnia"))
 @click.pass_context
 def main(ctx: click.Context) -> None:
-    """Hafnia CLI."""
+    """Hafnia CLI"""
+
     ctx.obj = Config()
     ctx.max_content_width = 120
 
@@ -39,6 +43,13 @@ def clear(cfg: Config) -> None:
     """Remove stored configuration."""
     cfg.clear()
     click.echo("Successfully cleared Hafnia configuration.")
+
+
+@main.command("version")
+@click.pass_obj
+def version(cfg: Config) -> None:
+    """Show the version of the Hafnia CLI."""
+    click.echo(f"Hafnia CLI version: {importlib.metadata.version('hafnia')}")
 
 
 main.add_command(profile_cmds.profile)

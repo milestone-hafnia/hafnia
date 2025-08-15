@@ -54,10 +54,22 @@
             "program": "${workspaceFolder}/src/cli/__main__.py",
             "args": [
                 "dataset",
-                "download",
+                "ls",
+            ]
+        },
+                {
+            "name": "debug (hafnia create experiment)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "args": [
+                "experiment",
+                "create",
+                "debug_run",
+                "../recipe-classification/tests",
+                "python scripts/train.py",
                 "mnist",
-                //"./.data",
-                "--force"
+                "Free Tier",
             ]
         }
     ]

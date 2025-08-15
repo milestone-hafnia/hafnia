@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 
 import boto3
 import polars as pl
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 import hafnia.dataset.primitives.bbox
 import hafnia.dataset.primitives.bitmask
@@ -37,7 +37,7 @@ def generate_bucket_name(dataset_name: str, deployment_stage: DeploymentStage) -
 
 
 class DbDataset(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
-    model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
+    model_config = ConfigDict(use_enum_values=True, exclude_none=True)  # To parse Enum values as strings
     name: str
     data_captured_start: Optional[datetime] = None
     data_captured_end: Optional[datetime] = None
@@ -53,11 +53,11 @@ class DbDataset(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     annotation_ontology: Optional[str] = None
     dataset_variants: Optional[List[DbDatasetVariant]] = None
     split_annotations_reports: Optional[List[DbSplitAnnotationsReport]] = None
-    dataset_images: Optional[List[DatasetImage]] = None
+    imgs: Optional[List[DatasetImage]] = None
 
 
 class DbDatasetVariant(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
-    model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
+    model_config = ConfigDict(use_enum_values=True, exclude_none=True)  # To parse Enum values as strings
     variant_type: VariantTypeChoices  # Required
     upload_date: Optional[datetime] = None
     size_bytes: Optional[int] = None
@@ -72,13 +72,13 @@ class DbDatasetVariant(BaseModel, validate_assignment=True):  # type: ignore[cal
 
 
 class DbAnnotatedObject(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
-    model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
+    model_config = ConfigDict(use_enum_values=True, exclude_none=True)  # To parse Enum values as strings
     name: str
     entity_type: EntityTypeChoices
 
 
 class DbAnnotatedObjectReport(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
-    model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
+    model_config = ConfigDict(use_enum_values=True, exclude_none=True)  # To parse Enum values as strings
     obj: DbAnnotatedObject
     unique_obj_ids: Optional[int] = None
     obj_instances: Optional[int] = None
@@ -90,6 +90,7 @@ class DbAnnotatedObjectReport(BaseModel, validate_assignment=True):  # type: ign
 
 
 class DbDistributionValue(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
+    model_config = ConfigDict(exclude_none=True)
     distribution_category: DbDistributionCategory
     percentage: Optional[float] = None
 
@@ -101,7 +102,7 @@ class DbDistributionValue(BaseModel, validate_assignment=True):  # type: ignore[
 
 
 class DbSplitAnnotationsReport(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
-    model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
+    model_config = ConfigDict(use_enum_values=True, exclude_none=True)  # To parse Enum values as strings
     variant_type: VariantTypeChoices  # Required
     split: str  # Required
     sample_count: Optional[int] = None
@@ -156,7 +157,18 @@ class EntityTypeChoices(str, Enum):  # Should match `EntityTypeChoices` in `dipd
 
 
 class DatasetImage(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
+    model_config = ConfigDict(exclude_none=True)
     img: str
+
+    # Attribution
+    creator: Optional[str] = Field(default=None, description="Creator of the image", max_length=255)
+    copyright_notice: Optional[str] = Field(default=None, description="Copyright notice for the image", max_length=255)
+    license: Optional[str] = Field(default=None, description="License for the image", max_length=255)
+    disclaimer: Optional[str] = Field(default=None, description="Disclaimer for the image", max_length=255)
+    source_url: Optional[str] = Field(default=None, description="Source URL for the image", max_length=255)
+    title: Optional[str] = Field(default=None, description="Title of the image", max_length=255)
+
+    order: Optional[int] = None
 
 
 class DbDistributionType(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
@@ -187,7 +199,7 @@ def get_folder_size(path: Path) -> int:
 
 def upload_to_hafnia_dataset_detail_page(dataset_update: DbDataset) -> dict:
     cfg = Config()
-    dataset_details = dataset_update.model_dump_json()
+    dataset_details = dataset_update.model_dump_json(exclude_none=True)
     data = upload_dataset_details(cfg=cfg, data=dataset_details, dataset_name=dataset_update.name)
     return data
 
@@ -199,9 +211,84 @@ def upload_dataset_details(cfg: Config, data: str, dataset_name: str) -> dict:
     import_endpoint = f"{dataset_endpoint}/{dataset_id}/import"
     headers = {"Authorization": cfg.api_key}
 
+    if False:
+        import base64
+        import json
+
+        path = Path("/home/petermachine/code/data-management/.figures/2025-01-08_15-45.png")
+        # headers_new = headers.copy()
+        # headers_new["Content-Type"] = "application/json"
+        data_dict = json.loads(data)
+
+        # data_dict["imgs"] = [{"img": (str(path), path.read_bytes())}]
+        # Make imgs json serializable
+        data_dict["imgs"] = [
+            {
+                # "img": (str(path), path.read_bytes())
+                "img": f"data:image/png;base64,{base64.b64encode(path.read_bytes()).decode()}"
+            }
+        ]
+        # data_dict["imgs"] = []
+        data_back = json.dumps(data_dict)
+        path_payload = Path("payload.json")
+        path_payload.write_text(data_back)
+        response = post(endpoint=import_endpoint, headers=headers, data=data_back)
+        response
+
+    if False:
+        import base64
+        import json
+
+        import urllib3
+
+        path = Path("/home/petermachine/code/data-management/.figures/2025-01-08_15-45.png")
+        data_dict = json.loads(data)
+        payload_json = json.dumps(data_dict, separators=(",", ":")).encode("utf-8")
+
+        fields = [("payload", ("payload.json", payload_json, "application/json"))]
+        fields.append(("img", ("image.png", path.read_bytes(), "image/png")))
+        http = urllib3.PoolManager(retries=urllib3.Retry(3))
+        if "Content-Type" in headers:
+            headers.pop("Content-Type")
+        response = http.request("POST", import_endpoint, headers=headers, fields=fields)
+        response.status
+        print(response.data)
+        ##############
+
+        import base64
+        import json
+
+        import urllib3
+
+        path = Path("/home/petermachine/code/data-management/.figures/2025-01-08_15-45.png")
+        data_dict = json.loads(data)
+        # payload_json = json.dumps(data_dict, separators=(",", ":")).encode("utf-8")
+
+        # fields = [("payload", ("payload.json", payload_json, "application/json"))]
+        # fields.append(("image", ("image.png", path.read_bytes(), "image/png")))
+        http = urllib3.PoolManager(retries=urllib3.Retry(3))
+        headers.pop("Content-Type", None)
+        response = http.request("POST", import_endpoint, headers=headers, fields=data_dict)
+        response.status
+        print(response.data)
+        ##############
+        # # data_dict["imgs"] = [{"img": (str(path), path.read_bytes())}]
+        # # Make imgs json serializable
+        # data_dict["imgs"] = [
+        #     {
+        #         "img": (str(path), path.read_bytes())
+        #         # "img": f"data:image/png;base64,{base64.b64encode(path.read_bytes()).decode()}"
+        #     }
+        # ]
+        # path_payload = Path("payload.json")
+        # path_payload.write_text(data_back)
+        # response = post(
+        #     endpoint=import_endpoint, headers=headers, data=data_dict, multipart=True
+        # )
+        response
     user_logger.info("Importing dataset details. This may take up to 30 seconds...")
-    data = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
-    return data  # type: ignore[return-value]
+    response = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
+    return response  # type: ignore[return-value]
 
 
 def get_resolutions(dataset: HafniaDataset, max_resolutions_selected: int = 8) -> List[DbResolution]:
@@ -362,7 +449,10 @@ def dataset_info_from_dataset(
                         )
                     )
 
-            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.classification.Classification):
+            if has_primitive(
+                dataset_split,
+                PrimitiveType=hafnia.dataset.primitives.classification.Classification,
+            ):
                 annotation_type = DbAnnotationType(name=AnnotationType.ImageClassification.value)
                 col_name = hafnia.dataset.primitives.classification.Classification.column_name()
                 classification_tasks = [
@@ -403,7 +493,10 @@ def dataset_info_from_dataset(
                             )
                         )
 
-            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.segmentation.Segmentation):
+            if has_primitive(
+                dataset_split,
+                PrimitiveType=hafnia.dataset.primitives.segmentation.Segmentation,
+            ):
                 raise NotImplementedError("Not Implemented yet")
 
             if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.bitmask.Bitmask):
