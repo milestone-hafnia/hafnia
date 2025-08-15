@@ -142,8 +142,13 @@ def execute_s5cmd_commands(
     with tempfile.TemporaryDirectory() as temp_dir:
         tmp_file_path = Path(temp_dir, f"{uuid.uuid4().hex}.txt")
         tmp_file_path.write_text("\n".join(commands))
-        s5cmd_bin = (Path(sys.executable).parent / "s5cmd").absolute().as_posix()
-        run_cmds = [s5cmd_bin, "run", str(tmp_file_path)]
+        # This is a workaround for pipx installations.
+        # Because the command will be run in a subprocess, venv will not be inherited and s5cmd will be missing.
+        s5cmd_bin_path = (Path(sys.executable).parent / "s5cmd").absolute()
+        if s5cmd_bin_path.exists():
+            run_cmds = [s5cmd_bin_path.as_posix(), "run", str(tmp_file_path)]
+        else:
+            run_cmds = ["s5cmd", "run", str(tmp_file_path)]
         sys_logger.debug(run_cmds)
         envs = os.environ.copy()
         envs.update(append_envs)
