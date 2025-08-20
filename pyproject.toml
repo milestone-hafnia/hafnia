@@ -24,6 +24,7 @@ dependencies = [
     "pydantic>=2.10.4",
     "rich>=13.9.4",
     "s5cmd>=0.2.0",
+    "sagemaker-mlflow>=0.1.0",
     "seedir>=0.5.0",
     "tqdm>=4.67.1",
     "xxhash>=3.5.0",

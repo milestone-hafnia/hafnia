@@ -872,6 +872,7 @@ dependencies = [
     { name = "pydantic", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
     { name = "rich", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
     { name = "s5cmd", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
+    { name = "sagemaker-mlflow", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
     { name = "seedir", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
     { name = "tqdm", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
     { name = "xxhash", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
@@ -908,6 +909,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.10.4" },
     { name = "rich", specifier = ">=13.9.4" },
     { name = "s5cmd", specifier = ">=0.2.0" },
+    { name = "sagemaker-mlflow", specifier = ">=0.1.0" },
     { name = "seedir", specifier = ">=0.5.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "xxhash", specifier = ">=3.5.0" },
@@ -2571,6 +2573,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/72/41/beff9ba3da18dfd3757d794d29287a3e2551dda5dfe01a36dee81f1308fd/s5cmd-0.2.0-py3-none-win32.whl", hash = "sha256:2589d2cf6eab6d06fb5dc7e53160daa46c0d5295d971c3ab7567d74001799e44", size = 4867734 },
     { url = "https://files.pythonhosted.org/packages/28/b3/2169c2abf2086f5586e1670a0ce765af24a9b560461ca12ce663e6648618/s5cmd-0.2.0-py3-none-win_amd64.whl", hash = "sha256:8d1b8b08e5aabd81473bc8826d403ffe17d435f8972ec05c0c22b29999fef491", size = 4867738 },
     { url = "https://files.pythonhosted.org/packages/6c/5d/7247fb2deb8857f8cfef16f28b1a79a85042fee19932c56533211c36585a/s5cmd-0.2.0-py3-none-win_arm64.whl", hash = "sha256:1cda970814aa2e15e4add42a3005a1a6ea7bd23212fc704d7273e7372fb228db", size = 4376083 },
+]
+
+[[package]]
+name = "sagemaker-mlflow"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
+    { name = "mlflow", marker = "platform_machine == 'aarch64' or platform_system != 'Darwin' or sys_platform != 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/74/b8683edc86515e587a173eefc376a58bbae4768a4e4c9c83ba997f509d65/sagemaker_mlflow-0.1.0.tar.gz", hash = "sha256:1fe8f7f010f7c68b6b0b46c032cf6a414f20adfc26cbc6a731d3a91b32b9b84f", size = 12798 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5e/54/e2dd3cf3e289e480600649b1e3f573ca54c8df1db1ac78cc55a24279b924/sagemaker_mlflow-0.1.0-py3-none-any.whl", hash = "sha256:b0dc955e2898de2070b489e982372edafc0ec708634a2e69c21e2570d7308b0c", size = 24680 },
 ]
 
 [[package]]
