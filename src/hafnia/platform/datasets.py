@@ -131,6 +131,28 @@ def fast_copy_files_s3(
     return lines
 
 
+def find_s5cmd() -> Optional[str]:
+    """Locate the s5cmd executable across different installation methods.
+
+    Searches for s5cmd in:
+    1. System PATH (via shutil.which)
+    2. Python bin directory (Unix-like systems)
+    3. Python executable directory (direct installs)
+
+    Returns:
+        str: Absolute path to s5cmd executable if found, None otherwise.
+    """
+    result = shutil.which("s5cmd")
+    if result:
+        return result
+    python_dir = Path(sys.executable).parent
+    locations = (python_dir / "Scripts" / "s5cmd.exe", python_dir / "bin" / "s5cmd", python_dir / "s5cmd")
+    for loc in locations:
+        if loc.exists():
+            return loc.as_posix()
+    return None
+
+
 def execute_s5cmd_commands(
     commands: List[str],
     append_envs: Optional[Dict[str, str]] = None,
@@ -142,7 +164,9 @@ def execute_s5cmd_commands(
     with tempfile.TemporaryDirectory() as temp_dir:
         tmp_file_path = Path(temp_dir, f"{uuid.uuid4().hex}.txt")
         tmp_file_path.write_text("\n".join(commands))
-        s5cmd_bin = (Path(sys.executable).parent / "s5cmd").absolute().as_posix()
+        s5cmd_bin = find_s5cmd()
+        if s5cmd_bin is None:
+            raise ValueError("Can not find s5cmd executable.")
         run_cmds = [s5cmd_bin, "run", str(tmp_file_path)]
         sys_logger.debug(run_cmds)
         envs = os.environ.copy()
