@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -7,13 +8,9 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 
 import boto3
 import polars as pl
-from pydantic import BaseModel, ConfigDict
+from PIL import Image
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-import hafnia.dataset.primitives.bbox
-import hafnia.dataset.primitives.bitmask
-import hafnia.dataset.primitives.classification
-import hafnia.dataset.primitives.polygon
-import hafnia.dataset.primitives.segmentation
 from cli.config import Config
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import (
@@ -24,6 +21,7 @@ from hafnia.dataset.dataset_names import (
     SplitName,
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset, TaskInfo
+from hafnia.dataset.primitives import Bbox, Bitmask, Classification, Polygon, Segmentation
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.http import post
 from hafnia.log import user_logger
@@ -53,7 +51,7 @@ class DbDataset(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     annotation_ontology: Optional[str] = None
     dataset_variants: Optional[List[DbDatasetVariant]] = None
     split_annotations_reports: Optional[List[DbSplitAnnotationsReport]] = None
-    dataset_images: Optional[List[DatasetImage]] = None
+    imgs: Optional[List[DatasetImage]] = None
 
 
 class DbDatasetVariant(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
@@ -157,6 +155,37 @@ class EntityTypeChoices(str, Enum):  # Should match `EntityTypeChoices` in `dipd
 
 class DatasetImage(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     img: str
+    order: Optional[int] = None
+
+    # Attribution
+    title: Optional[str] = Field(default=None, description="Title of the image", max_length=255)
+    creator: Optional[str] = Field(default=None, description="Creator of the image", max_length=255)
+    copyright_notice: Optional[str] = Field(default=None, description="Copyright notice for the image", max_length=255)
+    license: Optional[str] = Field(default=None, description="License for the image", max_length=255)
+    license_url: Optional[str] = Field(default=None, description="License for the image", max_length=255)
+    disclaimer: Optional[str] = Field(default=None, description="Disclaimer for the image", max_length=255)
+    changes: Optional[str] = Field(default=None, description="Changes made to the image", max_length=255)
+    source_url: Optional[str] = Field(default=None, description="Source URL for the image", max_length=255)
+
+    @field_validator("img", mode="before")
+    def validate_image_path(cls, v: Union[str, Path]) -> str:
+        if isinstance(v, Path):
+            v = path_image_to_base64_str(path_image=v)
+
+        if not isinstance(v, str):
+            raise ValueError("Image must be a string or Path object representing the image path.")
+
+        if not v.startswith("data:image/"):
+            raise ValueError("Image must be a base64-encoded data URL.")
+
+        return v
+
+
+def path_image_to_base64_str(path_image: Path) -> str:
+    image = Image.open(path_image)
+    mime_format = Image.MIME[image.format]
+    as_b64 = base64.b64encode(path_image.read_bytes()).decode("ascii")
+    return f"data:{mime_format};base64,{as_b64}"
 
 
 class DbDistributionType(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
@@ -200,8 +229,8 @@ def upload_dataset_details(cfg: Config, data: str, dataset_name: str) -> dict:
     headers = {"Authorization": cfg.api_key}
 
     user_logger.info("Importing dataset details. This may take up to 30 seconds...")
-    data = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
-    return data  # type: ignore[return-value]
+    response = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
+    return response  # type: ignore[return-value]
 
 
 def get_resolutions(dataset: HafniaDataset, max_resolutions_selected: int = 8) -> List[DbResolution]:
@@ -235,7 +264,7 @@ def calculate_distribution_values(
 
     if len(distribution_tasks) == 0:
         return []
-    classification_column = hafnia.dataset.primitives.classification.Classification.column_name()
+    classification_column = Classification.column_name()
     classifications = dataset_split.select(pl.col(classification_column).explode())
     classifications = classifications.filter(pl.col(classification_column).is_not_null()).unnest(classification_column)
     classifications = classifications.filter(
@@ -331,9 +360,9 @@ def dataset_info_from_dataset(
             )
 
             object_reports: List[DbAnnotatedObjectReport] = []
-            primitive_columns = [tPrimtive.column_name() for tPrimtive in primitives.PRIMITIVE_TYPES]
-            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.bbox.Bbox):
-                bbox_column_name = hafnia.dataset.primitives.bbox.Bbox.column_name()
+            primitive_columns = [tPrimitive.column_name() for tPrimitive in primitives.PRIMITIVE_TYPES]
+            if has_primitive(dataset_split, PrimitiveType=Bbox):
+                bbox_column_name = Bbox.column_name()
                 drop_columns = [col for col in primitive_columns if col != bbox_column_name]
                 drop_columns.append(FieldName.META)
                 df_per_instance = dataset_split.rename({"height": "image.height", "width": "image.width"})
@@ -362,14 +391,10 @@ def dataset_info_from_dataset(
                         )
                     )
 
-            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.classification.Classification):
+            if has_primitive(dataset_split, PrimitiveType=Classification):
                 annotation_type = DbAnnotationType(name=AnnotationType.ImageClassification.value)
-                col_name = hafnia.dataset.primitives.classification.Classification.column_name()
-                classification_tasks = [
-                    task.name
-                    for task in dataset.info.tasks
-                    if task.primitive == hafnia.dataset.primitives.classification.Classification
-                ]
+                col_name = Classification.column_name()
+                classification_tasks = [task.name for task in dataset.info.tasks if task.primitive == Classification]
                 has_classification_data = dataset_split[col_name].dtype != pl.List(pl.Null)
                 if has_classification_data:
                     classification_df = dataset_split.select(col_name).explode(col_name).unnest(col_name)
@@ -385,7 +410,7 @@ def dataset_info_from_dataset(
                     ), class_group in classification_df.group_by(FieldName.TASK_NAME, FieldName.CLASS_NAME):
                         if class_name is None:
                             continue
-                        if task_name == hafnia.dataset.primitives.classification.Classification.default_task_name():
+                        if task_name == Classification.default_task_name():
                             display_name = class_name  # Prefix class name with task name
                         else:
                             display_name = f"{task_name}.{class_name}"
@@ -403,11 +428,11 @@ def dataset_info_from_dataset(
                             )
                         )
 
-            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.segmentation.Segmentation):
+            if has_primitive(dataset_split, PrimitiveType=Segmentation):
                 raise NotImplementedError("Not Implemented yet")
 
-            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.bitmask.Bitmask):
-                col_name = hafnia.dataset.primitives.bitmask.Bitmask.column_name()
+            if has_primitive(dataset_split, PrimitiveType=Bitmask):
+                col_name = Bitmask.column_name()
                 drop_columns = [col for col in primitive_columns if col != col_name]
                 drop_columns.append(FieldName.META)
                 df_per_instance = dataset_split.rename({"height": "image.height", "width": "image.width"})
@@ -437,7 +462,7 @@ def dataset_info_from_dataset(
                         )
                     )
 
-            if has_primitive(dataset_split, PrimitiveType=hafnia.dataset.primitives.polygon.Polygon):
+            if has_primitive(dataset_split, PrimitiveType=Polygon):
                 raise NotImplementedError("Not Implemented yet")
 
             # Sort object reports by name to more easily compare between versions
