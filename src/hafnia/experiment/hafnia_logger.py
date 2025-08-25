@@ -123,7 +123,8 @@ class HafniaLogger:
                 user_logger.info(f"MLflow experiment set to: {experiment_name}")
 
             # Start MLflow run
-            mlflow.start_run()
+            run_name = os.getenv("MLFLOW_RUN_ID")
+            mlflow.start_run(run_name=run_name)
             self._mlflow_initialized = True
             user_logger.info("MLflow run started successfully")
 
