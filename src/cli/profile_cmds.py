@@ -81,6 +81,7 @@ def profile_rm(cfg: Config, profile_name: str) -> None:
 @profile.command("active")
 @click.pass_obj
 def profile_active(cfg: Config) -> None:
+    """Show the currently active profile."""
     try:
         profile_show(cfg)
     except Exception as e:

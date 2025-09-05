@@ -20,9 +20,7 @@ class DeploymentStage(Enum):
 
 class FieldName:
     CLASS_NAME: str = "class_name"  # Name of the class this primitive is associated with, e.g. "car" for Bbox
-    CLASS_IDX: str = (
-        "class_idx"  # Index of the class this primitive is associated with, e.g. 0 for "car" if it is the first class
-    )
+    CLASS_IDX: str = "class_idx"  # Index of the class this primitive is associated with, e.g. 0 for "car" if it is the first class  # noqa: E501
     OBJECT_ID: str = "object_id"  # Unique identifier for the object, e.g. "12345123"
     CONFIDENCE: str = "confidence"  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
 
@@ -52,6 +50,7 @@ class ColumnName:
     SPLIT: str = "split"
     IS_SAMPLE: str = "is_sample"
     REMOTE_PATH: str = "remote_path"  # Path to the file in remote storage, e.g. S3
+    ATTRIBUTIONS: str = "attributions"  # Attributions for the sample, e.g. creator, license, source, etc.
     META: str = "meta"
 
 

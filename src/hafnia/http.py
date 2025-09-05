@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import urllib3
 
 
-def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Dict:
+def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Union[Dict, List]:
     """Fetches data from the API endpoint.
 
     Args:
@@ -79,5 +79,19 @@ def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes, str], mult
             raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}: {error_details}")
 
         return json.loads(response.data.decode("utf-8"))
+    finally:
+        http.clear()
+
+
+def delete(endpoint: str, headers: Dict) -> Dict:
+    """Sends a DELETE request to the specified endpoint."""
+    http = urllib3.PoolManager(retries=urllib3.Retry(3))
+    try:
+        response = http.request("DELETE", endpoint, headers=headers)
+
+        if response.status not in (200, 204):
+            error_details = response.data.decode("utf-8")
+            raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}: {error_details}")
+        return json.loads(response.data.decode("utf-8")) if response.data else {}
     finally:
         http.clear()

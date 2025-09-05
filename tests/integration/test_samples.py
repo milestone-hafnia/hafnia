@@ -18,7 +18,7 @@ from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.segmentation import Segmentation
-from tests.helper_testing import is_hafnia_configured
+from hafnia.utils import is_hafnia_configured
 
 FORCE_REDOWNLOAD = False
 

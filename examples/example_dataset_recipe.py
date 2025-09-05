@@ -2,6 +2,7 @@ from pathlib import Path
 
 from rich import print as rprint
 
+from hafnia import utils
 from hafnia.data.factory import load_dataset
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
@@ -14,10 +15,6 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 ### Introducing DatasetRecipe ###
 # A DatasetRecipe is a recipe for the dataset you want to create.
 # The recipe itself is not executed - this is just a specification of the dataset you want!
-
-# A DatasetRecipe is an important concept in Hafnia as it allows you to merge multiple datasets
-# and transformations in a single recipe. This is especially useful for Training as a Service (TaaS)
-# where you need to define the dataset you want as a configuration and load it in the TaaS platform.
 
 # The 'DatasetRecipe' interface is similar to the 'HafniaDataset' interface.
 # To demonstrate, we will first create a dataset with the regular 'HafniaDataset' interface.
@@ -34,30 +31,35 @@ dataset = dataset_recipe.build()
 # You can print the dataset recipe to the operations that were applied to it.
 rprint(dataset_recipe)
 
-# Or as a JSON string:
-json_str: str = dataset_recipe.as_json_str()
-rprint(json_str)
+# This is an important feature as it only registers operations and that the recipe itself
+# - and not the dataset - can be saved and loaded from file.
+# Meaning you can easily save, share, load and build the dataset later in a different environment.
 
-# This is an important feature of a 'DatasetRecipe' it only registers operations and that the recipe itself
-# - and not the dataset - can be saved as a file and loaded from file.
-# Meaning you can easily save, share, load and build the dataset later or in a different environment.
-# For TaaS, this is the only way to include multiple datasets during training.
+# Example: Saving and loading a dataset recipe from file.
+path_recipe = Path(".data/dataset_recipes/example_recipe.json")
+json_str: str = dataset_recipe.as_json_file(path_recipe)
+dataset_recipe_again: DatasetRecipe = DatasetRecipe.from_json_file(path_recipe)
 
-
-# 2) The recipe can be loaded from json string
-dataset_recipe_again: DatasetRecipe = DatasetRecipe.from_json_str(json_str)
-# dataset_recipe_again.build()
-
-# We can verify that the loaded recipe is the same as the original recipe.
+# Verify that the loaded recipe is identical to the original recipe.
 assert dataset_recipe_again == dataset_recipe
 
-# Additionally, you can get the python code for creating the same recipe.
+# It is also possible to generate the recipe as python code
 dataset_recipe.as_python_code()
 
-# Example: DatasetRecipe from Path
-dataset_recipe = DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
+# A 'DatasetRecipe' is an important concept in Hafnia as it allows you to merge multiple datasets
+# and transformations and use it for model training in TaaS.
+if utils.is_hafnia_configured():  # First ensure you are connected to the hafnia platform
+    # Upload the dataset recipe - this will make it available for TaaS and for users of your organization
+    dataset_recipe.as_platform_recipe(recipe_name="example-mnist-recipe")
 
-# Example: DatasetRecipe by merging multiple dataset recipes
+    # The recipe is now available in TaaS, for different environments and other users in your organization
+    dataset_recipe_again = DatasetRecipe.from_recipe_name(name="example-mnist-recipe")
+
+    # Challenge: Go to hafnia platform (https://hafnia.milestonesys.com/training-aas/experiments)
+    # and launch an experiment with the generated dataset recipe
+
+### More examples dataset recipes ###
+# Example: 'DatasetRecipe' by merging multiple dataset recipes
 dataset_recipe = DatasetRecipe.from_merger(
     recipes=[
         DatasetRecipe.from_name(name="mnist"),

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from random import Random
 from typing import Any, Dict, List, Optional, Type, Union
@@ -11,7 +12,7 @@ import numpy as np
 import polars as pl
 import rich
 from PIL import Image
-from pydantic import BaseModel, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from rich import print as rprint
 from rich.table import Table
 from tqdm import tqdm
@@ -116,6 +117,7 @@ class Sample(BaseModel):
     bitmasks: Optional[List[Bitmask]] = None  # List of bitmasks, if applicable
     polygons: Optional[List[Polygon]] = None  # List of polygons, if applicable
 
+    attributions: Optional[Attributions] = None
     meta: Optional[Dict] = None  # Additional metadata, e.g., camera settings, GPS data, etc.
 
     def get_annotations(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
@@ -158,6 +160,18 @@ class Sample(BaseModel):
         return annotations_visualized
 
 
+class Attributions(BaseModel):
+    title: Optional[str] = Field(default=None, description="Title of the image", max_length=255)
+    creator: Optional[str] = Field(default=None, description="Creator of the image", max_length=255)
+    date_captured: Optional[datetime] = Field(default=None, description="Date when the image was captured")
+    copyright_notice: Optional[str] = Field(default=None, description="Copyright notice for the image", max_length=255)
+    license: Optional[str] = Field(default=None, description="License for the image", max_length=255)
+    license_url: Optional[str] = Field(default=None, description="License for the image", max_length=255)
+    disclaimer: Optional[str] = Field(default=None, description="Disclaimer for the image", max_length=255)
+    changes: Optional[str] = Field(default=None, description="Changes made to the image", max_length=255)
+    source_url: Optional[str] = Field(default=None, description="Source URL for the image", max_length=255)
+
+
 @dataclass
 class HafniaDataset:
     info: DatasetInfo
@@ -192,7 +206,6 @@ class HafniaDataset:
         """
         Load a dataset by its name. The dataset must be registered in the Hafnia platform.
         """
-        from hafnia.dataset.hafnia_dataset import HafniaDataset
         from hafnia.platform.datasets import download_or_get_dataset_path
 
         dataset_path = download_or_get_dataset_path(

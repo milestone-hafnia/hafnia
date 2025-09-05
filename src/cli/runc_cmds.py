@@ -13,7 +13,7 @@ from hafnia.log import sys_logger, user_logger
 
 @click.group(name="runc")
 def runc():
-    """Experiment management commands"""
+    """Creating and running training recipes locally"""
     pass
 
 

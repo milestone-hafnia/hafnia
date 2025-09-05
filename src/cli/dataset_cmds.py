@@ -4,7 +4,7 @@ from typing import Optional
 import click
 from rich import print as rprint
 
-import cli.consts as consts
+from cli import consts
 from cli.config import Config
 from hafnia import utils
 from hafnia.platform.datasets import create_rich_table_from_dataset
@@ -23,11 +23,7 @@ def dataset_list(cfg: Config) -> None:
 
     from hafnia.platform.datasets import dataset_list
 
-    try:
-        datasets = dataset_list(cfg=cfg)
-    except Exception:
-        raise click.ClickException(consts.ERROR_GET_RESOURCE)
-
+    datasets = dataset_list(cfg=cfg)
     table = create_rich_table_from_dataset(datasets)
     rprint(table)
 

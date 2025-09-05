@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Union, get_origin
 
 from hafnia import utils
 from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, DatasetVariant
+from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
 MICRO_DATASETS = {
@@ -66,15 +67,6 @@ def get_micro_hafnia_dataset(dataset_name: str, force_update: bool = False) -> H
     return hafnia_dataset
 
 
-def is_hafnia_configured() -> bool:
-    """
-    Check if Hafnia is configured by verifying if the API key is set.
-    """
-    from cli.config import Config
-
-    return Config().is_configured()
-
-
 def is_typing_type(annotation: Any) -> bool:
     return get_origin(annotation) is not None
 
@@ -106,3 +98,19 @@ def get_hafnia_functions_from_module(python_module) -> Dict[str, FunctionType]:
 
     functions = {func[0]: func[1] for func in getmembers(python_module, isfunction) if dataset_is_first_arg(func[1])}
     return functions
+
+
+def get_dummy_recipe() -> DatasetRecipe:
+    dataset_recipe = DatasetRecipe.from_merger(
+        recipes=[
+            DatasetRecipe.from_name(name="mnist", force_redownload=False)
+            .select_samples(n_samples=20, shuffle=True, seed=42)
+            .shuffle(seed=123),
+            DatasetRecipe.from_name(name="mnist", force_redownload=False)
+            .select_samples(n_samples=30, shuffle=True, seed=42)
+            .splits_by_ratios(split_ratios={"train": 0.8, "val": 0.1, "test": 0.1}, seed=42),
+            DatasetRecipe.from_name(name="mnist", force_redownload=False),
+        ]
+    )
+
+    return dataset_recipe

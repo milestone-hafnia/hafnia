@@ -1,11 +1,14 @@
 #!/usr/bin/env python
+from importlib.metadata import version
+
 import click
 
-from cli import consts, dataset_cmds, experiment_cmds, profile_cmds, recipe_cmds, runc_cmds
+from cli import consts, dataset_cmds, dataset_recipe_cmds, experiment_cmds, profile_cmds, runc_cmds, train_recipe_cmds
 from cli.config import Config, ConfigSchema
 
 
 @click.group()
+@click.version_option(version=version("hafnia"))
 @click.pass_context
 def main(ctx: click.Context) -> None:
     """Hafnia CLI."""
@@ -45,7 +48,8 @@ main.add_command(profile_cmds.profile)
 main.add_command(dataset_cmds.dataset)
 main.add_command(runc_cmds.runc)
 main.add_command(experiment_cmds.experiment)
-main.add_command(recipe_cmds.recipe)
+main.add_command(train_recipe_cmds.training_recipe)
+main.add_command(dataset_recipe_cmds.dataset_recipe)
 
 if __name__ == "__main__":
     main(max_content_width=120)
