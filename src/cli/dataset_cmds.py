@@ -2,12 +2,10 @@ from pathlib import Path
 from typing import Optional
 
 import click
-from rich import print as rprint
 
 from cli import consts
 from cli.config import Config
 from hafnia import utils
-from hafnia.platform.datasets import create_rich_table_from_dataset
 
 
 @click.group()
@@ -20,12 +18,10 @@ def dataset():
 @click.pass_obj
 def dataset_list(cfg: Config) -> None:
     """List available datasets on Hafnia platform"""
-
-    from hafnia.platform.datasets import dataset_list
+    from hafnia.platform.datasets import dataset_list, pretty_print_datasets
 
     datasets = dataset_list(cfg=cfg)
-    table = create_rich_table_from_dataset(datasets)
-    rprint(table)
+    pretty_print_datasets(datasets)
 
 
 @dataset.command("download")

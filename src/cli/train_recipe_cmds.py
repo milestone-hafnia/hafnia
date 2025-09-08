@@ -5,7 +5,6 @@ import click
 
 import cli.consts as consts
 from cli.config import Config
-from hafnia.utils import pretty_print_list_as_table
 
 
 @click.group(name="train-recipe")
@@ -20,26 +19,12 @@ def training_recipe() -> None:
 def list_training_recipes(cfg: Config, limit: Optional[int]) -> None:
     """List available training recipes on the platform"""
 
-    from hafnia.platform import get_training_recipes
+    from hafnia.platform.train_recipe import get_training_recipes, pretty_print_training_recipes
 
     endpoint = cfg.get_platform_endpoint("training_recipes")
     recipes = get_training_recipes(endpoint, cfg.api_key)
 
-    # Sort recipes to have the most recent first
-    recipes = sorted(recipes, key=lambda x: x["created_at"], reverse=True)
-    if limit is not None:
-        recipes = recipes[:limit]
-    mapping = {
-        "ID": "id",
-        "Name": "name",
-        "Description": "description",
-        "Created At": "created_at",
-    }
-    pretty_print_list_as_table(
-        table_title="Available Training Recipes (most recent first)",
-        dict_items=recipes,
-        column_name_to_key_mapping=mapping,
-    )
+    pretty_print_training_recipes(recipes, limit=limit)
 
 
 @training_recipe.command(name="create-zip")

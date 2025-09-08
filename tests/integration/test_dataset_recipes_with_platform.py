@@ -5,7 +5,7 @@ from cli.config import Config
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
 )
-from hafnia.platform.experiment import (
+from hafnia.platform.dataset_recipe import (
     delete_dataset_recipe_by_id,
     delete_dataset_recipe_by_name,
     get_dataset_recipe_by_id,

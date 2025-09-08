@@ -31,7 +31,7 @@ from hafnia.dataset.primitives import (
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.http import post
 from hafnia.log import user_logger
-from hafnia.platform import get_dataset_id
+from hafnia.platform.datasets import get_dataset_id
 
 
 def generate_bucket_name(dataset_name: str, deployment_stage: DeploymentStage) -> str:

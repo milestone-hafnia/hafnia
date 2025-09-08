@@ -86,7 +86,7 @@ class DatasetRecipe(Serializable):
     def from_recipe_id(recipe_id: str) -> "DatasetRecipe":
         """Loads a dataset recipe by id from the hafnia platform."""
         from cli.config import Config
-        from hafnia.platform.experiment import get_dataset_recipe_by_id
+        from hafnia.platform.dataset_recipe import get_dataset_recipe_by_id
 
         cfg = Config()
         endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
@@ -102,7 +102,7 @@ class DatasetRecipe(Serializable):
     def from_recipe_name(name: str) -> "DatasetRecipe":
         """Loads a dataset recipe by name from the hafnia platform"""
         from cli.config import Config
-        from hafnia.platform.experiment import get_dataset_recipe_by_name
+        from hafnia.platform.dataset_recipe import get_dataset_recipe_by_name
 
         cfg = Config()
         endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
@@ -228,7 +228,7 @@ class DatasetRecipe(Serializable):
     def as_platform_recipe(self, recipe_name: Optional[str]) -> Dict:
         """Uploads dataset recipe to the hafnia platform."""
         from cli.config import Config
-        from hafnia.platform.experiment import get_or_create_dataset_recipe
+        from hafnia.platform.dataset_recipe import get_or_create_dataset_recipe
 
         recipe = self.as_dict()
         cfg = Config()

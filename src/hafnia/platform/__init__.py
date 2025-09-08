@@ -1,3 +1,4 @@
+from hafnia.platform.datasets import get_dataset_id
 from hafnia.platform.download import (
     download_resource,
     download_single_object,
@@ -5,14 +6,11 @@ from hafnia.platform.download import (
 )
 from hafnia.platform.experiment import (
     create_experiment,
-    create_training_recipe,
-    get_dataset_id,
     get_environments,
     get_exp_environment_id,
-    get_training_recipe_by_id,
-    get_training_recipes,
     pretty_print_training_environments,
 )
+from hafnia.platform.train_recipe import create_training_recipe, get_training_recipe_by_id, get_training_recipes
 
 __all__ = [
     "get_dataset_id",
