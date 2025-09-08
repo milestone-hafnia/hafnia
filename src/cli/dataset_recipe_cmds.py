@@ -14,13 +14,7 @@ def dataset_recipe() -> None:
 
 
 @dataset_recipe.command(name="create")
-@click.option(
-    "-p",
-    "--path",
-    type=click.Path(writable=True),
-    required=True,
-    help="Output dataset recipe path.",
-)
+@click.argument("path_json_recipe", required=True)
 @click.option(
     "-n",
     "--name",
@@ -30,12 +24,12 @@ def dataset_recipe() -> None:
     help="Name of the dataset recipe.",
 )
 @click.pass_obj
-def dataset_recipe_create(cfg: Config, path: Path, name: Optional[str]) -> None:
-    """Create Hafnia dataset recipe from local path"""
+def dataset_recipe_create(cfg: Config, path_json_recipe: Path, name: Optional[str]) -> None:
+    """Create Hafnia dataset recipe from dataset recipe JSON file"""
     from hafnia.platform.dataset_recipe import get_or_create_dataset_recipe_from_path
 
     endpoint = cfg.get_platform_endpoint("dataset_recipes")
-    recipe = get_or_create_dataset_recipe_from_path(path, endpoint=endpoint, api_key=cfg.api_key, name=name)
+    recipe = get_or_create_dataset_recipe_from_path(path_json_recipe, endpoint=endpoint, api_key=cfg.api_key, name=name)
 
     if recipe is None:
         raise click.ClickException("Failed to create dataset recipe.")

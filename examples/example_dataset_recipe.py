@@ -31,9 +31,9 @@ dataset = dataset_recipe.build()
 # You can print the dataset recipe to the operations that were applied to it.
 rprint(dataset_recipe)
 
-# This is an important feature as it only registers operations and that the recipe itself
-# - and not the dataset - can be saved and loaded from file.
-# Meaning you can easily save, share, load and build the dataset later in a different environment.
+# The key for recipes is that they can be saved and loaded as a JSON.
+# This also allows the recipe to be saved, shared, loaded and used later to build a dataset
+# in a different environment.
 
 # Example: Saving and loading a dataset recipe from file.
 path_recipe = Path(".data/dataset_recipes/example_recipe.json")
@@ -46,8 +46,8 @@ assert dataset_recipe_again == dataset_recipe
 # It is also possible to generate the recipe as python code
 dataset_recipe.as_python_code()
 
-# A 'DatasetRecipe' is an important concept in Hafnia as it allows you to merge multiple datasets
-# and transformations and use it for model training in TaaS.
+# The recipe also allows you to combine multiple datasets and transformations that can be
+# executed in the TaaS platform. This is demonstrated below:
 if utils.is_hafnia_configured():  # First ensure you are connected to the hafnia platform
     # Upload the dataset recipe - this will make it available for TaaS and for users of your organization
     dataset_recipe.as_platform_recipe(recipe_name="example-mnist-recipe")
@@ -55,8 +55,11 @@ if utils.is_hafnia_configured():  # First ensure you are connected to the hafnia
     # The recipe is now available in TaaS, for different environments and other users in your organization
     dataset_recipe_again = DatasetRecipe.from_recipe_name(name="example-mnist-recipe")
 
-    # Challenge: Go to hafnia platform (https://hafnia.milestonesys.com/training-aas/experiments)
-    # and launch an experiment with the generated dataset recipe
+    # Launch an experiment with the dataset recipe using the CLI:
+    # hafnia experiment create --dataset-recipe example-mnist-recipe --train-recipe-path ../recipe-classification
+
+    # Coming soon: Dataset recipes will be included in the web platform to them to be shared, managed
+    # and used in experiments.
 
 ### More examples dataset recipes ###
 # Example: 'DatasetRecipe' by merging multiple dataset recipes

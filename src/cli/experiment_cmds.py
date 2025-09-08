@@ -52,7 +52,7 @@ def default_experiment_run_name():
     "--train-recipe-path",
     type=Path,
     default=None,
-    help="Path to the training recipe directory. Uses current working directory as default.",
+    help="Path to the training recipe directory. ",
 )
 @click.option(
     "-p",
@@ -108,14 +108,13 @@ def create(
     """
     Create and launch a new experiment run
 
-    This command allows you to create a new experiment run with the specified parameters.
-    Requires one dataset recipe and one training recipe to be specified.
+    Requires one dataset recipe and one training recipe:.
         - One dataset identifier is required either '--dataset', '--dataset-recipe' or '--dataset-recipe-id'.
         - One training recipe identifier is required either '--train-recipe-path' or '--train-recipe-id'.
 
     \b
     Examples:
-    # Launch an experiment with 'mnist' and the
+    # Launch an experiment with a dataset and a training recipe from local path
     hafnia experiment create --dataset mnist --train-recipe-path ../recipe-classification
 
     \b
@@ -123,7 +122,7 @@ def create(
     hafnia experiment create --dataset-recipe mnist-recipe --train-recipe-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e
 
     \b
-    # Use all options
+    # Show available options:
     hafnia experiment create --name "My Experiment" -d mnist --cmd "python scripts/train.py" -e "Free Tier" -p ../recipe-classification
     """
     from hafnia.platform import create_experiment, get_dataset_id, get_exp_environment_id

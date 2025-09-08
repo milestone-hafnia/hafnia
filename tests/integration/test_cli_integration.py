@@ -58,9 +58,7 @@ def test_cli_integration_test():
     dataset_recipe.as_json_file(path_recipe)
     assert path_recipe.exists()
 
-    hafnia_cli(
-        args=[CMD_DATASET_RECIPE, "create", "-p", path_recipe_str, "-n", dataset_recipe_name], standalone_mode=False
-    )
+    hafnia_cli(args=[CMD_DATASET_RECIPE, "create", path_recipe_str, "-n", dataset_recipe_name], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET_RECIPE, "ls"], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET_RECIPE, "rm", "--help"], standalone_mode=False)
     with pytest.raises(MissingParameter):

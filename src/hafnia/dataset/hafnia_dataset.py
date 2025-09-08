@@ -166,7 +166,7 @@ class Attributions(BaseModel):
     date_captured: Optional[datetime] = Field(default=None, description="Date when the image was captured")
     copyright_notice: Optional[str] = Field(default=None, description="Copyright notice for the image", max_length=255)
     license: Optional[str] = Field(default=None, description="License for the image", max_length=255)
-    license_url: Optional[str] = Field(default=None, description="License for the image", max_length=255)
+    license_url: Optional[str] = Field(default=None, description="License url", max_length=255)
     disclaimer: Optional[str] = Field(default=None, description="Disclaimer for the image", max_length=255)
     changes: Optional[str] = Field(default=None, description="Changes made to the image", max_length=255)
     source_url: Optional[str] = Field(default=None, description="Source URL for the image", max_length=255)
