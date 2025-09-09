@@ -16,24 +16,8 @@ from hafnia.dataset.dataset_recipe.dataset_recipe import (
 from hafnia.dataset.dataset_recipe.recipe_transforms import SelectSamples, Shuffle
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeCreation, RecipeTransform, Serializable
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.utils import pascal_to_snake_case
-from tests.helper_testing import annotation_as_string, is_hafnia_configured
-
-
-def get_data_recipe() -> DatasetRecipe:
-    dataset_recipe = DatasetRecipe.from_merger(
-        recipes=[
-            DatasetRecipe.from_name(name="mnist", force_redownload=False)
-            .select_samples(n_samples=20, shuffle=True, seed=42)
-            .shuffle(seed=123),
-            DatasetRecipe.from_name(name="mnist", force_redownload=False)
-            .select_samples(n_samples=30, shuffle=True, seed=42)
-            .splits_by_ratios(split_ratios={"train": 0.8, "val": 0.1, "test": 0.1}, seed=42),
-            DatasetRecipe.from_name(name="mnist", force_redownload=False),
-        ]
-    )
-
-    return dataset_recipe
+from hafnia.utils import is_hafnia_configured, pascal_to_snake_case
+from tests.helper_testing import annotation_as_string, get_dummy_recipe
 
 
 def check_signature(cls):
@@ -138,7 +122,7 @@ def test_dataset_recipe_serialization_deserialization_json():
     """
     Test that Serializable can be serialized and deserialized correctly.
     """
-    dataset_recipe = get_data_recipe()
+    dataset_recipe = get_dummy_recipe()
 
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp_file:
         path_json = Path(temp_file.name)

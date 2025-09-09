@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +15,7 @@ def load_dataset(recipe: Any, force_redownload: bool = False) -> HafniaDataset:
 
 def get_dataset_path(recipe: Any, force_redownload: bool = False) -> Path:
     if utils.is_hafnia_cloud_job():
-        return Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))
+        return utils.get_dataset_path_in_hafnia_cloud()
 
     path_dataset = get_or_create_dataset_path_from_recipe(recipe, force_redownload=force_redownload)
 

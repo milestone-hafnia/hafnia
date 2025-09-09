@@ -48,16 +48,42 @@
             ],
         },
         {
-            "name": "debug (hafnia dataset X)",
+            "name": "cmd: 'hafnia dataset [X]'",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/cli/__main__.py",
             "args": [
                 "dataset",
+                //"ls",
                 "download",
                 "mnist",
-                //"./.data",
                 "--force"
+            ]
+        },
+        {
+            "name": "cmd: 'hafnia experiment [X]'",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "args": [
+                "experiment",
+                "create",
+                // "--train-recipe-path",
+                // "${workspaceFolder}/../recipe-classification",
+                "--train-recipe-id",
+                "e47d701d-c5ed-4014-9480-434f04e9459b",
+                "--dataset",
+                "mnist",
+            ]
+        },    
+        {
+            "name": "cmd: 'hafnia train-recipe [X]'",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "args": [
+                "train-recipe",
+                "ls"
             ]
         }
     ]
