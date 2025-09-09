@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import click
 from flatten_dict import flatten
 
 from hafnia import http
@@ -46,7 +45,7 @@ def get_or_create_dataset_recipe_from_path(
 ) -> Dict:
     path_recipe_json = Path(path_recipe_json)
     if not path_recipe_json.exists():
-        raise click.ClickException(f"Dataset recipe file '{path_recipe_json}' does not exist.")
+        raise FileNotFoundError(f"Dataset recipe file '{path_recipe_json}' does not exist.")
     json_dict = json.loads(path_recipe_json.read_text())
     return get_or_create_dataset_recipe(json_dict, endpoint=endpoint, api_key=api_key, name=name)
 
@@ -67,9 +66,7 @@ def get_dataset_recipe_by_name(name: str, endpoint: str, api_key: str) -> Option
         return None
 
     if len(dataset_recipes) > 1:
-        user_logger.warning(
-            f"Found {len(dataset_recipes)} dataset recipes called '{name}' in your organization. Using the first one."
-        )
+        user_logger.warning(f"Found {len(dataset_recipes)} dataset recipes called '{name}'. Using the first one.")
 
     dataset_recipe = dataset_recipes[0]
     return dataset_recipe

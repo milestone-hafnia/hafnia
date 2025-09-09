@@ -16,11 +16,11 @@ def dataset():
 
 @dataset.command("ls")
 @click.pass_obj
-def dataset_list(cfg: Config) -> None:
+def cmd_list_datasets(cfg: Config) -> None:
     """List available datasets on Hafnia platform"""
-    from hafnia.platform.datasets import dataset_list, pretty_print_datasets
+    from hafnia.platform.datasets import get_datasets, pretty_print_datasets
 
-    datasets = dataset_list(cfg=cfg)
+    datasets = get_datasets(cfg=cfg)
     pretty_print_datasets(datasets)
 
 
@@ -35,7 +35,7 @@ def dataset_list(cfg: Config) -> None:
 )
 @click.option("--force", "-f", is_flag=True, default=False, help="Flag to enable force redownload")
 @click.pass_obj
-def data_download(cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool) -> Path:
+def cmd_dataset_download(cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool) -> Path:
     """Download dataset from Hafnia platform"""
 
     from hafnia.platform import datasets

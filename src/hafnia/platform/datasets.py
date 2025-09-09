@@ -26,7 +26,7 @@ from hafnia.utils import timed
 
 
 @timed("Fetching dataset list.")
-def dataset_list(cfg: Optional[Config] = None) -> List[Dict[str, str]]:
+def get_datasets(cfg: Optional[Config] = None) -> List[Dict[str, str]]:
     """List available datasets on the Hafnia platform."""
     cfg = cfg or Config()
     endpoint_dataset = cfg.get_platform_endpoint("datasets")

@@ -117,7 +117,7 @@ class Sample(BaseModel):
     bitmasks: Optional[List[Bitmask]] = None  # List of bitmasks, if applicable
     polygons: Optional[List[Polygon]] = None  # List of polygons, if applicable
 
-    attributions: Optional[Attributions] = None
+    attributions: Optional[Attribution] = None
     meta: Optional[Dict] = None  # Additional metadata, e.g., camera settings, GPS data, etc.
 
     def get_annotations(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
@@ -160,13 +160,15 @@ class Sample(BaseModel):
         return annotations_visualized
 
 
-class Attributions(BaseModel):
+class Attribution(BaseModel):
+    """Attribution information for the image: Giving source and credit to the original creator"""
+
     title: Optional[str] = Field(default=None, description="Title of the image", max_length=255)
     creator: Optional[str] = Field(default=None, description="Creator of the image", max_length=255)
     date_captured: Optional[datetime] = Field(default=None, description="Date when the image was captured")
     copyright_notice: Optional[str] = Field(default=None, description="Copyright notice for the image", max_length=255)
     license: Optional[str] = Field(default=None, description="License for the image", max_length=255)
-    license_url: Optional[str] = Field(default=None, description="License url", max_length=255)
+    license_url: Optional[str] = Field(default=None, description="License for the image", max_length=255)
     disclaimer: Optional[str] = Field(default=None, description="Disclaimer for the image", max_length=255)
     changes: Optional[str] = Field(default=None, description="Changes made to the image", max_length=255)
     source_url: Optional[str] = Field(default=None, description="Source URL for the image", max_length=255)

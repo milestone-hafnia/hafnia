@@ -24,7 +24,7 @@ def dataset_recipe() -> None:
     help="Name of the dataset recipe.",
 )
 @click.pass_obj
-def dataset_recipe_create(cfg: Config, path_json_recipe: Path, name: Optional[str]) -> None:
+def cmd_get_or_create_dataset_recipe(cfg: Config, path_json_recipe: Path, name: Optional[str]) -> None:
     """Create Hafnia dataset recipe from dataset recipe JSON file"""
     from hafnia.platform.dataset_recipe import get_or_create_dataset_recipe_from_path
 
@@ -40,7 +40,7 @@ def dataset_recipe_create(cfg: Config, path_json_recipe: Path, name: Optional[st
 @dataset_recipe.command(name="ls")
 @click.pass_obj
 @click.option("-l", "--limit", type=int, default=None, help="Limit number of listed dataset recipes.")
-def list_dataset_recipes(cfg: Config, limit: Optional[int]) -> None:
+def cmd_list_dataset_recipes(cfg: Config, limit: Optional[int]) -> None:
     """List available dataset recipes"""
     from hafnia.platform.dataset_recipe import get_dataset_recipes, pretty_print_dataset_recipes
 
@@ -57,7 +57,7 @@ def list_dataset_recipes(cfg: Config, limit: Optional[int]) -> None:
 @click.option("-i", "--id", type=str, help="Dataset recipe ID to delete.")
 @click.option("-n", "--name", type=str, help="Dataset recipe name to delete.")
 @click.pass_obj
-def delete_dataset_recipe(cfg: Config, id: Optional[str], name: Optional[str]) -> Dict:
+def cmd_delete_dataset_recipe(cfg: Config, id: Optional[str], name: Optional[str]) -> Dict:
     """Delete a dataset recipe by ID or name"""
     from hafnia.platform.dataset_recipe import delete_dataset_recipe_by_id, delete_dataset_recipe_by_name
 

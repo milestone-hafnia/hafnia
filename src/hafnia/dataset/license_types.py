@@ -55,7 +55,10 @@ LicenseTypes = [
 
 def get_license_by_url(url: str) -> Optional[LicenseType]:
     for license in LicenseTypes:
-        if license.url == url:
+        # To handle http urls
+        license_url = license.url.replace("http://", "https://")
+        url_https = url.replace("http://", "https://")
+        if license_url == url_https:
             return license
     raise ValueError(f"License with URL '{url}' not found.")
 

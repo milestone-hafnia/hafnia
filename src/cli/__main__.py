@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-from importlib.metadata import version
-
 import click
 
+import hafnia
 from cli import consts, dataset_cmds, dataset_recipe_cmds, experiment_cmds, profile_cmds, runc_cmds, train_recipe_cmds
 from cli.config import Config, ConfigSchema
 
 
 @click.group()
-@click.version_option(version=version("hafnia"))
+@click.version_option(version=hafnia.__version__)
 @click.pass_context
 def main(ctx: click.Context) -> None:
     """Hafnia CLI."""

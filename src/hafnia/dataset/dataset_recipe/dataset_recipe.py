@@ -93,9 +93,9 @@ class DatasetRecipe(Serializable):
         recipe_dict = get_dataset_recipe_by_id(recipe_id, endpoint=endpoint_dataset, api_key=cfg.api_key)
         recipe_dict = recipe_dict["template"]["body"]
         if isinstance(recipe_dict, str):
-            recipe = DatasetRecipe.from_implicit_form(recipe_dict)
-        else:
-            recipe = DatasetRecipe.from_dict(recipe_dict)
+            return DatasetRecipe.from_implicit_form(recipe_dict)
+
+        recipe = DatasetRecipe.from_dict(recipe_dict)
         return recipe
 
     @staticmethod
@@ -212,7 +212,6 @@ class DatasetRecipe(Serializable):
     def as_json_str(self, indent: int = 2) -> str:
         """Serialize the dataset recipe to a JSON string."""
         dict_data = self.as_dict()
-        # data = type_as_first_key(data)
         return json.dumps(dict_data, indent=indent, ensure_ascii=False)
 
     def as_json_file(self, path_json: Path, indent: int = 2) -> None:

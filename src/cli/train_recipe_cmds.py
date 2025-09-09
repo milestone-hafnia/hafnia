@@ -16,7 +16,7 @@ def training_recipe() -> None:
 @training_recipe.command(name="ls")
 @click.pass_obj
 @click.option("-l", "--limit", type=int, default=None, help="Limit number of listed dataset recipes.")
-def list_training_recipes(cfg: Config, limit: Optional[int]) -> None:
+def cmd_list_training_recipes(cfg: Config, limit: Optional[int]) -> None:
     """List available training recipes on the platform"""
 
     from hafnia.platform.train_recipe import get_training_recipes, pretty_print_training_recipes
@@ -32,7 +32,7 @@ def list_training_recipes(cfg: Config, limit: Optional[int]) -> None:
 @click.option(
     "--output", type=click.Path(writable=True), default="./recipe.zip", show_default=True, help="Output recipe path."
 )
-def training_create_zip(source: str, output: str) -> None:
+def cmd_create_training_zip(source: str, output: str) -> None:
     """Create Hafnia training recipe zip-file from local path"""
 
     from hafnia.utils import archive_dir
@@ -48,7 +48,7 @@ def training_create_zip(source: str, output: str) -> None:
 @training_recipe.command(name="view-zip")
 @click.option("--path", type=str, default="./recipe.zip", show_default=True, help="Path of recipe.zip.")
 @click.option("--depth-limit", type=int, default=3, help="Limit the depth of the tree view.", show_default=True)
-def training_view_zip(path: str, depth_limit: int) -> None:
+def cmd_view_training_zip(path: str, depth_limit: int) -> None:
     """View the content of a training recipe zip file."""
     from hafnia.utils import show_recipe_content
 

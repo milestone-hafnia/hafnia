@@ -20,7 +20,7 @@ from hafnia.dataset.dataset_names import (
     FieldName,
     SplitName,
 )
-from hafnia.dataset.hafnia_dataset import Attributions, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset import Attribution, HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
@@ -159,7 +159,7 @@ class EntityTypeChoices(str, Enum):  # Should match `EntityTypeChoices` in `dipd
     EVENT = "EVENT"
 
 
-class DatasetImage(Attributions, validate_assignment=True):  # type: ignore[call-arg]
+class DatasetImage(Attribution, validate_assignment=True):  # type: ignore[call-arg]
     img: str  # Base64-encoded image string
     order: Optional[int] = None
 

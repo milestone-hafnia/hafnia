@@ -1,10 +1,16 @@
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import click
 
 from cli.config import Config
 from hafnia import utils
+from hafnia.platform.dataset_recipe import (
+    get_dataset_recipe_by_id,
+    get_dataset_recipe_by_name,
+    get_or_create_dataset_recipe_by_dataset_name,
+)
+from hafnia.platform.train_recipe import create_training_recipe
 
 
 @click.group(name="experiment")
@@ -15,7 +21,7 @@ def experiment() -> None:
 
 @experiment.command(name="environments")
 @click.pass_obj
-def view_environments(cfg: Config):
+def cmd_view_environments(cfg: Config):
     """
     View available experiment training environments.
     """
@@ -35,7 +41,7 @@ def default_experiment_run_name():
     "-n",
     "--name",
     type=str,
-    default=None,
+    default=default_experiment_run_name(),
     required=False,
     help=f"Name of the experiment. [default: run-[DATETIME] e.g. {default_experiment_run_name()}] ",
 )
@@ -94,7 +100,7 @@ def default_experiment_run_name():
     help="Experiment environment name. View available environments with 'hafnia experiment environments'",
 )
 @click.pass_obj
-def create(
+def cmd_create_experiment(
     cfg: Config,
     name: str,
     cmd: str,
@@ -126,10 +132,6 @@ def create(
     hafnia experiment create --name "My Experiment" -d mnist --cmd "python scripts/train.py" -e "Free Tier" -p ../recipe-classification
     """
     from hafnia.platform import create_experiment, get_dataset_id, get_exp_environment_id
-    from hafnia.platform.experiment import get_dataset_recipe_by_dataset_identifies, get_training_recipe_by_identifies
-
-    if name is None:
-        name = default_experiment_run_name()
 
     if dataset:  # TODO: Deprecated. Remove the following 4 lines when s2m and TaaS support dataset recipes
         dataset_id = get_dataset_id(dataset, cfg.get_platform_endpoint("datasets"), cfg.api_key)
@@ -175,3 +177,72 @@ def create(
     print("Successfully created experiment: ")
     for key, value in experiment_properties.items():
         print(f"  {key}: {value}")
+
+
+def get_dataset_recipe_by_dataset_identifies(
+    cfg: Config,
+    dataset_name: Optional[str],
+    dataset_recipe_name: Optional[str],
+    dataset_recipe_id: Optional[str],
+) -> Dict:
+    dataset_identifiers = [dataset_name, dataset_recipe_name, dataset_recipe_id]
+    n_dataset_identifies_defined = sum([bool(identifier) for identifier in dataset_identifiers])
+
+    if n_dataset_identifies_defined > 1:
+        raise click.ClickException(
+            "Multiple dataset identifiers have been provided. Define only one dataset identifier."
+        )
+
+    dataset_recipe_endpoint = cfg.get_platform_endpoint("dataset_recipes")
+    if dataset_name:
+        return get_or_create_dataset_recipe_by_dataset_name(dataset_name, dataset_recipe_endpoint, cfg.api_key)
+
+    if dataset_recipe_name:
+        recipe = get_dataset_recipe_by_name(dataset_recipe_name, dataset_recipe_endpoint, cfg.api_key)
+        if recipe is None:
+            raise click.ClickException(f"Dataset recipe '{dataset_recipe_name}' was not found in the dataset library.")
+        return recipe
+
+    if dataset_recipe_id:
+        return get_dataset_recipe_by_id(dataset_recipe_id, dataset_recipe_endpoint, cfg.api_key)
+
+    raise click.MissingParameter(
+        "At least one dataset identifier must be provided. Set one of the following:\n"
+        "  --dataset <name>  -- E.g. '--dataset mnist'\n"
+        "  --dataset-recipe <name>  -- E.g. '--dataset-recipe my-recipe'\n"
+        "  --dataset-recipe-id <id>  -- E.g. '--dataset-recipe-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e'\n"
+    )
+
+
+def get_training_recipe_by_identifies(
+    cfg: Config,
+    train_recipe_path: Optional[Path],
+    train_recipe_id: Optional[str],
+) -> str:
+    from hafnia.platform import get_training_recipe_by_id
+
+    if train_recipe_path is not None and train_recipe_id is not None:
+        raise click.ClickException("Multiple training recipe identifiers have been provided. Define only one.")
+
+    if train_recipe_path is not None:
+        train_recipe_path = Path(train_recipe_path)
+        if not train_recipe_path.exists():
+            raise click.ClickException(f"Training recipe path '{train_recipe_path}' does not exist.")
+        recipe_id = create_training_recipe(
+            train_recipe_path,
+            cfg.get_platform_endpoint("training_recipes"),
+            cfg.api_key,
+        )
+        return recipe_id
+
+    if train_recipe_id:
+        train_recipe = get_training_recipe_by_id(
+            id=train_recipe_id, endpoint=cfg.get_platform_endpoint("training_recipes"), api_key=cfg.api_key
+        )
+        return train_recipe["id"]
+
+    raise click.MissingParameter(
+        "At least one training recipe identifier must be provided. Set one of the following:\n"
+        "  --train-recipe-path <path>  -- E.g. '--train-recipe-path .'\n"
+        "  --train-recipe-id <id>  -- E.g. '--train-recipe-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e'\n"
+    )
