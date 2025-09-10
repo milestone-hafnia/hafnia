@@ -25,6 +25,7 @@ DEFAULT_IGNORE_SPECIFICATION = [
     "*.png",
     "*.py[cod]",
     "*_cache/",
+    "**.egg-info/",
     ".data",
     ".git",
     ".venv",

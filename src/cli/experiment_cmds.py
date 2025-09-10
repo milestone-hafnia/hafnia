@@ -61,7 +61,7 @@ def default_experiment_run_name():
     help="Path to the training recipe directory. ",
 )
 @click.option(
-    "-p",
+    "-i",
     "--train-recipe-id",
     type=str,
     default=None,
@@ -84,7 +84,6 @@ def default_experiment_run_name():
     help="DatasetIdentifier: Name of the dataset recipe. View available dataset recipes with 'hafnia dataset-recipe ls'",
 )
 @click.option(
-    "-i",
     "--dataset-recipe-id",
     type=str,
     default=None,
