@@ -79,6 +79,8 @@ class DbAnnotatedObject(BaseModel, validate_assignment=True):  # type: ignore[ca
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
     name: str
     entity_type: EntityTypeChoices
+    annotation_type: DbAnnotationType
+    task_name: Optional[str] = None  # Not sure if adding task_name makes sense.
 
 
 class DbAnnotatedObjectReport(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
@@ -86,10 +88,34 @@ class DbAnnotatedObjectReport(BaseModel, validate_assignment=True):  # type: ign
     obj: DbAnnotatedObject
     unique_obj_ids: Optional[int] = None
     obj_instances: Optional[int] = None
+    images_with_obj: Optional[int] = None
+
     average_count_per_image: Optional[float] = None
-    avg_area: Optional[float] = None
-    min_area: Optional[float] = None
-    max_area: Optional[float] = None
+
+    area_avg_ratio: Optional[float] = None
+    area_min_ratio: Optional[float] = None
+    area_max_ratio: Optional[float] = None
+
+    height_avg_ratio: Optional[float] = None
+    height_min_ratio: Optional[float] = None
+    height_max_ratio: Optional[float] = None
+
+    width_avg_ratio: Optional[float] = None
+    width_min_ratio: Optional[float] = None
+    width_max_ratio: Optional[float] = None
+
+    area_avg_px: Optional[float] = None
+    area_min_px: Optional[int] = None
+    area_max_px: Optional[int] = None
+
+    height_avg_px: Optional[float] = None
+    height_min_px: Optional[int] = None
+    height_max_px: Optional[int] = None
+
+    width_avg_px: Optional[float] = None
+    width_min_px: Optional[int] = None
+    width_max_px: Optional[int] = None
+
     annotation_type: Optional[List[DbAnnotationType]] = None
 
 
@@ -376,10 +402,18 @@ def dataset_info_from_dataset(
                 df_per_instance = df_per_instance.explode(bbox_column_name).drop(drop_columns).unnest(bbox_column_name)
 
                 # Calculate area of bounding boxes
-                df_per_instance = df_per_instance.with_columns((pl.col("height") * pl.col("width")).alias("area"))
+                df_per_instance = df_per_instance.with_columns(
+                    (pl.col("height") * pl.col("width")).alias("area"),
+                ).with_columns(  # noqa: E501 # fmt: skip
+                    (pl.col("height") * pl.col("image.height")).alias("height_px"),
+                    (pl.col("width") * pl.col("image.width")).alias("width_px"),
+                    (pl.col("area") * (pl.col("image.height") * pl.col("image.width"))).alias("area_px"),  # noqa: E501 # fmt: skip
+                )
 
                 annotation_type = DbAnnotationType(name=AnnotationType.ObjectDetection.value)
-                for (class_name,), class_group in df_per_instance.group_by(FieldName.CLASS_NAME):
+                for (class_name, task_name), class_group in df_per_instance.group_by(
+                    FieldName.CLASS_NAME, FieldName.TASK_NAME
+                ):
                     if class_name is None:
                         continue
                     object_reports.append(
@@ -387,13 +421,31 @@ def dataset_info_from_dataset(
                             obj=DbAnnotatedObject(
                                 name=class_name,
                                 entity_type=EntityTypeChoices.OBJECT.value,
+                                annotation_type=annotation_type,
+                                task_name=task_name,
                             ),
                             unique_obj_ids=class_group[FieldName.OBJECT_ID].n_unique(),
                             obj_instances=len(class_group),
                             annotation_type=[annotation_type],
-                            avg_area=class_group["area"].mean(),
-                            min_area=class_group["area"].min(),
-                            max_area=class_group["area"].max(),
+                            images_with_obj=class_group[ColumnName.SAMPLE_INDEX].n_unique(),
+                            area_avg_ratio=class_group["area"].mean(),
+                            area_min_ratio=class_group["area"].min(),
+                            area_max_ratio=class_group["area"].max(),
+                            height_avg_ratio=class_group["height"].mean(),
+                            height_min_ratio=class_group["height"].min(),
+                            height_max_ratio=class_group["height"].max(),
+                            width_avg_ratio=class_group["width"].mean(),
+                            width_min_ratio=class_group["width"].min(),
+                            width_max_ratio=class_group["width"].max(),
+                            area_avg_px=class_group["area_px"].mean(),
+                            area_min_px=int(class_group["area_px"].min()),
+                            area_max_px=int(class_group["area_px"].max()),
+                            height_avg_px=class_group["height_px"].mean(),
+                            height_min_px=int(class_group["height_px"].min()),
+                            height_max_px=int(class_group["height_px"].max()),
+                            width_avg_px=class_group["width_px"].mean(),
+                            width_min_px=int(class_group["width_px"].min()),
+                            width_max_px=int(class_group["width_px"].max()),
                             average_count_per_image=len(class_group) / class_group[ColumnName.SAMPLE_INDEX].n_unique(),
                         )
                     )
@@ -426,6 +478,8 @@ def dataset_info_from_dataset(
                                 obj=DbAnnotatedObject(
                                     name=display_name,
                                     entity_type=EntityTypeChoices.EVENT.value,
+                                    annotation_type=annotation_type,
+                                    task_name=task_name,
                                 ),
                                 unique_obj_ids=len(
                                     class_group
@@ -444,13 +498,17 @@ def dataset_info_from_dataset(
                 drop_columns.append(FieldName.META)
                 df_per_instance = dataset_split.rename({"height": "image.height", "width": "image.width"})
                 df_per_instance = df_per_instance.explode(col_name).drop(drop_columns).unnest(col_name)
-
-                min_area = df_per_instance["area"].min() if "area" in df_per_instance.columns else None
-                max_area = df_per_instance["area"].max() if "area" in df_per_instance.columns else None
-                avg_area = df_per_instance["area"].mean() if "area" in df_per_instance.columns else None
+                df_per_instance = df_per_instance.rename({"height": "height_px", "width": "width_px"})
+                df_per_instance = df_per_instance.with_columns(
+                    (pl.col("image.height") * pl.col("image.width") * pl.col("area")).alias("area_px"),
+                    (pl.col("height_px") / pl.col("image.height")).alias("height"),
+                    (pl.col("width_px") / pl.col("image.width")).alias("width"),
+                )
 
                 annotation_type = DbAnnotationType(name=AnnotationType.InstanceSegmentation)
-                for (class_name,), class_group in df_per_instance.group_by(FieldName.CLASS_NAME):
+                for (class_name, task_name), class_group in df_per_instance.group_by(
+                    FieldName.CLASS_NAME, FieldName.TASK_NAME
+                ):
                     if class_name is None:
                         continue
                     object_reports.append(
@@ -458,14 +516,32 @@ def dataset_info_from_dataset(
                             obj=DbAnnotatedObject(
                                 name=class_name,
                                 entity_type=EntityTypeChoices.OBJECT.value,
+                                annotation_type=annotation_type,
+                                task_name=task_name,
                             ),
                             unique_obj_ids=class_group[FieldName.OBJECT_ID].n_unique(),
                             obj_instances=len(class_group),
                             annotation_type=[annotation_type],
                             average_count_per_image=len(class_group) / class_group[ColumnName.SAMPLE_INDEX].n_unique(),
-                            avg_area=avg_area,
-                            min_area=min_area,
-                            max_area=max_area,
+                            images_with_obj=class_group[ColumnName.SAMPLE_INDEX].n_unique(),
+                            area_avg_ratio=class_group["area"].mean(),
+                            area_min_ratio=class_group["area"].min(),
+                            area_max_ratio=class_group["area"].max(),
+                            height_avg_ratio=class_group["height"].mean(),
+                            height_min_ratio=class_group["height"].min(),
+                            height_max_ratio=class_group["height"].max(),
+                            width_avg_ratio=class_group["width"].mean(),
+                            width_min_ratio=class_group["width"].min(),
+                            width_max_ratio=class_group["width"].max(),
+                            area_avg_px=class_group["area_px"].mean(),
+                            area_min_px=int(class_group["area_px"].min()),
+                            area_max_px=int(class_group["area_px"].max()),
+                            height_avg_px=class_group["height_px"].mean(),
+                            height_min_px=int(class_group["height_px"].min()),
+                            height_max_px=int(class_group["height_px"].max()),
+                            width_avg_px=class_group["width_px"].mean(),
+                            width_min_px=int(class_group["width_px"].min()),
+                            width_max_px=int(class_group["width_px"].max()),
                         )
                     )
 
@@ -531,9 +607,9 @@ def create_gallery_images(
             dataset_image_dict = {
                 "img": path_gallery_image,
             }
-            if sample.attributions is not None:
-                sample.attributions.changes = "Annotations Visualized on Image"
-                dataset_image_dict.update(sample.attributions.model_dump(exclude_none=True))
+            if sample.attribution is not None:
+                sample.attribution.changes = "Annotations have been visualized"
+                dataset_image_dict.update(sample.attribution.model_dump(exclude_none=True))
 
             gallery_images.append(DatasetImage(**dataset_image_dict))
     return gallery_images

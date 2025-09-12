@@ -79,4 +79,4 @@ def transform_images(
         new_paths.append(str(new_path))
 
     table = dataset.samples.with_columns(pl.Series(new_paths).alias("file_name"))
-    return dataset.update_table(table)
+    return dataset.update_samples(table)
