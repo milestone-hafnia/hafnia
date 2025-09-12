@@ -50,7 +50,7 @@ class ColumnName:
     SPLIT: str = "split"
     IS_SAMPLE: str = "is_sample"
     REMOTE_PATH: str = "remote_path"  # Path to the file in remote storage, e.g. S3
-    ATTRIBUTIONS: str = "attributions"  # Attributions for the sample, e.g. creator, license, source, etc.
+    ATTRIBUTION: str = "attribution"  # Attribution for the sample (image/video), e.g. creator, license, source, etc.
     META: str = "meta"
 
 
