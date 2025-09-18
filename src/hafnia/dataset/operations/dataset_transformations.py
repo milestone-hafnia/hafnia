@@ -276,7 +276,7 @@ def select_samples_by_class_name(
         pl.col(task.primitive.column_name())
         .list.eval(
             pl.element().struct.field(FieldName.CLASS_NAME).is_in(class_names)
-            & (pl.element().struct.field(FieldName.TASK_NAME) == task_name)
+            & (pl.element().struct.field(FieldName.TASK_NAME) == task.name)
         )
         .list.any()
     )
