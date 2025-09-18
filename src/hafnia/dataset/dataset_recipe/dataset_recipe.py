@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from pydantic import (
     field_serializer,
@@ -14,9 +14,7 @@ from hafnia import utils
 from hafnia.dataset.dataset_recipe import recipe_transforms
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeCreation, RecipeTransform, Serializable
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-
-if TYPE_CHECKING:
-    from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.primitives.primitive import Primitive
 
 
 class DatasetRecipe(Serializable):
@@ -270,6 +268,35 @@ class DatasetRecipe(Serializable):
 
     def define_sample_set_by_size(recipe: DatasetRecipe, n_samples: int, seed: int = 42) -> DatasetRecipe:
         operation = recipe_transforms.DefineSampleSetBySize(n_samples=n_samples, seed=seed)
+        recipe.append_operation(operation)
+        return recipe
+
+    def class_mapper_strict(
+        recipe: DatasetRecipe,
+        strict_class_mapping: Dict[str, str],
+        primitive: Optional[Type[Primitive]] = None,
+        task_name: Optional[str] = None,
+    ) -> DatasetRecipe:
+        operation = recipe_transforms.ClassMapperStrict(
+            strict_class_mapping=strict_class_mapping,
+            primitive=primitive,
+            task_name=task_name,
+        )
+        recipe.append_operation(operation)
+        return recipe
+
+    def rename_task(recipe: DatasetRecipe, old_task_name: str, new_task_name: str) -> DatasetRecipe:
+        operation = recipe_transforms.RenameTask(old_task_name=old_task_name, new_task_name=new_task_name)
+        recipe.append_operation(operation)
+        return recipe
+
+    def select_samples_by_class_name(
+        recipe: DatasetRecipe,
+        name: Union[List[str], str],
+        task_name: Optional[str] = None,
+        primitive: Optional[Type[Primitive]] = None,
+    ) -> DatasetRecipe:
+        operation = recipe_transforms.SelectSamplesByClassName(name=name, task_name=task_name, primitive=primitive)
         recipe.append_operation(operation)
         return recipe
 

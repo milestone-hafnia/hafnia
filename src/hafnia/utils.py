@@ -5,9 +5,10 @@ import zipfile
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 from zipfile import ZipFile
 
+import more_itertools
 import pathspec
 import rich
 import seedir
@@ -197,3 +198,10 @@ def is_hafnia_configured() -> bool:
     from cli.config import Config
 
     return Config().is_configured()
+
+
+def remove_duplicates_preserve_order(seq: Iterable) -> List:
+    """
+    Remove duplicates from a list while preserving the order of elements.
+    """
+    return list(more_itertools.unique_everseen(seq))

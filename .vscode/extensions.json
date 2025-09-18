@@ -5,7 +5,8 @@
         "ms-python.mypy-type-checker",
         "charliermarsh.ruff",
         "tamasfe.even-better-toml",
-        "streetsidesoftware.code-spell-checker"
+        "streetsidesoftware.code-spell-checker",
+        "ryanluker.vscode-coverage-gutters"
     ]
   }
   

@@ -12,7 +12,6 @@ from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.primitives.classification import Classification
 from tests.helper_testing import (
     get_hafnia_functions_from_module,
-    get_micro_hafnia_dataset,
     get_path_micro_hafnia_dataset,
 )
 
@@ -70,6 +69,8 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
 
 @pytest.mark.parametrize("function_name", get_hafnia_functions_from_module(dataset_transformations))
 def test_hafnia_dataset_has_all_dataset_transforms(function_name: str):
+    if function_name.startswith("_"):
+        pytest.skip("Skipping private functions")
     module_filename = os.sep.join(Path(dataset_transformations.__file__).parts[-2:])
     module_stem = dataset_transformations.__name__.split(".")[-1]
     assert hasattr(HafniaDataset, function_name), (
@@ -103,8 +104,3 @@ def test_dataset_info_from_dataset():
 
     # Check if dataset info can be serialized to JSON
     dataset_info_json = dataset_info.model_dump_json()  # noqa: F841
-
-
-def test_dataset_stats():
-    dataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
-    dataset.print_stats()

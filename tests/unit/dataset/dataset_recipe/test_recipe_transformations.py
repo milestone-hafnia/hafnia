@@ -1,21 +1,25 @@
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Type
 
 import pytest
 
 from hafnia.dataset.dataset_names import ColumnName
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe, FromName
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
+    ClassMapperStrict,
     DefineSampleSetBySize,
+    RenameTask,
     SelectSamples,
+    SelectSamplesByClassName,
     Shuffle,
     SplitIntoMultipleSplits,
     SplitsByRatios,
 )
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from tests.helper_testing import get_micro_hafnia_dataset
+from tests.helper_testing import get_micro_hafnia_dataset, get_strict_class_mapping
 
 
 @dataclass
@@ -55,27 +59,47 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             as_python_code="split_into_multiple_splits(split_name='test', split_ratios={'test': 0.5, 'val': 0.5})",
             short_name="SplitIntoMultipleSplits",
         ),
+        TestCaseRecipeTransform(
+            recipe_transform=ClassMapperStrict(
+                strict_class_mapping=get_strict_class_mapping(),
+                primitive=None,
+                task_name=None,
+            ),
+            as_python_code=f"class_mapper_strict(strict_class_mapping={get_strict_class_mapping()}, primitive=None, task_name=None)",  # noqa: E501
+            short_name="ClassMapperStrict",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=RenameTask(old_task_name="old_name", new_task_name="new_name"),
+            as_python_code="rename_task(old_task_name='old_name', new_task_name='new_name')",
+            short_name="RenameTask",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=SelectSamplesByClassName(name=["Person"], task_name=None, primitive=None),
+            as_python_code="select_samples_by_class_name(name=['Person'], task_name=None, primitive=None)",
+            short_name="SelectSamplesByClassName",
+        ),
     ]
 
 
-def test_check_that_all_recipe_transforms_has_a_test_case():
+@pytest.mark.parametrize("recipe_transform", set(RecipeTransform.get_nested_subclasses()))
+def test_check_if_recipe_transform_is_missing_a_test_case(recipe_transform: Type[RecipeTransform]):
     """
     Ensure that all recipe transformations are tested.
     This is useful to ensure that new transformations are added to the test suite.
     """
     in_test_recipe_transforms = {tc.recipe_transform.__class__ for tc in get_test_cases()}
-    recipe_transforms = set(RecipeTransform.get_nested_subclasses())
 
-    transforms_missing_tests = recipe_transforms.difference(in_test_recipe_transforms)
-    missing_transforms = {tr.__name__ for tr in transforms_missing_tests}
-    error_msg = (
-        f"We expect all recipe transformations to have a test case, but have found '{RecipeTransform.__name__}' "
-        f"classes/subclasses that are not tested. \nPlease add a '{TestCaseRecipeTransform.__name__}' "
-        f"for the {missing_transforms=} in the list of test cases found in '{get_test_cases.__name__}()' "
-        "to ensure they are tested."
-    )
+    recipe_transform_missing_a_test_case = recipe_transform not in in_test_recipe_transforms
 
-    assert len(transforms_missing_tests) == 0, error_msg
+    if recipe_transform_missing_a_test_case:
+        error_msg = (
+            f"We expect all recipe transformations to have a test case, but found '{RecipeTransform.__name__}' "
+            f"classes/subclasses that are not tested. \nPlease add '{recipe_transform.__name__}' as a "
+            f"'{TestCaseRecipeTransform.__name__}' in the list of test cases found in '{get_test_cases.__name__}()' "
+            "to ensure they are tested."
+        )
+
+        raise AssertionError(error_msg)
 
 
 @pytest.mark.parametrize("test_case", get_test_cases(), ids=lambda tc: tc.as_python_code)
