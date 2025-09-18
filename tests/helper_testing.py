@@ -76,7 +76,12 @@ def annotation_as_string(annotation: Union[type, str]) -> str:
     if isinstance(annotation, str):
         return annotation.replace("'", "")
     if is_typing_type(annotation):  # Is using typing types like List, Dict, etc.
-        return str(annotation).replace("typing.", "")
+        annotation_str = str(annotation).replace("typing.", "")
+        # This does not cover all cases, but it is good enough for now.
+        # E.g. this function can not convert the following:
+        # "typing.Optional[typing.Type[hafnia.dataset.primitives.primitive.Primitive]]"
+        # to "Optional[Type[Primitive]]"
+        return annotation_str
     if hasattr(annotation, "__name__"):
         return annotation.__name__
     return str(annotation)
@@ -114,3 +119,22 @@ def get_dummy_recipe() -> DatasetRecipe:
     )
 
     return dataset_recipe
+
+
+def get_strict_class_mapping() -> Dict[str, str]:
+    strict_class_mapping = {
+        "Person": "person",  # Index 0
+        "Vehicle.Trailer": "__REMOVE__",  # Removed not provided an index
+        "Vehicle.Bicycle": "__REMOVE__",
+        "Vehicle.Motorcycle": "vehicle",  # Index 1
+        "Vehicle.Car": "vehicle",
+        "Vehicle.Van": "vehicle",
+        "Vehicle.RV": "__REMOVE__",
+        "Vehicle.Single_Truck": "truck",  # Index 2
+        "Vehicle.Combo_Truck": "__REMOVE__",
+        "Vehicle.Pickup_Truck": "truck",
+        "Vehicle.Emergency_Vehicle": "vehicle",
+        "Vehicle.Bus": "vehicle",
+        "Vehicle.Heavy_Duty_Vehicle": "vehicle",
+    }
+    return strict_class_mapping

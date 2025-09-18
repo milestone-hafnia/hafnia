@@ -110,15 +110,3 @@ def split_sizes_from_ratios(n_items: int, split_ratios: Dict[str, float]) -> Dic
         raise ValueError("Something is wrong. The split sizes do not match the number of items.")
 
     return split_sizes
-
-
-def select_evenly_across_list(lst: list, num_samples: int):
-    if num_samples >= len(lst):
-        return lst  # No need to sample
-    step = (len(lst) - 1) / (num_samples - 1)
-    indices = [int(round(step * i)) for i in range(num_samples)]  # noqa: RUF046
-    return [lst[index] for index in indices]
-
-
-def prefix_dict(d: dict, prefix: str) -> dict:
-    return {f"{prefix}.{k}": v for k, v in d.items()}

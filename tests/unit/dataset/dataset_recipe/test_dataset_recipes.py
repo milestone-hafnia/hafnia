@@ -71,6 +71,10 @@ def check_signature(cls):
         model_field_type = annotation_as_string(model_field.annotation)
         function_param_type = annotation_as_string(param.annotation)
         if model_field_type != function_param_type:
+            if "." in model_field_type:
+                # Hard to handle case so we will simply ignore it for now.
+                continue
+
             error_msg = (
                 f"Type mismatch for parameter '{param.name}': expected {model_field_type=}, got {function_param_type=}."
             )

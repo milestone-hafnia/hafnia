@@ -10,11 +10,8 @@ from typing import Any, Dict, List, Optional, Type, Union
 import more_itertools
 import numpy as np
 import polars as pl
-import rich
 from PIL import Image
 from pydantic import BaseModel, Field, field_serializer, field_validator
-from rich import print as rprint
-from rich.table import Table
 from tqdm import tqdm
 
 from hafnia.dataset import dataset_helpers
@@ -25,19 +22,14 @@ from hafnia.dataset.dataset_names import (
     FILENAME_DATASET_INFO,
     FILENAME_RECIPE_JSON,
     ColumnName,
-    FieldName,
     SplitName,
 )
 from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.operations.table_transformations import (
     check_image_paths,
-    create_primitive_table,
     read_table_from_path,
 )
-from hafnia.dataset.primitives import (
-    PRIMITIVE_NAME_TO_TYPE,
-    PRIMITIVE_TYPES,
-)
+from hafnia.dataset.primitives import PRIMITIVE_TYPES, get_primitive_type_from_string
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
@@ -49,9 +41,7 @@ from hafnia.log import user_logger
 class TaskInfo(BaseModel):
     primitive: Type[Primitive]  # Primitive class or string name of the primitive, e.g. "Bbox" or "bitmask"
     class_names: Optional[List[str]]  # Class names for the tasks. To get consistent class indices specify class_names.
-    name: Optional[str] = (
-        None  # None to use the default primitive task name Bbox ->"bboxes", Bitmask -> "bitmasks" etc.
-    )
+    name: Optional[str] = None  # Use 'None' to use default name Bbox ->"bboxes", Bitmask -> "bitmasks" etc.
 
     def model_post_init(self, __context: Any) -> None:
         if self.name is None:
@@ -65,12 +55,7 @@ class TaskInfo(BaseModel):
     @classmethod
     def ensure_primitive(cls, primitive: Any) -> Any:
         if isinstance(primitive, str):
-            if primitive not in PRIMITIVE_NAME_TO_TYPE:
-                raise ValueError(
-                    f"Primitive '{primitive}' is not recognized. Available primitives: {list(PRIMITIVE_NAME_TO_TYPE.keys())}"
-                )
-
-            return PRIMITIVE_NAME_TO_TYPE[primitive]
+            return get_primitive_type_from_string(primitive)
 
         if issubclass(primitive, Primitive):
             return primitive
@@ -83,6 +68,16 @@ class TaskInfo(BaseModel):
         if not issubclass(primitive, Primitive):
             raise ValueError(f"Primitive must be a subclass of Primitive, got {type(primitive)} instead.")
         return primitive.__name__
+
+    # To get unique hash value for TaskInfo objects
+    def __hash__(self) -> int:
+        class_names = self.class_names or []
+        return hash((self.name, self.primitive.__name__, tuple(class_names)))
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, TaskInfo):
+            return False
+        return self.name == other.name and self.primitive == other.primitive and self.class_names == other.class_names
 
 
 class DatasetInfo(BaseModel):
@@ -97,9 +92,78 @@ class DatasetInfo(BaseModel):
         path.write_text(json_str)
 
     @staticmethod
-    def from_json_file(path: Path) -> "DatasetInfo":
+    def from_json_file(path: Path) -> DatasetInfo:
         json_str = path.read_text()
         return DatasetInfo.model_validate_json(json_str)
+
+    @staticmethod
+    def merge(info0: DatasetInfo, info1: DatasetInfo) -> DatasetInfo:
+        for task_ds0 in info0.tasks:
+            for task_ds1 in info1.tasks:
+                same_name = task_ds0.name == task_ds1.name
+                same_primitive = task_ds0.primitive == task_ds1.primitive
+                same_name_different_primitive = same_name and not same_primitive
+                if same_name_different_primitive:
+                    raise ValueError(
+                        f"Cannot merge datasets with different primitives for the same task name: "
+                        f"'{task_ds0.name}' has primitive '{task_ds0.primitive}' in dataset0 and "
+                        f"'{task_ds1.primitive}' in dataset1."
+                    )
+
+                is_same_name_and_primitive = same_name and same_primitive
+                if is_same_name_and_primitive:
+                    task_ds0_class_names = task_ds0.class_names or []
+                    task_ds1_class_names = task_ds1.class_names or []
+                    if task_ds0_class_names != task_ds1_class_names:
+                        raise ValueError(
+                            f"Cannot merge datasets with different class names for the same task name and primitive: "
+                            f"'{task_ds0.name}' with primitive '{task_ds0.primitive}' has class names "
+                            f"{task_ds0_class_names} in dataset0 and {task_ds1_class_names} in dataset1."
+                        )
+        unique_tasks = set(info0.tasks + info1.tasks)
+        distributions = set((info0.distributions or []) + (info1.distributions or []))
+        meta = (info0.meta or {}).copy()
+        meta.update(info1.meta or {})
+        return DatasetInfo(
+            dataset_name=info0.dataset_name + "+" + info1.dataset_name,
+            version="merged",
+            tasks=list(unique_tasks),
+            distributions=list(distributions),
+            meta=meta,
+        )
+
+    def get_task_by_name(self, task_name: str) -> TaskInfo:
+        tasks_with_name = [task for task in self.tasks if task.name == task_name]
+        if not tasks_with_name:
+            raise ValueError(f"Task with name '{task_name}' not found in dataset info.")
+        if len(tasks_with_name) > 1:
+            raise ValueError(f"Multiple tasks found with name '{task_name}'. This should not happen!")
+        return tasks_with_name[0]
+
+    def get_task_by_primitive(self, primitive: Union[Type[Primitive], str]) -> TaskInfo:
+        if isinstance(primitive, str):
+            primitive = get_primitive_type_from_string(primitive)
+
+        tasks_with_primitive = [task for task in self.tasks if task.primitive == primitive]
+        if not tasks_with_primitive:
+            raise ValueError(f"Task with primitive {primitive} not found in dataset info.")
+        if len(tasks_with_primitive) > 1:
+            raise ValueError(
+                f"Multiple tasks found with primitive {primitive}. Use '{self.get_task_by_name.__name__}' instead."
+            )
+        return tasks_with_primitive[0]
+
+    def get_task_by_task_name_and_primitive(
+        self,
+        task_name: Optional[str],
+        primitive: Optional[Union[Type[Primitive], str]],
+    ) -> TaskInfo:
+        task = dataset_transformations.get_task_info_from_task_name_and_primitive(
+            tasks=self.tasks,
+            primitive=primitive,
+            task_name=task_name,
+        )
+        return task
 
 
 class Sample(BaseModel):
@@ -180,6 +244,24 @@ class HafniaDataset:
     info: DatasetInfo
     samples: pl.DataFrame
 
+    # Dataset stats
+    split_counts = dataset_stats.split_counts
+    class_counts_for_task = dataset_stats.class_counts_for_task
+    class_counts_all = dataset_stats.class_counts_all
+
+    # Print stats
+    print_stats = dataset_stats.print_stats
+    print_sample_and_task_counts = dataset_stats.print_sample_and_task_counts
+    print_class_distribution = dataset_stats.print_class_distribution
+
+    # Dataset checks
+    check_dataset = dataset_stats.check_dataset
+    check_dataset_from_path = dataset_stats.check_dataset_from_path
+    check_dataset_tasks = dataset_stats.check_dataset_tasks
+
+    # Dataset transformations
+    transform_images = dataset_transformations.transform_images
+
     def __getitem__(self, item: int) -> Dict[str, Any]:
         return self.samples.row(index=item, named=True)
 
@@ -257,7 +339,11 @@ class HafniaDataset:
         If the dataset is already cached, it will be loaded from the cache.
         """
 
-        path_dataset = get_or_create_dataset_path_from_recipe(dataset_recipe, path_datasets=path_datasets)
+        path_dataset = get_or_create_dataset_path_from_recipe(
+            dataset_recipe,
+            path_datasets=path_datasets,
+            force_redownload=force_redownload,
+        )
         return HafniaDataset.from_path(path_dataset, check_for_images=False)
 
     @staticmethod
@@ -278,9 +364,6 @@ class HafniaDataset:
         for dataset in remaining_datasets:
             merged_dataset = HafniaDataset.merge(merged_dataset, dataset)
         return merged_dataset
-
-    # Dataset transformations
-    transform_images = dataset_transformations.transform_images
 
     def shuffle(dataset: HafniaDataset, seed: int = 42) -> HafniaDataset:
         table = dataset.samples.sample(n=len(dataset), with_replacement=False, seed=seed, shuffle=True)
@@ -351,19 +434,76 @@ class HafniaDataset:
         table = dataset.samples.with_columns(pl.Series(is_sample_column).alias("is_sample"))
         return dataset.update_samples(table)
 
+    def class_mapper_strict(
+        dataset: "HafniaDataset",
+        strict_class_mapping: Dict[str, str],
+        primitive: Optional[Type[Primitive]] = None,
+        task_name: Optional[str] = None,
+    ) -> "HafniaDataset":
+        """
+        Map class names to new class names using a strict mapping.
+        A strict mapping means that all class names in the dataset must be mapped to a new class name.
+        If a class name is not mapped, an error is raised.
+
+        The class indices are determined by the order of appearance of the new class names in the mapping.
+        Duplicates in the new class names are removed, preserving the order of first appearance.
+
+        E.g.
+
+        mnist = HafniaDataset.from_name("mnist")
+        strict_class_mapping = {
+            "1 - one": "odd",   # 'odd' appears first and becomes class index 0
+            "3 - three": "odd",
+            "5 - five": "odd",
+            "7 - seven": "odd",
+            "9 - nine": "odd",
+            "0 - zero": "even",  # 'even' appears second and becomes class index 1
+            "2 - two": "even",
+            "4 - four": "even",
+            "6 - six": "even",
+            "8 - eight": "even",
+        }
+
+        dataset_new = class_mapper_strict(dataset=mnist, strict_class_mapping=strict_class_mapping)
+
+        """
+        return dataset_transformations.class_mapper_strict(
+            dataset=dataset, strict_class_mapping=strict_class_mapping, primitive=primitive, task_name=task_name
+        )
+
+    def rename_task(
+        dataset: "HafniaDataset",
+        old_task_name: str,
+        new_task_name: str,
+    ) -> "HafniaDataset":
+        """
+        Rename a task in the dataset.
+        """
+        return dataset_transformations.rename_task(
+            dataset=dataset, old_task_name=old_task_name, new_task_name=new_task_name
+        )
+
+    def select_samples_by_class_name(
+        dataset: HafniaDataset,
+        name: Union[List[str], str],
+        task_name: Optional[str] = None,
+        primitive: Optional[Type[Primitive]] = None,
+    ) -> HafniaDataset:
+        """
+        Select samples that contain at least one annotation with the specified class name(s).
+        If 'task_name' and 'primitive' are not provided, the function will attempt to infer the task.
+        """
+        return dataset_transformations.select_samples_by_class_name(
+            dataset=dataset, name=name, task_name=task_name, primitive=primitive
+        )
+
     def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
         """
         Merges two Hafnia datasets by concatenating their samples and updating the split names.
         """
-        ## Currently, only a very naive merging is implemented.
-        # In the future we need to verify that the class and tasks are compatible.
-        # Do they have similar classes and tasks? What to do if they don't?
-        # For now, we just concatenate the samples and keep the split names as they are.
+        merged_info = DatasetInfo.merge(dataset0.info, dataset1.info)  # Merges and checks for issues
         merged_samples = pl.concat([dataset0.samples, dataset1.samples], how="vertical")
-        return dataset0.update_samples(merged_samples)
-
-    # Dataset stats
-    split_counts = dataset_stats.split_counts
+        return HafniaDataset(info=merged_info, samples=merged_samples)
 
     def as_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
         if ColumnName.SPLIT not in self.samples.columns:
@@ -394,14 +534,10 @@ class HafniaDataset:
         filtered_dataset = self.samples.filter(pl.col(ColumnName.SPLIT).is_in(split_names))
         return self.update_samples(filtered_dataset)
 
-    def get_task_by_name(self, task_name: str) -> TaskInfo:
-        for task in self.info.tasks:
-            if task.name == task_name:
-                return task
-        raise ValueError(f"Task with name {task_name} not found in dataset info.")
-
     def update_samples(self, table: pl.DataFrame) -> "HafniaDataset":
-        return HafniaDataset(info=self.info.model_copy(), samples=table)
+        dataset = HafniaDataset(info=self.info.model_copy(deep=True), samples=table)
+        dataset.check_dataset_tasks()
+        return dataset
 
     @staticmethod
     def check_dataset_path(path_dataset: Path, raise_error: bool = True) -> bool:
@@ -426,6 +562,9 @@ class HafniaDataset:
                 return False
 
         return True
+
+    def copy(self) -> "HafniaDataset":
+        return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
 
     def write(self, path_folder: Path, add_version: bool = False) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
@@ -464,52 +603,6 @@ class HafniaDataset:
             return False
         return True
 
-    def print_stats(self) -> None:
-        table_base = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
-        table_base.add_column("Property", style="cyan")
-        table_base.add_column("Value")
-        table_base.add_row("Dataset Name", self.info.dataset_name)
-        table_base.add_row("Version", self.info.version)
-        table_base.add_row("Number of samples", str(len(self.samples)))
-        rprint(table_base)
-        rprint(self.info.tasks)
-
-        splits_sets = {
-            "All": SplitName.valid_splits(),
-            "Train": [SplitName.TRAIN],
-            "Validation": [SplitName.VAL],
-            "Test": [SplitName.TEST],
-        }
-        rows = []
-        for split_name, splits in splits_sets.items():
-            dataset_split = self.create_split_dataset(splits)
-            table = dataset_split.samples
-            row = {}
-            row["Split"] = split_name
-            row["Sample "] = str(len(table))
-            for PrimitiveType in PRIMITIVE_TYPES:
-                column_name = PrimitiveType.column_name()
-                objects_df = create_primitive_table(table, PrimitiveType=PrimitiveType, keep_sample_data=False)
-                if objects_df is None:
-                    continue
-                for (task_name,), object_group in objects_df.group_by(FieldName.TASK_NAME):
-                    count = len(object_group[FieldName.CLASS_NAME])
-                    row[f"{PrimitiveType.__name__}\n{task_name}"] = str(count)
-            rows.append(row)
-
-        rich_table = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
-        for i_row, row in enumerate(rows):
-            if i_row == 0:
-                for column_name in row.keys():
-                    rich_table.add_column(column_name, justify="left", style="cyan")
-            rich_table.add_row(*[str(value) for value in row.values()])
-        rprint(rich_table)
-
-
-def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
-    dataset = HafniaDataset.from_path(path_dataset, check_for_images=True)
-    check_hafnia_dataset(dataset)
-
 
 def get_or_create_dataset_path_from_recipe(
     dataset_recipe: Any,
@@ -538,89 +631,3 @@ def get_or_create_dataset_path_from_recipe(
     dataset.write(path_dataset)
 
     return path_dataset
-
-
-def check_hafnia_dataset(dataset: HafniaDataset):
-    user_logger.info("Checking Hafnia dataset...")
-    assert isinstance(dataset.info.version, str) and len(dataset.info.version) > 0
-    assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0
-
-    is_sample_list = set(dataset.samples.select(pl.col(ColumnName.IS_SAMPLE)).unique().to_series().to_list())
-    if True not in is_sample_list:
-        raise ValueError(f"The dataset should contain '{ColumnName.IS_SAMPLE}=True' samples")
-
-    actual_splits = dataset.samples.select(pl.col(ColumnName.SPLIT)).unique().to_series().to_list()
-    expected_splits = SplitName.valid_splits()
-    if set(actual_splits) != set(expected_splits):
-        raise ValueError(f"Expected all splits '{expected_splits}' in dataset, but got '{actual_splits}'. ")
-
-    expected_tasks = dataset.info.tasks
-    for task in expected_tasks:
-        primitive = task.primitive.__name__
-        column_name = task.primitive.column_name()
-        primitive_column = dataset.samples[column_name]
-        # msg_something_wrong = f"Something is wrong with the '{primtive_name}' task '{task.name}' in dataset '{dataset.name}'. "
-        msg_something_wrong = (
-            f"Something is wrong with the defined tasks ('info.tasks') in dataset '{dataset.info.dataset_name}'. \n"
-            f"For '{primitive=}' and '{task.name=}' "
-        )
-        if primitive_column.dtype == pl.Null:
-            raise ValueError(msg_something_wrong + "the column is 'Null'. Please check the dataset.")
-
-        primitive_table = primitive_column.explode().struct.unnest().filter(pl.col(FieldName.TASK_NAME) == task.name)
-        if primitive_table.is_empty():
-            raise ValueError(
-                msg_something_wrong
-                + f"the column '{column_name}' has no {task.name=} objects. Please check the dataset."
-            )
-
-        actual_classes = set(primitive_table[FieldName.CLASS_NAME].unique().to_list())
-        if task.class_names is None:
-            raise ValueError(
-                msg_something_wrong
-                + f"the column '{column_name}' with {task.name=} has no defined classes. Please check the dataset."
-            )
-        defined_classes = set(task.class_names)
-
-        if not actual_classes.issubset(defined_classes):
-            raise ValueError(
-                msg_something_wrong
-                + f"the column '{column_name}' with {task.name=} we expected the actual classes in the dataset to \n"
-                f"to be a subset of the defined classes\n\t{actual_classes=} \n\t{defined_classes=}."
-            )
-        # Check class_indices
-        mapped_indices = primitive_table[FieldName.CLASS_NAME].map_elements(
-            lambda x: task.class_names.index(x), return_dtype=pl.Int64
-        )
-        table_indices = primitive_table[FieldName.CLASS_IDX]
-
-        error_msg = msg_something_wrong + (
-            f"class indices in '{FieldName.CLASS_IDX}' column does not match classes ordering in 'task.class_names'"
-        )
-        assert mapped_indices.equals(table_indices), error_msg
-
-    distribution = dataset.info.distributions or []
-    distribution_names = [task.name for task in distribution]
-    # Check that tasks found in the 'dataset.table' matches the tasks defined in 'dataset.info.tasks'
-    for PrimitiveType in PRIMITIVE_TYPES:
-        column_name = PrimitiveType.column_name()
-        if column_name not in dataset.samples.columns:
-            continue
-        objects_df = create_primitive_table(dataset.samples, PrimitiveType=PrimitiveType, keep_sample_data=False)
-        if objects_df is None:
-            continue
-        for (task_name,), object_group in objects_df.group_by(FieldName.TASK_NAME):
-            has_task = any([t for t in expected_tasks if t.name == task_name and t.primitive == PrimitiveType])
-            if has_task:
-                continue
-            if task_name in distribution_names:
-                continue
-            class_names = object_group[FieldName.CLASS_NAME].unique().to_list()
-            raise ValueError(
-                f"Task name '{task_name}' for the '{PrimitiveType.__name__}' primitive is missing in "
-                f"'dataset.info.tasks' for dataset '{task_name}'. Missing task has the following "
-                f"classes: {class_names}. "
-            )
-
-    for sample_dict in tqdm(dataset, desc="Checking samples in dataset"):
-        sample = Sample(**sample_dict)  # Checks format of all samples with pydantic validation  # noqa: F841
