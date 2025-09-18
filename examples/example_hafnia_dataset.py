@@ -50,6 +50,9 @@ shuffled_dataset = dataset.shuffle(seed=42)  # Shuffle the dataset
 split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
 new_dataset_splits = dataset.splits_by_ratios(split_ratios)
 
+# Get only samples with specific class names
+dataset_ones = dataset.select_samples_by_class_name(name="1 - one", primitive=Classification)
+
 # Rename class names with mapping
 class_mapping = {
     "0 - zero": "even",  # "0 - zero" will be renamed to "even". "even" appear first and get index 0
