@@ -23,6 +23,7 @@ try:
 
     MLFLOW_AVAILABLE = True
 except ImportError:
+    user_logger.warning("MLFlow is not available")
     MLFLOW_AVAILABLE = False
 
 
@@ -123,7 +124,7 @@ class HafniaLogger:
                 user_logger.info(f"MLflow experiment set to: {experiment_name}")
 
             # Start MLflow run
-            run_name = os.getenv("MLFLOW_RUN_ID", "undefined")
+            run_name = os.getenv("MLFLOW_RUN_NAME", "undefined")
             mlflow.start_run(run_name=run_name)
             self._mlflow_initialized = True
             user_logger.info("MLflow run started successfully")
