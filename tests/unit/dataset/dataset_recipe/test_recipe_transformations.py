@@ -19,7 +19,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
 )
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from tests.helper_testing import get_micro_hafnia_dataset, get_strict_class_mapping
+from tests.helper_testing import get_micro_hafnia_dataset, get_strict_class_mapping_midwest
 
 
 @dataclass
@@ -61,11 +61,11 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
         ),
         TestCaseRecipeTransform(
             recipe_transform=ClassMapperStrict(
-                strict_class_mapping=get_strict_class_mapping(),
+                strict_class_mapping=get_strict_class_mapping_midwest(),
                 primitive=None,
                 task_name=None,
             ),
-            as_python_code=f"class_mapper_strict(strict_class_mapping={get_strict_class_mapping()}, primitive=None, task_name=None)",  # noqa: E501
+            as_python_code=f"class_mapper_strict(strict_class_mapping={get_strict_class_mapping_midwest()}, primitive=None, task_name=None)",  # noqa: E501
             short_name="ClassMapperStrict",
         ),
         TestCaseRecipeTransform(

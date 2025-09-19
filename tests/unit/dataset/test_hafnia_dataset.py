@@ -104,3 +104,40 @@ def test_dataset_info_from_dataset():
 
     # Check if dataset info can be serialized to JSON
     dataset_info_json = dataset_info.model_dump_json()  # noqa: F841
+
+
+def test_task_info_validation_exceptions():
+    with pytest.raises(ValueError, match="Class names must be unique"):
+        TaskInfo(
+            primitive=Classification,
+            class_names=["car", "person", "car"],  # <-- Duplicate name is used
+        )
+    primitive_wrong_name = "WrongPrimitiveName"
+    with pytest.raises(ValueError, match=f"Primitive '{primitive_wrong_name}' is not recognized."):
+        TaskInfo(
+            primitive=primitive_wrong_name,
+            class_names=["person", "car"],  # <-- Duplicate name is used
+        )
+
+
+def test_dataset_info_validation_exceptions():
+    # Use case 1: Same primitive - different task name is allowed!
+    DatasetInfo(
+        dataset_name="test_dataset",
+        version="1.0",
+        tasks=[
+            TaskInfo(primitive=Classification, class_names=["car", "person"]),
+            TaskInfo(primitive=Classification, class_names=["car", "person"], name="Task2"),
+        ],
+    )
+
+    # Use case 2: Same primitive and same task name is NOT allowed
+    with pytest.raises(ValueError, match="Tasks must be unique"):
+        DatasetInfo(
+            dataset_name="test_dataset",
+            version="1.0",
+            tasks=[
+                TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
+                TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
+            ],
+        )

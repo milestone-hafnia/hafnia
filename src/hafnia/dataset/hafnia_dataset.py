@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
@@ -69,6 +70,19 @@ class TaskInfo(BaseModel):
             raise ValueError(f"Primitive must be a subclass of Primitive, got {type(primitive)} instead.")
         return primitive.__name__
 
+    @field_validator("class_names", mode="after")
+    @classmethod
+    def validate_unique_class_names(cls, class_names: Optional[List[str]]) -> List[str]:
+        """Validate that class names are unique"""
+        if class_names is None:
+            return []
+        duplicate_class_names = set([name for name in class_names if class_names.count(name) > 1])
+        if duplicate_class_names:
+            raise ValueError(
+                f"Class names must be unique. The following class names appear multiple times: {duplicate_class_names}."
+            )
+        return class_names
+
     # To get unique hash value for TaskInfo objects
     def __hash__(self) -> int:
         class_names = self.class_names or []
@@ -83,9 +97,23 @@ class TaskInfo(BaseModel):
 class DatasetInfo(BaseModel):
     dataset_name: str
     version: str
-    tasks: list[TaskInfo]
+    tasks: List[TaskInfo]
     distributions: Optional[List[TaskInfo]] = None  # Distributions. TODO: FIX/REMOVE/CHANGE this
     meta: Optional[Dict[str, Any]] = None  # Metadata about the dataset, e.g. description, etc.
+
+    @field_validator("tasks", mode="after")
+    @classmethod
+    def _validate_check_for_duplicate_tasks(cls, tasks: List[TaskInfo]) -> List[TaskInfo]:
+        task_name_counts = collections.Counter(task.name for task in tasks)
+        duplicate_task_names = [name for name, count in task_name_counts.items() if count > 1]
+        if duplicate_task_names:
+            raise ValueError(
+                f"Tasks must be unique. The following tasks appear multiple times: {duplicate_task_names}."
+            )
+        return tasks
+
+    def check_for_duplicate_task_names(self) -> List[TaskInfo]:
+        return self._validate_check_for_duplicate_tasks(self.tasks)
 
     def write_json(self, path: Path, indent: Optional[int] = 4) -> None:
         json_str = self.model_dump_json(indent=indent)
@@ -98,6 +126,9 @@ class DatasetInfo(BaseModel):
 
     @staticmethod
     def merge(info0: DatasetInfo, info1: DatasetInfo) -> DatasetInfo:
+        """
+        Merges two DatasetInfo objects into one and validates if they are compatible.
+        """
         for task_ds0 in info0.tasks:
             for task_ds1 in info1.tasks:
                 same_name = task_ds0.name == task_ds1.name
@@ -133,6 +164,9 @@ class DatasetInfo(BaseModel):
         )
 
     def get_task_by_name(self, task_name: str) -> TaskInfo:
+        """
+        Get task by its name. Raises an error if the task name is not found or if multiple tasks have the same name.
+        """
         tasks_with_name = [task for task in self.tasks if task.name == task_name]
         if not tasks_with_name:
             raise ValueError(f"Task with name '{task_name}' not found in dataset info.")
@@ -141,6 +175,10 @@ class DatasetInfo(BaseModel):
         return tasks_with_name[0]
 
     def get_task_by_primitive(self, primitive: Union[Type[Primitive], str]) -> TaskInfo:
+        """
+        Get task by its primitive type. Raises an error if the primitive type is not found or if multiple tasks
+        have the same primitive type.
+        """
         if isinstance(primitive, str):
             primitive = get_primitive_type_from_string(primitive)
 
@@ -158,6 +196,10 @@ class DatasetInfo(BaseModel):
         task_name: Optional[str],
         primitive: Optional[Union[Type[Primitive], str]],
     ) -> TaskInfo:
+        """
+        Logic to get a unique task based on the provided 'task_name' and/or 'primitive'.
+        If both 'task_name' and 'primitive' are None, the dataset must have only one task.
+        """
         task = dataset_transformations.get_task_info_from_task_name_and_primitive(
             tasks=self.tasks,
             primitive=primitive,
@@ -244,22 +286,22 @@ class HafniaDataset:
     info: DatasetInfo
     samples: pl.DataFrame
 
-    # Dataset stats
+    # Function mapping: Dataset stats
     split_counts = dataset_stats.split_counts
     class_counts_for_task = dataset_stats.class_counts_for_task
     class_counts_all = dataset_stats.class_counts_all
 
-    # Print stats
+    # Function mapping: Print stats
     print_stats = dataset_stats.print_stats
     print_sample_and_task_counts = dataset_stats.print_sample_and_task_counts
     print_class_distribution = dataset_stats.print_class_distribution
 
-    # Dataset checks
+    # Function mapping: Dataset checks
     check_dataset = dataset_stats.check_dataset
     check_dataset_from_path = dataset_stats.check_dataset_from_path
     check_dataset_tasks = dataset_stats.check_dataset_tasks
 
-    # Dataset transformations
+    # Function mapping: Dataset transformations
     transform_images = dataset_transformations.transform_images
 
     def __getitem__(self, item: int) -> Dict[str, Any]:
@@ -372,6 +414,9 @@ class HafniaDataset:
     def select_samples(
         dataset: "HafniaDataset", n_samples: int, shuffle: bool = True, seed: int = 42, with_replacement: bool = False
     ) -> "HafniaDataset":
+        """
+        Create a new dataset with a subset of samples.
+        """
         if not with_replacement:
             n_samples = min(n_samples, len(dataset))
         table = dataset.samples.sample(n=n_samples, with_replacement=with_replacement, seed=seed, shuffle=shuffle)
@@ -426,6 +471,9 @@ class HafniaDataset:
         return dataset_new
 
     def define_sample_set_by_size(dataset: "HafniaDataset", n_samples: int, seed: int = 42) -> "HafniaDataset":
+        """
+        Defines a sample set randomly by selecting 'n_samples' samples from the dataset.
+        """
         is_sample_indices = Random(seed).sample(range(len(dataset)), n_samples)
         is_sample_column = [False for _ in range(len(dataset))]
         for idx in is_sample_indices:
@@ -501,11 +549,15 @@ class HafniaDataset:
         """
         Merges two Hafnia datasets by concatenating their samples and updating the split names.
         """
-        merged_info = DatasetInfo.merge(dataset0.info, dataset1.info)  # Merges and checks for issues
+        merged_info = DatasetInfo.merge(dataset0.info, dataset1.info)  # Merges info and checks for compatibility
         merged_samples = pl.concat([dataset0.samples, dataset1.samples], how="vertical")
         return HafniaDataset(info=merged_info, samples=merged_samples)
 
     def as_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
+        """
+        Splits the dataset into multiple datasets based on the 'split' column.
+        Returns a dictionary with split names as keys and HafniaDataset objects as values.
+        """
         if ColumnName.SPLIT not in self.samples.columns:
             raise ValueError(f"Dataset must contain a '{ColumnName.SPLIT}' column.")
 

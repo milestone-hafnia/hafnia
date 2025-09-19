@@ -65,6 +65,22 @@ def class_counts_for_task(
 
 
 def class_counts_all(dataset: HafniaDataset) -> Dict[str, int]:
+    """
+    Get class counts for all tasks in the dataset.
+    The counts are returned as a dictionary where keys are in the format
+    '{primitive_name}/{task_name}/{class_name}' and values are their respective counts.
+
+    Example:
+    >>> counts = dataset.class_counts_all()
+    >>> print(counts)
+    {
+        objects/bboxes/car: 500
+        objects/bboxes/person: 0
+        classifications/weather/sunny: 300
+        classifications/weather/rainy: 0
+        ...
+    }
+    """
     class_counts = {}
     for task in dataset.info.tasks:
         if task.class_names is None:
@@ -79,6 +95,10 @@ def class_counts_all(dataset: HafniaDataset) -> Dict[str, int]:
 
 
 def print_stats(dataset: HafniaDataset) -> None:
+    """
+    Prints verbose statistics about the dataset, including dataset name, version,
+    number of samples, and detailed counts of samples and tasks.
+    """
     table_base = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
     table_base.add_column("Property", style="cyan")
     table_base.add_column("Value")
@@ -90,6 +110,9 @@ def print_stats(dataset: HafniaDataset) -> None:
 
 
 def print_class_distribution(dataset: HafniaDataset) -> None:
+    """
+    Prints the class distribution for each task in the dataset.
+    """
     for task in dataset.info.tasks:
         if task.class_names is None:
             raise ValueError(f"Task '{task.name}' does not have class names defined.")
@@ -107,6 +130,10 @@ def print_class_distribution(dataset: HafniaDataset) -> None:
 
 
 def print_sample_and_task_counts(dataset: HafniaDataset) -> None:
+    """
+    Prints a table with sample counts and task counts for each primitive type
+    in total and for each split (train, val, test).
+    """
     from hafnia.dataset.operations.table_transformations import create_primitive_table
     from hafnia.dataset.primitives import PRIMITIVE_TYPES
 
@@ -143,6 +170,10 @@ def print_sample_and_task_counts(dataset: HafniaDataset) -> None:
 
 
 def check_dataset(dataset: HafniaDataset):
+    """
+    Performs various checks on the dataset to ensure its integrity and consistency.
+    Raises errors if any issues are found.
+    """
     from hafnia.dataset.hafnia_dataset import Sample
 
     user_logger.info("Checking Hafnia dataset...")
@@ -158,7 +189,7 @@ def check_dataset(dataset: HafniaDataset):
     if set(actual_splits) != set(expected_splits):
         raise ValueError(f"Expected all splits '{expected_splits}' in dataset, but got '{actual_splits}'. ")
 
-    check_dataset_tasks(dataset)
+    dataset.check_dataset_tasks()
 
     expected_tasks = dataset.info.tasks
     distribution = dataset.info.distributions or []
@@ -194,8 +225,12 @@ def check_dataset_from_path(path_dataset: Path) -> None:
 
 
 def check_dataset_tasks(dataset: HafniaDataset):
-    expected_tasks = dataset.info.tasks
-    for task in expected_tasks:
+    """
+    Checks that the tasks defined in 'dataset.info.tasks' are consistent with the data in 'dataset.samples'.
+    """
+    dataset.info.check_for_duplicate_task_names()
+
+    for task in dataset.info.tasks:
         primitive = task.primitive.__name__
         column_name = task.primitive.column_name()
         primitive_column = dataset.samples[column_name]

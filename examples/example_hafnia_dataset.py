@@ -55,8 +55,8 @@ dataset_ones = dataset.select_samples_by_class_name(name="1 - one", primitive=Cl
 
 # Rename class names with mapping
 class_mapping = {
-    "0 - zero": "even",  # "0 - zero" will be renamed to "even". "even" appear first and get index 0
-    "1 - one": "odd",  # "1 - one" will be renamed to "odd". "odd" appear second and will get index 1
+    "0 - zero": "even",  # "0 - zero" will be renamed to "even". "even" appear first and get class index 0
+    "1 - one": "odd",  # "1 - one" will be renamed to "odd". "odd" appear second and will get class index 1
     "2 - two": "even",
     "3 - three": "odd",
     "4 - four": "even",

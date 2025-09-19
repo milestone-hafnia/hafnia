@@ -103,7 +103,7 @@ def get_task_info_from_task_name_and_primitive(
             return tasks[0]
         else:
             raise ValueError(
-                "For multiple tasks, you will need to specify 'task_name' and/or 'type_primitive' "
+                "For multiple tasks, you will need to specify 'task_name' or 'type_primitive' "
                 "to return a unique task. The dataset contains the following tasks: \n" + tasks_str
             )
 

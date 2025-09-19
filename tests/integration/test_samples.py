@@ -13,7 +13,6 @@ from hafnia import torch_helpers
 from hafnia.data import load_dataset
 from hafnia.dataset.dataset_names import ColumnName
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
-from hafnia.dataset.operations.dataset_stats import check_dataset
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
@@ -88,7 +87,7 @@ def test_dataset_lengths(loaded_dataset):
 def test_check_dataset(loaded_dataset, compare_to_expected_image):
     """Test the features of the dataset based on task type."""
     dataset = loaded_dataset["dataset"]
-    check_dataset(dataset)
+    dataset.check_dataset()
 
     sample_dict = dataset[0]
     sample = Sample(**sample_dict)
