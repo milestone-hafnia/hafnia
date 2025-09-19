@@ -20,7 +20,7 @@ from hafnia.dataset.primitives.polygon import Polygon
 #   hafnia configure
 
 # Load dataset
-dataset = HafniaDataset.from_name("midwest-vehicle-detection")
+dataset = HafniaDataset.from_name("mnist")
 
 # Dataset information is stored in 'dataset.info'
 rprint(dataset.info)
@@ -29,7 +29,13 @@ rprint(dataset.info)
 dataset.samples.head(2)
 
 # Print dataset information
-dataset.print_stats()
+dataset.print_sample_and_task_counts()
+dataset.print_class_distribution()
+dataset.print_stats()  # Print verbose dataset statistics
+
+# Get dataset stats
+dataset.class_counts_all()  # Get class counts for all tasks
+dataset.class_counts_for_task(primitive=Classification)  # Get class counts for a specific task
 
 # Create a dataset split for training
 dataset_train = dataset.create_split_dataset("train")
@@ -37,12 +43,31 @@ dataset_train = dataset.create_split_dataset("train")
 # Checkout built-in transformations in 'operations/dataset_transformations' or 'HafniaDataset'
 dataset_val = dataset.create_split_dataset(SplitName.VAL)  # Use 'SplitName' to avoid magic strings
 
-
 small_dataset = dataset.select_samples(n_samples=10, seed=42)  # Selects 10 samples from the dataset
 shuffled_dataset = dataset.shuffle(seed=42)  # Shuffle the dataset
 
+# Create dataset splits by ratios
 split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
 new_dataset_splits = dataset.splits_by_ratios(split_ratios)
+
+# Get only samples with specific class names
+dataset_ones = dataset.select_samples_by_class_name(name="1 - one", primitive=Classification)
+
+# Rename class names with mapping
+class_mapping = {
+    "0 - zero": "even",  # "0 - zero" will be renamed to "even". "even" appear first and get class index 0
+    "1 - one": "odd",  # "1 - one" will be renamed to "odd". "odd" appear second and will get class index 1
+    "2 - two": "even",
+    "3 - three": "odd",
+    "4 - four": "even",
+    "5 - five": "odd",
+    "6 - six": "even",
+    "7 - seven": "odd",
+    "8 - eight": "even",
+    "9 - nine": "__REMOVE__",  # Remove all samples with class "9 - nine"
+}
+dataset_mapped = dataset.class_mapper_strict(strict_class_mapping=class_mapping)
+dataset_mapped.print_class_distribution()
 
 # Support Chaining Operations (load, shuffle, select samples)
 dataset = load_dataset("midwest-vehicle-detection").shuffle(seed=42).select_samples(n_samples=10)
@@ -66,7 +91,6 @@ class_counts = dataset.samples[Classification.column_name()].explode().struct.fi
 class_counts = dataset.samples[Bbox.column_name()].explode().struct.field("class_name").value_counts()
 rprint(dict(class_counts.iter_rows()))
 
-
 # Access the first sample in the training split - data is stored in a dictionary
 sample_dict = dataset_train[0]
 
@@ -81,6 +105,7 @@ objects: List[Bbox] = sample.objects  # Use 'sample.objects' access bounding box
 bitmasks: List[Bitmask] = sample.bitmasks  # Use 'sample.bitmasks' to access bitmasks as a list of Bitmask objects
 polygons: List[Polygon] = sample.polygons  # Use 'sample.polygons' to access polygons as a list of Polygon objects
 classifications: List[Classification] = sample.classifications  # As a list of Classification objects
+
 
 # Read image using the sample object
 image: np.ndarray = sample.read_image()

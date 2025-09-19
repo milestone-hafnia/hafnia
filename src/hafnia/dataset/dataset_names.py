@@ -18,6 +18,9 @@ class DeploymentStage(Enum):
     PRODUCTION = "production"
 
 
+TAG_REMOVE_CLASS = "__REMOVE__"
+
+
 class FieldName:
     CLASS_NAME: str = "class_name"  # Name of the class this primitive is associated with, e.g. "car" for Bbox
     CLASS_IDX: str = "class_idx"  # Index of the class this primitive is associated with, e.g. 0 for "car" if it is the first class  # noqa: E501

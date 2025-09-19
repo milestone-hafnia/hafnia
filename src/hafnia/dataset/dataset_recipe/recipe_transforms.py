@@ -1,7 +1,8 @@
-from typing import TYPE_CHECKING, Callable, Dict
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type, Union
 
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.primitives.primitive import Primitive
 
 if TYPE_CHECKING:
     pass
@@ -51,3 +52,32 @@ class DefineSampleSetBySize(RecipeTransform):
     @staticmethod
     def get_function() -> Callable[..., "HafniaDataset"]:
         return HafniaDataset.define_sample_set_by_size
+
+
+class ClassMapperStrict(RecipeTransform):
+    strict_class_mapping: Dict[str, str]
+    primitive: Optional[Type[Primitive]] = None
+    task_name: Optional[str] = None
+
+    @staticmethod
+    def get_function() -> Callable[..., "HafniaDataset"]:
+        return HafniaDataset.class_mapper_strict
+
+
+class RenameTask(RecipeTransform):
+    old_task_name: str
+    new_task_name: str
+
+    @staticmethod
+    def get_function() -> Callable[..., "HafniaDataset"]:
+        return HafniaDataset.rename_task
+
+
+class SelectSamplesByClassName(RecipeTransform):
+    name: Union[List[str], str]
+    task_name: Optional[str] = None
+    primitive: Optional[Type[Primitive]] = None
+
+    @staticmethod
+    def get_function() -> Callable[..., "HafniaDataset"]:
+        return HafniaDataset.select_samples_by_class_name

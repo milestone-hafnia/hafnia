@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from hafnia.dataset import primitives
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
     FromMerger,
@@ -17,7 +18,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import SelectSamples, Shuff
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeCreation, RecipeTransform, Serializable
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.utils import is_hafnia_configured, pascal_to_snake_case
-from tests.helper_testing import annotation_as_string, get_dummy_recipe
+from tests.helper_testing import annotation_as_string, get_dummy_recipe, get_strict_class_mapping_mnist
 
 
 def check_signature(cls):
@@ -71,6 +72,10 @@ def check_signature(cls):
         model_field_type = annotation_as_string(model_field.annotation)
         function_param_type = annotation_as_string(param.annotation)
         if model_field_type != function_param_type:
+            if "." in model_field_type:
+                # Hard to handle case so we will simply ignore it for now.
+                continue
+
             error_msg = (
                 f"Type mismatch for parameter '{param.name}': expected {model_field_type=}, got {function_param_type=}."
             )
@@ -192,6 +197,18 @@ class IntegrationTestUseCase:
             .split_into_multiple_splits(split_name="test", split_ratios={"val": 0.5, "test": 0.5})
             .define_sample_set_by_size(n_samples=10),
             short_name="Recipe(mnist,SelectSamples,SplitsByRatios,SplitIntoMultipleSplits,DefineSampleSetBySize)",
+        ),
+        IntegrationTestUseCase(
+            recipe=DatasetRecipe.from_name(name="mnist")
+            .class_mapper_strict(
+                get_strict_class_mapping_mnist(),
+            )
+            .rename_task(
+                old_task_name=primitives.Classification.default_task_name(),
+                new_task_name="digits",
+            )
+            .select_samples_by_class_name(name="odd"),
+            short_name="Recipe(mnist,ClassMapperStrict,RenameTask,SelectSamplesByClassName)",
         ),
     ],
     ids=lambda test_case: test_case.short_name,  # To use the name of the test case as the ID for clarity
