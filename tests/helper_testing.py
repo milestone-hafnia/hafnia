@@ -4,6 +4,7 @@ from types import FunctionType
 from typing import Any, Callable, Dict, Union, get_origin
 
 from hafnia import utils
+from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, DatasetVariant
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
@@ -76,11 +77,26 @@ def annotation_as_string(annotation: Union[type, str]) -> str:
     if isinstance(annotation, str):
         return annotation.replace("'", "")
     if is_typing_type(annotation):  # Is using typing types like List, Dict, etc.
-        annotation_str = str(annotation).replace("typing.", "")
-        # This does not cover all cases, but it is good enough for now.
-        # E.g. this function can not convert the following:
-        # "typing.Optional[typing.Type[hafnia.dataset.primitives.primitive.Primitive]]"
-        # to "Optional[Type[Primitive]]"
+        # This is a simple approach to remove typing annotations as demonstrated below:
+        # "typing.List[str]" --> "List[str]"
+        # "typing.Optional[typing.Dict[str, int]]" --> "Dict[str, int]"
+        # "typing.Optional[typing.Type[hafnia.dataset.primitives.primitive.Primitive]]" --> "Optional[Type[Primitive]]"
+        # Add more rules to 'replace_dict' as needed
+        # We are using a simple string replacement approach to avoid complex logic or regex converter functions
+        # that are hard to debug - when issues appear. Instead we can just add more rules to 'replace_dict'.
+        annotation_str = str(annotation)
+        replace_dict = {
+            "typing.": "",
+            "hafnia.dataset.primitives.primitive.": "",
+        }
+
+        for key, value in replace_dict.items():
+            annotation_str = annotation_str.replace(key, value)
+        if "." in annotation_str:
+            raise ValueError(
+                f"Could not convert annotation '{annotation}' to string. "
+                f"Found '.' in '{annotation_str}'. Add replace rules to 'replace_dict'."
+            )
         return annotation_str
     if hasattr(annotation, "__name__"):
         return annotation.__name__
@@ -106,22 +122,27 @@ def get_hafnia_functions_from_module(python_module) -> Dict[str, FunctionType]:
 
 
 def get_dummy_recipe() -> DatasetRecipe:
-    dataset_recipe = DatasetRecipe.from_merger(
-        recipes=[
-            DatasetRecipe.from_name(name="mnist", force_redownload=False)
-            .select_samples(n_samples=20, shuffle=True, seed=42)
-            .shuffle(seed=123),
-            DatasetRecipe.from_name(name="mnist", force_redownload=False)
-            .select_samples(n_samples=30, shuffle=True, seed=42)
-            .splits_by_ratios(split_ratios={"train": 0.8, "val": 0.1, "test": 0.1}, seed=42),
-            DatasetRecipe.from_name(name="mnist", force_redownload=False),
-        ]
+    dataset_recipe = (
+        DatasetRecipe.from_merger(
+            recipes=[
+                DatasetRecipe.from_name(name="mnist", force_redownload=False)
+                .select_samples(n_samples=20, shuffle=True, seed=42)
+                .shuffle(seed=123),
+                DatasetRecipe.from_name(name="mnist", force_redownload=False)
+                .select_samples(n_samples=30, shuffle=True, seed=42)
+                .splits_by_ratios(split_ratios={"train": 0.8, "val": 0.1, "test": 0.1}, seed=42),
+                DatasetRecipe.from_name(name="mnist", force_redownload=False),
+            ]
+        )
+        .class_mapper_strict(get_strict_class_mapping_mnist())
+        .rename_task(old_task_name=primitives.Classification.default_task_name(), new_task_name="digits")
+        .select_samples_by_class_name(name=["odd"])
     )
 
     return dataset_recipe
 
 
-def get_strict_class_mapping() -> Dict[str, str]:
+def get_strict_class_mapping_midwest() -> Dict[str, str]:
     strict_class_mapping = {
         "Person": "person",  # Index 0
         "Vehicle.Trailer": "__REMOVE__",  # Removed not provided an index
@@ -136,5 +157,21 @@ def get_strict_class_mapping() -> Dict[str, str]:
         "Vehicle.Emergency_Vehicle": "vehicle",
         "Vehicle.Bus": "vehicle",
         "Vehicle.Heavy_Duty_Vehicle": "vehicle",
+    }
+    return strict_class_mapping
+
+
+def get_strict_class_mapping_mnist() -> Dict[str, str]:
+    strict_class_mapping = {
+        "0 - zero": "even",  # "0 - zero" will be renamed to "even". "even" appear first and get class index 0
+        "1 - one": "odd",  # "1 - one" will be renamed to "odd". "odd" appear second and will get class index 1
+        "2 - two": "even",
+        "3 - three": "odd",
+        "4 - four": "even",
+        "5 - five": "odd",
+        "6 - six": "even",
+        "7 - seven": "odd",
+        "8 - eight": "even",
+        "9 - nine": "__REMOVE__",  # Remove all samples with class "9 - nine"
     }
     return strict_class_mapping

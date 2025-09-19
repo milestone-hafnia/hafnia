@@ -6,7 +6,7 @@ from hafnia.dataset.operations.dataset_transformations import (
     get_task_info_from_task_name_and_primitive,
 )
 from hafnia.dataset.primitives import Bbox, Classification
-from tests.helper_testing import get_path_micro_hafnia_dataset, get_strict_class_mapping
+from tests.helper_testing import get_path_micro_hafnia_dataset, get_strict_class_mapping_midwest
 
 
 def test_class_mapper_strict():
@@ -15,7 +15,7 @@ def test_class_mapper_strict():
     dataset = HafniaDataset.from_path(path_dataset)
 
     dataset_updated = dataset.class_mapper_strict(
-        strict_class_mapping=get_strict_class_mapping(),
+        strict_class_mapping=get_strict_class_mapping_midwest(),
         primitive=Bbox,
     )
 
@@ -75,7 +75,7 @@ def test_merge_datasets():
     assert len(dataset_merged.info.tasks) == len(dataset_1.info.tasks), "Tasks should be preserved after merging"
 
     # Use case 2: Merging two datasets with the same tasks but different class names should raise an error
-    mapping = get_strict_class_mapping()
+    mapping = get_strict_class_mapping_midwest()
     dataset_1_changed = dataset_1.class_mapper_strict(
         strict_class_mapping=mapping,
         primitive=Bbox,
@@ -101,7 +101,7 @@ def test_select_samples_by_class_name():
     with pytest.raises(ValueError, match="The specified names"):
         dataset_updated = dataset.select_samples_by_class_name(name="NonExistingClass", primitive=Bbox)
 
-    # Use case 4: Wrong class name (not found in a specified task)
+    # Use case 4: Class exists but not in the specified task
     with pytest.raises(ValueError, match="The specified names"):
         dataset_updated = dataset.select_samples_by_class_name(name="Vehicle.Car", task_name="Weather")
 
