@@ -135,7 +135,6 @@ class HafniaLogger:
 
         except Exception as e:
             user_logger.error(f"Failed to initialize MLflow: {e}")
-            self._mlflow_initialized = False
 
     def load_dataset(self, dataset_name: str) -> HafniaDataset:
         """
@@ -279,6 +278,7 @@ class HafniaLogger:
     def __del__(self):
         """Cleanup when logger is destroyed."""
         self.end_run()
+
 
 def get_instructions_how_to_store_model() -> str:
     instructions = textwrap.dedent(
