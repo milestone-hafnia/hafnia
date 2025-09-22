@@ -96,8 +96,8 @@ midwest-vehicle-detection
 You can interact with data as you want, but we also provide `HafniaDataset`
 for loading/saving, managing and interacting with the dataset.
 
-We recommend to visit and potentially execute the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py) 
-to see how to use the `HafniaDataset` class and its methods.
+We recommend the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py) 
+for a short introduction on the `HafniaDataset`.
 
 Below is a short introduction to the `HafniaDataset` class.
 
@@ -107,8 +107,8 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 # Load dataset
 dataset = HafniaDataset.read_from_path(path_dataset)
 
-# Alternatively, you can use the 'load_dataset' function to download and load dataset in one go.
-# dataset = load_dataset("midwest-vehicle-detection")
+# Alternatively, you can use 'HafniaDataset.from_name' to download and load dataset in one go.
+# dataset = HafniaDataset.from_name("midwest-vehicle-detection")
 
 # Print dataset information
 dataset.print_stats()
@@ -276,7 +276,7 @@ Sample(
 )
 ```
 
-To learn more, view and potentially execute the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py). 
+To learn more, we recommend the `HafniaDataset` example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py). 
 
 ### Dataset Locally vs. Training-aaS
 An important feature of `load_dataset` is that it will return the full dataset 
@@ -410,8 +410,8 @@ In order to test recipe compatibility with Hafnia cloud use the following comman
 start the job locally.
 
 ```bash
-    # Create 'recipe.zip' from source folder '.'
-    hafnia recipe create .
+    # Create 'recipe.zip' in the root folder of your training recipe project '../recipe/classification'
+    hafnia train-recipe create-zip ../recipe-classification
     
     # Build the docker image locally from a 'recipe.zip' file
     hafnia runc build-local recipe.zip

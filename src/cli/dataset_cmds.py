@@ -2,12 +2,10 @@ from pathlib import Path
 from typing import Optional
 
 import click
-from rich import print as rprint
 
-import cli.consts as consts
+from cli import consts
 from cli.config import Config
 from hafnia import utils
-from hafnia.platform.datasets import create_rich_table_from_dataset
 
 
 @click.group()
@@ -18,18 +16,12 @@ def dataset():
 
 @dataset.command("ls")
 @click.pass_obj
-def dataset_list(cfg: Config) -> None:
+def cmd_list_datasets(cfg: Config) -> None:
     """List available datasets on Hafnia platform"""
+    from hafnia.platform.datasets import get_datasets, pretty_print_datasets
 
-    from hafnia.platform.datasets import dataset_list
-
-    try:
-        datasets = dataset_list(cfg=cfg)
-    except Exception:
-        raise click.ClickException(consts.ERROR_GET_RESOURCE)
-
-    table = create_rich_table_from_dataset(datasets)
-    rprint(table)
+    datasets = get_datasets(cfg=cfg)
+    pretty_print_datasets(datasets)
 
 
 @dataset.command("download")
@@ -43,7 +35,7 @@ def dataset_list(cfg: Config) -> None:
 )
 @click.option("--force", "-f", is_flag=True, default=False, help="Flag to enable force redownload")
 @click.pass_obj
-def data_download(cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool) -> Path:
+def cmd_dataset_download(cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool) -> Path:
     """Download dataset from Hafnia platform"""
 
     from hafnia.platform import datasets

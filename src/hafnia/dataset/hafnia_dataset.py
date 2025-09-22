@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from random import Random
 from typing import Any, Dict, List, Optional, Type, Union
@@ -11,7 +12,7 @@ import numpy as np
 import polars as pl
 import rich
 from PIL import Image
-from pydantic import BaseModel, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from rich import print as rprint
 from rich.table import Table
 from tqdm import tqdm
@@ -116,6 +117,7 @@ class Sample(BaseModel):
     bitmasks: Optional[List[Bitmask]] = None  # List of bitmasks, if applicable
     polygons: Optional[List[Polygon]] = None  # List of polygons, if applicable
 
+    attribution: Optional[Attribution] = None  # Attribution information for the image
     meta: Optional[Dict] = None  # Additional metadata, e.g., camera settings, GPS data, etc.
 
     def get_annotations(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
@@ -158,6 +160,21 @@ class Sample(BaseModel):
         return annotations_visualized
 
 
+class Attribution(BaseModel):
+    """Attribution information for the image: Giving source and credit to the original creator"""
+
+    title: Optional[str] = Field(default=None, description="Title of the image", max_length=255)
+    creator: Optional[str] = Field(default=None, description="Creator of the image", max_length=255)
+    creator_url: Optional[str] = Field(default=None, description="URL of the creator", max_length=255)
+    date_captured: Optional[datetime] = Field(default=None, description="Date when the image was captured")
+    copyright_notice: Optional[str] = Field(default=None, description="Copyright notice for the image", max_length=255)
+    license: Optional[str] = Field(default=None, description="License for the image", max_length=255)
+    license_url: Optional[str] = Field(default=None, description="License for the image", max_length=255)
+    disclaimer: Optional[str] = Field(default=None, description="Disclaimer for the image", max_length=255)
+    changes: Optional[str] = Field(default=None, description="Changes made to the image", max_length=255)
+    source_url: Optional[str] = Field(default=None, description="Source URL for the image", max_length=255)
+
+
 @dataclass
 class HafniaDataset:
     info: DatasetInfo
@@ -192,7 +209,6 @@ class HafniaDataset:
         """
         Load a dataset by its name. The dataset must be registered in the Hafnia platform.
         """
-        from hafnia.dataset.hafnia_dataset import HafniaDataset
         from hafnia.platform.datasets import download_or_get_dataset_path
 
         dataset_path = download_or_get_dataset_path(
@@ -268,7 +284,7 @@ class HafniaDataset:
 
     def shuffle(dataset: HafniaDataset, seed: int = 42) -> HafniaDataset:
         table = dataset.samples.sample(n=len(dataset), with_replacement=False, seed=seed, shuffle=True)
-        return dataset.update_table(table)
+        return dataset.update_samples(table)
 
     def select_samples(
         dataset: "HafniaDataset", n_samples: int, shuffle: bool = True, seed: int = 42, with_replacement: bool = False
@@ -276,7 +292,7 @@ class HafniaDataset:
         if not with_replacement:
             n_samples = min(n_samples, len(dataset))
         table = dataset.samples.sample(n=n_samples, with_replacement=with_replacement, seed=seed, shuffle=shuffle)
-        return dataset.update_table(table)
+        return dataset.update_samples(table)
 
     def splits_by_ratios(dataset: "HafniaDataset", split_ratios: Dict[str, float], seed: int = 42) -> "HafniaDataset":
         """
@@ -295,7 +311,7 @@ class HafniaDataset:
             split_ratios=split_ratios, n_items=n_items, seed=seed
         )
         table = dataset.samples.with_columns(pl.Series(split_name_column).alias("split"))
-        return dataset.update_table(table)
+        return dataset.update_samples(table)
 
     def split_into_multiple_splits(
         dataset: "HafniaDataset",
@@ -323,7 +339,7 @@ class HafniaDataset:
 
         remaining_data = dataset.samples.filter(pl.col(ColumnName.SPLIT).is_in([split_name]).not_())
         new_table = pl.concat([remaining_data, dataset_split_to_be_divided.samples], how="vertical")
-        dataset_new = dataset.update_table(new_table)
+        dataset_new = dataset.update_samples(new_table)
         return dataset_new
 
     def define_sample_set_by_size(dataset: "HafniaDataset", n_samples: int, seed: int = 42) -> "HafniaDataset":
@@ -333,7 +349,7 @@ class HafniaDataset:
             is_sample_column[idx] = True
 
         table = dataset.samples.with_columns(pl.Series(is_sample_column).alias("is_sample"))
-        return dataset.update_table(table)
+        return dataset.update_samples(table)
 
     def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
         """
@@ -344,7 +360,7 @@ class HafniaDataset:
         # Do they have similar classes and tasks? What to do if they don't?
         # For now, we just concatenate the samples and keep the split names as they are.
         merged_samples = pl.concat([dataset0.samples, dataset1.samples], how="vertical")
-        return dataset0.update_table(merged_samples)
+        return dataset0.update_samples(merged_samples)
 
     # Dataset stats
     split_counts = dataset_stats.split_counts
@@ -363,7 +379,7 @@ class HafniaDataset:
         if ColumnName.IS_SAMPLE not in self.samples.columns:
             raise ValueError(f"Dataset must contain an '{ColumnName.IS_SAMPLE}' column.")
         table = self.samples.filter(pl.col(ColumnName.IS_SAMPLE))
-        return self.update_table(table)
+        return self.update_samples(table)
 
     def create_split_dataset(self, split_name: Union[str | List[str]]) -> "HafniaDataset":
         if isinstance(split_name, str):
@@ -376,7 +392,7 @@ class HafniaDataset:
                 raise ValueError(f"Invalid split name: {split_name}. Valid splits are: {SplitName.valid_splits()}")
 
         filtered_dataset = self.samples.filter(pl.col(ColumnName.SPLIT).is_in(split_names))
-        return self.update_table(filtered_dataset)
+        return self.update_samples(filtered_dataset)
 
     def get_task_by_name(self, task_name: str) -> TaskInfo:
         for task in self.info.tasks:
@@ -384,7 +400,7 @@ class HafniaDataset:
                 return task
         raise ValueError(f"Task with name {task_name} not found in dataset info.")
 
-    def update_table(self, table: pl.DataFrame) -> "HafniaDataset":
+    def update_samples(self, table: pl.DataFrame) -> "HafniaDataset":
         return HafniaDataset(info=self.info.model_copy(), samples=table)
 
     @staticmethod

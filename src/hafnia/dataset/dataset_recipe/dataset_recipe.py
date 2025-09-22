@@ -77,6 +77,42 @@ class DatasetRecipe(Serializable):
         return DatasetRecipe.from_json_str(json_str)
 
     @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "DatasetRecipe":
+        """Deserialize from a dictionary."""
+        dataset_recipe = Serializable.from_dict(data)
+        return dataset_recipe
+
+    @staticmethod
+    def from_recipe_id(recipe_id: str) -> "DatasetRecipe":
+        """Loads a dataset recipe by id from the hafnia platform."""
+        from cli.config import Config
+        from hafnia.platform.dataset_recipe import get_dataset_recipe_by_id
+
+        cfg = Config()
+        endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
+        recipe_dict = get_dataset_recipe_by_id(recipe_id, endpoint=endpoint_dataset, api_key=cfg.api_key)
+        recipe_dict = recipe_dict["template"]["body"]
+        if isinstance(recipe_dict, str):
+            return DatasetRecipe.from_implicit_form(recipe_dict)
+
+        recipe = DatasetRecipe.from_dict(recipe_dict)
+        return recipe
+
+    @staticmethod
+    def from_recipe_name(name: str) -> "DatasetRecipe":
+        """Loads a dataset recipe by name from the hafnia platform"""
+        from cli.config import Config
+        from hafnia.platform.dataset_recipe import get_dataset_recipe_by_name
+
+        cfg = Config()
+        endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
+        recipe = get_dataset_recipe_by_name(name=name, endpoint=endpoint_dataset, api_key=cfg.api_key)
+        if not recipe:
+            raise ValueError(f"Dataset recipe '{name}' not found.")
+        recipe_id = recipe["id"]
+        return DatasetRecipe.from_recipe_id(recipe_id)
+
+    @staticmethod
     def from_implicit_form(recipe: Any) -> DatasetRecipe:
         """
         Recursively convert from implicit recipe to explicit form.
@@ -152,6 +188,59 @@ class DatasetRecipe(Serializable):
 
         raise ValueError(f"Unsupported recipe type: {type(recipe)}")
 
+    ### Upload, store and recipe conversions ###
+    def as_python_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
+        str_operations = [self.creation.as_python_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)]
+        if self.operations:
+            for op in self.operations:
+                str_operations.append(op.as_python_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs))
+        operations_str = ".".join(str_operations)
+        return operations_str
+
+    def as_short_name(self) -> str:
+        """Return a short name for the transforms."""
+
+        creation_name = self.creation.as_short_name()
+        if self.operations is None or len(self.operations) == 0:
+            return creation_name
+        short_names = [creation_name]
+        for operation in self.operations:
+            short_names.append(operation.as_short_name())
+        transforms_str = ",".join(short_names)
+        return f"Recipe({transforms_str})"
+
+    def as_json_str(self, indent: int = 2) -> str:
+        """Serialize the dataset recipe to a JSON string."""
+        dict_data = self.as_dict()
+        return json.dumps(dict_data, indent=indent, ensure_ascii=False)
+
+    def as_json_file(self, path_json: Path, indent: int = 2) -> None:
+        """Serialize the dataset recipe to a JSON file."""
+        path_json.parent.mkdir(parents=True, exist_ok=True)
+        json_str = self.as_json_str(indent=indent)
+        path_json.write_text(json_str, encoding="utf-8")
+
+    def as_dict(self) -> dict:
+        """Serialize the dataset recipe to a dictionary."""
+        return self.model_dump(mode="json")
+
+    def as_platform_recipe(self, recipe_name: Optional[str]) -> Dict:
+        """Uploads dataset recipe to the hafnia platform."""
+        from cli.config import Config
+        from hafnia.platform.dataset_recipe import get_or_create_dataset_recipe
+
+        recipe = self.as_dict()
+        cfg = Config()
+        endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
+        recipe_dict = get_or_create_dataset_recipe(
+            recipe=recipe,
+            endpoint=endpoint_dataset,
+            api_key=cfg.api_key,
+            name=recipe_name,
+        )
+
+        return recipe_dict
+
     ### Dataset Recipe Transformations ###
     def shuffle(recipe: DatasetRecipe, seed: int = 42) -> DatasetRecipe:
         operation = recipe_transforms.Shuffle(seed=seed)
@@ -183,38 +272,6 @@ class DatasetRecipe(Serializable):
         operation = recipe_transforms.DefineSampleSetBySize(n_samples=n_samples, seed=seed)
         recipe.append_operation(operation)
         return recipe
-
-    ### Conversions ###
-    def as_python_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
-        str_operations = [self.creation.as_python_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs)]
-        if self.operations:
-            for op in self.operations:
-                str_operations.append(op.as_python_code(keep_default_fields=keep_default_fields, as_kwargs=as_kwargs))
-        operations_str = ".".join(str_operations)
-        return operations_str
-
-    def as_short_name(self) -> str:
-        """Return a short name for the transforms."""
-
-        creation_name = self.creation.as_short_name()
-        if self.operations is None or len(self.operations) == 0:
-            return creation_name
-        short_names = [creation_name]
-        for operation in self.operations:
-            short_names.append(operation.as_short_name())
-        transforms_str = ",".join(short_names)
-        return f"Recipe({transforms_str})"
-
-    def as_json_str(self, indent: int = 2) -> str:
-        """Serialize the dataset recipe to a JSON string."""
-        data = self.model_dump(mode="json")
-        # data = type_as_first_key(data)
-        return json.dumps(data, indent=indent, ensure_ascii=False)
-
-    def as_json_file(self, path_json: Path, indent: int = 2) -> None:
-        """Serialize the dataset recipe to a JSON file."""
-        json_str = self.as_json_str(indent=indent)
-        path_json.write_text(json_str, encoding="utf-8")
 
     ### Helper methods ###
     def get_dataset_names(self) -> List[str]:

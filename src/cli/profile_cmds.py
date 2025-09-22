@@ -14,7 +14,7 @@ def profile():
 
 @profile.command("ls")
 @click.pass_obj
-def profile_ls(cfg: Config) -> None:
+def cmd_profile_ls(cfg: Config) -> None:
     """List all available profiles."""
     profiles = cfg.available_profiles
     if not profiles:
@@ -31,7 +31,7 @@ def profile_ls(cfg: Config) -> None:
 @profile.command("use")
 @click.argument("profile_name", required=True)
 @click.pass_obj
-def profile_use(cfg: Config, profile_name: str) -> None:
+def cmd_profile_use(cfg: Config, profile_name: str) -> None:
     """Switch to a different profile."""
     if len(cfg.available_profiles) == 0:
         raise click.ClickException(consts.ERROR_CONFIGURE)
@@ -51,7 +51,7 @@ def profile_use(cfg: Config, profile_name: str) -> None:
     "--activate/--no-activate", help="Activate the created profile after creation", default=True, show_default=True
 )
 @click.pass_obj
-def profile_create(cfg: Config, name: str, api_url: str, api_key: str, activate: bool) -> None:
+def cmd_profile_create(cfg: Config, name: str, api_url: str, api_key: str, activate: bool) -> None:
     """Create a new profile."""
     cfg_profile = ConfigSchema(platform_url=api_url, api_key=api_key)
 
@@ -62,7 +62,7 @@ def profile_create(cfg: Config, name: str, api_url: str, api_key: str, activate:
 @profile.command("rm")
 @click.argument("profile_name", required=True)
 @click.pass_obj
-def profile_rm(cfg: Config, profile_name: str) -> None:
+def cmd_profile_rm(cfg: Config, profile_name: str) -> None:
     """Remove a profile."""
     if len(cfg.available_profiles) == 0:
         raise click.ClickException(consts.ERROR_CONFIGURE)
@@ -80,7 +80,8 @@ def profile_rm(cfg: Config, profile_name: str) -> None:
 
 @profile.command("active")
 @click.pass_obj
-def profile_active(cfg: Config) -> None:
+def cmd_profile_active(cfg: Config) -> None:
+    """Show the currently active profile."""
     try:
         profile_show(cfg)
     except Exception as e:

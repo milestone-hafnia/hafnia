@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from rich import print as rprint
 
-from hafnia.data import get_dataset_path, load_dataset
+from hafnia.data import load_dataset
 from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.primitives.bbox import Bbox
@@ -20,11 +20,7 @@ from hafnia.dataset.primitives.polygon import Polygon
 #   hafnia configure
 
 # Load dataset
-path_dataset = get_dataset_path("midwest-vehicle-detection")
-dataset = HafniaDataset.from_path(path_dataset)
-
-# Alternatively, you can use the 'load_dataset' function
-dataset = load_dataset("midwest-vehicle-detection")
+dataset = HafniaDataset.from_name("midwest-vehicle-detection")
 
 # Dataset information is stored in 'dataset.info'
 rprint(dataset.info)
