@@ -14,7 +14,7 @@ from hafnia.dataset.operations.table_transformations import create_primitive_tab
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.log import user_logger
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
     from hafnia.dataset.primitives.primitive import Primitive
 
@@ -57,8 +57,10 @@ def class_counts_for_task(
         .filter(pl.col(FieldName.TASK_NAME) == task.name)[FieldName.CLASS_NAME]
         .value_counts()
     )
-    class_names = task.class_names or []
-    class_counts = {name: 0 for name in class_names}
+
+    # Initialize counts with zero for all classes to ensure zero-count classes are included
+    # and to have class names in the order of class idx
+    class_counts = {name: 0 for name in task.class_names or []}
     class_counts.update(dict(class_counts_df.iter_rows()))
 
     return class_counts
@@ -204,9 +206,7 @@ def check_dataset(dataset: HafniaDataset):
             continue
         for (task_name,), object_group in objects_df.group_by(FieldName.TASK_NAME):
             has_task = any([t for t in expected_tasks if t.name == task_name and t.primitive == PrimitiveType])
-            if has_task:
-                continue
-            if task_name in distribution_names:
+            if has_task or (task_name in distribution_names):
                 continue
             class_names = object_group[FieldName.CLASS_NAME].unique().to_list()
             raise ValueError(

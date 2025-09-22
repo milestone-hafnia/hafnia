@@ -207,6 +207,18 @@ class DatasetInfo(BaseModel):
         )
         return task
 
+    def replace_task(self, old_task: TaskInfo, new_task: TaskInfo) -> DatasetInfo:
+        dataset_info = self.model_copy(deep=True)
+        has_task = any(t for t in dataset_info.tasks if t.name == old_task.name and t.primitive == old_task.primitive)
+        if not has_task:
+            raise ValueError(f"Task '{old_task.__repr__()}' not found in dataset info.")
+
+        for i, task in enumerate(dataset_info.tasks):
+            if task.name == old_task.name and task.primitive == old_task.primitive:
+                dataset_info.tasks[i] = new_task
+
+        return dataset_info
+
 
 class Sample(BaseModel):
     file_name: str

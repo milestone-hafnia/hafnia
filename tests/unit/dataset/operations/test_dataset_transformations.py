@@ -20,7 +20,6 @@ def test_class_mapper_strict():
     )
 
     dataset_updated.check_dataset_tasks()
-
     task_bbox = [t for t in dataset_updated.info.tasks if t.primitive == Bbox][0]
     expected_class_names = ["person", "vehicle", "truck"]
     expected_indices = list(range(len(expected_class_names)))

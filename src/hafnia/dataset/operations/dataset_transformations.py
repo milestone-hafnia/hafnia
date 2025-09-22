@@ -47,7 +47,7 @@ from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.utils import remove_duplicates_preserve_order
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset, TaskInfo
 
 
@@ -162,6 +162,7 @@ def class_mapper_strict(
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
     task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
+
     current_class_names = task.class_names or []
     class_names_mapped = list(strict_class_mapping.keys())
     missing_class_names = set(current_class_names) - set(class_names_mapped)
@@ -219,15 +220,12 @@ def class_mapper_strict(
             .list.filter(pl.element().struct.field(FieldName.CLASS_NAME) != TAG_REMOVE_CLASS)
             .alias(task.primitive.column_name())
         )
-
         new_class_names = [c for c in new_class_names if c != TAG_REMOVE_CLASS]
 
-    dataset_info = dataset.info.model_copy(deep=True)
-    for t in dataset_info.tasks:
-        if t == task:
-            t.class_names = new_class_names
-    hafnia_dataset = HafniaDataset(info=dataset_info, samples=samples_updated)
-    return hafnia_dataset
+    new_task = task.model_copy(deep=True)
+    new_task.class_names = new_class_names
+    dataset_info = dataset.info.replace_task(old_task=task, new_task=new_task)
+    return HafniaDataset(info=dataset_info, samples=samples_updated)
 
 
 def rename_task(
@@ -250,13 +248,8 @@ def rename_task(
         .alias(new_task.primitive.column_name())
     )
 
-    dataset_info = dataset.info.model_copy(deep=True)
-    for idx, t in enumerate(dataset_info.tasks):
-        if t == old_task:
-            dataset_info.tasks[idx] = new_task
-
-    hafnia_dataset = HafniaDataset(info=dataset_info, samples=samples)
-    return hafnia_dataset
+    dataset_info = dataset.info.replace_task(old_task=old_task, new_task=new_task)
+    return HafniaDataset(info=dataset_info, samples=samples)
 
 
 def select_samples_by_class_name(

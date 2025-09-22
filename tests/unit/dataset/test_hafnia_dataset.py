@@ -141,3 +141,30 @@ def test_dataset_info_validation_exceptions():
                 TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
             ],
         )
+
+
+def test_dataset_info_replace_task():
+    task1 = TaskInfo(primitive=Classification, class_names=["car", "person"], name="Task1")
+    task2 = TaskInfo(primitive=Classification, class_names=["cat", "dog"], name="Task2")
+    dataset_info = DatasetInfo(
+        dataset_name="test_dataset",
+        version="1.0",
+        tasks=[task1, task2],
+    )
+
+    # Create a new task to replace task1
+    new_task1 = TaskInfo(primitive=Classification, class_names=["bus", "truck"], name="Task3")
+
+    # Replace task1 with new_task1
+    dataset_info_updated = dataset_info.replace_task(old_task=task1, new_task=new_task1)
+
+    # Verify that the task has been updated
+    assert len(dataset_info_updated.tasks) == 2
+    assert new_task1 in dataset_info_updated.tasks
+    assert task2 in dataset_info_updated.tasks
+    assert task1 not in dataset_info_updated.tasks
+
+    # Attempt to replace a non-existing task
+    non_existing_task = TaskInfo(primitive=Classification, class_names=["bike"], name="NonExistingTask")
+    with pytest.raises(ValueError, match="Task '.*' not found in dataset info."):
+        dataset_info.replace_task(old_task=non_existing_task, new_task=new_task1)

@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Type, Union
+from typing import Callable, Dict, List, Optional, Type, Union
 
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.primitives.primitive import Primitive
-
-if TYPE_CHECKING:
-    pass
 
 
 class Shuffle(RecipeTransform):

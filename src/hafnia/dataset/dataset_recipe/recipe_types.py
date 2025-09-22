@@ -8,7 +8,7 @@ from pydantic import BaseModel, computed_field
 
 from hafnia import utils
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 
