@@ -17,6 +17,16 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.log import sys_logger, user_logger
 from hafnia.utils import is_hafnia_cloud_job, now_as_str
 
+try:
+    import mlflow
+    import mlflow.tracking
+    import sagemaker_mlflow  # noqa: F401
+
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    user_logger.warning("MLFlow is not available")
+    MLFLOW_AVAILABLE = False
+
 
 class EntityType(Enum):
     """Types of entities that can be logged."""
@@ -94,7 +104,37 @@ class HafniaLogger:
         self.dataset_name: Optional[str] = None
         self.log_file = self._path_artifacts() / self.EXPERIMENT_FILE
         self.schema = Entity.create_schema()
+
+        # Initialize MLflow for remote jobs
+        self._mlflow_initialized = False
+        if is_hafnia_cloud_job() and MLFLOW_AVAILABLE:
+            self._init_mlflow()
+
         self.log_environment()
+
+    def _init_mlflow(self):
+        """Initialize MLflow tracking for remote jobs."""
+        try:
+            # Set MLflow tracking URI from environment variable
+            tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+            if tracking_uri:
+                mlflow.set_tracking_uri(tracking_uri)
+                user_logger.info(f"MLflow tracking URI set to: {tracking_uri}")
+
+            # Set experiment name from environment variable
+            experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME")
+            if experiment_name:
+                mlflow.set_experiment(experiment_name)
+                user_logger.info(f"MLflow experiment set to: {experiment_name}")
+
+            # Start MLflow run
+            run_name = os.getenv("MLFLOW_RUN_NAME", "undefined")
+            mlflow.start_run(run_name=run_name)
+            self._mlflow_initialized = True
+            user_logger.info("MLflow run started successfully")
+
+        except Exception as e:
+            user_logger.error(f"Failed to initialize MLflow: {e}")
 
     def load_dataset(self, dataset_name: str) -> HafniaDataset:
         """
@@ -157,6 +197,14 @@ class HafniaLogger:
         )
         self.write_entity(entity)
 
+        # Also log to MLflow if initialized
+        if not self._mlflow_initialized:
+            return
+        try:
+            mlflow.log_metric(name, value, step=step)
+        except Exception as e:
+            user_logger.error(f"Failed to log metric to MLflow: {e}")
+
     def log_configuration(self, configurations: Dict):
         self.log_hparams(configurations, "configuration.json")
 
@@ -170,6 +218,15 @@ class HafniaLogger:
             existing_params.update(params)
             file_path.write_text(json.dumps(existing_params, indent=2))
             user_logger.info(f"Saved parameters to {file_path}")
+
+            # Also log to MLflow if initialized
+            if not self._mlflow_initialized:
+                return
+            try:
+                mlflow.log_params(params)
+            except Exception as e:
+                user_logger.error(f"Failed to log params to MLflow: {e}")
+
         except Exception as e:
             user_logger.error(f"Failed to save parameters to {file_path}: {e}")
 
@@ -206,6 +263,21 @@ class HafniaLogger:
                 pq.write_table(next_table, self.log_file)
         except Exception as e:
             sys_logger.error(f"Failed to flush logs: {e}")
+
+    def end_run(self) -> None:
+        """End the MLflow run if initialized."""
+        if not self._mlflow_initialized:
+            return
+        try:
+            mlflow.end_run()
+            self._mlflow_initialized = False
+            user_logger.info("MLflow run ended successfully")
+        except Exception as e:
+            user_logger.error(f"Failed to end MLflow run: {e}")
+
+    def __del__(self):
+        """Cleanup when logger is destroyed."""
+        self.end_run()
 
 
 def get_instructions_how_to_store_model() -> str:
