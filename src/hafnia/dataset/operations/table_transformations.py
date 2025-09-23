@@ -34,8 +34,12 @@ def create_primitive_table(
 
     if keep_sample_data:
         # Drop other primitive columns to avoid conflicts
-        drop_columns = set(PRIMITIVE_TYPES) - {PrimitiveType, Classification}
-        remove_no_object_frames = remove_no_object_frames.drop(*[primitive.column_name() for primitive in drop_columns])
+
+        drop_columns_primitives = set(PRIMITIVE_TYPES) - {PrimitiveType, Classification}
+        drop_columns_names = [primitive.column_name() for primitive in drop_columns_primitives]
+        drop_columns_names = [c for c in drop_columns_names if c in remove_no_object_frames.columns]
+
+        remove_no_object_frames = remove_no_object_frames.drop(drop_columns_names)
         # Rename columns "height", "width" and "meta" for sample to avoid conflicts with object fields names
         remove_no_object_frames = remove_no_object_frames.rename(
             {"height": "image.height", "width": "image.width", "meta": "image.meta"}

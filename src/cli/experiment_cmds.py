@@ -162,7 +162,7 @@ def cmd_create_experiment(
         "ID": experiment.get("id", "N/A"),
         "Name": experiment.get("name", "N/A"),
         "State": experiment.get("state", "N/A"),
-        "Training Recipe ID": experiment.get("recipe", "N/A"),
+        "Trainer Package ID": experiment.get("trainer", "N/A"),
         "Dataset Recipe ID": experiment.get("dataset_recipe", "N/A"),
         "Dataset ID": experiment.get("dataset", "N/A"),
         "Created At": experiment.get("created_at", "N/A"),

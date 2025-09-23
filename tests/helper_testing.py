@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Union, get_origin
 
 from hafnia import utils
 from hafnia.dataset import primitives
-from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, DatasetVariant
+from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
@@ -43,7 +43,7 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
     if path_test_dataset_annotations.exists() and not force_update:
         return path_test_dataset
 
-    hafnia_dataset = HafniaDataset.from_path(path_dataset / DatasetVariant.SAMPLE.value)
+    hafnia_dataset = HafniaDataset.from_path(path_dataset)
     hafnia_dataset = hafnia_dataset.select_samples(n_samples=3, seed=42)
     hafnia_dataset.write(path_test_dataset)
 
