@@ -57,7 +57,7 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
         for path in path_files
     ]
     dataset = HafniaDataset.from_samples_list(samples_list=samples, info=dataset_info)
-    dataset.write(path_dataset)
+    dataset.write(path_dataset, drop_null_cols=False)
 
     dataset_reloaded = HafniaDataset.from_path(path_dataset)
     assert dataset_reloaded.info == dataset.info
