@@ -52,7 +52,6 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
             height=100,
             width=200,
             split="train",
-            is_sample=False,
             classifications=[Classification(class_name="Class A", class_idx=0)],
         )
         for path in path_files

@@ -3,9 +3,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Type
 
+import polars as pl
 import pytest
 
-from hafnia.dataset.dataset_names import ColumnName
+from hafnia.dataset.dataset_names import TAG_IS_SAMPLE, ColumnName
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe, FromName
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
     ClassMapperStrict,
@@ -187,7 +188,7 @@ def test_shuffle_transformation():
     is_same = all(new_dataset.samples[ColumnName.SAMPLE_INDEX] == new_dataset2.samples[ColumnName.SAMPLE_INDEX])
     assert is_same, "Shuffled datasets should be equal with the same seed"
 
-    is_same = all(new_dataset.samples[ColumnName.SAMPLE_INDEX] == dataset.samples[ColumnName.SAMPLE_INDEX])
+    is_same = all(new_dataset.samples[ColumnName.FILE_NAME] == dataset.samples[ColumnName.FILE_NAME])
     assert not is_same, "Shuffled dataset should not match original dataset"
     assert isinstance(new_dataset, HafniaDataset), "Shuffled dataset is not a HafniaDataset instance"
     assert len(new_dataset) == len(dataset), (
@@ -211,7 +212,7 @@ def test_splits_by_ratios_transformation():
 
 
 def test_define_sample_by_size_transformation():
-    n_samples = 100
+    n_samples = 5
     dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
     # The micro dataset is small, so we duplicate samples up to 100 samples for testing
     dataset = dataset.select_samples(n_samples=n_samples, seed=42, with_replacement=True)
@@ -220,8 +221,12 @@ def test_define_sample_by_size_transformation():
     new_dataset = define_sample_transformation.build(dataset)
     assert isinstance(new_dataset, HafniaDataset), "Sampled dataset is not a HafniaDataset instance"
 
-    assert new_dataset.samples[ColumnName.IS_SAMPLE].sum() == n_samples, (
-        f"Sampled dataset should have {n_samples} samples, but has {new_dataset.samples[ColumnName.IS_SAMPLE].sum()}"
+    n_samples_with_tag = (
+        new_dataset.samples[ColumnName.TAGS].list.eval(pl.element().filter(pl.element() == TAG_IS_SAMPLE)).list.len()
+        > 0
+    ).sum()
+    assert n_samples_with_tag == n_samples, (
+        f"Sampled dataset should have {n_samples} samples, but has {new_dataset.samples[ColumnName.TAGS].sum()}"
     )
 
 

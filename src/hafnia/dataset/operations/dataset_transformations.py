@@ -42,7 +42,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from hafnia.dataset import dataset_helpers
-from hafnia.dataset.dataset_names import TAG_REMOVE_CLASS, FieldName
+from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS, FieldName
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.utils import remove_duplicates_preserve_order
@@ -181,9 +181,9 @@ def class_mapper_strict(
 
     new_class_names = remove_duplicates_preserve_order(strict_class_mapping.values())
 
-    if TAG_REMOVE_CLASS in new_class_names:
+    if OPS_REMOVE_CLASS in new_class_names:
         # Move __REMOVE__ to the end of the list if it exists
-        new_class_names.append(new_class_names.pop(new_class_names.index(TAG_REMOVE_CLASS)))
+        new_class_names.append(new_class_names.pop(new_class_names.index(OPS_REMOVE_CLASS)))
     name_2_idx_mapping: Dict[str, int] = {name: idx for idx, name in enumerate(new_class_names)}
 
     samples = dataset.samples
@@ -214,13 +214,14 @@ def class_mapper_strict(
         .alias(task.primitive.column_name())
     )
 
-    if TAG_REMOVE_CLASS in new_class_names:  # Remove class_names that are mapped to REMOVE_CLASS
+    if OPS_REMOVE_CLASS in new_class_names:  # Remove class_names that are mapped to REMOVE_CLASS
         samples_updated = samples_updated.with_columns(
             pl.col(task.primitive.column_name())
-            .list.filter(pl.element().struct.field(FieldName.CLASS_NAME) != TAG_REMOVE_CLASS)
+            .list.filter(pl.element().struct.field(FieldName.CLASS_NAME) != OPS_REMOVE_CLASS)
             .alias(task.primitive.column_name())
         )
-        new_class_names = [c for c in new_class_names if c != TAG_REMOVE_CLASS]
+
+        new_class_names = [c for c in new_class_names if c != OPS_REMOVE_CLASS]
 
     new_task = task.model_copy(deep=True)
     new_task.class_names = new_class_names

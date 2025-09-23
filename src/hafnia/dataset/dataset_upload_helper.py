@@ -273,7 +273,6 @@ def has_primitive(dataset: Union[HafniaDataset, pl.DataFrame], PrimitiveType: Ty
     col_name = PrimitiveType.column_name()
     table = dataset.samples if isinstance(dataset, HafniaDataset) else dataset
     if col_name not in table.columns:
-        user_logger.warning(f"Warning: No field called '{col_name}' was found for '{PrimitiveType.__name__}'.")
         return False
 
     if table[col_name].dtype == pl.Null:
@@ -396,7 +395,9 @@ def dataset_info_from_dataset(
             primitive_columns = [primitive.column_name() for primitive in primitives.PRIMITIVE_TYPES]
             if has_primitive(dataset_split, PrimitiveType=Bbox):
                 bbox_column_name = Bbox.column_name()
-                drop_columns = [col for col in primitive_columns if col != bbox_column_name]
+                drop_columns = [
+                    col for col in primitive_columns if col != bbox_column_name and col in dataset_split.columns
+                ]
                 drop_columns.append(FieldName.META)
                 df_per_instance = dataset_split.rename({"height": "image.height", "width": "image.width"})
                 df_per_instance = df_per_instance.explode(bbox_column_name).drop(drop_columns).unnest(bbox_column_name)

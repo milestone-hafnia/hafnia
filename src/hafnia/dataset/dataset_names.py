@@ -18,7 +18,9 @@ class DeploymentStage(Enum):
     PRODUCTION = "production"
 
 
-TAG_REMOVE_CLASS = "__REMOVE__"
+TAG_IS_SAMPLE = "sample"
+
+OPS_REMOVE_CLASS = "__REMOVE__"
 
 
 class FieldName:
@@ -51,9 +53,9 @@ class ColumnName:
     HEIGHT: str = "height"
     WIDTH: str = "width"
     SPLIT: str = "split"
-    IS_SAMPLE: str = "is_sample"
     REMOTE_PATH: str = "remote_path"  # Path to the file in remote storage, e.g. S3
     ATTRIBUTION: str = "attribution"  # Attribution for the sample (image/video), e.g. creator, license, source, etc.
+    TAGS: str = "tags"
     META: str = "meta"
 
 

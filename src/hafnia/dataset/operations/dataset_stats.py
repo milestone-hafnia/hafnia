@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional, Type
 
 import polars as pl
@@ -182,10 +181,9 @@ def check_dataset(dataset: HafniaDataset):
     assert isinstance(dataset.info.version, str) and len(dataset.info.version) > 0
     assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0
 
-    if ColumnName.IS_SAMPLE in dataset.samples:  # TODO: Deprecated. Remove in future versions
-        is_sample_list = set(dataset.samples.select(pl.col(ColumnName.IS_SAMPLE)).unique().to_series().to_list())
-        if True not in is_sample_list:
-            raise ValueError(f"The dataset should contain '{ColumnName.IS_SAMPLE}=True' samples")
+    sample_dataset = dataset.create_sample_dataset()
+    if len(sample_dataset) == 0:
+        raise ValueError("The dataset does not include a sample dataset")
 
     actual_splits = dataset.samples.select(pl.col(ColumnName.SPLIT)).unique().to_series().to_list()
     expected_splits = SplitName.valid_splits()
@@ -218,11 +216,6 @@ def check_dataset(dataset: HafniaDataset):
 
     for sample_dict in tqdm(dataset, desc="Checking samples in dataset"):
         sample = Sample(**sample_dict)  # noqa: F841
-
-
-def check_dataset_from_path(path_dataset: Path) -> None:
-    dataset = HafniaDataset.from_path(path_dataset, check_for_images=True)
-    dataset.check_dataset()
 
 
 def check_dataset_tasks(dataset: HafniaDataset):

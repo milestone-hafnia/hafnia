@@ -212,7 +212,7 @@ Sample(
     height=1080,
     width=1920,
     split='train',
-    is_sample=True,
+    tags=["sample"],
     collection_index=None,
     collection_id=None,
     remote_path='s3://mdi-production-midwest-vehicle-detection/sample/data/343403325f27e390.png',

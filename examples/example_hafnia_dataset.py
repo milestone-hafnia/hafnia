@@ -128,7 +128,7 @@ for i_fake_sample in range(5):
         height=480,
         width=640,
         split="train",
-        is_sample=True,
+        tags=["sample"],
         objects=bboxes,
         classifications=classifications,
     )
