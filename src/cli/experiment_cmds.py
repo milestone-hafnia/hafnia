@@ -223,14 +223,14 @@ def get_training_recipe_by_identifies(
             raise click.ClickException(f"Training recipe path '{train_recipe_path}' does not exist.")
         recipe_id = create_training_recipe(
             train_recipe_path,
-            cfg.get_platform_endpoint("training_recipes"),
+            cfg.get_platform_endpoint("trainers"),
             cfg.api_key,
         )
         return recipe_id
 
     if train_recipe_id:
         train_recipe = get_training_recipe_by_id(
-            id=train_recipe_id, endpoint=cfg.get_platform_endpoint("training_recipes"), api_key=cfg.api_key
+            id=train_recipe_id, endpoint=cfg.get_platform_endpoint("trainers"), api_key=cfg.api_key
         )
         return train_recipe["id"]
 

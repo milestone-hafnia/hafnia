@@ -20,7 +20,7 @@ def create_experiment(
         headers=headers,
         data={
             "name": experiment_name,
-            "recipe": training_recipe_id,
+            "trainer": training_recipe_id,
             "dataset_recipe": dataset_recipe_id,
             "command": exec_cmd,
             "environment": environment_id,
