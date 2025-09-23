@@ -149,7 +149,7 @@ def find_s5cmd() -> Optional[str]:
     locations = (python_dir / "Scripts" / "s5cmd.exe", python_dir / "bin" / "s5cmd", python_dir / "s5cmd")
     for loc in locations:
         if loc.exists():
-            return loc.as_posix()
+            return str(loc)
     return None
 
 
