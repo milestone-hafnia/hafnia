@@ -130,12 +130,7 @@ def cmd_create_experiment(
     # Show available options:
     hafnia experiment create --name "My Experiment" -d mnist --cmd "python scripts/train.py" -e "Free Tier" -p ../recipe-classification
     """
-    from hafnia.platform import create_experiment, get_dataset_id, get_exp_environment_id
-
-    if dataset:  # TODO: Deprecated. Remove the following 4 lines when s2m and TaaS support dataset recipes
-        dataset_id = get_dataset_id(dataset, cfg.get_platform_endpoint("datasets"), cfg.api_key)
-    else:
-        raise NotImplementedError("Dataset recipes are not supported in s2m yet. Only 'dataset_name' is supported.")
+    from hafnia.platform import create_experiment, get_exp_environment_id
 
     dataset_recipe_response = get_dataset_recipe_by_dataset_identifies(
         cfg=cfg,
@@ -155,7 +150,6 @@ def cmd_create_experiment(
 
     experiment = create_experiment(
         experiment_name=name,
-        dataset_id=dataset_id,
         dataset_recipe_id=dataset_recipe_id,
         training_recipe_id=train_recipe_id,
         exec_cmd=cmd,
