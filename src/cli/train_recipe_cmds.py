@@ -21,7 +21,7 @@ def cmd_list_training_recipes(cfg: Config, limit: Optional[int]) -> None:
 
     from hafnia.platform.train_recipe import get_training_recipes, pretty_print_training_recipes
 
-    endpoint = cfg.get_platform_endpoint("training_recipes")
+    endpoint = cfg.get_platform_endpoint("trainers")
     recipes = get_training_recipes(endpoint, cfg.api_key)
 
     pretty_print_training_recipes(recipes, limit=limit)

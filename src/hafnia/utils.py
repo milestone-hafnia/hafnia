@@ -19,7 +19,7 @@ from hafnia.log import sys_logger, user_logger
 PATH_DATA = Path("./.data")
 PATH_DATASETS = PATH_DATA / "datasets"
 PATH_DATASET_RECIPES = PATH_DATA / "dataset_recipes"
-PATH_TRAINING_RECIPES = PATH_DATA / "training_recipes"
+PATH_TRAINING_RECIPES = PATH_DATA / "trainers"
 FILENAME_HAFNIAIGNORE = ".hafniaignore"
 DEFAULT_IGNORE_SPECIFICATION = [
     "*.jpg",

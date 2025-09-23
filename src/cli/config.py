@@ -9,7 +9,7 @@ import cli.consts as consts
 from hafnia.log import sys_logger, user_logger
 
 PLATFORM_API_MAPPING = {
-    "training_recipes": "/api/v1/recipes",
+    "trainers": "/api/v1/trainers",
     "dataset_recipes": "/api/v1/dataset-recipes",
     "experiments": "/api/v1/experiments",
     "experiment_environments": "/api/v1/experiment-environments",
