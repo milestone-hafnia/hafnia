@@ -63,7 +63,7 @@ jobs:
         uses: docker/build-push-action@v6.18.0
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: mdi-runtime
+          ECR_REPOSITORY: platform_sdk_runtime
         with:
           context: .
           file: .github/workflows/Dockerfile
