@@ -225,7 +225,7 @@ class Sample(BaseModel):
     height: int
     width: int
     split: str  # Split name, e.g., "train", "val", "test"
-    is_sample: bool  # Indicates if this is a sample (True) or a metadata entry (False)
+    is_sample: bool = False  # Indicates if this is a sample (True) or a metadata entry (False)
     collection_index: Optional[int] = None  # Optional e.g. frame number for video datasets
     collection_id: Optional[str] = None  # Optional e.g. video name for video datasets
     remote_path: Optional[str] = None  # Optional remote path for the image, if applicable
