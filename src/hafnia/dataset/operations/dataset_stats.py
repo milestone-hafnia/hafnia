@@ -182,9 +182,10 @@ def check_dataset(dataset: HafniaDataset):
     assert isinstance(dataset.info.version, str) and len(dataset.info.version) > 0
     assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0
 
-    is_sample_list = set(dataset.samples.select(pl.col(ColumnName.IS_SAMPLE)).unique().to_series().to_list())
-    if True not in is_sample_list:
-        raise ValueError(f"The dataset should contain '{ColumnName.IS_SAMPLE}=True' samples")
+    if ColumnName.IS_SAMPLE in dataset.samples:  # TODO: Deprecated. Remove in future versions
+        is_sample_list = set(dataset.samples.select(pl.col(ColumnName.IS_SAMPLE)).unique().to_series().to_list())
+        if True not in is_sample_list:
+            raise ValueError(f"The dataset should contain '{ColumnName.IS_SAMPLE}=True' samples")
 
     actual_splits = dataset.samples.select(pl.col(ColumnName.SPLIT)).unique().to_series().to_list()
     expected_splits = SplitName.valid_splits()
