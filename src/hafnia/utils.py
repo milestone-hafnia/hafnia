@@ -5,10 +5,12 @@ import zipfile
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 from zipfile import ZipFile
 
+import more_itertools
 import pathspec
+import rich
 import seedir
 from rich import print as rprint
 
@@ -16,13 +18,15 @@ from hafnia.log import sys_logger, user_logger
 
 PATH_DATA = Path("./.data")
 PATH_DATASETS = PATH_DATA / "datasets"
-PATH_RECIPES = PATH_DATA / "recipes"
+PATH_DATASET_RECIPES = PATH_DATA / "dataset_recipes"
+PATH_TRAINING_RECIPES = PATH_DATA / "trainers"
 FILENAME_HAFNIAIGNORE = ".hafniaignore"
 DEFAULT_IGNORE_SPECIFICATION = [
     "*.jpg",
     "*.png",
     "*.py[cod]",
     "*_cache/",
+    "**.egg-info/",
     ".data",
     ".git",
     ".venv",
@@ -49,6 +53,7 @@ def timed(label: str):
                 return func(*args, **kwargs)
             except Exception as e:
                 sys_logger.error(f"{operation_label} failed: {e}")
+                raise  # Re-raise the exception after logging
             finally:
                 elapsed = time.perf_counter() - tik
                 sys_logger.debug(f"{operation_label} took {elapsed:.2f} seconds.")
@@ -65,7 +70,7 @@ def now_as_str() -> str:
 
 def get_recipe_path(recipe_name: str) -> Path:
     now = now_as_str()
-    path_recipe = PATH_RECIPES / f"{recipe_name}_{now}.zip"
+    path_recipe = PATH_TRAINING_RECIPES / f"{recipe_name}_{now}.zip"
     return path_recipe
 
 
@@ -133,6 +138,16 @@ def show_recipe_content(recipe_path: Path, style: str = "emoji", depth_limit: in
     user_logger.info(f"Recipe size: {size_human_readable(os.path.getsize(recipe_path))}. Max size 800 MiB")
 
 
+def get_dataset_path_in_hafnia_cloud() -> Path:
+    if not is_hafnia_cloud_job():
+        user_logger.error(
+            f"The function '{get_dataset_path_in_hafnia_cloud.__name__}' should only be called, when "
+            "running in HAFNIA cloud environment (HAFNIA_CLOUD-environment variable have been defined)"
+        )
+
+    return Path(os.getenv("MDI_DATASET_DIR", "/opt/ml/input/data/training"))
+
+
 def is_hafnia_cloud_job() -> bool:
     """Check if the current job is running in HAFNIA cloud environment."""
     return os.getenv("HAFNIA_CLOUD", "false").lower() == "true"
@@ -154,3 +169,39 @@ def snake_to_pascal_case(name: str) -> str:
 
 def hash_from_string(s: str) -> str:
     return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+
+def pretty_print_list_as_table(
+    table_title: str,
+    dict_items: List[Dict],
+    column_name_to_key_mapping: Dict,
+) -> None:
+    """
+    Pretty print a list of dictionary elements as a table.
+    """
+
+    table = rich.table.Table(title=table_title)
+    for i_dict, dictionary in enumerate(dict_items):
+        if i_dict == 0:
+            for column_name, _ in column_name_to_key_mapping.items():
+                table.add_column(column_name, justify="left", style="cyan", no_wrap=True)
+        row = [str(dictionary.get(field, "")) for field in column_name_to_key_mapping.values()]
+        table.add_row(*row)
+
+    rich.print(table)
+
+
+def is_hafnia_configured() -> bool:
+    """
+    Check if Hafnia is configured by verifying if the API key is set.
+    """
+    from cli.config import Config
+
+    return Config().is_configured()
+
+
+def remove_duplicates_preserve_order(seq: Iterable) -> List:
+    """
+    Remove duplicates from a list while preserving the order of elements.
+    """
+    return list(more_itertools.unique_everseen(seq))

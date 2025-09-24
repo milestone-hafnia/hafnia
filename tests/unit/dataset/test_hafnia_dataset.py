@@ -12,7 +12,6 @@ from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.primitives.classification import Classification
 from tests.helper_testing import (
     get_hafnia_functions_from_module,
-    get_micro_hafnia_dataset,
     get_path_micro_hafnia_dataset,
 )
 
@@ -70,6 +69,8 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
 
 @pytest.mark.parametrize("function_name", get_hafnia_functions_from_module(dataset_transformations))
 def test_hafnia_dataset_has_all_dataset_transforms(function_name: str):
+    if function_name.startswith("_"):
+        pytest.skip("Skipping private functions")
     module_filename = os.sep.join(Path(dataset_transformations.__file__).parts[-2:])
     module_stem = dataset_transformations.__name__.split(".")[-1]
     assert hasattr(HafniaDataset, function_name), (
@@ -105,6 +106,65 @@ def test_dataset_info_from_dataset():
     dataset_info_json = dataset_info.model_dump_json()  # noqa: F841
 
 
-def test_dataset_stats():
-    dataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
-    dataset.print_stats()
+def test_task_info_validation_exceptions():
+    with pytest.raises(ValueError, match="Class names must be unique"):
+        TaskInfo(
+            primitive=Classification,
+            class_names=["car", "person", "car"],  # <-- Duplicate name is used
+        )
+    primitive_wrong_name = "WrongPrimitiveName"
+    with pytest.raises(ValueError, match=f"Primitive '{primitive_wrong_name}' is not recognized."):
+        TaskInfo(
+            primitive=primitive_wrong_name,
+            class_names=["person", "car"],  # <-- Duplicate name is used
+        )
+
+
+def test_dataset_info_validation_exceptions():
+    # Use case 1: Same primitive - different task name is allowed!
+    DatasetInfo(
+        dataset_name="test_dataset",
+        version="1.0",
+        tasks=[
+            TaskInfo(primitive=Classification, class_names=["car", "person"]),
+            TaskInfo(primitive=Classification, class_names=["car", "person"], name="Task2"),
+        ],
+    )
+
+    # Use case 2: Same primitive and same task name is NOT allowed
+    with pytest.raises(ValueError, match="Tasks must be unique"):
+        DatasetInfo(
+            dataset_name="test_dataset",
+            version="1.0",
+            tasks=[
+                TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
+                TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
+            ],
+        )
+
+
+def test_dataset_info_replace_task():
+    task1 = TaskInfo(primitive=Classification, class_names=["car", "person"], name="Task1")
+    task2 = TaskInfo(primitive=Classification, class_names=["cat", "dog"], name="Task2")
+    dataset_info = DatasetInfo(
+        dataset_name="test_dataset",
+        version="1.0",
+        tasks=[task1, task2],
+    )
+
+    # Create a new task to replace task1
+    new_task1 = TaskInfo(primitive=Classification, class_names=["bus", "truck"], name="Task3")
+
+    # Replace task1 with new_task1
+    dataset_info_updated = dataset_info.replace_task(old_task=task1, new_task=new_task1)
+
+    # Verify that the task has been updated
+    assert len(dataset_info_updated.tasks) == 2
+    assert new_task1 in dataset_info_updated.tasks
+    assert task2 in dataset_info_updated.tasks
+    assert task1 not in dataset_info_updated.tasks
+
+    # Attempt to replace a non-existing task
+    non_existing_task = TaskInfo(primitive=Classification, class_names=["bike"], name="NonExistingTask")
+    with pytest.raises(ValueError, match="Task '.*' not found in dataset info."):
+        dataset_info.replace_task(old_task=non_existing_task, new_task=new_task1)

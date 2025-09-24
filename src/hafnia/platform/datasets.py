@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import rich
+from rich import print as rprint
 from tqdm import tqdm
 
 from cli.config import Config
-from hafnia import utils
+from hafnia import http, utils
 from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED, ColumnName
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
@@ -20,13 +21,12 @@ from hafnia.dataset.dataset_recipe.dataset_recipe import (
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
-from hafnia.platform import get_dataset_id
 from hafnia.platform.download import get_resource_credentials
 from hafnia.utils import timed
 
 
 @timed("Fetching dataset list.")
-def dataset_list(cfg: Optional[Config] = None) -> List[Dict[str, str]]:
+def get_datasets(cfg: Optional[Config] = None) -> List[Dict[str, str]]:
     """List available datasets on the Hafnia platform."""
     cfg = cfg or Config()
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
@@ -36,6 +36,19 @@ def dataset_list(cfg: Optional[Config] = None) -> List[Dict[str, str]]:
         raise ValueError("No datasets found on the Hafnia platform.")
 
     return datasets
+
+
+@timed("Fetching dataset info.")
+def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> str:
+    headers = {"Authorization": api_key}
+    full_url = f"{endpoint}?name__iexact={dataset_name}"
+    dataset_responses: List[Dict] = http.fetch(full_url, headers=headers)  # type: ignore[assignment]
+    if not dataset_responses:
+        raise ValueError(f"Dataset '{dataset_name}' was not found in the dataset library.")
+    try:
+        return dataset_responses[0]["id"]
+    except (IndexError, KeyError) as e:
+        raise ValueError("Dataset information is missing or invalid") from e
 
 
 def download_or_get_dataset_path(
@@ -210,7 +223,7 @@ TABLE_FIELDS = {
 }
 
 
-def create_rich_table_from_dataset(datasets: List[Dict[str, str]]) -> rich.table.Table:
+def pretty_print_datasets(datasets: List[Dict[str, str]]) -> None:
     datasets = extend_dataset_details(datasets)
     datasets = sorted(datasets, key=lambda x: x["name"].lower())
 
@@ -222,7 +235,7 @@ def create_rich_table_from_dataset(datasets: List[Dict[str, str]]) -> rich.table
         row = [str(dataset.get(field, "")) for field in TABLE_FIELDS.values()]
         table.add_row(*row)
 
-    return table
+    rprint(table)
 
 
 def extend_dataset_details(datasets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

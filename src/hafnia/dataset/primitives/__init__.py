@@ -14,3 +14,11 @@ from .utils import class_color_by_name  # noqa: F401
 PRIMITIVE_TYPES: List[Type[Primitive]] = [Bbox, Classification, Polygon, Bitmask]
 PRIMITIVE_NAME_TO_TYPE = {cls.__name__: cls for cls in PRIMITIVE_TYPES}
 PRIMITIVE_COLUMN_NAMES: List[str] = [PrimitiveType.column_name() for PrimitiveType in PRIMITIVE_TYPES]
+
+
+def get_primitive_type_from_string(name: str) -> Type[Primitive]:
+    if name not in PRIMITIVE_NAME_TO_TYPE:
+        raise ValueError(
+            f"Primitive '{name}' is not recognized. Available primitives: {list(PRIMITIVE_NAME_TO_TYPE.keys())}"
+        )
+    return PRIMITIVE_NAME_TO_TYPE[name]
