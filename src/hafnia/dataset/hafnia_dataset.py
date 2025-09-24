@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import collections
+import copy
+import json
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
@@ -27,7 +29,7 @@ from hafnia.dataset.dataset_names import (
     ColumnName,
     SplitName,
 )
-from hafnia.dataset.operations import dataset_stats, dataset_transformations
+from hafnia.dataset.operations import dataset_stats, dataset_transformations, table_transformations
 from hafnia.dataset.operations.table_transformations import (
     check_image_paths,
     read_table_from_path,
@@ -125,7 +127,16 @@ class DatasetInfo(BaseModel):
     @staticmethod
     def from_json_file(path: Path) -> DatasetInfo:
         json_str = path.read_text()
-        return DatasetInfo.model_validate_json(json_str)
+
+        # TODO: Deprecated support for old dataset info without format_version
+        # Below 4 lines can be replaced by 'dataset_info = DatasetInfo.model_validate_json(json_str)'
+        # when all datasets include a 'format_version' field
+        json_dict = json.loads(json_str)
+        if "format_version" not in json_dict:
+            json_dict["format_version"] = "0.0.0"
+        dataset_info = DatasetInfo.model_validate(json_dict)
+
+        return dataset_info
 
     @staticmethod
     def merge(info0: DatasetInfo, info1: DatasetInfo) -> DatasetInfo:
@@ -223,16 +234,22 @@ class DatasetInfo(BaseModel):
         )
         return task
 
-    def replace_task(self, old_task: TaskInfo, new_task: TaskInfo) -> DatasetInfo:
+    def replace_task(self, old_task: TaskInfo, new_task: Optional[TaskInfo]) -> DatasetInfo:
         dataset_info = self.model_copy(deep=True)
         has_task = any(t for t in dataset_info.tasks if t.name == old_task.name and t.primitive == old_task.primitive)
         if not has_task:
             raise ValueError(f"Task '{old_task.__repr__()}' not found in dataset info.")
 
-        for i, task in enumerate(dataset_info.tasks):
+        new_tasks = []
+        for task in dataset_info.tasks:
             if task.name == old_task.name and task.primitive == old_task.primitive:
-                dataset_info.tasks[i] = new_task
+                if new_task is None:
+                    continue  # Remove the task
+                new_tasks.append(new_task)
+            else:
+                new_tasks.append(task)
 
+        dataset_info.tasks = new_tasks
         return dataset_info
 
 
@@ -584,9 +601,10 @@ class HafniaDataset:
         )
         return dataset.update_samples(samples)
 
-    def class_mapper_strict(
+    def class_mapper(
         dataset: "HafniaDataset",
-        strict_class_mapping: Dict[str, str],
+        class_mapping: Dict[str, str],
+        method: str = "strict",
         primitive: Optional[Type[Primitive]] = None,
         task_name: Optional[str] = None,
     ) -> "HafniaDataset":
@@ -614,12 +632,13 @@ class HafniaDataset:
             "8 - eight": "even",
         }
 
-        dataset_new = class_mapper_strict(dataset=mnist, strict_class_mapping=strict_class_mapping)
+        dataset_new = class_mapper(dataset=mnist, class_mapping=strict_class_mapping)
 
         """
-        return dataset_transformations.class_mapper_strict(
+        return dataset_transformations.class_mapper(
             dataset=dataset,
-            strict_class_mapping=strict_class_mapping,
+            class_mapping=class_mapping,
+            method=method,
             primitive=primitive,
             task_name=task_name,
         )
@@ -654,9 +673,22 @@ class HafniaDataset:
         """
         Merges two Hafnia datasets by concatenating their samples and updating the split names.
         """
-        merged_info = DatasetInfo.merge(dataset0.info, dataset1.info)  # Merges info and checks for compatibility
-        merged_samples = pl.concat([dataset0.samples, dataset1.samples], how="vertical")
-        merged_samples = merged_samples.drop(ColumnName.SAMPLE_INDEX).with_row_index(name=ColumnName.SAMPLE_INDEX)
+
+        # Merges dataset info and checks for compatibility
+        merged_info = DatasetInfo.merge(dataset0.info, dataset1.info)
+
+        # Merges samples tables (removes incompatible columns)
+        merged_samples = table_transformations.merge_samples(samples0=dataset0.samples, samples1=dataset1.samples)
+
+        # Check if primitives have been removed during the merge_samples
+        for task in copy.deepcopy(merged_info.tasks):
+            if task.primitive.column_name() not in merged_samples.columns:
+                user_logger.warning(
+                    f"Task '{task.name}' with primitive '{task.primitive.__name__}' has been removed during the merge. "
+                    "This happens if the two datasets do not have the same primitives."
+                )
+                merged_info = merged_info.replace_task(old_task=task, new_task=None)
+
         return HafniaDataset(info=merged_info, samples=merged_samples)
 
     def as_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:

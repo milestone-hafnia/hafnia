@@ -38,7 +38,7 @@ class Classification(Primitive):
             text = class_name
         else:
             text = f"{self.task_name}: {class_name}"
-        image = image_visualizations.append_text_below_frame(image, text=text)
+        image = image_visualizations.append_text_below_frame(image, text=text, text_size_ratio=0.05)
 
         return image
 

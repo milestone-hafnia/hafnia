@@ -102,10 +102,10 @@ def resize_width_by_padding(img0: np.ndarray, new_width: int) -> np.ndarray:
     return img0_padded
 
 
-def append_text_below_frame(frame: np.ndarray, text: str) -> np.ndarray:
-    font_size_px = int(frame.shape[0] * 0.1)  # 10% of the frame height
+def append_text_below_frame(frame: np.ndarray, text: str, text_size_ratio: float = 0.1) -> np.ndarray:
+    font_size_px = int(frame.shape[0] * text_size_ratio)  # 10% of the frame height
     font_size_px = max(font_size_px, 7)  # Ensure a minimum font size
-    font_size_px = min(font_size_px, 50)  # Ensure a maximum font size
+    font_size_px = min(font_size_px, 25)  # Ensure a maximum font size
 
     text_region = create_text_img(text, font_size_px=font_size_px)
     frame_with_text = concatenate_below_resize_by_padding(frame, text_region)

@@ -108,6 +108,7 @@ def print_stats(dataset: HafniaDataset) -> None:
     table_base.add_row("Number of samples", str(len(dataset.samples)))
     rprint(table_base)
     print_sample_and_task_counts(dataset)
+    print_class_distribution(dataset)
 
 
 def print_class_distribution(dataset: HafniaDataset) -> None:

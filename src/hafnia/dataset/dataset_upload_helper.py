@@ -21,6 +21,7 @@ from hafnia.dataset.dataset_names import (
     SplitName,
 )
 from hafnia.dataset.hafnia_dataset import Attribution, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
@@ -394,21 +395,18 @@ def dataset_info_from_dataset(
             object_reports: List[DbAnnotatedObjectReport] = []
             primitive_columns = [primitive.column_name() for primitive in primitives.PRIMITIVE_TYPES]
             if has_primitive(dataset_split, PrimitiveType=Bbox):
-                bbox_column_name = Bbox.column_name()
-                drop_columns = [
-                    col for col in primitive_columns if col != bbox_column_name and col in dataset_split.columns
-                ]
-                drop_columns.append(FieldName.META)
-                df_per_instance = dataset_split.rename({"height": "image.height", "width": "image.width"})
-                df_per_instance = df_per_instance.explode(bbox_column_name).drop(drop_columns).unnest(bbox_column_name)
-
+                df_per_instance = table_transformations.create_primitive_table(
+                    dataset_split, PrimitiveType=Bbox, keep_sample_data=True
+                )
+                if df_per_instance is None:
+                    raise ValueError(f"Expected {Bbox.__name__} primitive column to be present in the dataset split.")
                 # Calculate area of bounding boxes
                 df_per_instance = df_per_instance.with_columns(
                     (pl.col("height") * pl.col("width")).alias("area"),
-                ).with_columns(  # noqa: E501 # fmt: skip
+                ).with_columns(
                     (pl.col("height") * pl.col("image.height")).alias("height_px"),
                     (pl.col("width") * pl.col("image.width")).alias("width_px"),
-                    (pl.col("area") * (pl.col("image.height") * pl.col("image.width"))).alias("area_px"),  # noqa: E501 # fmt: skip
+                    (pl.col("area") * (pl.col("image.height") * pl.col("image.width"))).alias("area_px"),
                 )
 
                 annotation_type = DbAnnotationType(name=AnnotationType.ObjectDetection.value)
@@ -497,8 +495,14 @@ def dataset_info_from_dataset(
                 col_name = Bitmask.column_name()
                 drop_columns = [col for col in primitive_columns if col != col_name]
                 drop_columns.append(FieldName.META)
-                df_per_instance = dataset_split.rename({"height": "image.height", "width": "image.width"})
-                df_per_instance = df_per_instance.explode(col_name).drop(drop_columns).unnest(col_name)
+
+                df_per_instance = table_transformations.create_primitive_table(
+                    dataset_split, PrimitiveType=Bitmask, keep_sample_data=True
+                )
+                if df_per_instance is None:
+                    raise ValueError(
+                        f"Expected {Bitmask.__name__} primitive column to be present in the dataset split."
+                    )
                 df_per_instance = df_per_instance.rename({"height": "height_px", "width": "width_px"})
                 df_per_instance = df_per_instance.with_columns(
                     (pl.col("image.height") * pl.col("image.width") * pl.col("area")).alias("area_px"),
@@ -611,6 +615,7 @@ def create_gallery_images(
             if sample.attribution is not None:
                 sample.attribution.changes = "Annotations have been visualized"
                 dataset_image_dict.update(sample.attribution.model_dump(exclude_none=True))
-
-            gallery_images.append(DatasetImage(**dataset_image_dict))
+            gallery_img = DatasetImage(**dataset_image_dict)
+            gallery_img.licenses = gallery_img.licenses or []
+            gallery_images.append(gallery_img)
     return gallery_images

@@ -9,7 +9,7 @@ import pytest
 from hafnia.dataset.dataset_names import TAG_IS_SAMPLE, ColumnName
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe, FromName
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
-    ClassMapperStrict,
+    ClassMapper,
     DefineSampleSetBySize,
     RenameTask,
     SelectSamples,
@@ -61,13 +61,14 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             short_name="SplitIntoMultipleSplits",
         ),
         TestCaseRecipeTransform(
-            recipe_transform=ClassMapperStrict(
-                strict_class_mapping=get_strict_class_mapping_midwest(),
+            recipe_transform=ClassMapper(
+                class_mapping=get_strict_class_mapping_midwest(),
+                method="strict",
                 primitive=None,
                 task_name=None,
             ),
-            as_python_code=f"class_mapper_strict(strict_class_mapping={get_strict_class_mapping_midwest()}, primitive=None, task_name=None)",  # noqa: E501
-            short_name="ClassMapperStrict",
+            as_python_code=f"class_mapper(class_mapping={get_strict_class_mapping_midwest()}, method='strict', primitive=None, task_name=None)",  # noqa: E501
+            short_name="ClassMapper",
         ),
         TestCaseRecipeTransform(
             recipe_transform=RenameTask(old_task_name="old_name", new_task_name="new_name"),

@@ -200,7 +200,7 @@ class IntegrationTestUseCase:
         ),
         IntegrationTestUseCase(
             recipe=DatasetRecipe.from_name(name="mnist")
-            .class_mapper_strict(
+            .class_mapper(
                 get_strict_class_mapping_mnist(),
             )
             .rename_task(
@@ -208,7 +208,7 @@ class IntegrationTestUseCase:
                 new_task_name="digits",
             )
             .select_samples_by_class_name(name="odd"),
-            short_name="Recipe(mnist,ClassMapperStrict,RenameTask,SelectSamplesByClassName)",
+            short_name="Recipe(mnist,ClassMapper,RenameTask,SelectSamplesByClassName)",
         ),
     ],
     ids=lambda test_case: test_case.short_name,  # To use the name of the test case as the ID for clarity

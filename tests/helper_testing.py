@@ -134,7 +134,7 @@ def get_dummy_recipe() -> DatasetRecipe:
                 DatasetRecipe.from_name(name="mnist", force_redownload=False),
             ]
         )
-        .class_mapper_strict(get_strict_class_mapping_mnist())
+        .class_mapper(get_strict_class_mapping_mnist())
         .rename_task(old_task_name=primitives.Classification.default_task_name(), new_task_name="digits")
         .select_samples_by_class_name(name=["odd"])
     )
