@@ -85,6 +85,15 @@ def test_cli_integration_test():
 
     if path_training_recipe.exists():
         hafnia_cli(
-            args=[CMD_EXPERIMENT, "create", "--dataset", "mnist", "--train-recipe-path", "../recipe-classification"],
+            args=[
+                CMD_EXPERIMENT,
+                "create",
+                "--dataset",
+                "mnist",
+                "--train-recipe-path",
+                "../recipe-classification",
+                "--name",
+                f"integration_test_{utils.now_as_str()}",
+            ],
             standalone_mode=False,
         )

@@ -105,6 +105,7 @@ class DatasetInfo(BaseModel):
     distributions: Optional[List[TaskInfo]] = None  # Distributions. TODO: FIX/REMOVE/CHANGE this
     meta: Optional[Dict[str, Any]] = None  # Metadata about the dataset, e.g. description, etc.
     format_version: str = hafnia.__format_version__  # Version of the Hafnia dataset format
+    updated_at: datetime = datetime.now()
 
     @field_validator("tasks", mode="after")
     @classmethod
@@ -134,6 +135,9 @@ class DatasetInfo(BaseModel):
         json_dict = json.loads(json_str)
         if "format_version" not in json_dict:
             json_dict["format_version"] = "0.0.0"
+
+        if "updated_at" not in json_dict:
+            json_dict["updated_at"] = datetime.min.isoformat()
         dataset_info = DatasetInfo.model_validate(json_dict)
 
         return dataset_info
