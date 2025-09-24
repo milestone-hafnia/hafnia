@@ -171,4 +171,4 @@ rprint(explicit_recipe_from_implicit)
 
 # Verify that the conversion produces the same result
 assert explicit_recipe_from_implicit == explicit_recipe
-rprint("✓ Conversion successful - recipes are equivalent!")
+rprint("Conversion successful - recipes are equivalent!")
