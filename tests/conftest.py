@@ -71,6 +71,7 @@ def compare_to_expected_image(request, cache) -> Callable:
             # These characters makes the file path unclickable when pytest prints the error message.
             # Remove and replace with '---' to make the path clickable --> 'test_check_dataset---coco-2017.png'
             clickable_test_name = test_name.replace("[", "---").replace("]", "---")
+            pytest_cache_path.mkdir(parents=True, exist_ok=True)
             path_debug_image = pytest_cache_path / f"{clickable_test_name}debug.png"
             Image.fromarray(debug_image).save(path_debug_image)
 
