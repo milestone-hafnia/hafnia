@@ -51,14 +51,15 @@ class DefineSampleSetBySize(RecipeTransform):
         return HafniaDataset.define_sample_set_by_size
 
 
-class ClassMapperStrict(RecipeTransform):
-    strict_class_mapping: Dict[str, str]
+class ClassMapper(RecipeTransform):
+    class_mapping: Dict[str, str]
+    method: str = "strict"
     primitive: Optional[Type[Primitive]] = None
     task_name: Optional[str] = None
 
     @staticmethod
     def get_function() -> Callable[..., "HafniaDataset"]:
-        return HafniaDataset.class_mapper_strict
+        return HafniaDataset.class_mapper
 
 
 class RenameTask(RecipeTransform):

@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Type
 
+import polars as pl
 import pytest
 
-from hafnia.dataset.dataset_names import ColumnName
+from hafnia.dataset.dataset_names import TAG_IS_SAMPLE, ColumnName
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe, FromName
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
-    ClassMapperStrict,
+    ClassMapper,
     DefineSampleSetBySize,
     RenameTask,
     SelectSamples,
@@ -60,13 +61,14 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             short_name="SplitIntoMultipleSplits",
         ),
         TestCaseRecipeTransform(
-            recipe_transform=ClassMapperStrict(
-                strict_class_mapping=get_strict_class_mapping_midwest(),
+            recipe_transform=ClassMapper(
+                class_mapping=get_strict_class_mapping_midwest(),
+                method="strict",
                 primitive=None,
                 task_name=None,
             ),
-            as_python_code=f"class_mapper_strict(strict_class_mapping={get_strict_class_mapping_midwest()}, primitive=None, task_name=None)",  # noqa: E501
-            short_name="ClassMapperStrict",
+            as_python_code=f"class_mapper(class_mapping={get_strict_class_mapping_midwest()}, method='strict', primitive=None, task_name=None)",  # noqa: E501
+            short_name="ClassMapper",
         ),
         TestCaseRecipeTransform(
             recipe_transform=RenameTask(old_task_name="old_name", new_task_name="new_name"),
@@ -135,7 +137,7 @@ def test_cases_as_short_name(test_case: TestCaseRecipeTransform):
 
 
 def test_sample_transformation():
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
     n_samples = 2
     sample_transformation = SelectSamples(n_samples=n_samples, shuffle=True, seed=42)
 
@@ -148,7 +150,7 @@ def test_sample_transformation():
 
 def test_sample_transformation_without_replacement():
     """Without replacement, the number of samples should not exceed the actual dataset size."""
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
 
     max_actual_number_of_samples = len(dataset)
     n_samples = 100  # A micro dataset is only 3 samples, so this should be capped to 3
@@ -163,7 +165,7 @@ def test_sample_transformation_without_replacement():
 
 def test_sample_transformation_with_replacement():
     """With replacement, the number of samples can exceed the actual dataset size."""
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
 
     assert len(dataset) < 100, "The micro dataset should have less than 100 samples for this test to be valid"
     n_samples = 100  # The micro dataset is only 3 samples. With_replacement=True it will duplicate samples
@@ -177,7 +179,7 @@ def test_sample_transformation_with_replacement():
 
 
 def test_shuffle_transformation():
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
 
     shuffle_transformation = Shuffle(seed=123)
     new_dataset = shuffle_transformation.build(dataset)
@@ -187,7 +189,7 @@ def test_shuffle_transformation():
     is_same = all(new_dataset.samples[ColumnName.SAMPLE_INDEX] == new_dataset2.samples[ColumnName.SAMPLE_INDEX])
     assert is_same, "Shuffled datasets should be equal with the same seed"
 
-    is_same = all(new_dataset.samples[ColumnName.SAMPLE_INDEX] == dataset.samples[ColumnName.SAMPLE_INDEX])
+    is_same = all(new_dataset.samples[ColumnName.FILE_NAME] == dataset.samples[ColumnName.FILE_NAME])
     assert not is_same, "Shuffled dataset should not match original dataset"
     assert isinstance(new_dataset, HafniaDataset), "Shuffled dataset is not a HafniaDataset instance"
     assert len(new_dataset) == len(dataset), (
@@ -196,7 +198,7 @@ def test_shuffle_transformation():
 
 
 def test_splits_by_ratios_transformation():
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
     # The micro dataset is small, so we duplicate samples up to 100 samples for testing
     dataset = dataset.select_samples(n_samples=100, seed=42, with_replacement=True)
 
@@ -211,8 +213,8 @@ def test_splits_by_ratios_transformation():
 
 
 def test_define_sample_by_size_transformation():
-    n_samples = 100
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    n_samples = 5
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
     # The micro dataset is small, so we duplicate samples up to 100 samples for testing
     dataset = dataset.select_samples(n_samples=n_samples, seed=42, with_replacement=True)
 
@@ -220,14 +222,18 @@ def test_define_sample_by_size_transformation():
     new_dataset = define_sample_transformation.build(dataset)
     assert isinstance(new_dataset, HafniaDataset), "Sampled dataset is not a HafniaDataset instance"
 
-    assert new_dataset.samples[ColumnName.IS_SAMPLE].sum() == n_samples, (
-        f"Sampled dataset should have {n_samples} samples, but has {new_dataset.samples[ColumnName.IS_SAMPLE].sum()}"
+    n_samples_with_tag = (
+        new_dataset.samples[ColumnName.TAGS].list.eval(pl.element().filter(pl.element() == TAG_IS_SAMPLE)).list.len()
+        > 0
+    ).sum()
+    assert n_samples_with_tag == n_samples, (
+        f"Sampled dataset should have {n_samples} samples, but has {new_dataset.samples[ColumnName.TAGS].sum()}"
     )
 
 
 def test_split_into_multiple_splits():
     n_samples = 100
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
     # The micro dataset is small, so we duplicate samples up to 100 samples for testing
     dataset = dataset.select_samples(n_samples=n_samples, seed=42, with_replacement=True)
     dataset = dataset.splits_by_ratios(split_ratios={"train": 0.5, "test": 0.5}, seed=42)

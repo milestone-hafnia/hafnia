@@ -271,14 +271,16 @@ class DatasetRecipe(Serializable):
         recipe.append_operation(operation)
         return recipe
 
-    def class_mapper_strict(
+    def class_mapper(
         recipe: DatasetRecipe,
-        strict_class_mapping: Dict[str, str],
+        class_mapping: Dict[str, str],
+        method: str = "strict",
         primitive: Optional[Type[Primitive]] = None,
         task_name: Optional[str] = None,
     ) -> DatasetRecipe:
-        operation = recipe_transforms.ClassMapperStrict(
-            strict_class_mapping=strict_class_mapping,
+        operation = recipe_transforms.ClassMapper(
+            class_mapping=class_mapping,
+            method=method,
             primitive=primitive,
             task_name=task_name,
         )

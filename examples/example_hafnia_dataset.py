@@ -54,7 +54,7 @@ new_dataset_splits = dataset.splits_by_ratios(split_ratios)
 dataset_ones = dataset.select_samples_by_class_name(name="1 - one", primitive=Classification)
 
 # Rename class names with mapping
-class_mapping = {
+class_mapping_strict = {
     "0 - zero": "even",  # "0 - zero" will be renamed to "even". "even" appear first and get class index 0
     "1 - one": "odd",  # "1 - one" will be renamed to "odd". "odd" appear second and will get class index 1
     "2 - two": "even",
@@ -66,7 +66,7 @@ class_mapping = {
     "8 - eight": "even",
     "9 - nine": "__REMOVE__",  # Remove all samples with class "9 - nine"
 }
-dataset_mapped = dataset.class_mapper_strict(strict_class_mapping=class_mapping)
+dataset_mapped = dataset.class_mapper(class_mapping=class_mapping_strict)
 dataset_mapped.print_class_distribution()
 
 # Support Chaining Operations (load, shuffle, select samples)
@@ -128,7 +128,7 @@ for i_fake_sample in range(5):
         height=480,
         width=640,
         split="train",
-        is_sample=True,
+        tags=["sample"],
         objects=bboxes,
         classifications=classifications,
     )

@@ -3,6 +3,7 @@ import pytest
 from hafnia.dataset.dataset_names import FieldName
 from hafnia.dataset.hafnia_dataset import HafniaDataset, TaskInfo
 from hafnia.dataset.operations.dataset_transformations import (
+    expand_class_mapping,
     get_task_info_from_task_name_and_primitive,
 )
 from hafnia.dataset.primitives import Bbox, Classification
@@ -10,17 +11,18 @@ from tests.helper_testing import get_path_micro_hafnia_dataset, get_strict_class
 
 
 def test_class_mapper_strict():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
-    dataset_updated = dataset.class_mapper_strict(
-        strict_class_mapping=get_strict_class_mapping_midwest(),
+    dataset_updated = dataset.class_mapper(
+        class_mapping=get_strict_class_mapping_midwest(),
+        method="strict",
         primitive=Bbox,
     )
 
     dataset_updated.check_dataset_tasks()
-    task_bbox = [t for t in dataset_updated.info.tasks if t.primitive == Bbox][0]
+    task_bbox = dataset_updated.info.get_task_by_primitive(Bbox)
     expected_class_names = ["person", "vehicle", "truck"]
     expected_indices = list(range(len(expected_class_names)))
     assert task_bbox.class_names == expected_class_names
@@ -35,8 +37,147 @@ def test_class_mapper_strict():
     )
 
 
+def test_class_mapper_strict_wildcard_mapping():
+    dataset_name = "micro-tiny-dataset"
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+
+    class_mapping = {
+        "Person": "person",
+        "Vehicle*": "vehicle",
+    }
+    dataset_updated = dataset.class_mapper(
+        class_mapping=class_mapping,
+        method="strict",
+        primitive=Bbox,
+    )
+
+    dataset_updated.check_dataset_tasks()
+    task_bbox = dataset_updated.info.get_task_by_primitive(Bbox)
+    expected_class_names = ["person", "vehicle"]
+    assert task_bbox.class_names == expected_class_names
+
+
+def test_class_mapper_remove_undefined():
+    dataset_name = "micro-tiny-dataset"
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+
+    # Use case 1: Valid class mapping with 'remove_undefined' method
+    class_mapping = {
+        "Vehicle.Car": "vehicle",
+    }
+    dataset_updated = dataset.class_mapper(
+        class_mapping=class_mapping,
+        method="remove_undefined",
+        primitive=Bbox,
+    )
+
+    dataset_updated.check_dataset_tasks()
+    task_bbox = dataset_updated.info.get_task_by_primitive(Bbox)
+    expected_class_names = ["vehicle"]
+    assert task_bbox.class_names == expected_class_names
+
+
+def test_class_mapper_exceptions():
+    dataset_name = "micro-tiny-dataset"
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+
+    class_mapping_bad = {
+        "NonExistingClass": "vehicle",
+    }
+
+    # Test case 1: Invalid method name
+    with pytest.raises(ValueError, match="Method .* is not recognized"):
+        dataset.class_mapper(
+            class_mapping=class_mapping_bad,
+            method="WrongMethodName",
+            primitive=Bbox,
+        )
+
+    # Test case 2: Class mapping with non-existing class names
+    with pytest.raises(ValueError, match="The specified class mapping contains class names .* that do not exist"):
+        dataset.class_mapper(
+            class_mapping=class_mapping_bad,
+            method="remove_undefined",
+            primitive=Bbox,
+        )
+
+
+def test_class_mapper_keep_undefined():
+    dataset_name = "micro-tiny-dataset"
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+
+    task_bbox = dataset.info.get_task_by_primitive(Bbox)
+    class_names_original = task_bbox.class_names
+    # class_mapping_strict = get_strict_class_mapping_midwest()
+    rename_class = "Vehicle.Car"
+    class_mapping = {
+        rename_class: "vehicle",
+    }
+
+    dataset_updated = dataset.class_mapper(
+        class_mapping=class_mapping,
+        method="keep_undefined",
+        primitive=Bbox,
+    )
+
+    dataset_updated.check_dataset_tasks()
+    task_bbox = dataset_updated.info.get_task_by_primitive(Bbox)
+
+    class_names_original.remove(rename_class)
+    expected_class_names = ["vehicle"]
+    expected_class_names.extend(class_names_original)
+    assert task_bbox.class_names == expected_class_names
+
+
+def test_expand_class_mapping():
+    # Task class names
+    class_names = [
+        "Vehicle",
+        "Vehicle.Bicycle",
+        "Vehicle.Car.SUV",
+        "Vehicle.Car.Sedan",
+        "Vehicle.Truck.Small",
+        "Vehicle.Truck.Large",
+        "Person",
+        "Person.Adult",
+        "Person.Child",
+        "Animal.Dog",
+    ]
+    # Wildcard mapping to be expanded
+    class_mapping_with_wildcard = {
+        "Person": "person",
+        "Vehicle*": "vehicle",
+        "Vehicle.Car*": "car",
+        "Vehicle.Truck*": "truck",
+        "Person*": "person",
+        "Animal*": "animal",
+    }
+
+    expanded = expand_class_mapping(wildcard_mapping=class_mapping_with_wildcard, class_names=class_names)
+
+    # Expected expanded mapping
+    expected_mapping = {
+        "Person": "person",  # Exact match takes precedence
+        "Vehicle": "vehicle",
+        "Vehicle.Bicycle": "vehicle",
+        "Vehicle.Car.SUV": "car",  # More specific wildcard takes precedence
+        "Vehicle.Car.Sedan": "car",
+        "Vehicle.Truck.Small": "truck",
+        "Vehicle.Truck.Large": "truck",
+        "Person.Adult": "person",
+        "Person.Child": "person",
+        "Animal.Dog": "animal",
+    }
+    assert len(expanded) == len(class_names)
+    assert expanded == expected_mapping
+
+
 def test_rename_task():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -60,7 +201,7 @@ def test_rename_task():
 
 
 def test_merge_datasets():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -75,8 +216,8 @@ def test_merge_datasets():
 
     # Use case 2: Merging two datasets with the same tasks but different class names should raise an error
     mapping = get_strict_class_mapping_midwest()
-    dataset_1_changed = dataset_1.class_mapper_strict(
-        strict_class_mapping=mapping,
+    dataset_1_changed = dataset_1.class_mapper(
+        class_mapping=mapping,
         primitive=Bbox,
     )
     with pytest.raises(ValueError, match="Cannot merge datasets with different class names for the same task name"):
@@ -84,7 +225,7 @@ def test_merge_datasets():
 
 
 def test_select_samples_by_class_name():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 

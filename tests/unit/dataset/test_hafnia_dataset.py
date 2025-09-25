@@ -52,13 +52,12 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
             height=100,
             width=200,
             split="train",
-            is_sample=False,
             classifications=[Classification(class_name="Class A", class_idx=0)],
         )
         for path in path_files
     ]
     dataset = HafniaDataset.from_samples_list(samples_list=samples, info=dataset_info)
-    dataset.write(path_dataset)
+    dataset.write(path_dataset, drop_null_cols=False)
 
     dataset_reloaded = HafniaDataset.from_path(path_dataset)
     assert dataset_reloaded.info == dataset.info
@@ -92,7 +91,7 @@ def test_hafnia_dataset_has_all_dataset_stats_functions(function_name: str):
 
 
 def test_dataset_info_from_dataset():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
     dataset_info = dataset_info_from_dataset(

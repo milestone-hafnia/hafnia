@@ -30,6 +30,7 @@ that the signatures match.
 """
 
 import json
+import re
 import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Type, Union
@@ -42,7 +43,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from hafnia.dataset import dataset_helpers
-from hafnia.dataset.dataset_names import TAG_REMOVE_CLASS, FieldName
+from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS, FieldName
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.utils import remove_duplicates_preserve_order
@@ -153,37 +154,65 @@ def get_task_info_from_task_name_and_primitive(
     return task
 
 
-def class_mapper_strict(
+def class_mapper(
     dataset: "HafniaDataset",
-    strict_class_mapping: Dict[str, str],
+    class_mapping: Dict[str, str],
+    method: str = "strict",
     primitive: Optional[Type[Primitive]] = None,
     task_name: Optional[str] = None,
 ) -> "HafniaDataset":
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-    task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
+    allowed_methods = ("strict", "remove_undefined", "keep_undefined")
+    if method not in allowed_methods:
+        raise ValueError(f"Method '{method}' is not recognized. Allowed methods are: {allowed_methods}")
 
-    current_class_names = task.class_names or []
-    class_names_mapped = list(strict_class_mapping.keys())
-    missing_class_names = set(current_class_names) - set(class_names_mapped)
+    task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
+    current_names = task.class_names or []
+
+    # Expand wildcard mappings
+    class_mapping = expand_class_mapping(class_mapping, current_names)
+
+    non_existing_mapping_names = set(class_mapping) - set(current_names)
+    if len(non_existing_mapping_names) > 0:
+        raise ValueError(
+            f"The specified class mapping contains class names {list(non_existing_mapping_names)} "
+            f"that do not exist in the dataset task '{task.name}'. "
+            f"Available class names: {current_names}"
+        )
+
+    missing_class_names = [c for c in current_names if c not in class_mapping]  # List-comprehension to preserve order
+    class_mapping = class_mapping.copy()
+    if method == "strict":
+        pass  # Continue to strict mapping below
+    elif method == "remove_undefined":
+        for missing_class_name in missing_class_names:
+            class_mapping[missing_class_name] = OPS_REMOVE_CLASS
+    elif method == "keep_undefined":
+        for missing_class_name in missing_class_names:
+            class_mapping[missing_class_name] = missing_class_name
+    else:
+        raise ValueError(f"Method '{method}' is not recognized. Allowed methods are: {allowed_methods}")
+
+    missing_class_names = [c for c in current_names if c not in class_mapping]
     if len(missing_class_names) > 0:
         error_msg = f"""\
         The specified class mapping is not a strict mapping - meaning that all class names have not 
         been mapped to a new class name.
         In the current mapping, the following classes {list(missing_class_names)} have not been mapped.
         The currently specified mapping is:
-        {json.dumps(strict_class_mapping, indent=2)}
+        {json.dumps(class_mapping, indent=2)}
         A strict mapping will replace all old class names (dictionary keys) to new class names (dictionary values).
         Please update the mapping to include all class names from the dataset task '{task.name}'.
         To keep class map to the same name e.g. 'person' = 'person' 
         or remove class by using the '__REMOVE__' key, e.g. 'person': '__REMOVE__'."""
         raise ValueError(textwrap.dedent(error_msg))
 
-    new_class_names = remove_duplicates_preserve_order(strict_class_mapping.values())
+    new_class_names = remove_duplicates_preserve_order(class_mapping.values())
 
-    if TAG_REMOVE_CLASS in new_class_names:
+    if OPS_REMOVE_CLASS in new_class_names:
         # Move __REMOVE__ to the end of the list if it exists
-        new_class_names.append(new_class_names.pop(new_class_names.index(TAG_REMOVE_CLASS)))
+        new_class_names.append(new_class_names.pop(new_class_names.index(OPS_REMOVE_CLASS)))
     name_2_idx_mapping: Dict[str, int] = {name: idx for idx, name in enumerate(new_class_names)}
 
     samples = dataset.samples
@@ -192,7 +221,7 @@ def class_mapper_strict(
         .list.eval(
             pl.element().struct.with_fields(
                 pl.when(pl.field(FieldName.TASK_NAME) == task.name)
-                .then(pl.field(FieldName.CLASS_NAME).replace_strict(strict_class_mapping))
+                .then(pl.field(FieldName.CLASS_NAME).replace_strict(class_mapping))
                 .otherwise(pl.field(FieldName.CLASS_NAME))
                 .alias(FieldName.CLASS_NAME)
             )
@@ -214,18 +243,60 @@ def class_mapper_strict(
         .alias(task.primitive.column_name())
     )
 
-    if TAG_REMOVE_CLASS in new_class_names:  # Remove class_names that are mapped to REMOVE_CLASS
+    if OPS_REMOVE_CLASS in new_class_names:  # Remove class_names that are mapped to REMOVE_CLASS
         samples_updated = samples_updated.with_columns(
             pl.col(task.primitive.column_name())
-            .list.filter(pl.element().struct.field(FieldName.CLASS_NAME) != TAG_REMOVE_CLASS)
+            .list.filter(pl.element().struct.field(FieldName.CLASS_NAME) != OPS_REMOVE_CLASS)
             .alias(task.primitive.column_name())
         )
-        new_class_names = [c for c in new_class_names if c != TAG_REMOVE_CLASS]
+
+        new_class_names = [c for c in new_class_names if c != OPS_REMOVE_CLASS]
 
     new_task = task.model_copy(deep=True)
     new_task.class_names = new_class_names
     dataset_info = dataset.info.replace_task(old_task=task, new_task=new_task)
     return HafniaDataset(info=dataset_info, samples=samples_updated)
+
+
+def expand_class_mapping(wildcard_mapping: Dict[str, str], class_names: List[str]) -> Dict[str, str]:
+    """
+    Expand a wildcard class mapping to a full explicit mapping.
+
+    This function takes a mapping that may contain wildcard patterns (using '*')
+    and expands them to match actual class names from a dataset. Exact matches
+    take precedence over wildcard patterns.
+
+    Examples:
+        >>> from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS
+        >>> wildcard_mapping = {
+        ...     "Person": "Person",
+        ...     "Vehicle.*": "Vehicle",
+        ...     "Vehicle.Trailer": OPS_REMOVE_CLASS
+        ... }
+        >>> class_names = [
+        ...     "Person", "Vehicle.Car", "Vehicle.Trailer", "Vehicle.Bus", "Animal.Dog"
+        ... ]
+        >>> result = expand_wildcard_mapping(wildcard_mapping, class_names)
+        >>> print(result)
+        {
+            "Person": "Person",
+            "Vehicle.Car": "Vehicle",
+            "Vehicle.Trailer": OPS_REMOVE_CLASS,  # Exact match overrides wildcard
+            "Vehicle.Bus": "Vehicle",
+            # Note: "Animal.Dog" is not included as it doesn't match any pattern
+        }
+    """
+    expanded_mapping = {}
+    for match_pattern, mapping_value in wildcard_mapping.items():
+        if "*" in match_pattern:
+            # Convert wildcard pattern to regex: Escape special regex characters except *, then replace * with .*
+            regex_pattern = re.escape(match_pattern).replace("\\*", ".*")
+            class_names_matched = [cn for cn in class_names if re.fullmatch(regex_pattern, cn)]
+            expanded_mapping.update({cn: mapping_value for cn in class_names_matched})
+        else:
+            expanded_mapping.pop(match_pattern, None)
+            expanded_mapping[match_pattern] = mapping_value
+    return expanded_mapping
 
 
 def rename_task(

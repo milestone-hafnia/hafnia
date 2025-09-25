@@ -7,6 +7,7 @@ from tqdm import tqdm
 from hafnia.dataset.dataset_names import (
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
+    ColumnName,
     FieldName,
 )
 from hafnia.dataset.operations import table_transformations
@@ -34,8 +35,12 @@ def create_primitive_table(
 
     if keep_sample_data:
         # Drop other primitive columns to avoid conflicts
-        drop_columns = set(PRIMITIVE_TYPES) - {PrimitiveType, Classification}
-        remove_no_object_frames = remove_no_object_frames.drop(*[primitive.column_name() for primitive in drop_columns])
+
+        drop_columns_primitives = set(PRIMITIVE_TYPES) - {PrimitiveType, Classification}
+        drop_columns_names = [primitive.column_name() for primitive in drop_columns_primitives]
+        drop_columns_names = [c for c in drop_columns_names if c in remove_no_object_frames.columns]
+
+        remove_no_object_frames = remove_no_object_frames.drop(drop_columns_names)
         # Rename columns "height", "width" and "meta" for sample to avoid conflicts with object fields names
         remove_no_object_frames = remove_no_object_frames.rename(
             {"height": "image.height", "width": "image.width", "meta": "image.meta"}
@@ -44,6 +49,38 @@ def create_primitive_table(
     else:
         objects_df = remove_no_object_frames.select(pl.col(column_name).explode().struct.unnest())
     return objects_df
+
+
+def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFrame:
+    has_same_schema = samples0.schema == samples1.schema
+    if not has_same_schema:
+        shared_columns = []
+        for column_name, column_type in samples0.schema.items():
+            if column_name not in samples1.schema:
+                continue
+
+            if column_type != samples1.schema[column_name]:
+                continue
+            shared_columns.append(column_name)
+
+        dropped_columns0 = [
+            f"{n}[{ctype._string_repr()}]" for n, ctype in samples0.schema.items() if n not in shared_columns
+        ]
+        dropped_columns1 = [
+            f"{n}[{ctype._string_repr()}]" for n, ctype in samples1.schema.items() if n not in shared_columns
+        ]
+        user_logger.warning(
+            "Datasets with different schemas are being merged. "
+            "Only the columns with the same name and type will be kept in the merged dataset.\n"
+            f"Dropped columns in samples0: {dropped_columns0}\n"
+            f"Dropped columns in samples1: {dropped_columns1}\n"
+        )
+
+        samples0 = samples0.select(list(shared_columns))
+        samples1 = samples1.select(list(shared_columns))
+    merged_samples = pl.concat([samples0, samples1], how="vertical")
+    merged_samples = merged_samples.drop(ColumnName.SAMPLE_INDEX).with_row_index(name=ColumnName.SAMPLE_INDEX)
+    return merged_samples
 
 
 def filter_table_for_class_names(

@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from torchvision import tv_tensors
 from torchvision.transforms import v2
 
+import hafnia
 from hafnia import torch_helpers
 from hafnia.data import load_dataset
 from hafnia.dataset.dataset_names import ColumnName
@@ -20,7 +21,8 @@ from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.segmentation import Segmentation
 from hafnia.utils import is_hafnia_configured
 
-FORCE_REDOWNLOAD = False
+FORCE_REDOWNLOAD = False  # Set to True to force re-download of datasets. (Set to False before committing)
+RUN_ON_OLD_DATASETS = False  # Set to True to run tests on old datasets. (Set to False before committing)
 
 DATASETS_EXPECTED = [
     ("midwest-vehicle-detection", {"train": 172, "validation": 21, "test": 21}),
@@ -47,6 +49,16 @@ def loaded_dataset(request) -> Dict[str, Any]:
     dataset_name, expected_lengths = request.param
     dataset = load_dataset(dataset_name, force_redownload=FORCE_REDOWNLOAD)
 
+    # We skip tests for datasets that doesn't match the current format version.
+    # We do this to have working tests and maintain successful CI/CD pipeline runs,
+    # while datasets are being updated.
+    is_old_format = dataset.info.format_version != hafnia.__dataset_format_version__
+    if is_old_format and (not RUN_ON_OLD_DATASETS):
+        pytest.skip(
+            f"Dataset format version {dataset.info.format_version} is behind "
+            f"the current version {hafnia.__dataset_format_version__}. Dataset is being skipped."
+            "Run the 'formatting-step' to update the dataset format version."
+        )
     return {
         "dataset": dataset,
         "dataset_name": dataset_name,
@@ -71,6 +83,12 @@ def hafnia_2_torch_dataset(dataset: HafniaDataset) -> torch.utils.data.Dataset:
     )
 
     return dataset_torch
+
+
+def test_run_on_old_datasets():
+    """Test that the flag for running on old datasets is set correctly."""
+    assert not RUN_ON_OLD_DATASETS, "Remember to set RUN_ON_OLD_DATASETS=False before committing"
+    assert not FORCE_REDOWNLOAD, "Remember to set FORCE_REDOWNLOAD=False before committing"
 
 
 @pytest.mark.slow

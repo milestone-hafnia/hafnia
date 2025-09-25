@@ -70,8 +70,10 @@
                 "create",
                 // "--train-recipe-path",
                 // "${workspaceFolder}/../recipe-classification",
-                "--train-recipe-id",
-                "e47d701d-c5ed-4014-9480-434f04e9459b",
+                //"--train-recipe-id",
+                //"e47d701d-c5ed-4014-9480-434f04e9459b",
+                "--train-recipe-path",
+                "${workspaceFolder}/../recipe-classification",
                 "--dataset",
                 "mnist",
             ]

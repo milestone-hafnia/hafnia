@@ -3,15 +3,15 @@ from pathlib import Path
 from types import FunctionType
 from typing import Any, Callable, Dict, Union, get_origin
 
-from hafnia import utils
+import hafnia
 from hafnia.dataset import primitives
-from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, DatasetVariant
+from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
 MICRO_DATASETS = {
-    "tiny-dataset": utils.PATH_DATASETS / "tiny-dataset",
-    "coco-2017": utils.PATH_DATASETS / "coco-2017",
+    "micro-tiny-dataset": "tiny-dataset",
+    "micro-coco-2017": "coco-2017",
 }
 
 
@@ -36,16 +36,27 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
 
     if dataset_name not in MICRO_DATASETS:
         raise ValueError(f"Dataset name '{dataset_name}' is not recognized. Available options: {list(MICRO_DATASETS)}")
-    path_dataset = MICRO_DATASETS[dataset_name]
 
     path_test_dataset = get_path_micro_hafnia_dataset_no_check() / dataset_name
     path_test_dataset_annotations = path_test_dataset / FILENAME_ANNOTATIONS_JSONL
     if path_test_dataset_annotations.exists() and not force_update:
         return path_test_dataset
 
-    hafnia_dataset = HafniaDataset.from_path(path_dataset / DatasetVariant.SAMPLE.value)
+    hafnia_dataset_name = MICRO_DATASETS[dataset_name]
+    hafnia_dataset = HafniaDataset.from_name(hafnia_dataset_name, force_redownload=True)
     hafnia_dataset = hafnia_dataset.select_samples(n_samples=3, seed=42)
     hafnia_dataset.write(path_test_dataset)
+
+    format_version_mismatch = hafnia_dataset.info.format_version != hafnia.__dataset_format_version__
+    if format_version_mismatch:
+        raise ValueError(
+            f"You are trying to update the micro test dataset '{dataset_name}' (located in '{path_test_dataset}'), "
+            f"with 'force_update=True'. This will re-download '{hafnia_dataset_name}'. "
+            f"However, the format version for the re-downloaded dataset ('{hafnia_dataset.info.format_version}'), "
+            f"is still not matching the current format version ('{hafnia.__dataset_format_version__}'). "
+            f"You will need to recreate '{hafnia_dataset_name}' using the 'data-management' repo to update the "
+            f"dataset format version."
+        )
 
     if force_update:
         pytest.fail(
@@ -134,7 +145,7 @@ def get_dummy_recipe() -> DatasetRecipe:
                 DatasetRecipe.from_name(name="mnist", force_redownload=False),
             ]
         )
-        .class_mapper_strict(get_strict_class_mapping_mnist())
+        .class_mapper(get_strict_class_mapping_mnist())
         .rename_task(old_task_name=primitives.Classification.default_task_name(), new_task_name="digits")
         .select_samples_by_class_name(name=["odd"])
     )
