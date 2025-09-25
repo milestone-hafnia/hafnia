@@ -52,11 +52,11 @@ def loaded_dataset(request) -> Dict[str, Any]:
     # We skip tests for datasets that doesn't match the current format version.
     # We do this to have working tests and maintain successful CI/CD pipeline runs,
     # while datasets are being updated.
-    is_old_format = dataset.info.format_version != hafnia.__format_version__
+    is_old_format = dataset.info.format_version != hafnia.__dataset_format_version__
     if is_old_format and (not RUN_ON_OLD_DATASETS):
         pytest.skip(
             f"Dataset format version {dataset.info.format_version} is behind "
-            f"the current version {hafnia.__format_version__}. Dataset is being skipped."
+            f"the current version {hafnia.__dataset_format_version__}. Dataset is being skipped."
             "Run the 'formatting-step' to update the dataset format version."
         )
     return {

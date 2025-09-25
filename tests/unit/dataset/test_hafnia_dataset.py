@@ -91,7 +91,7 @@ def test_hafnia_dataset_has_all_dataset_stats_functions(function_name: str):
 
 
 def test_dataset_info_from_dataset():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
     dataset_info = dataset_info_from_dataset(

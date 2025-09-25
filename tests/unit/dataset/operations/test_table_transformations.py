@@ -41,7 +41,7 @@ def test_create_primitive_table(dataset_name: str):
 
 
 def test_filter_table_for_class_names():
-    hafnia_dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
+    hafnia_dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
 
     n_samples_before_filtering = len(hafnia_dataset.samples)
     table_after = table_transformations.filter_table_for_class_names(
@@ -55,7 +55,7 @@ def test_filter_table_for_class_names():
 
 
 def test_split_primitive_columns_by_task_name():
-    dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
+    dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
     table = dataset.samples
 
     def check_expected_column_names(table_before, table_after, PrimitiveTypes: List[Type[Primitive]]):
@@ -81,7 +81,7 @@ def test_split_primitive_columns_by_task_name():
 
 
 def test_unnest_classification_tasks():
-    dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="tiny-dataset", force_update=False)
+    dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
     table = dataset.samples
 
     table_unnested = unnest_classification_tasks(table)

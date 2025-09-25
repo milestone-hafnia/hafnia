@@ -11,7 +11,7 @@ from tests.helper_testing import get_path_micro_hafnia_dataset, get_strict_class
 
 
 def test_class_mapper_strict():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -38,7 +38,7 @@ def test_class_mapper_strict():
 
 
 def test_class_mapper_strict_wildcard_mapping():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -59,7 +59,7 @@ def test_class_mapper_strict_wildcard_mapping():
 
 
 def test_class_mapper_remove_undefined():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -80,7 +80,7 @@ def test_class_mapper_remove_undefined():
 
 
 def test_class_mapper_exceptions():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -106,7 +106,7 @@ def test_class_mapper_exceptions():
 
 
 def test_class_mapper_keep_undefined():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -177,7 +177,7 @@ def test_expand_class_mapping():
 
 
 def test_rename_task():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -201,7 +201,7 @@ def test_rename_task():
 
 
 def test_merge_datasets():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 
@@ -225,7 +225,7 @@ def test_merge_datasets():
 
 
 def test_select_samples_by_class_name():
-    dataset_name = "tiny-dataset"
+    dataset_name = "micro-tiny-dataset"
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     dataset = HafniaDataset.from_path(path_dataset)
 

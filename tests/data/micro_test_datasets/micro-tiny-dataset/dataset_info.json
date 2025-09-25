@@ -105,5 +105,6 @@
         "annotation_dataset_id": "9a0faaba-46d7-484a-91e8-b34b7c9ef236",
         "license_citation": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Hafnia Dataset: Tiny Dataset},\n    url = https://mdi.milestonesys.com/datasets/070b3bd5-0266-4446-a318-052c993558ef,\n    note = {Part of the Hafnia project},\n    version = {0.0.1},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}"
     },
-    "format_version": "0.0.1"
+    "format_version": "0.0.2",
+    "updated_at": "2025-09-24T22:02:24.993049"
 }

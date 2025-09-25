@@ -163,7 +163,7 @@ def class_mapper(
 ) -> "HafniaDataset":
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-    allowed_methods = ["strict", "remove_undefined", "keep_undefined"]
+    allowed_methods = ("strict", "remove_undefined", "keep_undefined")
     if method not in allowed_methods:
         raise ValueError(f"Method '{method}' is not recognized. Allowed methods are: {allowed_methods}")
 
@@ -191,6 +191,8 @@ def class_mapper(
     elif method == "keep_undefined":
         for missing_class_name in missing_class_names:
             class_mapping[missing_class_name] = missing_class_name
+    else:
+        raise ValueError(f"Method '{method}' is not recognized. Allowed methods are: {allowed_methods}")
 
     missing_class_names = [c for c in current_names if c not in class_mapping]
     if len(missing_class_names) > 0:

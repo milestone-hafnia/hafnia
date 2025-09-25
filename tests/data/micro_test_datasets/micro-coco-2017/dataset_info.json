@@ -230,46 +230,95 @@
         "licenses": {
             "1": {
                 "name": "Creative Commons: Attribution-NonCommercial-ShareAlike 2.0 Generic",
-                "abbreviation": "CC BY-NC-SA 2.0",
-                "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/"
+                "name_short": "CC BY-NC-SA 2.0",
+                "url": "https://creativecommons.org/licenses/by-nc-sa/2.0/",
+                "description": null,
+                "valid_date": null,
+                "permissions": null,
+                "liability": null,
+                "location": null,
+                "notes": null
             },
             "2": {
                 "name": "Creative Commons: Attribution-NonCommercial 2.0 Generic",
-                "abbreviation": "CC BY-NC 2.0",
-                "url": "http://creativecommons.org/licenses/by-nc/2.0/"
+                "name_short": "CC BY-NC 2.0",
+                "url": "https://creativecommons.org/licenses/by-nc/2.0/",
+                "description": null,
+                "valid_date": null,
+                "permissions": null,
+                "liability": null,
+                "location": null,
+                "notes": null
             },
             "3": {
                 "name": "Creative Commons: Attribution-NonCommercial-NoDerivs 2.0 Generic",
-                "abbreviation": "CC BY-NC-ND 2.0",
-                "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/"
+                "name_short": "CC BY-NC-ND 2.0",
+                "url": "https://creativecommons.org/licenses/by-nc-nd/2.0/",
+                "description": null,
+                "valid_date": null,
+                "permissions": null,
+                "liability": null,
+                "location": null,
+                "notes": null
             },
             "4": {
                 "name": "Creative Commons: Attribution 2.0 Generic",
-                "abbreviation": "CC BY 2.0",
-                "url": "http://creativecommons.org/licenses/by/2.0/"
+                "name_short": "CC BY 2.0",
+                "url": "https://creativecommons.org/licenses/by/2.0/",
+                "description": null,
+                "valid_date": null,
+                "permissions": null,
+                "liability": null,
+                "location": null,
+                "notes": null
             },
             "5": {
                 "name": "Creative Commons: Attribution-ShareAlike 2.0 Generic",
-                "abbreviation": "CC BY-SA 2.0",
-                "url": "http://creativecommons.org/licenses/by-sa/2.0/"
+                "name_short": "CC BY-SA 2.0",
+                "url": "https://creativecommons.org/licenses/by-sa/2.0/",
+                "description": null,
+                "valid_date": null,
+                "permissions": null,
+                "liability": null,
+                "location": null,
+                "notes": null
             },
             "6": {
                 "name": "Creative Commons: Attribution-NoDerivs 2.0 Generic",
-                "abbreviation": "CC BY-ND 2.0",
-                "url": "http://creativecommons.org/licenses/by-nd/2.0/"
+                "name_short": "CC BY-ND 2.0",
+                "url": "https://creativecommons.org/licenses/by-nd/2.0/",
+                "description": null,
+                "valid_date": null,
+                "permissions": null,
+                "liability": null,
+                "location": null,
+                "notes": null
             },
             "7": {
                 "name": "Flickr: No known copyright restrictions",
-                "abbreviation": "Flickr",
-                "url": "http://flickr.com/commons/usage/"
+                "name_short": "Flickr",
+                "url": "https://flickr.com/commons/usage/",
+                "description": null,
+                "valid_date": null,
+                "permissions": null,
+                "liability": null,
+                "location": null,
+                "notes": null
             },
             "8": {
                 "name": "United States Government Work",
-                "abbreviation": "US Gov",
-                "url": "http://www.usa.gov/copyright.shtml"
+                "name_short": "US Gov",
+                "url": "http://www.usa.gov/copyright.shtml",
+                "description": null,
+                "valid_date": null,
+                "permissions": null,
+                "liability": null,
+                "location": null,
+                "notes": null
             }
         },
         "license_citation": "@ARTICLE{Lin2014-wu,\n    title         = \"Microsoft {COCO}: Common objects in context\",\n    author        = \"Lin, Tsung-Yi and Maire, Michael and Belongie, Serge and\n                    Bourdev, Lubomir and Girshick, Ross and Hays, James and\n                    Perona, Pietro and Ramanan, Deva and Zitnick, C Lawrence and\n                    Doll{'a}r, Piotr\",\n    month         =  may,\n    year          =  2014,\n    copyright     = \"http://arxiv.org/licenses/nonexclusive-distrib/1.0/\",\n    archivePrefix = \"arXiv\",\n    primaryClass  = \"cs.CV\",\n    eprint        = \"1405.0312\"\n    }"
     },
-    "format_version": "0.0.1"
+    "format_version": "0.0.2",
+    "updated_at": "2025-09-24T22:02:41.316480"
 }

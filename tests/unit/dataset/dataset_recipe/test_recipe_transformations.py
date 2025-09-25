@@ -137,7 +137,7 @@ def test_cases_as_short_name(test_case: TestCaseRecipeTransform):
 
 
 def test_sample_transformation():
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
     n_samples = 2
     sample_transformation = SelectSamples(n_samples=n_samples, shuffle=True, seed=42)
 
@@ -150,7 +150,7 @@ def test_sample_transformation():
 
 def test_sample_transformation_without_replacement():
     """Without replacement, the number of samples should not exceed the actual dataset size."""
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
 
     max_actual_number_of_samples = len(dataset)
     n_samples = 100  # A micro dataset is only 3 samples, so this should be capped to 3
@@ -165,7 +165,7 @@ def test_sample_transformation_without_replacement():
 
 def test_sample_transformation_with_replacement():
     """With replacement, the number of samples can exceed the actual dataset size."""
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
 
     assert len(dataset) < 100, "The micro dataset should have less than 100 samples for this test to be valid"
     n_samples = 100  # The micro dataset is only 3 samples. With_replacement=True it will duplicate samples
@@ -179,7 +179,7 @@ def test_sample_transformation_with_replacement():
 
 
 def test_shuffle_transformation():
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
 
     shuffle_transformation = Shuffle(seed=123)
     new_dataset = shuffle_transformation.build(dataset)
@@ -198,7 +198,7 @@ def test_shuffle_transformation():
 
 
 def test_splits_by_ratios_transformation():
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
     # The micro dataset is small, so we duplicate samples up to 100 samples for testing
     dataset = dataset.select_samples(n_samples=100, seed=42, with_replacement=True)
 
@@ -214,7 +214,7 @@ def test_splits_by_ratios_transformation():
 
 def test_define_sample_by_size_transformation():
     n_samples = 5
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
     # The micro dataset is small, so we duplicate samples up to 100 samples for testing
     dataset = dataset.select_samples(n_samples=n_samples, seed=42, with_replacement=True)
 
@@ -233,7 +233,7 @@ def test_define_sample_by_size_transformation():
 
 def test_split_into_multiple_splits():
     n_samples = 100
-    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="tiny-dataset")  # type: ignore[annotation-unchecked]
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
     # The micro dataset is small, so we duplicate samples up to 100 samples for testing
     dataset = dataset.select_samples(n_samples=n_samples, seed=42, with_replacement=True)
     dataset = dataset.splits_by_ratios(split_ratios={"train": 0.5, "test": 0.5}, seed=42)

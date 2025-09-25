@@ -13,9 +13,8 @@ from tests import helper_testing
 @pytest.mark.parametrize("dataset_name", helper_testing.MICRO_DATASETS)
 def test_mask_region(compare_to_expected_image: Callable, dataset_name: str):
     sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
-    return
     image = sample.read_image()
-    if dataset_name == "coco-2017":
+    if dataset_name == "micro-coco-2017":
         annotations = sample.get_annotations([Bitmask])
     else:
         annotations = sample.get_annotations()
@@ -36,7 +35,7 @@ def test_draw_annotations(compare_to_expected_image: Callable, dataset_name: str
 def test_blur_anonymization(compare_to_expected_image: Callable, dataset_name: str):
     sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     image = sample.read_image()
-    if dataset_name == "coco-2017":
+    if dataset_name == "micro-coco-2017":
         annotations = sample.get_annotations([Bitmask])
     else:
         annotations = sample.get_annotations([Bitmask, Bbox, Polygon])
@@ -46,7 +45,7 @@ def test_blur_anonymization(compare_to_expected_image: Callable, dataset_name: s
 
 
 def test_bitmask_squeezing():
-    sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name="coco-2017", force_update=False)
+    sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name="micro-coco-2017", force_update=False)
     image = sample.read_image()
     annotations = sample.get_annotations()
     bitmasks = [a for a in annotations if isinstance(a, Bitmask)]

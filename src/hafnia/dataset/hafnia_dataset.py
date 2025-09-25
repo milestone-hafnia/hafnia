@@ -104,7 +104,7 @@ class DatasetInfo(BaseModel):
     tasks: List[TaskInfo]
     distributions: Optional[List[TaskInfo]] = None  # Distributions. TODO: FIX/REMOVE/CHANGE this
     meta: Optional[Dict[str, Any]] = None  # Metadata about the dataset, e.g. description, etc.
-    format_version: str = hafnia.__format_version__  # Version of the Hafnia dataset format
+    format_version: str = hafnia.__dataset_format_version__  # Version of the Hafnia dataset format
     updated_at: datetime = datetime.now()
 
     @field_validator("tasks", mode="after")
@@ -176,10 +176,10 @@ class DatasetInfo(BaseModel):
                 f"'{info1.format_version}' vs '{info0.format_version}'."
             )
         dataset_format_version = info0.format_version
-        if hafnia.__format_version__ != dataset_format_version:
+        if hafnia.__dataset_format_version__ != dataset_format_version:
             user_logger.warning(
                 f"Dataset format version '{dataset_format_version}' does not match the current "
-                f"Hafnia format version '{hafnia.__format_version__}'."
+                f"Hafnia format version '{hafnia.__dataset_format_version__}'."
             )
         unique_tasks = set(info0.tasks + info1.tasks)
         distributions = set((info0.distributions or []) + (info1.distributions or []))
