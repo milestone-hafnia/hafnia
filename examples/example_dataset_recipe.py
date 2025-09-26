@@ -56,7 +56,7 @@ if utils.is_hafnia_configured():  # First ensure you are connected to the hafnia
     dataset_recipe_again = DatasetRecipe.from_recipe_name(name="example-mnist-recipe")
 
     # Launch an experiment with the dataset recipe using the CLI:
-    # hafnia experiment create --dataset-recipe example-mnist-recipe --train-recipe-path ../recipe-classification
+    # hafnia experiment create --dataset-recipe example-mnist-recipe --trainer-path ../trainer-classification
 
     # Coming soon: Dataset recipes will be included in the web platform to them to be shared, managed
     # and used in experiments.

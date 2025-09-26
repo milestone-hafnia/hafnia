@@ -68,12 +68,12 @@
             "args": [
                 "experiment",
                 "create",
-                // "--train-recipe-path",
-                // "${workspaceFolder}/../recipe-classification",
-                //"--train-recipe-id",
+                // "--trainer-path",
+                // "${workspaceFolder}/../trainer-classification",
+                //"--trainer-id",
                 //"e47d701d-c5ed-4014-9480-434f04e9459b",
-                "--train-recipe-path",
-                "${workspaceFolder}/../recipe-classification",
+                "--trainer-path",
+                "${workspaceFolder}/../trainer-classification",
                 "--dataset",
                 "mnist",
             ]
@@ -84,7 +84,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/src/cli/__main__.py",
             "args": [
-                "train-recipe",
+                "trainer",
                 "ls"
             ]
         }

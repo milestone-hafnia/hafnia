@@ -8,7 +8,7 @@ from hafnia.utils import pretty_print_list_as_table, timed
 def create_experiment(
     experiment_name: str,
     dataset_recipe_id: str,
-    training_recipe_id: str,
+    trainer_id: str,
     exec_cmd: str,
     environment_id: str,
     endpoint: str,
@@ -20,7 +20,7 @@ def create_experiment(
         headers=headers,
         data={
             "name": experiment_name,
-            "trainer": training_recipe_id,
+            "trainer": trainer_id,
             "dataset_recipe": dataset_recipe_id,
             "command": exec_cmd,
             "environment": environment_id,

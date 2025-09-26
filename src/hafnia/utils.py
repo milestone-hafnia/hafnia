@@ -19,7 +19,7 @@ from hafnia.log import sys_logger, user_logger
 PATH_DATA = Path("./.data")
 PATH_DATASETS = PATH_DATA / "datasets"
 PATH_DATASET_RECIPES = PATH_DATA / "dataset_recipes"
-PATH_TRAINING_RECIPES = PATH_DATA / "trainers"
+PATH_TRAINER_PACKAGES = PATH_DATA / "trainers"
 FILENAME_HAFNIAIGNORE = ".hafniaignore"
 DEFAULT_IGNORE_SPECIFICATION = [
     "*.jpg",
@@ -32,7 +32,7 @@ DEFAULT_IGNORE_SPECIFICATION = [
     ".venv",
     ".vscode",
     "__pycache__",
-    "recipe.zip",
+    "trainer.zip",
     "tests",
     "wandb",
 ]
@@ -68,14 +68,14 @@ def now_as_str() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 
 
-def get_recipe_path(recipe_name: str) -> Path:
+def get_trainer_package_path(trainer_name: str) -> Path:
     now = now_as_str()
-    path_recipe = PATH_TRAINING_RECIPES / f"{recipe_name}_{now}.zip"
-    return path_recipe
+    path_trainer = PATH_TRAINER_PACKAGES / f"{trainer_name}_{now}.zip"
+    return path_trainer
 
 
-def filter_recipe_files(recipe_path: Path, path_ignore_file: Optional[Path] = None) -> Iterator:
-    path_ignore_file = path_ignore_file or recipe_path / FILENAME_HAFNIAIGNORE
+def filter_trainer_package_files(trainer_path: Path, path_ignore_file: Optional[Path] = None) -> Iterator:
+    path_ignore_file = path_ignore_file or trainer_path / FILENAME_HAFNIAIGNORE
     if not path_ignore_file.exists():
         ignore_specification_lines = DEFAULT_IGNORE_SPECIFICATION
         user_logger.info(
@@ -86,7 +86,7 @@ def filter_recipe_files(recipe_path: Path, path_ignore_file: Optional[Path] = No
     else:
         ignore_specification_lines = Path(path_ignore_file).read_text().splitlines()
     ignore_specification = pathspec.GitIgnoreSpec.from_lines(ignore_specification_lines)
-    include_files = ignore_specification.match_tree(recipe_path, negate=True)
+    include_files = ignore_specification.match_tree(trainer_path, negate=True)
     return include_files
 
 
@@ -96,17 +96,17 @@ def archive_dir(
     output_path: Optional[Path] = None,
     path_ignore_file: Optional[Path] = None,
 ) -> Path:
-    recipe_zip_path = output_path or recipe_path / "recipe.zip"
+    recipe_zip_path = output_path or recipe_path / "trainer.zip"
     assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
     recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
     user_logger.info(f" Creating zip archive of '{recipe_path}'")
-    include_files = filter_recipe_files(recipe_path, path_ignore_file)
+    include_files = filter_trainer_package_files(recipe_path, path_ignore_file)
     with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
         for str_filepath in include_files:
             full_path = recipe_path / str_filepath
             zip_ref.write(full_path, str_filepath)
-    show_recipe_content(recipe_zip_path)
+    show_trainer_package_content(recipe_zip_path)
 
     return recipe_zip_path
 
@@ -120,7 +120,7 @@ def size_human_readable(size_bytes: int, suffix="B") -> str:
     return f"{size_value:.1f}Yi{suffix}"
 
 
-def show_recipe_content(recipe_path: Path, style: str = "emoji", depth_limit: int = 3) -> None:
+def show_trainer_package_content(recipe_path: Path, style: str = "emoji", depth_limit: int = 3) -> None:
     def scan(parent: seedir.FakeDir, path: zipfile.Path, depth: int = 0) -> None:
         if depth >= depth_limit:
             return

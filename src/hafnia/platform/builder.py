@@ -14,26 +14,28 @@ from hafnia.log import sys_logger, user_logger
 from hafnia.platform import download_resource
 
 
-def validate_recipe_format(path: Path) -> None:
-    """Validate Hafnia Recipe Format submition"""
+def validate_trainer_package_format(path: Path) -> None:
+    """Validate Hafnia Trainer Package Format submission"""
     hrf = zipfile.Path(path) if path.suffix == ".zip" else path
     required = {"src", "scripts", "Dockerfile"}
     errors = 0
     for rp in required:
         if not (hrf / rp).exists():
-            user_logger.error(f"Required path {rp} not found in recipe.")
+            user_logger.error(f"Required path {rp} not found in trainer package.")
             errors += 1
     if errors > 0:
-        raise FileNotFoundError("Wrong recipe structure")
+        raise FileNotFoundError("Wrong trainer package structure")
 
 
-def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str, state_file: Optional[Path] = None) -> Dict:
-    resource = download_resource(recipe_url, output_dir.as_posix(), api_key)
-    recipe_path = Path(resource["downloaded_files"][0])
-    with zipfile.ZipFile(recipe_path, "r") as zip_ref:
+def prepare_trainer_package(
+    trainer_url: str, output_dir: Path, api_key: str, state_file: Optional[Path] = None
+) -> Dict:
+    resource = download_resource(trainer_url, output_dir.as_posix(), api_key)
+    trainer_path = Path(resource["downloaded_files"][0])
+    with zipfile.ZipFile(trainer_path, "r") as zip_ref:
         zip_ref.extractall(output_dir)
 
-    validate_recipe_format(output_dir)
+    validate_trainer_package_format(output_dir)
 
     scripts_dir = output_dir / "scripts"
     if not any(scripts_dir.iterdir()):
@@ -42,7 +44,7 @@ def prepare_recipe(recipe_url: str, output_dir: Path, api_key: str, state_file: 
     metadata = {
         "user_data": (output_dir / "src").as_posix(),
         "dockerfile": (output_dir / "Dockerfile").as_posix(),
-        "digest": sha256(recipe_path.read_bytes()).hexdigest()[:8],
+        "digest": sha256(trainer_path.read_bytes()).hexdigest()[:8],
     }
     state_file = state_file if state_file else output_dir / "state.json"
     with open(state_file, "w", encoding="utf-8") as f:

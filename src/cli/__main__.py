@@ -2,7 +2,15 @@
 import click
 
 import hafnia
-from cli import consts, dataset_cmds, dataset_recipe_cmds, experiment_cmds, profile_cmds, runc_cmds, train_recipe_cmds
+from cli import (
+    consts,
+    dataset_cmds,
+    dataset_recipe_cmds,
+    experiment_cmds,
+    profile_cmds,
+    runc_cmds,
+    trainer_package_cmds,
+)
 from cli.config import Config, ConfigSchema
 
 
@@ -47,7 +55,7 @@ main.add_command(profile_cmds.profile)
 main.add_command(dataset_cmds.dataset)
 main.add_command(runc_cmds.runc)
 main.add_command(experiment_cmds.experiment)
-main.add_command(train_recipe_cmds.training_recipe)
+main.add_command(trainer_package_cmds.trainer_package)
 main.add_command(dataset_recipe_cmds.dataset_recipe)
 
 if __name__ == "__main__":

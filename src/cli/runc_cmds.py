@@ -13,7 +13,7 @@ from hafnia.log import sys_logger, user_logger
 
 @click.group(name="runc")
 def runc():
-    """Creating and running training recipes locally"""
+    """Creating and running trainer packages locally"""
     pass
 
 
@@ -90,10 +90,10 @@ def launch_local(cfg: Config, exec_cmd: str, dataset: str, image_name: str) -> N
 @click.pass_obj
 def build(cfg: Config, recipe_url: str, state_file: str, repo: str) -> None:
     """Build docker image with a given recipe."""
-    from hafnia.platform.builder import build_image, prepare_recipe
+    from hafnia.platform.builder import build_image, prepare_trainer_package
 
     with TemporaryDirectory() as temp_dir:
-        metadata = prepare_recipe(recipe_url, Path(temp_dir), cfg.api_key)
+        metadata = prepare_trainer_package(recipe_url, Path(temp_dir), cfg.api_key)
         build_image(metadata, repo, state_file=state_file)
 
 
@@ -109,7 +109,7 @@ def build_local(recipe: Path, state_file: str, repo: str) -> None:
     import seedir
 
     from hafnia.platform.builder import build_image
-    from hafnia.utils import filter_recipe_files
+    from hafnia.utils import filter_trainer_package_files
 
     recipe = Path(recipe)
 
@@ -123,7 +123,7 @@ def build_local(recipe: Path, state_file: str, repo: str) -> None:
             with zipfile.ZipFile(recipe.as_posix(), "r") as zip_ref:
                 zip_ref.extractall(recipe_dir)
         elif recipe.is_dir():
-            for rf in filter_recipe_files(recipe):
+            for rf in filter_trainer_package_files(recipe):
                 src_path = (recipe / rf).absolute()
                 target_path = recipe_dir / rf
                 target_path.parent.mkdir(parents=True, exist_ok=True)

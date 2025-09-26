@@ -1,12 +1,12 @@
 # Hafnia
 
-The `hafnia` python package is a collection of tools to create and run model training recipes on
+The `hafnia` python sdk and cli is a collection of tools to create and run model trainer packages on
 the [Hafnia Platform](https://hafnia.milestonesys.com/). 
 
 The package includes the following interfaces: 
 
 - `cli`: A Command Line Interface (CLI) to 1) configure/connect to Hafnia's [Training-aaS](https://hafnia.readme.io/docs/training-as-a-service) and 2) create and 
-launch recipe scripts.
+launch trainer packages.
 - `hafnia`: A python package including `HafniaDataset` to manage datasets and `HafniaLogger` to do 
 experiment tracking.
 
@@ -16,19 +16,19 @@ experiment tracking.
 and *hidden* datasets. Hidden datasets refers to datasets that can be used for 
 training, but are not available for download or direct access. 
 
-This is a key feature of the Hafnia platform, as a hidden dataset ensures data 
+This is a key for the Hafnia platform, as a hidden dataset ensures data 
 privacy, and allow models to be trained compliantly and ethically by third parties (you).
 
 The `script2model` approach is a Training-aaS concept, where you package your custom training 
-script as a *training recipe* and use the recipe to train models on the hidden datasets.
+project or script as a *trainer package* and use the package to train models on the hidden datasets.
 
-To support local development of a training recipe, we have introduced a **sample dataset** 
+To support local development of a trainer package, we have introduced a **sample dataset** 
 for each dataset available in the Hafnia [data library](https://hafnia.milestonesys.com/training-aas/datasets). The sample dataset is a small 
-and anonymized subset of the full dataset and available for download. 
+and an anonymized subset of the full dataset and available for download. 
 
 With the sample dataset, you can seamlessly switch between local development and Training-aaS. 
-Locally, you can create, validate and debug your training recipe. The recipe is then 
-launched with Training-aaS, where the recipe runs on the full dataset and can be scaled to run on
+Locally, you can create, validate and debug your trainer package. The trainer package is then 
+launched with Training-aaS, where the package runs on the full dataset and can be scaled to run on
 multiple GPUs and instances if needed. 
 
 ## Getting started: Configuration
@@ -104,11 +104,11 @@ Below is a short introduction to the `HafniaDataset` class.
 ```python
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
-# Load dataset
+# Load dataset from path
 dataset = HafniaDataset.read_from_path(path_dataset)
 
-# Alternatively, you can use 'HafniaDataset.from_name' to download and load dataset in one go.
-# dataset = HafniaDataset.from_name("midwest-vehicle-detection")
+# Or get dataset directly by name
+dataset = HafniaDataset.from_name("midwest-vehicle-detection")
 
 # Print dataset information
 dataset.print_stats()
@@ -173,6 +173,8 @@ DatasetInfo(
         'duration_average': 120.0,
         ...
     }
+    "format_version": "0.0.2",
+    "updated_at": "2025-09-24T21:50:20.231263"
 )
 ```
 
@@ -279,7 +281,7 @@ Sample(
 To learn more, we recommend the `HafniaDataset` example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py). 
 
 ### Dataset Locally vs. Training-aaS
-An important feature of `load_dataset` is that it will return the full dataset 
+An important feature of `HafniaDataset.from_name` is that it will return the full dataset 
 when loaded with Training-aaS on the Hafnia platform. 
 
 This enables seamlessly switching between running/validating a training script 
@@ -290,7 +292,7 @@ Available datasets with corresponding sample datasets can be found in [data libr
 
 
 ## Getting started: Experiment Tracking with HafniaLogger
-The `HafniaLogger` is an important part of the recipe script and enables you to track, log and
+The `HafniaLogger` is an important part of the trainer and enables you to track, log and
 reproduce your experiments.
 
 When integrated into your training script, the `HafniaLogger` is responsible for collecting:
@@ -396,25 +398,25 @@ train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=
 
 
 ## Example: Training-aaS
-By combining logging and dataset loading, we can now construct our model training recipe. 
+By combining logging and dataset loading, we can now construct our model trainer package. 
 
-To demonstrate this, we have provided a recipe project that serves as a template for creating and structuring training recipes
-[recipe-classification](https://github.com/milestone-hafnia/recipe-classification)
+To demonstrate this, we have provided a trainer package project that serves as a template for creating and structuring trainers. The example repo is called
+[trainer-classification](https://github.com/milestone-hafnia/trainer-classification)
 
-The project also contains additional information on how to structure your training recipe, use the `HafniaLogger`, the `load_dataset` function and different approach for launching 
-the training recipe on the Hafnia platform.
+The project also contains additional information on how to structure your trainer package, use the `HafniaLogger`, loading a dataset and different approach for launching 
+the trainer on the Hafnia platform.
 
 
-## Create, Build and Run `recipe.zip` locally
-In order to test recipe compatibility with Hafnia cloud use the following command to build and 
+## Create, Build and Run `trainer.zip` locally
+In order to test trainer package compatibility with Hafnia cloud use the following command to build and 
 start the job locally.
 
 ```bash
-    # Create 'recipe.zip' in the root folder of your training recipe project '../recipe/classification'
-    hafnia train-recipe create-zip ../recipe-classification
-    
-    # Build the docker image locally from a 'recipe.zip' file
-    hafnia runc build-local recipe.zip
+    # Create 'trainer.zip' in the root folder of your training trainer project '../trainer/classification'
+    hafnia trainer create-zip ../trainer-classification
+
+    # Build the docker image locally from a 'trainer.zip' file
+    hafnia runc build-local trainer.zip
 
     # Execute the docker image locally with a desired dataset
     hafnia runc launch-local --dataset mnist  "python scripts/train.py"
