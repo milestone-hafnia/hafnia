@@ -120,7 +120,7 @@ def cmd_create_experiment(
     \b
     Examples:
     # Launch an experiment with a dataset and a trainer package from local path
-    hafnia experiment create --dataset mnist --trainer-path ../recipe-classification
+    hafnia experiment create --dataset mnist --trainer-path ../trainer-classification
 
     \b
     # Launch experiment with dataset recipe by name and trainer package by id

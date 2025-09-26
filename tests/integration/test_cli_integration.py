@@ -71,7 +71,7 @@ def test_cli_integration_test():
     hafnia_cli(args=[CMD_TRAINER_PACKAGE, "--help"], standalone_mode=False)
     hafnia_cli(args=[CMD_TRAINER_PACKAGE, "ls"], standalone_mode=False)
 
-    path_trainer = (helper_testing.get_path_workspace() / ".." / "recipe-classification").absolute()
+    path_trainer = (helper_testing.get_path_workspace() / ".." / "trainer-classification").absolute()
     if path_trainer.exists():
         hafnia_cli(args=[CMD_TRAINER_PACKAGE, "create-zip", str(path_trainer)], standalone_mode=False)
         hafnia_cli(args=[CMD_TRAINER_PACKAGE, "view-zip", "--path", "recipe.zip"], standalone_mode=False)
@@ -91,7 +91,7 @@ def test_cli_integration_test():
                 "--dataset",
                 "mnist",
                 "--trainer-path",
-                "../recipe-classification",
+                "../trainer-classification",
                 "--name",
                 f"integration_test_{utils.now_as_str()}",
             ],
