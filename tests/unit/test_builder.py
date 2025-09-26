@@ -19,12 +19,12 @@ def valid_trainer_package(tmp_path: Path) -> Path:
     return zip_path
 
 
-def test_valid_recipe_structure(valid_trainer_package: Path) -> None:
+def test_valid_trainer_package_structure(valid_trainer_package: Path) -> None:
     """Test validation with a correctly structured zip file."""
     validate_trainer_package_format(valid_trainer_package)
 
 
-def test_validate_recipe_no_scripts(tmp_path: Path) -> None:
+def test_validate_trainer_package_no_scripts(tmp_path: Path) -> None:
     """Test validation fails when no Python scripts are present."""
     from zipfile import ZipFile
 
@@ -33,10 +33,8 @@ def test_validate_recipe_no_scripts(tmp_path: Path) -> None:
         zipf.writestr("src/lib/example.py", "# Example lib")
         zipf.writestr("Dockerfile", "FROM python:3.9")
 
-    with pytest.raises(FileNotFoundError) as excinfo:
+    with pytest.raises(FileNotFoundError, match="Wrong trainer package structure"):
         validate_trainer_package_format(zip_path)
-
-    assert "Wrong recipe structure" in str(excinfo.value)
 
 
 def test_invalid_trainer_package_structure(tmp_path: Path) -> None:
@@ -45,15 +43,12 @@ def test_invalid_trainer_package_structure(tmp_path: Path) -> None:
     with ZipFile(zip_path, "w") as zipf:
         zipf.writestr("README.md", "# Example readme")
 
-    with pytest.raises(FileNotFoundError) as excinfo:
+    with pytest.raises(FileNotFoundError, match="Wrong trainer package structure"):
         validate_trainer_package_format(zip_path)
 
-    error_msg = str(excinfo.value)
-    assert "Wrong recipe structure" in error_msg
 
-
-def test_successful_recipe_extraction(valid_trainer_package: Path, tmp_path: Path) -> None:
-    """Test successful recipe download and extraction."""
+def test_successful_trainer_package_extraction(valid_trainer_package: Path, tmp_path: Path) -> None:
+    """Test successful trainer package download and extraction."""
 
     from hashlib import sha256
 
