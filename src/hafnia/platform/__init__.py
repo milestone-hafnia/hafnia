@@ -10,13 +10,13 @@ from hafnia.platform.experiment import (
     get_exp_environment_id,
     pretty_print_training_environments,
 )
-from hafnia.platform.train_recipe import create_training_recipe, get_training_recipe_by_id, get_training_recipes
+from hafnia.platform.trainer_package import create_trainer_package, get_trainer_package_by_id, get_trainer_packages
 
 __all__ = [
     "get_dataset_id",
-    "create_training_recipe",
-    "get_training_recipes",
-    "get_training_recipe_by_id",
+    "create_trainer_package",
+    "get_trainer_packages",
+    "get_trainer_package_by_id",
     "get_exp_environment_id",
     "create_experiment",
     "download_resource",

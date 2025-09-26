@@ -65,16 +65,16 @@ def test_cli_integration_test():
         hafnia_cli(args=[CMD_DATASET_RECIPE, "rm"], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET_RECIPE, "rm", "-n", dataset_recipe_name], standalone_mode=False)
 
-    # Training recipe commands
-    CMD_TRAINING_RECIPE = "train-recipe"
-    hafnia_cli(args=[CMD_TRAINING_RECIPE], standalone_mode=False)
-    hafnia_cli(args=[CMD_TRAINING_RECIPE, "--help"], standalone_mode=False)
-    hafnia_cli(args=[CMD_TRAINING_RECIPE, "ls"], standalone_mode=False)
+    # Trainer package commands
+    CMD_TRAINER_PACKAGE = "trainer"
+    hafnia_cli(args=[CMD_TRAINER_PACKAGE], standalone_mode=False)
+    hafnia_cli(args=[CMD_TRAINER_PACKAGE, "--help"], standalone_mode=False)
+    hafnia_cli(args=[CMD_TRAINER_PACKAGE, "ls"], standalone_mode=False)
 
-    path_training_recipe = (helper_testing.get_path_workspace() / ".." / "recipe-classification").absolute()
-    if path_training_recipe.exists():
-        hafnia_cli(args=[CMD_TRAINING_RECIPE, "create-zip", str(path_training_recipe)], standalone_mode=False)
-        hafnia_cli(args=[CMD_TRAINING_RECIPE, "view-zip", "--path", "recipe.zip"], standalone_mode=False)
+    path_trainer = (helper_testing.get_path_workspace() / ".." / "recipe-classification").absolute()
+    if path_trainer.exists():
+        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "create-zip", str(path_trainer)], standalone_mode=False)
+        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "view-zip", "--path", "recipe.zip"], standalone_mode=False)
 
     # Experiment commands
     CMD_EXPERIMENT = "experiment"
@@ -83,14 +83,14 @@ def test_cli_integration_test():
     with pytest.raises(MissingParameter):
         hafnia_cli(args=[CMD_EXPERIMENT, "create", "--dataset", "mnist"], standalone_mode=False)
 
-    if path_training_recipe.exists():
+    if path_trainer.exists():
         hafnia_cli(
             args=[
                 CMD_EXPERIMENT,
                 "create",
                 "--dataset",
                 "mnist",
-                "--train-recipe-path",
+                "--trainer-path",
                 "../recipe-classification",
                 "--name",
                 f"integration_test_{utils.now_as_str()}",

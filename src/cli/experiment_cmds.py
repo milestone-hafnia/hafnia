@@ -10,7 +10,7 @@ from hafnia.platform.dataset_recipe import (
     get_dataset_recipe_by_name,
     get_or_create_dataset_recipe_by_dataset_name,
 )
-from hafnia.platform.train_recipe import create_training_recipe
+from hafnia.platform.trainer_package import create_trainer_package
 
 
 @click.group(name="experiment")
@@ -55,17 +55,17 @@ def default_experiment_run_name():
 )
 @click.option(
     "-p",
-    "--train-recipe-path",
+    "--trainer-path",
     type=Path,
     default=None,
-    help="Path to the training recipe directory. ",
+    help="Path to the trainer package directory. ",
 )
 @click.option(
     "-i",
-    "--train-recipe-id",
+    "--trainer-id",
     type=str,
     default=None,
-    help="ID of the training recipe. View available training recipes with 'hafnia training-recipe ls'",
+    help="ID of the trainer package. View available trainers with 'hafnia trainer ls'",
 )
 @click.option(
     "-d",
@@ -103,8 +103,8 @@ def cmd_create_experiment(
     cfg: Config,
     name: str,
     cmd: str,
-    train_recipe_path: Path,
-    train_recipe_id: Optional[str],
+    trainer_path: Path,
+    trainer_id: Optional[str],
     dataset: Optional[str],
     dataset_recipe: Optional[str],
     dataset_recipe_id: Optional[str],
@@ -113,22 +113,22 @@ def cmd_create_experiment(
     """
     Create and launch a new experiment run
 
-    Requires one dataset recipe and one training recipe:.
+    Requires one dataset recipe and one trainer package:.
         - One dataset identifier is required either '--dataset', '--dataset-recipe' or '--dataset-recipe-id'.
-        - One training recipe identifier is required either '--train-recipe-path' or '--train-recipe-id'.
+        - One trainer identifier is required either '--trainer-path' or '--trainer-id'.
 
     \b
     Examples:
-    # Launch an experiment with a dataset and a training recipe from local path
-    hafnia experiment create --dataset mnist --train-recipe-path ../recipe-classification
+    # Launch an experiment with a dataset and a trainer package from local path
+    hafnia experiment create --dataset mnist --trainer-path ../recipe-classification
 
     \b
-    # Launch experiment with dataset recipe by name and training recipe by id
-    hafnia experiment create --dataset-recipe mnist-recipe --train-recipe-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e
+    # Launch experiment with dataset recipe by name and trainer package by id
+    hafnia experiment create --dataset-recipe mnist-recipe --trainer-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e
 
     \b
     # Show available options:
-    hafnia experiment create --name "My Experiment" -d mnist --cmd "python scripts/train.py" -e "Free Tier" -p ../recipe-classification
+    hafnia experiment create --name "My Experiment" -d mnist --cmd "python scripts/train.py" -e "Free Tier" -p ../trainer-classification
     """
     from hafnia.platform import create_experiment, get_exp_environment_id
 
@@ -140,10 +140,10 @@ def cmd_create_experiment(
     )
     dataset_recipe_id = dataset_recipe_response["id"]
 
-    train_recipe_id = get_training_recipe_by_identifies(
+    trainer_id = get_trainer_package_by_identifies(
         cfg=cfg,
-        train_recipe_path=train_recipe_path,
-        train_recipe_id=train_recipe_id,
+        trainer_path=trainer_path,
+        trainer_id=trainer_id,
     )
 
     env_id = get_exp_environment_id(environment, cfg.get_platform_endpoint("experiment_environments"), cfg.api_key)
@@ -151,7 +151,7 @@ def cmd_create_experiment(
     experiment = create_experiment(
         experiment_name=name,
         dataset_recipe_id=dataset_recipe_id,
-        training_recipe_id=train_recipe_id,
+        trainer_id=trainer_id,
         exec_cmd=cmd,
         environment_id=env_id,
         endpoint=cfg.get_platform_endpoint("experiments"),
@@ -207,35 +207,37 @@ def get_dataset_recipe_by_dataset_identifies(
     )
 
 
-def get_training_recipe_by_identifies(
+def get_trainer_package_by_identifies(
     cfg: Config,
-    train_recipe_path: Optional[Path],
-    train_recipe_id: Optional[str],
+    trainer_path: Optional[Path],
+    trainer_id: Optional[str],
 ) -> str:
-    from hafnia.platform import get_training_recipe_by_id
+    from hafnia.platform import get_trainer_package_by_id
 
-    if train_recipe_path is not None and train_recipe_id is not None:
-        raise click.ClickException("Multiple training recipe identifiers have been provided. Define only one.")
+    if trainer_path is not None and trainer_id is not None:
+        raise click.ClickException(
+            "Multiple trainer identifiers (--trainer-path, --trainer-id) have been provided. Define only one."
+        )
 
-    if train_recipe_path is not None:
-        train_recipe_path = Path(train_recipe_path)
-        if not train_recipe_path.exists():
-            raise click.ClickException(f"Training recipe path '{train_recipe_path}' does not exist.")
-        recipe_id = create_training_recipe(
-            train_recipe_path,
+    if trainer_path is not None:
+        trainer_path = Path(trainer_path)
+        if not trainer_path.exists():
+            raise click.ClickException(f"Trainer package path '{trainer_path}' does not exist.")
+        trainer_id = create_trainer_package(
+            trainer_path,
             cfg.get_platform_endpoint("trainers"),
             cfg.api_key,
         )
-        return recipe_id
+        return trainer_id
 
-    if train_recipe_id:
-        train_recipe = get_training_recipe_by_id(
-            id=train_recipe_id, endpoint=cfg.get_platform_endpoint("trainers"), api_key=cfg.api_key
+    if trainer_id:
+        trainer_response = get_trainer_package_by_id(
+            id=trainer_id, endpoint=cfg.get_platform_endpoint("trainers"), api_key=cfg.api_key
         )
-        return train_recipe["id"]
+        return trainer_response["id"]
 
     raise click.MissingParameter(
-        "At least one training recipe identifier must be provided. Set one of the following:\n"
-        "  --train-recipe-path <path>  -- E.g. '--train-recipe-path .'\n"
-        "  --train-recipe-id <id>  -- E.g. '--train-recipe-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e'\n"
+        "At least one trainer identifier must be provided. Set one of the following:\n"
+        "  --trainer-path <path>  -- E.g. '--trainer-path .'\n"
+        "  --trainer-id <id>  -- E.g. '--trainer-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e'\n"
     )
