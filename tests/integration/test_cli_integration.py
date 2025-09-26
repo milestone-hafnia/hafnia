@@ -74,7 +74,7 @@ def test_cli_integration_test():
     path_trainer = (helper_testing.get_path_workspace() / ".." / "trainer-classification").absolute()
     if path_trainer.exists():
         hafnia_cli(args=[CMD_TRAINER_PACKAGE, "create-zip", str(path_trainer)], standalone_mode=False)
-        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "view-zip", "--path", "recipe.zip"], standalone_mode=False)
+        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "view-zip", "--path", "trainer.zip"], standalone_mode=False)
 
     # Experiment commands
     CMD_EXPERIMENT = "experiment"

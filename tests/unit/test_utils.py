@@ -36,17 +36,17 @@ def project_with_files_default(tmp_path: Path) -> Tuple[Path, list[str], list[st
     return path_source_code, zip_files, ignore_files
 
 
-def test_zip_recipe_no_ignore_hafnia_file(tmp_path: Path, project_with_files_default: Tuple) -> None:
-    """Test zipping a recipe using the default ignore specification."""
+def test_zip_trainer_package_no_ignore_hafnia_file(tmp_path: Path, project_with_files_default: Tuple) -> None:
+    """Test zipping a trainer package using the default ignore specification."""
     path_source_code, add_files, _ = project_with_files_default
-    path_zipped_recipe = tmp_path / "recipe.zip"
-    path_zipped_recipe = archive_dir(path_source_code, path_zipped_recipe)
-    zipped_files = ZipFile(path_zipped_recipe).namelist()
+    path_zipped_trainer = tmp_path / "trainer.zip"
+    path_zipped_trainer = archive_dir(path_source_code, path_zipped_trainer)
+    zipped_files = ZipFile(path_zipped_trainer).namelist()
     assert set(zipped_files) == set(add_files)
 
 
-def test_zip_recipe_empty_ignore_hafnia_file(tmp_path: Path, project_with_files_default) -> None:
-    """Test zipping a recipe using a custom ignore specification."""
+def test_zip_trainer_package_empty_ignore_hafnia_file(tmp_path: Path, project_with_files_default) -> None:
+    """Test zipping a trainer package using a custom ignore specification."""
     path_source_code, keep_files_, ignore_files = project_with_files_default
     keep_files = keep_files_ + ignore_files
 
@@ -55,15 +55,15 @@ def test_zip_recipe_empty_ignore_hafnia_file(tmp_path: Path, project_with_files_
     path_ignore_file.write_text("")
 
     # Automatically picks up the '.hafniaignore' file from the root of the source code
-    path_zipped_recipe = tmp_path / "recipe.zip"
-    path_zipped_recipe = archive_dir(path_source_code, path_zipped_recipe, path_ignore_file=path_ignore_file)
+    path_zipped_trainer = tmp_path / "trainer.zip"
+    path_zipped_trainer = archive_dir(path_source_code, path_zipped_trainer, path_ignore_file=path_ignore_file)
 
-    zipped_files = ZipFile(path_zipped_recipe).namelist()
+    zipped_files = ZipFile(path_zipped_trainer).namelist()
     assert set(zipped_files) == set(keep_files + ignore_files)
 
 
-def test_zip_recipe_custom_ignore_hafnia_file(tmp_path: Path, project_with_files_default) -> None:
-    """Test zipping a recipe using a custom ignore specification."""
+def test_zip_trainer_package_custom_ignore_hafnia_file(tmp_path: Path, project_with_files_default) -> None:
+    """Test zipping a trainer package using a custom ignore specification."""
 
     path_source_code, keep_files, ignore_files = project_with_files_default
     all_files = keep_files + ignore_files
@@ -71,14 +71,14 @@ def test_zip_recipe_custom_ignore_hafnia_file(tmp_path: Path, project_with_files
     # Create a .hafniaignore file that ignores all files/folders starting with '.'
     # (e.g., .venv, .git, etc.)
     ignore_patterns = [".*"]
-    expected_in_recipe_files = [file for file in all_files if not file.startswith(".")]
+    expected_in_trainer_files = [file for file in all_files if not file.startswith(".")]
 
     # Place the ignore file in the source code root directory
     path_ignore_file1 = path_source_code / FILENAME_HAFNIAIGNORE
     path_ignore_file1.write_text("\n".join(ignore_patterns))
 
     # Automatically picks up the '.hafniaignore' file from the root of the source code
-    path_zipped_recipe1 = tmp_path / "recipe.zip"
-    path_zipped_recipe1 = archive_dir(path_source_code, path_zipped_recipe1)
-    zipped_files1 = ZipFile(path_zipped_recipe1).namelist()
-    assert set(expected_in_recipe_files) == set(zipped_files1)
+    path_zipped_trainer1 = tmp_path / "trainer.zip"
+    path_zipped_trainer1 = archive_dir(path_source_code, path_zipped_trainer1)
+    zipped_files1 = ZipFile(path_zipped_trainer1).namelist()
+    assert set(expected_in_trainer_files) == set(zipped_files1)

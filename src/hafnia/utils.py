@@ -32,7 +32,7 @@ DEFAULT_IGNORE_SPECIFICATION = [
     ".venv",
     ".vscode",
     "__pycache__",
-    "recipe.zip",
+    "trainer.zip",
     "tests",
     "wandb",
 ]
@@ -96,7 +96,7 @@ def archive_dir(
     output_path: Optional[Path] = None,
     path_ignore_file: Optional[Path] = None,
 ) -> Path:
-    recipe_zip_path = output_path or recipe_path / "recipe.zip"
+    recipe_zip_path = output_path or recipe_path / "trainer.zip"
     assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
     recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
