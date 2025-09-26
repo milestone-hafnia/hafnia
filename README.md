@@ -24,7 +24,7 @@ project or script as a *trainer package* and use the package to train models on 
 
 To support local development of a trainer package, we have introduced a **sample dataset** 
 for each dataset available in the Hafnia [data library](https://hafnia.milestonesys.com/training-aas/datasets). The sample dataset is a small 
-and anonymized subset of the full dataset and available for download. 
+and an anonymized subset of the full dataset and available for download. 
 
 With the sample dataset, you can seamlessly switch between local development and Training-aaS. 
 Locally, you can create, validate and debug your trainer package. The trainer package is then 
