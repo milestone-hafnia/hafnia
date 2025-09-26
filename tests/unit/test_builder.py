@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from hafnia.platform.builder import check_registry, validate_recipe_format
+from hafnia.platform.builder import check_registry, validate_trainer_package_format
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def valid_trainer_package(tmp_path: Path) -> Path:
 
 def test_valid_recipe_structure(valid_trainer_package: Path) -> None:
     """Test validation with a correctly structured zip file."""
-    validate_recipe_format(valid_trainer_package)
+    validate_trainer_package_format(valid_trainer_package)
 
 
 def test_validate_recipe_no_scripts(tmp_path: Path) -> None:
@@ -34,7 +34,7 @@ def test_validate_recipe_no_scripts(tmp_path: Path) -> None:
         zipf.writestr("Dockerfile", "FROM python:3.9")
 
     with pytest.raises(FileNotFoundError) as excinfo:
-        validate_recipe_format(zip_path)
+        validate_trainer_package_format(zip_path)
 
     assert "Wrong recipe structure" in str(excinfo.value)
 
@@ -46,7 +46,7 @@ def test_invalid_trainer_package_structure(tmp_path: Path) -> None:
         zipf.writestr("README.md", "# Example readme")
 
     with pytest.raises(FileNotFoundError) as excinfo:
-        validate_recipe_format(zip_path)
+        validate_trainer_package_format(zip_path)
 
     error_msg = str(excinfo.value)
     assert "Wrong recipe structure" in error_msg
@@ -57,7 +57,7 @@ def test_successful_recipe_extraction(valid_trainer_package: Path, tmp_path: Pat
 
     from hashlib import sha256
 
-    from hafnia.platform.builder import prepare_recipe
+    from hafnia.platform.builder import prepare_trainer_package
 
     state_file = "state.json"
     expected_hash = sha256(valid_trainer_package.read_bytes()).hexdigest()[:8]
@@ -66,7 +66,7 @@ def test_successful_recipe_extraction(valid_trainer_package: Path, tmp_path: Pat
         mock_download = MagicMock(return_value={"status": "success", "downloaded_files": [valid_trainer_package]})
 
         mp.setattr("hafnia.platform.builder.download_resource", mock_download)
-        result = prepare_recipe("s3://bucket/trainer.zip", tmp_path, "api-key-123", Path(state_file))
+        result = prepare_trainer_package("s3://bucket/trainer.zip", tmp_path, "api-key-123", Path(state_file))
         mock_download.assert_called_once_with("s3://bucket/trainer.zip", tmp_path.as_posix(), "api-key-123")
 
         assert result["digest"] == expected_hash
