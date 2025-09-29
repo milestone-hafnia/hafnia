@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from random import Random
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import more_itertools
 import numpy as np
@@ -607,7 +607,7 @@ class HafniaDataset:
 
     def class_mapper(
         dataset: "HafniaDataset",
-        class_mapping: Dict[str, str],
+        class_mapping: Union[Dict[str, str], List[Tuple[str, str]]],
         method: str = "strict",
         primitive: Optional[Type[Primitive]] = None,
         task_name: Optional[str] = None,

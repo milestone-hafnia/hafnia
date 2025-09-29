@@ -1,4 +1,6 @@
-from typing import Callable, Dict, List, Optional, Type, Union
+from typing import Callable, Dict, List, Optional, Tuple, Type, Union
+
+from pydantic import field_validator
 
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -52,10 +54,19 @@ class DefineSampleSetBySize(RecipeTransform):
 
 
 class ClassMapper(RecipeTransform):
-    class_mapping: Dict[str, str]
+    class_mapping: Union[Dict[str, str], List[Tuple[str, str]]]
     method: str = "strict"
     primitive: Optional[Type[Primitive]] = None
     task_name: Optional[str] = None
+
+    @field_validator("class_mapping", mode="after")
+    @classmethod
+    def serialize_class_mapping(cls, value: Union[Dict[str, str], List[Tuple[str, str]]]) -> List[Tuple[str, str]]:
+        # When stored as a recipe, dictionaries are always converted to a list of tuples
+        # to preserve order in json even when stored in a postgres (jsonb) field.
+        if isinstance(value, dict):
+            value = list(value.items())
+        return value
 
     @staticmethod
     def get_function() -> Callable[..., "HafniaDataset"]:

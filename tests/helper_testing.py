@@ -1,7 +1,7 @@
 from inspect import getmembers, isfunction, signature
 from pathlib import Path
 from types import FunctionType
-from typing import Any, Callable, Dict, Union, get_origin
+from typing import Any, Callable, Dict, List, Tuple, Union, get_origin
 
 import hafnia
 from hafnia.dataset import primitives
@@ -186,3 +186,7 @@ def get_strict_class_mapping_mnist() -> Dict[str, str]:
         "9 - nine": "__REMOVE__",  # Remove all samples with class "9 - nine"
     }
     return strict_class_mapping
+
+
+def dict_as_list_of_tuples(mapping: Dict[str, str]) -> List[Tuple[str, str]]:
+    return [(key, value) for key, value in mapping.items()]
