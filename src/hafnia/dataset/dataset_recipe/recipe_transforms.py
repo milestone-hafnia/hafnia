@@ -62,8 +62,13 @@ class ClassMapper(RecipeTransform):
     @field_validator("class_mapping", mode="after")
     @classmethod
     def serialize_class_mapping(cls, value: Union[Dict[str, str], List[Tuple[str, str]]]) -> List[Tuple[str, str]]:
-        # When stored as a recipe, dictionaries are always converted to a list of tuples
-        # to preserve order in json even when stored in a postgres (jsonb) field.
+        # Converts the dictionary class mapping to a list of tuples
+        #  e.g. {"old_class": "new_class", } --> [("old_class", "new_class")]
+        # The reason is that storing class mappings as a dictionary does not preserve order of json fields
+        # when stored in a database as a jsonb field (postgres).
+        # Preserving order of class mapping fields is important as it defines the indices of the classes.
+        # So to ensure that class indices are maintained, we preserve order of json fields, by converting the
+        # dictionary to a list of tuples.
         if isinstance(value, dict):
             value = list(value.items())
         return value
