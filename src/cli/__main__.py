@@ -24,8 +24,11 @@ def main(ctx: click.Context) -> None:
 
 
 @main.command("configure")
+@click.option(
+    "--use-keychain", is_flag=True, help="Store API key in system keychain instead of config file", default=False
+)
 @click.pass_obj
-def configure(cfg: Config) -> None:
+def configure(cfg: Config, use_keychain: bool) -> None:
     """Configure Hafnia CLI settings."""
 
     profile_name = click.prompt("Profile Name", type=str, default=consts.DEFAULT_PROFILE_NAME)
@@ -37,8 +40,12 @@ def configure(cfg: Config) -> None:
 
     platform_url = click.prompt("Hafnia Platform URL", type=str, default=consts.DEFAULT_API_URL)
 
-    cfg_profile = ConfigSchema(api_key=api_key, platform_url=platform_url)
+    # Create profile without api_key if using keychain (will be stored via setter)
+    cfg_profile = ConfigSchema(platform_url=platform_url, use_keychain=use_keychain)
     cfg.add_profile(profile_name, cfg_profile, set_active=True)
+
+    # Use the api_key setter to properly store in keychain or config
+    cfg.api_key = api_key
     cfg.save_config()
     profile_cmds.profile_show(cfg)
 

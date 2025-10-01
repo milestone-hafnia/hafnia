@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, field_validator
 
 import cli.consts as consts
+import cli.keychain as keychain
 from hafnia.log import sys_logger, user_logger
 
 PLATFORM_API_MAPPING = {
@@ -22,6 +23,7 @@ PLATFORM_API_MAPPING = {
 class ConfigSchema(BaseModel):
     platform_url: str = ""
     api_key: Optional[str] = None
+    use_keychain: bool = False
 
     @field_validator("api_key")
     def validate_api_key(cls, value: Optional[str]) -> Optional[str]:
@@ -70,13 +72,32 @@ class Config:
 
     @property
     def api_key(self) -> str:
+        # Check keychain first if enabled
+        if self.config.use_keychain:
+            keychain_key = keychain.get_api_key(self.active_profile)
+            if keychain_key is not None:
+                return keychain_key
+
+        # Fall back to config file
         if self.config.api_key is not None:
             return self.config.api_key
+
         raise ValueError(consts.ERROR_API_KEY_NOT_SET)
 
     @api_key.setter
     def api_key(self, value: str) -> None:
-        self.config.api_key = value
+        # Store in keychain if enabled
+        if self.config.use_keychain:
+            if keychain.store_api_key(self.active_profile, value):
+                # Successfully stored in keychain, don't store in config
+                self.config.api_key = None
+            else:
+                # Keychain storage failed, fall back to config file
+                sys_logger.warning("Failed to store in keychain, falling back to config file")
+                self.config.api_key = value
+        else:
+            # Not using keychain, store in config file
+            self.config.api_key = value
 
     @property
     def platform_url(self) -> str:
@@ -152,8 +173,16 @@ class Config:
             raise ValueError("Failed to parse configuration file")
 
     def save_config(self) -> None:
+        # Create a copy to avoid modifying the original data
+        config_to_save = self.config_data.model_dump()
+
+        # Don't write api_key to file if using keychain
+        for profile_name, profile_data in config_to_save["profiles"].items():
+            if profile_data.get("use_keychain", False):
+                profile_data["api_key"] = None
+
         with open(self.config_path, "w") as f:
-            json.dump(self.config_data.model_dump(), f, indent=4)
+            json.dump(config_to_save, f, indent=4)
 
     def remove_profile(self, profile_name: str) -> None:
         if profile_name not in self.config_data.profiles:
