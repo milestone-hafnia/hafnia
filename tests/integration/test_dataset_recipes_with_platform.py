@@ -2,6 +2,7 @@ import pytest
 import urllib3
 
 from cli.config import Config
+from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
 )
@@ -11,7 +12,6 @@ from hafnia.platform.dataset_recipe import (
     get_dataset_recipe_by_id,
 )
 from hafnia.utils import is_hafnia_configured
-from tests.helper_testing import get_dummy_recipe
 
 
 def test_dataset_recipe_on_platform():
@@ -25,7 +25,33 @@ def test_dataset_recipe_on_platform():
     # Ensure dataset recipe is deleted before test
     delete_dataset_recipe_by_name(name=dataset_recipe_name, endpoint=endpoint, api_key=cfg.api_key)
 
-    dataset_recipe = get_dummy_recipe()
+    mappings_coco = {
+        "person": "Person",
+        "bicycle": "Vehicle",
+        "car": "Vehicle",
+        "motorcycle": "Vehicle",
+        "bus": "Vehicle",
+        "train": "Vehicle",
+        "truck": "Vehicle",
+    }
+    mapping_midwest = {
+        "Person": "Person",
+        "Vehicle.*": "Vehicle",
+        "Vehicle.Trailer": OPS_REMOVE_CLASS,
+    }
+
+    # Recreate as recipe
+    dataset_recipe = DatasetRecipe.from_merger(
+        recipes=[
+            DatasetRecipe.from_name(name="midwest-vehicle-detection-tiny").class_mapper(
+                class_mapping=mapping_midwest, task_name="bboxes"
+            ),
+            DatasetRecipe.from_name(name="coco-2017-tiny").class_mapper(
+                class_mapping=mappings_coco, method="remove_undefined", task_name="bboxes"
+            ),
+        ]
+    )
+
     # Test case1: Upload and return dataset recipe on platform
     response = dataset_recipe.as_platform_recipe(recipe_name=dataset_recipe_name)
     dataset_recipe_again = DatasetRecipe.from_recipe_name(name=dataset_recipe_name)

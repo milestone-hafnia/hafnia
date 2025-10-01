@@ -33,7 +33,7 @@ import json
 import re
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import cv2
 import more_itertools
@@ -156,12 +156,15 @@ def get_task_info_from_task_name_and_primitive(
 
 def class_mapper(
     dataset: "HafniaDataset",
-    class_mapping: Dict[str, str],
+    class_mapping: Union[Dict[str, str], List[Tuple[str, str]]],
     method: str = "strict",
     primitive: Optional[Type[Primitive]] = None,
     task_name: Optional[str] = None,
 ) -> "HafniaDataset":
     from hafnia.dataset.hafnia_dataset import HafniaDataset
+
+    if isinstance(class_mapping, list):
+        class_mapping = dict(class_mapping)
 
     allowed_methods = ("strict", "remove_undefined", "keep_undefined")
     if method not in allowed_methods:
@@ -170,7 +173,7 @@ def class_mapper(
     task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
     current_names = task.class_names or []
 
-    # Expand wildcard mappings
+    # Expand wildcard mappings e.g. {"Vehicle.*": "Vehicle"} to {"Vehicle.Car": "Vehicle", "Vehicle.Bus": "Vehicle"}
     class_mapping = expand_class_mapping(class_mapping, current_names)
 
     non_existing_mapping_names = set(class_mapping) - set(current_names)
@@ -213,7 +216,6 @@ def class_mapper(
     if OPS_REMOVE_CLASS in new_class_names:
         # Move __REMOVE__ to the end of the list if it exists
         new_class_names.append(new_class_names.pop(new_class_names.index(OPS_REMOVE_CLASS)))
-    name_2_idx_mapping: Dict[str, int] = {name: idx for idx, name in enumerate(new_class_names)}
 
     samples = dataset.samples
     samples_updated = samples.with_columns(
@@ -230,6 +232,7 @@ def class_mapper(
     )
 
     # Update class indices too
+    name_2_idx_mapping: Dict[str, int] = {name: idx for idx, name in enumerate(new_class_names)}
     samples_updated = samples_updated.with_columns(
         pl.col(task.primitive.column_name())
         .list.eval(
@@ -354,14 +357,14 @@ def _validate_inputs_select_samples_by_class_name(
     name: Union[List[str], str],
     task_name: Optional[str] = None,
     primitive: Optional[Type[Primitive]] = None,
-) -> Tuple["TaskInfo", Set[str]]:
+) -> Tuple["TaskInfo", List[str]]:
     if isinstance(name, str):
         name = [name]
-    names = set(name)
+    names = list(name)
 
     # Check that specified names are available in at least one of the tasks
     available_names_across_tasks = set(more_itertools.flatten([t.class_names for t in dataset.info.tasks]))
-    missing_class_names_across_tasks = names - available_names_across_tasks
+    missing_class_names_across_tasks = set(names) - available_names_across_tasks
     if len(missing_class_names_across_tasks) > 0:
         raise ValueError(
             f"The specified names {list(names)} have not been found in any of the tasks. "
@@ -370,15 +373,15 @@ def _validate_inputs_select_samples_by_class_name(
 
     # Auto infer task if task_name and primitive are not provided
     if task_name is None and primitive is None:
-        tasks_with_names = [t for t in dataset.info.tasks if names.issubset(t.class_names or [])]
+        tasks_with_names = [t for t in dataset.info.tasks if set(names).issubset(t.class_names or [])]
         if len(tasks_with_names) == 0:
             raise ValueError(
-                f"The specified names {list(names)} have not been found in any of the tasks. "
+                f"The specified names {names} have not been found in any of the tasks. "
                 f"Available class names: {available_names_across_tasks}"
             )
         if len(tasks_with_names) > 1:
             raise ValueError(
-                f"Found multiple tasks containing the specified names {list(names)}. "
+                f"Found multiple tasks containing the specified names {names}. "
                 f"Specify either 'task_name' or 'primitive' to only select from one task. "
                 f"Tasks containing all provided names: {[t.name for t in tasks_with_names]}"
             )
@@ -393,7 +396,7 @@ def _validate_inputs_select_samples_by_class_name(
         )
 
     task_class_names = set(task.class_names or [])
-    missing_class_names = names - task_class_names
+    missing_class_names = set(names) - task_class_names
     if len(missing_class_names) > 0:
         raise ValueError(
             f"The specified names {list(missing_class_names)} have not been found for the '{task.name}' task. "

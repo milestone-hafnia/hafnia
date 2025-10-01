@@ -20,7 +20,8 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
 )
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from tests.helper_testing import get_micro_hafnia_dataset, get_strict_class_mapping_midwest
+from hafnia.dataset.primitives.bbox import Bbox
+from tests.helper_testing import dict_as_list_of_tuples, get_micro_hafnia_dataset, get_strict_class_mapping_midwest
 
 
 @dataclass
@@ -67,7 +68,7 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
                 primitive=None,
                 task_name=None,
             ),
-            as_python_code=f"class_mapper(class_mapping={get_strict_class_mapping_midwest()}, method='strict', primitive=None, task_name=None)",  # noqa: E501
+            as_python_code=f"class_mapper(class_mapping={dict_as_list_of_tuples(get_strict_class_mapping_midwest())}, method='strict', primitive=None, task_name=None)",  # noqa: E501
             short_name="ClassMapper",
         ),
         TestCaseRecipeTransform(
@@ -175,6 +176,39 @@ def test_sample_transformation_with_replacement():
     assert isinstance(new_dataset, HafniaDataset), "Sampled dataset is not a HafniaDataset instance"
     assert len(new_dataset) == n_samples, (
         f"Sampled dataset length {len(new_dataset)} does not match expected {n_samples}"
+    )
+
+
+def test_class_mapper_preserve_order():
+    """
+    Class mapping can be specified using either a dict or a list of tuples. When using a dict,
+    the order of the classes is not guaranteed to be preserved when serializing to json.
+
+    To handle this, the class mapping is always converted to a list of tuples during validation.
+    This test ensures that the order is preserved when using a dict as input.
+
+    And that the class mapping can be serialized and deserialized correctly.
+    """
+    class_mapping = {
+        "Person": "Person",
+        "Vehicle*": "Car",
+    }
+
+    class_mapper = ClassMapper(class_mapping=class_mapping, method="remove_undefined", primitive=Bbox, task_name=None)
+
+    # Ensure that the class mapping is serialized as a list of tuples to preserve order
+    assert isinstance(class_mapper.class_mapping, list), (
+        "Class mapping should be serialized as a list to preserve order"
+    )
+    assert class_mapper.class_mapping == list(class_mapping.items()), (
+        "Class mapping should be serialized as a list of tuples to preserve order"
+    )
+    # Recreate the class mapper from the dumped model to ensure serialization/deserialization works
+    class_mapper_recreated = ClassMapper(**class_mapper.model_dump())
+
+    # Apply the class mapper to the dataset and ensure the result is the same
+    assert class_mapper_recreated.class_mapping == class_mapper.class_mapping, (
+        "Class mapping should be the same after serialization/deserialization"
     )
 
 

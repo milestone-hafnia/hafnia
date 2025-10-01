@@ -18,7 +18,11 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import SelectSamples, Shuff
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeCreation, RecipeTransform, Serializable
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.utils import is_hafnia_configured, pascal_to_snake_case
-from tests.helper_testing import annotation_as_string, get_dummy_recipe, get_strict_class_mapping_mnist
+from tests.helper_testing import (
+    annotation_as_string,
+    get_dummy_recipe,
+    get_strict_class_mapping_mnist,
+)
 
 
 def check_signature(cls):
