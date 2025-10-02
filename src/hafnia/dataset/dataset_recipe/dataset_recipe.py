@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from pydantic import (
     field_serializer,
@@ -273,7 +273,7 @@ class DatasetRecipe(Serializable):
 
     def class_mapper(
         recipe: DatasetRecipe,
-        class_mapping: Dict[str, str],
+        class_mapping: Union[Dict[str, str], List[Tuple[str, str]]],
         method: str = "strict",
         primitive: Optional[Type[Primitive]] = None,
         task_name: Optional[str] = None,
