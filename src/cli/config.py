@@ -176,9 +176,12 @@ class Config:
         # Create a copy to avoid modifying the original data
         config_to_save = self.config_data.model_dump()
 
-        # Don't write api_key to file if using keychain
+        # Store API key in keychain if enabled, and don't write to file
         for profile_name, profile_data in config_to_save["profiles"].items():
             if profile_data.get("use_keychain", False):
+                api_key = profile_data.get("api_key")
+                if api_key:
+                    keychain.store_api_key(profile_name, api_key)
                 profile_data["api_key"] = None
 
         with open(self.config_path, "w") as f:

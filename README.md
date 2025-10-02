@@ -53,17 +53,6 @@ Copy the key and save it for later use.
     Hafnia Platform URL [https://api.mdi.milestonesys.com]:  # Press [Enter]
     ```
 
-    **Optional: Secure API Key Storage**
-
-    For enhanced security, you can store your API key in the system keychain instead of the config file:
-
-    ```bash
-    # Or use the configure command with keychain flag
-    hafnia configure --use-keychain
-
-    # Create profile with keychain storage
-    hafnia profile create YOUR_API_KEY --use-keychain
-    ```
 1. Download `mnist` from terminal to verify that your configuration is working.  
 
     ```bash
