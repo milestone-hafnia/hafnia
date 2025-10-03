@@ -37,7 +37,9 @@ def configure(cfg: Config) -> None:
 
     platform_url = click.prompt("Hafnia Platform URL", type=str, default=consts.DEFAULT_API_URL)
 
-    cfg_profile = ConfigSchema(api_key=api_key, platform_url=platform_url)
+    use_keychain = click.confirm("Store API key in system keychain?", default=False)
+
+    cfg_profile = ConfigSchema(platform_url=platform_url, api_key=api_key, use_keychain=use_keychain)
     cfg.add_profile(profile_name, cfg_profile, set_active=True)
     cfg.save_config()
     profile_cmds.profile_show(cfg)
