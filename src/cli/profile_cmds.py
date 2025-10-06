@@ -50,10 +50,13 @@ def cmd_profile_use(cfg: Config, profile_name: str) -> None:
 @click.option(
     "--activate/--no-activate", help="Activate the created profile after creation", default=True, show_default=True
 )
+@click.option(
+    "--use-keychain", is_flag=True, help="Store API key in system keychain instead of config file", default=False
+)
 @click.pass_obj
-def cmd_profile_create(cfg: Config, name: str, api_url: str, api_key: str, activate: bool) -> None:
+def cmd_profile_create(cfg: Config, name: str, api_url: str, api_key: str, activate: bool, use_keychain: bool) -> None:
     """Create a new profile."""
-    cfg_profile = ConfigSchema(platform_url=api_url, api_key=api_key)
+    cfg_profile = ConfigSchema(platform_url=api_url, api_key=api_key, use_keychain=use_keychain)
 
     cfg.add_profile(profile_name=name, profile=cfg_profile, set_active=activate)
     profile_show(cfg)

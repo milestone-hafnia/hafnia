@@ -52,6 +52,7 @@ Copy the key and save it for later use.
     Hafnia API Key:  # Pass your HAFNIA API key
     Hafnia Platform URL [https://api.mdi.milestonesys.com]:  # Press [Enter]
     ```
+
 1. Download `mnist` from terminal to verify that your configuration is working.  
 
     ```bash
