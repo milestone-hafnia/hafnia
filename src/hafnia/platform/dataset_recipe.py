@@ -11,12 +11,17 @@ from hafnia.utils import pretty_print_list_as_table, timed
 
 @timed("Get or create dataset recipe")
 def get_or_create_dataset_recipe(
-    recipe: dict, endpoint: str, api_key: str, name: Optional[str] = None
+    recipe: dict,
+    endpoint: str,
+    api_key: str,
+    name: Optional[str] = None,
+    overwrite: bool = False,
 ) -> Optional[Dict]:
     headers = {"Authorization": api_key}
-    data = {"template": {"body": recipe}}
+    data = {"template": {"body": recipe}, "overwrite": overwrite}
     if name is not None:
         data["name"] = name  # type: ignore[assignment]
+
     response = http.post(endpoint, headers=headers, data=data)
     return response
 

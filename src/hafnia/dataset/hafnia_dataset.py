@@ -44,9 +44,17 @@ from hafnia.log import user_logger
 
 
 class TaskInfo(BaseModel):
-    primitive: Type[Primitive]  # Primitive class or string name of the primitive, e.g. "Bbox" or "bitmask"
-    class_names: Optional[List[str]]  # Class names for the tasks. To get consistent class indices specify class_names.
-    name: Optional[str] = None  # Use 'None' to use default name Bbox ->"bboxes", Bitmask -> "bitmasks" etc.
+    primitive: Type[Primitive] = Field(
+        description="Primitive class or string name of the primitive, e.g. 'Bbox' or 'bitmask'"
+    )
+    class_names: Optional[List[str]] = Field(default=None, description="Optional list of class names for the primitive")
+    name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional name for the task. 'None' will use default name of the provided primitive. "
+            "e.g. Bbox ->'bboxes', Bitmask -> 'bitmasks' etc."
+        ),
+    )
 
     def model_post_init(self, __context: Any) -> None:
         if self.name is None:
@@ -99,13 +107,19 @@ class TaskInfo(BaseModel):
 
 
 class DatasetInfo(BaseModel):
-    dataset_name: str
-    version: str  # Dataset version. This is not the same as the Hafnia dataset format version.
-    tasks: List[TaskInfo]
-    distributions: Optional[List[TaskInfo]] = None  # Distributions. TODO: FIX/REMOVE/CHANGE this
-    meta: Optional[Dict[str, Any]] = None  # Metadata about the dataset, e.g. description, etc.
-    format_version: str = hafnia.__dataset_format_version__  # Version of the Hafnia dataset format
-    updated_at: datetime = datetime.now()
+    dataset_name: str = Field(description="Name of the dataset, e.g. 'coco'")
+    version: str = Field(description="Version of the dataset")
+    tasks: List[TaskInfo] = Field(description="List of tasks in the dataset")
+    distributions: Optional[List[TaskInfo]] = Field(default=None, description="Optional list of task distributions")
+    meta: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the dataset")
+    format_version: str = Field(
+        default=hafnia.__dataset_format_version__,
+        description="Version of the Hafnia dataset format. You should not set this manually.",
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        description="Timestamp of the last update to the dataset info. You should not set this manually.",
+    )
 
     @field_validator("tasks", mode="after")
     @classmethod
@@ -258,22 +272,28 @@ class DatasetInfo(BaseModel):
 
 
 class Sample(BaseModel):
-    file_name: str
-    height: int
-    width: int
-    split: str  # Split name, e.g., "train", "val", "test"
-    tags: List[str] = []  # tags for a given sample. Used for creating subsets of the dataset.
-    collection_index: Optional[int] = None  # Optional e.g. frame number for video datasets
-    collection_id: Optional[str] = None  # Optional e.g. video name for video datasets
-    remote_path: Optional[str] = None  # Optional remote path for the image, if applicable
-    sample_index: Optional[int] = None  # Don't manually set this, it is used for indexing samples in the dataset.
-    classifications: Optional[List[Classification]] = None  # Optional classification primitive
-    objects: Optional[List[Bbox]] = None  # List of coordinate primitives, e.g., Bbox, Bitmask, etc.
-    bitmasks: Optional[List[Bitmask]] = None  # List of bitmasks, if applicable
-    polygons: Optional[List[Polygon]] = None  # List of polygons, if applicable
+    file_name: str = Field(description="Path to the image file")
+    height: int = Field(description="Height of the image")
+    width: int = Field(description="Width of the image")
+    split: str = Field(description="Split name, e.g., 'train', 'val', 'test'")
+    tags: List[str] = Field(
+        default_factory=list, description="Tags for a given sample. Used for creating subsets of the dataset."
+    )
+    collection_index: Optional[int] = Field(default=None, description="Optional e.g. frame number for video datasets")
+    collection_id: Optional[str] = Field(default=None, description="Optional e.g. video name for video datasets")
+    remote_path: Optional[str] = Field(default=None, description="Optional remote path for the image, if applicable")
+    sample_index: Optional[int] = Field(
+        default=None, description="Don't manually set this, it is used for indexing samples in the dataset."
+    )
+    classifications: Optional[List[Classification]] = Field(
+        default=None, description="Optional list of classifications"
+    )
+    objects: Optional[List[Bbox]] = Field(default=None, description="Optional list of objects (bounding boxes)")
+    bitmasks: Optional[List[Bitmask]] = Field(default=None, description="Optional list of bitmasks")
+    polygons: Optional[List[Polygon]] = Field(default=None, description="Optional list of polygons")
 
-    attribution: Optional[Attribution] = None  # Attribution information for the image
-    meta: Optional[Dict] = None  # Additional metadata, e.g., camera settings, GPS data, etc.
+    attribution: Optional[Attribution] = Field(default=None, description="Attribution information for the image")
+    meta: Optional[Dict] = Field(default=None, description="Additional metadata, e.g., camera settings, GPS data, etc.")
 
     def get_annotations(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
         """
@@ -772,17 +792,23 @@ class HafniaDataset:
     def copy(self) -> "HafniaDataset":
         return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
 
-    def write(self, path_folder: Path, add_version: bool = False, drop_null_cols: bool = True) -> None:
+    def write(
+        self, path_folder: Path, add_version: bool = False, drop_null_cols: bool = True, skip_hashing=False
+    ) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         if not path_folder.exists():
             path_folder.mkdir(parents=True)
 
         new_relative_paths = []
         for org_path in tqdm(self.samples["file_name"].to_list(), desc="- Copy images"):
-            new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
-                path_source=Path(org_path),
-                path_dataset_root=path_folder,
-            )
+            if skip_hashing:
+                new_path = Path(shutil.copy2(Path(org_path), path_folder))
+
+            else:
+                new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
+                    path_source=Path(org_path),
+                    path_dataset_root=path_folder,
+                )
             new_relative_paths.append(str(new_path.relative_to(path_folder)))
         table = self.samples.with_columns(pl.Series(new_relative_paths).alias("file_name"))
 

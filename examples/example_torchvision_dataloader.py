@@ -7,12 +7,12 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import v2
 
 from hafnia import torch_helpers
-from hafnia.data import load_dataset
+from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 if __name__ == "__main__":
     torch.manual_seed(1)
     # Load Hugging Face dataset
-    dataset = load_dataset("midwest-vehicle-detection")
+    dataset = HafniaDataset.from_name("midwest-vehicle-detection")
 
     # Define transforms
     train_transforms = v2.Compose(

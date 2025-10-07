@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import tempfile
+import textwrap
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
@@ -222,7 +225,7 @@ class DatasetRecipe(Serializable):
         """Serialize the dataset recipe to a dictionary."""
         return self.model_dump(mode="json")
 
-    def as_platform_recipe(self, recipe_name: Optional[str]) -> Dict:
+    def as_platform_recipe(self, recipe_name: Optional[str], overwrite: bool = False) -> Dict:
         """Uploads dataset recipe to the hafnia platform."""
         from cli.config import Config
         from hafnia.platform.dataset_recipe import get_or_create_dataset_recipe
@@ -235,6 +238,7 @@ class DatasetRecipe(Serializable):
             endpoint=endpoint_dataset,
             api_key=cfg.api_key,
             name=recipe_name,
+            overwrite=overwrite,
         )
 
         return recipe_dict
@@ -469,3 +473,196 @@ def extract_dataset_names_from_json_dict(data: dict) -> list[str]:
             dataset_name.extend(extract_dataset_names_from_json_dict(recipe))
         return dataset_name
     return []
+
+
+def format_python_code(code_str: str, as_example_code: bool = True, recipe_name: str = "my-recipe") -> str:
+    """
+    Format python code using 'ruff' code formatter. Use for formatting
+    very long code strings, e.g. generated with 'DatasetRecipe.as_python_code()'
+    to a more readable multi-line format.
+
+
+    If 'as_example_code' is True, the code will be wrapped in an example script
+    with necessary imports.
+
+    Note: This function requires 'ruff' to be installed and available in the system PATH.
+
+
+    Example: Converts very long one-liner code ('code_str) to multi-line formatted code (here as_example_code=True):
+    >>> code_str = "DatasetRecipe.from_name(name='mnist').select_samples(n_samples=30).splits_by_ratios(split_ratios={'train': 0.8, 'test': 0.2}).split_into_multiple_splits(split_name='test', split_ratios={'val': 0.5, 'test': 0.5}).define_sample_set_by_size(n_samples=10)"
+    >>> formatted_code = format_python_code(code_str, as_example_code=True)
+    >>> print(formatted_code)
+
+        from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
+
+        recipe = (
+            DatasetRecipe.from_name(name="mnist")
+            .select_samples(n_samples=30)
+            .splits_by_ratios(split_ratios={"train": 0.8, "test": 0.2})
+            .split_into_multiple_splits(split_name="test", split_ratios={"val": 0.5, "test": 0.5})
+            .define_sample_set_by_size(n_samples=10)
+        )
+
+        # To save the recipe as a platform dataset recipe, uncomment the line below:
+        # recipe.as_platform_recipe("my-recipe")
+
+    """
+    if as_example_code:
+        code_str = textwrap.dedent(f"""
+        from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
+
+        recipe = {code_str}
+
+        # To save the recipe as a platform dataset recipe, uncomment the line below:
+        # recipe.as_platform_recipe("{recipe_name}")
+        """)
+
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py") as f:
+            path_tmp_file = Path(f.name)
+            path_tmp_file.write_text(code_str)
+            subprocess.run(
+                ["ruff", "format", str(path_tmp_file)],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=2,
+            )
+            formatted_code = path_tmp_file.read_text()
+
+    except Exception:
+        print("Failed to format code with ruff")
+        raise  # Re-raise the exception after logging
+
+    return formatted_code
+
+
+def convert_json_recipe_to_python(json_str: str) -> str:
+    """Parse a JSON string into formatted Python code.
+
+    This function converts a JSON representation of a DatasetRecipe into a Python code string with no
+    dependencies.
+
+    This is useful for generating python code that can be run independently of the Hafnia library. The
+    parsing should be equivalent to the 'recipe.as_python_code()' method, but without the need for Hafnia to be
+    installed.
+
+    >>> recipe = DatasetRecipe.from_name(name='mnist').shuffle(seed=42)
+    >>> # Derive python code using Hafnia package
+    >>> python_code_str = recipe.as_python_code(keep_default_fields=True, as_kwargs=True)
+    >>>
+    >>> # Derive python code using JSON parsing (no dependencies)
+    >>> json_str = recipe.as_json_str()
+    >>> python_code_from_json_str = parse_json_recipe_to_python(json_str=json_str)
+    >>> assert python_code_str == python_code_from_json_str
+    """
+    import json
+
+    def _pascal_to_snake_case(pascal_str: str) -> str:
+        """Convert PascalCase to snake_case."""
+        result = ""
+        for i, char in enumerate(pascal_str):
+            if char.isupper() and i > 0:
+                result += "_"
+            result += char.lower()
+        return result
+
+    def _parse_argument_value(key: str, value: Any) -> str:
+        """Parse argument value based on the argument name and type."""
+        # Handle recipes list (for FromMerger)
+        if key == "recipes" and isinstance(value, list):
+            recipes = [_parse_recipe(recipe_dict) for recipe_dict in value]
+            return "[" + ", ".join(recipes) + "]"
+
+        # Handle class_mapping-argument specifically
+        if key == "class_mapping" and isinstance(value, list):
+            # Json doesn't have, so we need to convert list of lists to list of tuples
+            # e.g. [["old_class", "new_class"], ] --> [("old_class", "new_class"), ]
+            items = [f"('{k}', '{v}')" for k, v in value]
+            return "[" + ", ".join(items) + "]"
+
+        # Handle recipe arguments (recursive parsing)
+        if "recipe" in key.lower() and isinstance(value, dict):
+            return _parse_recipe(value)
+
+        # Handle path arguments
+        if "path" in key.lower() and isinstance(value, str):
+            return f"PosixPath('{value}')"
+
+        # Handle regular values
+        return _parse_value(value)
+
+    def _parse_value(value):
+        """Convert Python values to their string representation."""
+        if isinstance(value, str):
+            return f"'{value}'"
+        elif isinstance(value, bool):
+            return str(value)
+        elif isinstance(value, dict):
+            items = [f"'{k}': {_parse_value(v)}" for k, v in value.items()]
+            return "{" + ", ".join(items) + "}"
+        elif isinstance(value, list):
+            items = [_parse_value(item) for item in value]
+            return "[" + ", ".join(items) + "]"
+        elif value is None:
+            return "None"
+        else:
+            return str(value)
+
+    def _parse_creation(creation_dict):
+        """Parse a creation dictionary into DatasetRecipe method call."""
+        type_name = creation_dict["__type__"]
+
+        # Convert type name to snake_case method name (FromName -> from_name)
+        method_name = _pascal_to_snake_case(type_name)
+
+        # Parse arguments based on their names
+        args = []
+        for key, value in creation_dict.items():
+            if key != "__type__":
+                parsed_value = _parse_argument_value(key, value)
+                args.append(f"{key}={parsed_value}")
+
+        return f"DatasetRecipe.{method_name}({', '.join(args)})"
+
+    def _parse_operation(operation_dict):
+        """Parse an operation dictionary into method call."""
+        type_name = operation_dict["__type__"]
+
+        # Convert type name to snake_case method name
+        method_name = _pascal_to_snake_case(type_name)
+
+        # Parse arguments
+        args = []
+        for key, value in operation_dict.items():
+            if key != "__type__":
+                parsed_value = _parse_argument_value(key, value)
+                args.append(f"{key}={parsed_value}")
+
+        if args:
+            return f".{method_name}({', '.join(args)})"
+        else:
+            return f".{method_name}()"
+
+    def _parse_recipe(recipe_dict):
+        """Parse a recipe dictionary into complete DatasetRecipe code."""
+        if recipe_dict["__type__"] != "DatasetRecipe":
+            return ""
+
+        # Parse the creation part
+        code = _parse_creation(recipe_dict["creation"])
+
+        # Parse operations if they exist
+        operations = recipe_dict.get("operations")
+        if operations:
+            for operation in operations:
+                code += _parse_operation(operation)
+
+        return code
+
+    # Parse the JSON string
+    json_dict = json.loads(json_str)
+
+    # Generate the code
+    code_str = _parse_recipe(json_dict)
+    return code_str

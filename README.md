@@ -64,7 +64,7 @@ With Hafnia configured on your local machine, it is now possible to download
 and explore the dataset sample with a python script:
 
 ```python
-from hafnia.data import load_dataset, get_dataset_path
+from hafnia.data import get_dataset_path
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 # To download the sample dataset use:
@@ -333,7 +333,7 @@ logger.log_scalar("validation/loss", value=0.1, step=100)
 logger.log_metric("validation/accuracy", value=0.95, step=100)
 ```
 
-Similar to `load_dataset`, the tracker behaves differently when running locally or in the cloud. 
+The tracker behaves differently when running locally or in the cloud. 
 Locally, experiment data is stored in a local folder `.data/experiments/{DATE_TIME}`. 
 
 In the cloud, the experiment data will be available in the Hafnia platform under 
@@ -357,7 +357,7 @@ and datasets available in the data library.
 
 ```python
 # Load Hugging Face dataset
-dataset_splits = load_dataset("midwest-vehicle-detection")
+dataset_splits = HafniaDataset.from_name("midwest-vehicle-detection")
 
 # Define transforms
 train_transforms = v2.Compose(

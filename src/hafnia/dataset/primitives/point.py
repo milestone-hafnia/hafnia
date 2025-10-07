@@ -1,13 +1,13 @@
 from typing import Any, Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from hafnia.dataset.primitives.utils import clip
 
 
 class Point(BaseModel):
-    x: float
-    y: float
+    x: float = Field(description="X coordinate as a fraction of image width, e.g. 0.1 for 10 percent of image width")
+    y: float = Field(description="Y coordinate as a fraction of image height, e.g. 0.1 for 10 percent of image height")
 
     def to_pixel_coordinates(
         self, image_shape: Tuple[int, int], as_int: bool = True, clip_values: bool = True

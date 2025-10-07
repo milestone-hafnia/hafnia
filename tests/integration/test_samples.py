@@ -11,7 +11,6 @@ from torchvision.transforms import v2
 
 import hafnia
 from hafnia import torch_helpers
-from hafnia.data import load_dataset
 from hafnia.dataset.dataset_names import ColumnName
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 from hafnia.dataset.primitives.bbox import Bbox
@@ -47,7 +46,7 @@ def loaded_dataset(request) -> Dict[str, Any]:
         pytest.skip("Not logged in to Hafnia")
 
     dataset_name, expected_lengths = request.param
-    dataset = load_dataset(dataset_name, force_redownload=FORCE_REDOWNLOAD)
+    dataset = HafniaDataset.from_name(dataset_name, force_redownload=FORCE_REDOWNLOAD)
 
     # We skip tests for datasets that doesn't match the current format version.
     # We do this to have working tests and maintain successful CI/CD pipeline runs,
