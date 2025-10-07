@@ -73,7 +73,8 @@ $defs:
         type: number
       meta:
         anyOf:
-        - type: object
+        - additionalProperties: true
+          type: object
         - type: 'null'
         default: null
         description: Additional metadata for the annotation
@@ -158,7 +159,8 @@ $defs:
         type: integer
       meta:
         anyOf:
-        - type: object
+        - additionalProperties: true
+          type: object
         - type: 'null'
         default: null
         description: Additional metadata for the annotation
@@ -227,7 +229,8 @@ $defs:
         type: boolean
       meta:
         anyOf:
-        - type: object
+        - additionalProperties: true
+          type: object
         - type: 'null'
         default: null
         description: This can be used to store additional information about the classification
@@ -294,7 +297,8 @@ $defs:
         type: boolean
       meta:
         anyOf:
-        - type: object
+        - additionalProperties: true
+          type: object
         - type: 'null'
         default: null
         description: This can be used to store additional information about the polygon
@@ -331,7 +335,8 @@ properties:
     default: null
   meta:
     anyOf:
-    - type: object
+    - additionalProperties: true
+      type: object
     - type: 'null'
     default: null
     title: Meta
