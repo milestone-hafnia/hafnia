@@ -793,23 +793,17 @@ class HafniaDataset:
     def copy(self) -> "HafniaDataset":
         return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
 
-    def write(
-        self, path_folder: Path, add_version: bool = False, drop_null_cols: bool = True, skip_hashing=False
-    ) -> None:
+    def write(self, path_folder: Path, add_version: bool = False, drop_null_cols: bool = True) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         if not path_folder.exists():
             path_folder.mkdir(parents=True)
 
         new_relative_paths = []
         for org_path in tqdm(self.samples["file_name"].to_list(), desc="- Copy images"):
-            if skip_hashing:
-                new_path = Path(shutil.copy2(Path(org_path), path_folder))
-
-            else:
-                new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
-                    path_source=Path(org_path),
-                    path_dataset_root=path_folder,
-                )
+            new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
+                path_source=Path(org_path),
+                path_dataset_root=path_folder,
+            )
             new_relative_paths.append(str(new_path.relative_to(path_folder)))
         table = self.samples.with_columns(pl.Series(new_relative_paths).alias("file_name"))
 
