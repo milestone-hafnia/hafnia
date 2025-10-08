@@ -20,8 +20,7 @@ def test_dataset_recipe_on_platform():
 
     # Prepare test
     cfg = Config()
-    # endpoint = cfg.get_platform_endpoint("dataset_recipes")
-    endpoint = cfg.platform_url + "/api/v1/dataset-recipes123"
+    endpoint = cfg.get_platform_endpoint("dataset_recipes")
     dataset_recipe_name = "test-complex-recipe"
     # Ensure dataset recipe is deleted before test
     delete_dataset_recipe_by_name(name=dataset_recipe_name, endpoint=endpoint, api_key=cfg.api_key)
