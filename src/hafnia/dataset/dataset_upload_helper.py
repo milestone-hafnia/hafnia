@@ -4,7 +4,7 @@ import base64
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import boto3
 import polars as pl
@@ -186,9 +186,58 @@ class EntityTypeChoices(str, Enum):  # Should match `EntityTypeChoices` in `dipd
     EVENT = "EVENT"
 
 
+class Annotations(BaseModel):
+    """
+    Used in 'DatasetImageMetadata' for visualizing image annotations
+    in gallery images on the dataset detail page.
+    """
+
+    objects: Optional[List[Bbox]] = None
+    classifications: Optional[List[Classification]] = None
+    polygons: Optional[List[Polygon]] = None
+    bitmasks: Optional[List[Bitmask]] = None
+
+
+class DatasetImageMetadata(BaseModel):
+    """
+    Metadata for gallery images on the dataset detail page on portal.
+    """
+
+    annotations: Optional[Annotations] = None
+    meta: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def from_sample(cls, sample: Sample) -> "DatasetImageMetadata":
+        sample = sample.model_copy(deep=True)
+        sample.file_name = "/".join(Path(sample.file_name).parts[-3:])
+        metadata = {}
+        metadata_field_names = [
+            ColumnName.FILE_NAME,
+            ColumnName.HEIGHT,
+            ColumnName.WIDTH,
+            ColumnName.SPLIT,
+        ]
+        for field_name in metadata_field_names:
+            if hasattr(sample, field_name) and getattr(sample, field_name) is not None:
+                metadata[field_name] = getattr(sample, field_name)
+
+        obj = DatasetImageMetadata(
+            annotations=Annotations(
+                objects=sample.objects,
+                classifications=sample.classifications,
+                polygons=sample.polygons,
+                bitmasks=sample.bitmasks,
+            ),
+            meta=metadata,
+        )
+
+        return obj
+
+
 class DatasetImage(Attribution, validate_assignment=True):  # type: ignore[call-arg]
     img: str  # Base64-encoded image string
     order: Optional[int] = None
+    metadata: Optional[DatasetImageMetadata] = None
 
     @field_validator("img", mode="before")
     def validate_image_path(cls, v: Union[str, Path]) -> str:
@@ -604,6 +653,9 @@ def create_gallery_images(
         gallery_images = []
         for gallery_sample in gallery_samples.iter_rows(named=True):
             sample = Sample(**gallery_sample)
+
+            metadata = DatasetImageMetadata.from_sample(sample=sample)
+            sample.classifications = None  # To not draw classifications in gallery images
             image = sample.draw_annotations()
 
             path_gallery_image = path_gallery_images / gallery_sample[COL_IMAGE_NAME]
@@ -611,6 +663,7 @@ def create_gallery_images(
 
             dataset_image_dict = {
                 "img": path_gallery_image,
+                "metadata": metadata,
             }
             if sample.attribution is not None:
                 sample.attribution.changes = "Annotations have been visualized"

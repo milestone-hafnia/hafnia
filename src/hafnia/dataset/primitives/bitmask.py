@@ -5,7 +5,9 @@ from typing import Any, Dict, Optional, Tuple
 import cv2
 import numpy as np
 import pycocotools.mask as coco_mask
+from pydantic import Field
 
+from hafnia.dataset.dataset_names import FieldName
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import (
     anonymize_by_resizing,
@@ -14,23 +16,33 @@ from hafnia.dataset.primitives.utils import (
     text_org_from_left_bottom_to_centered,
 )
 
+FieldName
+
 
 class Bitmask(Primitive):
     # Names should match names in FieldName
-    top: int  # Bitmask top coordinate in pixels
-    left: int  # Bitmask left coordinate in pixels
-    height: int  # Bitmask height of the bounding box in pixels
-    width: int  # Bitmask width of the bounding box in pixels
-    rleString: str  # Run-length encoding (RLE) string for the bitmask region of size (height, width) at (top, left).
-    area: Optional[float] = None  # Area of the bitmask in pixels is calculated from the RLE string
-    class_name: Optional[str] = None  # This should match the string in 'FieldName.CLASS_NAME'
-    class_idx: Optional[int] = None  # This should match the string in 'FieldName.CLASS_IDX'
-    object_id: Optional[str] = None  # This should match the string in 'FieldName.OBJECT_ID'
-    confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
-    ground_truth: bool = True  # Whether this is ground truth or a prediction
+    top: int = Field(description="Bitmask top coordinate in pixels ")
+    left: int = Field(description="Bitmask left coordinate in pixels")
+    height: int = Field(description="Bitmask height of the bounding box in pixels")
+    width: int = Field(description="Bitmask width of the bounding box in pixels")
+    rleString: str = Field(
+        description="Run-length encoding (RLE) string for the bitmask region of size (height, width) at (top, left)."
+    )
+    area: Optional[float] = Field(
+        default=None, description="Area of the bitmask in pixels is calculated from the RLE string"
+    )
+    class_name: Optional[str] = Field(default=None, description="Class name of the object represented by the bitmask")
+    class_idx: Optional[int] = Field(default=None, description="Class index of the object represented by the bitmask")
+    object_id: Optional[str] = Field(default=None, description="Object ID of the instance represented by the bitmask")
+    confidence: Optional[float] = Field(
+        default=None, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox"
+    )
+    ground_truth: bool = Field(default=True, description="Whether this is ground truth or a prediction")
 
-    task_name: str = ""  # Task name to support multiple Bitmask tasks in the same dataset. "" defaults to "bitmask"
-    meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
+    task_name: str = Field(
+        default="", description="Task name to support multiple Bitmask tasks in the same dataset. Defaults to 'bitmask'"
+    )
+    meta: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the annotation")
 
     @staticmethod
     def default_task_name() -> str:

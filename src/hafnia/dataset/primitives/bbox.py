@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
+from pydantic import Field
 
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import (
@@ -17,18 +18,30 @@ from hafnia.dataset.primitives.utils import (
 
 class Bbox(Primitive):
     # Names should match names in FieldName
-    height: float  # Height of the bounding box as a fraction of the image height, e.g. 0.1 for 10% of the image height
-    width: float  # Width of the bounding box as a fraction of the image width, e.g. 0.1 for 10% of the image width
-    top_left_x: float  # X coordinate of top-left corner of Bbox as a fraction of the image width, e.g. 0.1 for 10% of the image width
-    top_left_y: float  # Y coordinate of top-left corner of Bbox as a fraction of the image height, e.g. 0.1 for 10% of the image height
-    class_name: Optional[str] = None  # Class name, e.g. "car"
-    class_idx: Optional[int] = None  # Class index, e.g. 0 for "car" if it is the first class
-    object_id: Optional[str] = None  # Unique identifier for the object, e.g. "12345123"
-    confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
-    ground_truth: bool = True  # Whether this is ground truth or a prediction
+    height: float = Field(
+        description="Normalized height of the bounding box (0.0=no height, 1.0=full image height) as a fraction of image height"
+    )
+    width: float = Field(
+        description="Normalized width of the bounding box (0.0=no width, 1.0=full image width) as a fraction of image width"
+    )
+    top_left_x: float = Field(
+        description="Normalized x-coordinate of top-left corner (0.0=left edge, 1.0=right edge) as a fraction of image width"
+    )
+    top_left_y: float = Field(
+        description="Normalized y-coordinate of top-left corner (0.0=top edge, 1.0=bottom edge) as a fraction of image height"
+    )
+    class_name: Optional[str] = Field(default=None, description="Class name, e.g. 'car'")
+    class_idx: Optional[int] = Field(default=None, description="Class index, e.g. 0 for 'car' if it is the first class")
+    object_id: Optional[str] = Field(default=None, description="Unique identifier for the object, e.g. '12345123'")
+    confidence: Optional[float] = Field(
+        default=None, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox"
+    )
+    ground_truth: bool = Field(default=True, description="Whether this is ground truth or a prediction")
 
-    task_name: str = ""  # Task name to support multiple Bbox tasks in the same dataset. "" defaults to "bboxes"
-    meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
+    task_name: str = Field(
+        default="", description="Task name to support multiple Bbox tasks in the same dataset. '' defaults to 'bboxes'"
+    )
+    meta: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the annotation")
 
     @staticmethod
     def default_task_name() -> str:

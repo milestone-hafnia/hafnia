@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+from pydantic import Field
 
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import get_class_name
@@ -9,15 +10,17 @@ from hafnia.visualizations.colors import get_n_colors
 
 
 class Segmentation(Primitive):
-    # mask: np.ndarray
-    class_names: Optional[List[str]] = None  # This should match the string in 'FieldName.CLASS_NAME'
-    ground_truth: bool = True  # Whether this is ground truth or a prediction
+    # WARNING: Segmentation masks have not been fully implemented yet
+    class_names: Optional[List[str]] = Field(default=None, description="Class names of the segmentation")
+    ground_truth: bool = Field(default=True, description="Whether this is ground truth or a prediction")
 
-    # confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification
-    task_name: str = (
-        ""  # Task name to support multiple Segmentation tasks in the same dataset. "" defaults to "segmentation"
+    task_name: str = Field(
+        default="",
+        description="Task name to support multiple Segmentation tasks in the same dataset. Defaults to 'segmentation'",
     )
-    meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
+    meta: Optional[Dict[str, Any]] = Field(
+        default=None, description="This can be used to store additional information about the segmentation"
+    )
 
     @staticmethod
     def default_task_name() -> str:

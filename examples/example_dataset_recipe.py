@@ -3,7 +3,7 @@ from pathlib import Path
 from rich import print as rprint
 
 from hafnia import utils
-from hafnia.data.factory import load_dataset
+from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
     SelectSamples,
@@ -50,7 +50,7 @@ dataset_recipe.as_python_code()
 # executed in the TaaS platform. This is demonstrated below:
 if utils.is_hafnia_configured():  # First ensure you are connected to the hafnia platform
     # Upload the dataset recipe - this will make it available for TaaS and for users of your organization
-    dataset_recipe.as_platform_recipe(recipe_name="example-mnist-recipe")
+    dataset_recipe.as_platform_recipe(recipe_name="example-mnist-recipe", overwrite=True)
 
     # The recipe is now available in TaaS, for different environments and other users in your organization
     dataset_recipe_again = DatasetRecipe.from_recipe_name(name="example-mnist-recipe")
@@ -95,53 +95,126 @@ rprint(dataset_recipe)  # as a python object
 print(dataset_recipe.as_json_str())  # as a JSON string
 
 
-# Example: Using the 'load_dataset' function
-merged_dataset: HafniaDataset = load_dataset(dataset_recipe)
-# You get a few extra things when using `load_dataset`.
-# 1) You get the dataset directly - you don't have to call `build()` on the recipe.
-# 2) The dataset is cached if it already exists, so you don't have to
-#    download or rebuild the dataset on the second run.
-# 3) You can use an implicit form of the recipe. One example of this is that you just specify
-#    the dataset name `load_dataset("mnist")` or path `load_dataset(Path(".data/datasets/mnist"))`
+### Real-world Example: Merge datasets to create a Person+Vehicle dataset ###
+# 1) The first step is to use the regular 'HafniaDataset' interface to investigate and understand the datasets
 
+# 1a) Explore 'coco-2017'
+coco = HafniaDataset.from_name("coco-2017")
+coco.print_stats()  # Print dataset statistics
+coco_class_names = coco.info.get_task_by_primitive("Bbox").class_names  # Get the class names for the bbox task
+# You will notice coco has 80 classes including 'person' and various vehicle classes such as 'car', 'bus', 'truck', etc.
+# but also many unrelated classes such as 'toaster', 'hair drier', etc.
 
+# 1b) Explore 'midwest-vehicle-detection'
+midwest = HafniaDataset.from_name("midwest-vehicle-detection")
+midwest.print_stats()  # Print dataset statistics
+midwest_class_names = midwest.info.get_task_by_primitive("Bbox").class_names
+# You will also notice midwest has similar classes, but they are named differently, e.g. 'Persons',
+# 'Vehicle.Car', 'Vehicle.Bicycle', etc.
+
+# 2) We will now use the 'HafniaDataset' interface to verify operations (class remapping, merging, filtering)
+
+# 2a) Remap class names to have the same class names across datasets
+mappings_coco = {
+    "person": "Person",
+    "bicycle": "Vehicle",
+    "car": "Vehicle",
+    "motorcycle": "Vehicle",
+    "bus": "Vehicle",
+    "train": "Vehicle",
+    "truck": "Vehicle",
+}
+mapping_midwest = {
+    "Person": "Person",
+    "Vehicle*": "Vehicle",  # Wildcard mapping. Selects class names starting with 'Vehicle.' e.g. 'Vehicle.Bicycle', "Vehicle.Car', etc.
+    "Vehicle.Trailer": OPS_REMOVE_CLASS,  # Use this to remove a class
+}
+coco_remapped = coco.class_mapper(class_mapping=mappings_coco, method="remove_undefined", task_name="bboxes")
+midwest_remapped = midwest.class_mapper(class_mapping=mapping_midwest, task_name="bboxes")
+
+# 2b) Merge datasets
+merged_dataset_all_images = HafniaDataset.from_merge(dataset0=coco_remapped, dataset1=midwest_remapped)
+
+# 2c) Remove images without 'Person' or 'Vehicle' annotations
+merged_dataset = merged_dataset_all_images.select_samples_by_class_name(name=["Person", "Vehicle"], task_name="bboxes")
+merged_dataset.print_stats()
+
+# 3) Once you have verified operations using the 'HafniaDataset' interface, you can convert
+# the operations to a single 'DatasetRecipe'
+merged_recipe = DatasetRecipe.from_merge(
+    recipe0=DatasetRecipe.from_name("coco-2017").class_mapper(
+        class_mapping=mappings_coco, method="remove_undefined", task_name="bboxes"
+    ),
+    recipe1=DatasetRecipe.from_name("midwest-vehicle-detection").class_mapper(
+        class_mapping=mapping_midwest, task_name="bboxes"
+    ),
+).select_samples_by_class_name(name=["Person", "Vehicle"], task_name="bboxes")
+
+# 3a) Verify again on the sample datasets, that the recipe works and can build as a dataset
+merged_dataset = merged_recipe.build()
+merged_dataset.print_stats()
+
+# 3b) Optionally: Save the recipe to file
+path_recipe = Path(".data/dataset_recipes/example-merged-person-vehicle-recipe.json")
+merged_recipe.as_json_file(path_recipe)
+if utils.is_hafnia_configured():
+    # 3c) Upload dataset recipe to Training-aaS platform
+    recipe_response = merged_recipe.as_platform_recipe(recipe_name="person-vehicle-detection", overwrite=True)
+    print(f"Recipe Name: '{recipe_response['name']}', Recipe id: '{recipe_response['id']}'")
+
+    # 4) The recipe is now available in TaaS for you and other users in your organization
+    # 4a) View recipes from your terminal with 'hafnia dataset-recipe ls'
+    # 4b) (Coming soon) Or go to 'Dataset Recipes' in the TaaS web platform:  https://hafnia.milestonesys.com/training-aas/dataset-recipes
+
+    # 5) Launch an experiment with the dataset:
+    # 5a) Using the CLI:
+    #   'hafnia experiment create --dataset-recipe person-vehicle-detection --trainer-path ../trainer-classification'
+    # 5b) (Coming soon) Or through the TaaS web platform:  https://hafnia.milestonesys.com/training-aas/experiments
+
+# 6) Monitor and manage your experiments
+# 6a) View experiments using the web platform https://staging02.mdi.milestonesys.com/training-aas/experiments
+# 6b) Or use the CLI: 'hafnia experiment ls'
 ### DatasetRecipe Implicit Form ###
 # Below we demonstrate the difference between implicit and explicit forms of dataset recipes.
 # Example: Get dataset by name with implicit and explicit forms
-dataset = load_dataset("mnist")  # Implicit form
-dataset = load_dataset(DatasetRecipe.from_name(name="mnist"))  # Explicit form
+recipe_implicit_form = "mnist"
+recipe_explicit_form = DatasetRecipe.from_name(name="mnist")
+
+# The implicit form can now be loaded and built as a dataset
+dataset_implicit = DatasetRecipe.from_implicit_form(recipe_implicit_form).build()
+# Or directly as a dataset
+dataset_implicit = HafniaDataset.from_recipe(recipe_implicit_form)
+
 
 # Example: Get dataset from path with implicit and explicit forms:
-dataset = load_dataset(Path(".data/datasets/mnist"))  # Implicit form
-dataset = load_dataset(DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist")))  # Explicit form
+recipe_implicit_form = Path(".data/datasets/mnist")
+recipe_explicit_form = DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
 
 # Example: Merge datasets with implicit and explicit forms
-dataset = load_dataset(("mnist", "mnist"))  # Implicit form
-dataset = load_dataset(  # Explicit form
-    DatasetRecipe.from_merger(
-        recipes=[
-            DatasetRecipe.from_name(name="mnist"),
-            DatasetRecipe.from_name(name="mnist"),
-        ]
-    )
+recipe_implicit_form = ("mnist", "mnist")
+recipe_explicit_form = DatasetRecipe.from_merger(
+    recipes=[
+        DatasetRecipe.from_name(name="mnist"),
+        DatasetRecipe.from_name(name="mnist"),
+    ]
 )
 
 # Example: Define a dataset with transformations using implicit and explicit forms
-dataset = load_dataset(["mnist", SelectSamples(n_samples=20), Shuffle()])  # Implicit form
-dataset = load_dataset(DatasetRecipe.from_name(name="mnist").select_samples(n_samples=20).shuffle())  # Explicit form
+recipe_implicit_form = ["mnist", SelectSamples(n_samples=20), Shuffle()]
+recipe_explicit_form = DatasetRecipe.from_name(name="mnist").select_samples(n_samples=20).shuffle()
 
 
 # Example: Complex nested example with implicit vs explicit forms
 # Implicit form of a complex dataset recipe
 split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
-implicit_recipe = (
+recipe_implicit_complex = (
     ("mnist", "mnist"),
     [Path(".data/datasets/mnist"), SelectSamples(n_samples=30), SplitsByRatios(split_ratios=split_ratio)],
     ["mnist", SelectSamples(n_samples=20), Shuffle()],
 )
 
 # Explicit form of the same complex dataset recipe
-explicit_recipe = DatasetRecipe.from_merger(
+recipe_explicit_complex = DatasetRecipe.from_merger(
     recipes=[
         DatasetRecipe.from_merger(
             recipes=[
@@ -165,10 +238,10 @@ explicit_recipe = DatasetRecipe.from_merger(
 
 
 # To convert from implicit to explicit recipe form, you can use the `from_implicit_form` method.
-explicit_recipe_from_implicit = DatasetRecipe.from_implicit_form(implicit_recipe)
+explicit_recipe_from_implicit = DatasetRecipe.from_implicit_form(recipe_implicit_complex)
 rprint("Converted explicit recipe:")
 rprint(explicit_recipe_from_implicit)
 
 # Verify that the conversion produces the same result
-assert explicit_recipe_from_implicit == explicit_recipe
+assert explicit_recipe_from_implicit == recipe_explicit_complex
 rprint("Conversion successful - recipes are equivalent!")

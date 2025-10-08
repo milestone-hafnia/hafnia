@@ -39,7 +39,7 @@ dev = [
     "torch>=2.6.0",
     "torchvision>=0.21.0",
     "flatten-dict>=0.4.2",
-    "pytest-cov>=7.0.0",    
+    "pytest-cov>=7.0.0",
 ]
 
 test = ["pytest>=8.3.4", "pre-commit>=4.2.0", "ruff>=0.9.1"]
@@ -72,6 +72,10 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 disallow_untyped_calls = false
 warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]

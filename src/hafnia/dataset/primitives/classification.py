@@ -1,6 +1,7 @@
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+from pydantic import Field
 
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import anonymize_by_resizing, get_class_name
@@ -8,14 +9,21 @@ from hafnia.dataset.primitives.utils import anonymize_by_resizing, get_class_nam
 
 class Classification(Primitive):
     # Names should match names in FieldName
-    class_name: Optional[str] = None  # Class name, e.g. "car"
-    class_idx: Optional[int] = None  # Class index, e.g. 0 for "car" if it is the first class
-    object_id: Optional[str] = None  # Unique identifier for the object, e.g. "12345123"
-    confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification
-    ground_truth: bool = True  # Whether this is ground truth or a prediction
+    class_name: Optional[str] = Field(default=None, description="Class name, e.g. 'car'")
+    class_idx: Optional[int] = Field(default=None, description="Class index, e.g. 0 for 'car' if it is the first class")
+    object_id: Optional[str] = Field(default=None, description="Unique identifier for the object, e.g. '12345123'")
+    confidence: Optional[float] = Field(
+        default=None, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification"
+    )
+    ground_truth: bool = Field(default=True, description="Whether this is ground truth or a prediction")
 
-    task_name: str = ""  # To support multiple Classification tasks in the same dataset. "" defaults to "classification"
-    meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
+    task_name: str = Field(
+        default="",
+        description="To support multiple Classification tasks in the same dataset. '' defaults to 'classification'",
+    )
+    meta: Optional[Dict[str, Any]] = Field(
+        default=None, description="This can be used to store additional information about the classification"
+    )
 
     @staticmethod
     def default_task_name() -> str:

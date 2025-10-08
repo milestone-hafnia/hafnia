@@ -5,7 +5,6 @@ import numpy as np
 from PIL import Image
 from rich import print as rprint
 
-from hafnia.data import load_dataset
 from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.primitives.bbox import Bbox
@@ -70,7 +69,7 @@ dataset_mapped = dataset.class_mapper(class_mapping=class_mapping_strict)
 dataset_mapped.print_class_distribution()
 
 # Support Chaining Operations (load, shuffle, select samples)
-dataset = load_dataset("midwest-vehicle-detection").shuffle(seed=42).select_samples(n_samples=10)
+dataset = HafniaDataset.from_name("midwest-vehicle-detection").shuffle(seed=42).select_samples(n_samples=10)
 
 
 # Write dataset to disk
