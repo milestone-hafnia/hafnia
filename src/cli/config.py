@@ -11,7 +11,7 @@ from hafnia.log import sys_logger, user_logger
 
 PLATFORM_API_MAPPING = {
     "trainers": "/api/v1/trainers",
-    "dataset_recipes": "/api/v1/dataset-recipes",  # DONT COMMIT THIS!!!
+    "dataset_recipes": "/api/v1/dataset-recipes",
     "experiments": "/api/v1/experiments",
     "experiment_environments": "/api/v1/experiment-environments",
     "experiment_runs": "/api/v1/experiment-runs",
