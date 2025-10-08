@@ -517,23 +517,21 @@ def format_python_code(code_str: str, as_example_code: bool = True, recipe_name:
         # recipe.as_platform_recipe("{recipe_name}")
         """)
 
-    try:
         with tempfile.TemporaryDirectory() as dirname:
             path_tmp_file = Path(dirname) / "temp.py"
             path_tmp_file.write_text(code_str)
-            subprocess.run(
-                ["ruff", "format", str(path_tmp_file)],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=2,
-            )
+            try:
+                subprocess.run(
+                    ["ruff", "format", str(path_tmp_file)],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=2,
+                )
+            except Exception:
+                print("Failed to format code with ruff")
+                raise  # Re-raise the exception after logging
             formatted_code = path_tmp_file.read_text()
-
-    except Exception:
-        print("Failed to format code with ruff")
-        raise  # Re-raise the exception after logging
-
     return formatted_code
 
 
@@ -556,7 +554,6 @@ def convert_json_recipe_to_python(json_str: str) -> str:
     >>> python_code_from_json_str = parse_json_recipe_to_python(json_str=json_str)
     >>> assert python_code_str == python_code_from_json_str
     """
-    import json
 
     def _pascal_to_snake_case(pascal_str: str) -> str:
         """Convert PascalCase to snake_case."""
@@ -596,18 +593,22 @@ def convert_json_recipe_to_python(json_str: str) -> str:
         """Convert Python values to their string representation."""
         if isinstance(value, str):
             return f"'{value}'"
-        elif isinstance(value, bool):
+
+        if isinstance(value, bool):
             return str(value)
-        elif isinstance(value, dict):
+
+        if isinstance(value, dict):
             items = [f"'{k}': {_parse_value(v)}" for k, v in value.items()]
             return "{" + ", ".join(items) + "}"
-        elif isinstance(value, list):
+
+        if isinstance(value, list):
             items = [_parse_value(item) for item in value]
             return "[" + ", ".join(items) + "]"
-        elif value is None:
+
+        if value is None:
             return "None"
-        else:
-            return str(value)
+
+        return str(value)
 
     def _parse_creation(creation_dict):
         """Parse a creation dictionary into DatasetRecipe method call."""
@@ -617,13 +618,9 @@ def convert_json_recipe_to_python(json_str: str) -> str:
         method_name = _pascal_to_snake_case(type_name)
 
         # Parse arguments based on their names
-        args = []
-        for key, value in creation_dict.items():
-            if key != "__type__":
-                parsed_value = _parse_argument_value(key, value)
-                args.append(f"{key}={parsed_value}")
+        args = _parse_arguments(creation_dict)
 
-        return f"DatasetRecipe.{method_name}({', '.join(args)})"
+        return f"DatasetRecipe.{method_name}({args})"
 
     def _parse_operation(operation_dict):
         """Parse an operation dictionary into method call."""
@@ -633,16 +630,18 @@ def convert_json_recipe_to_python(json_str: str) -> str:
         method_name = _pascal_to_snake_case(type_name)
 
         # Parse arguments
-        args = []
-        for key, value in operation_dict.items():
-            if key != "__type__":
-                parsed_value = _parse_argument_value(key, value)
-                args.append(f"{key}={parsed_value}")
+        args = _parse_arguments(operation_dict)
+        return f".{method_name}({args})"
 
-        if args:
-            return f".{method_name}({', '.join(args)})"
-        else:
-            return f".{method_name}()"
+    def _parse_arguments(arguments: Dict[str, Any]) -> str:
+        """Parse a dictionary of arguments into a string representation."""
+        args = []
+        for key, value in arguments.items():
+            if key == "__type__":
+                continue
+            parsed_value = _parse_argument_value(key, value)
+            args.append(f"{key}={parsed_value}")
+        return ", ".join(args)
 
     def _parse_recipe(recipe_dict):
         """Parse a recipe dictionary into complete DatasetRecipe code."""

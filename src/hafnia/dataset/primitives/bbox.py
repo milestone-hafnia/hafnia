@@ -19,16 +19,16 @@ from hafnia.dataset.primitives.utils import (
 class Bbox(Primitive):
     # Names should match names in FieldName
     height: float = Field(
-        description="Height of the bounding box as a fraction of the image height, e.g. 0.1 for 10 percent of the image height"
+        description="Normalized height of the bounding box (0.0=no height, 1.0=full image height) as a fraction of image height"
     )
     width: float = Field(
-        description="Width of the bounding box as a fraction of the image width, e.g. 0.1 for 10 percent of the image width"
+        description="Normalized width of the bounding box (0.0=no width, 1.0=full image width) as a fraction of image width"
     )
     top_left_x: float = Field(
-        description="X coordinate of top-left corner of Bbox as a fraction of the image width, e.g. 0.1 for 10 percent of the image width"
+        description="Normalized x-coordinate of top-left corner (0.0=left edge, 1.0=right edge) as a fraction of image width"
     )
     top_left_y: float = Field(
-        description="Y coordinate of top-left corner of Bbox as a fraction of the image height, e.g. 0.1 for 10 percent of the image height"
+        description="Normalized y-coordinate of top-left corner (0.0=top edge, 1.0=bottom edge) as a fraction of image height"
     )
     class_name: Optional[str] = Field(default=None, description="Class name, e.g. 'car'")
     class_idx: Optional[int] = Field(default=None, description="Class index, e.g. 0 for 'car' if it is the first class")

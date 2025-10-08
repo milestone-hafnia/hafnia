@@ -6,8 +6,12 @@ from hafnia.dataset.primitives.utils import clip
 
 
 class Point(BaseModel):
-    x: float = Field(description="X coordinate as a fraction of image width, e.g. 0.1 for 10 percent of image width")
-    y: float = Field(description="Y coordinate as a fraction of image height, e.g. 0.1 for 10 percent of image height")
+    x: float = Field(
+        description="Normalized x-coordinate (0.0=left edge, 1.0=right edge) relative to image width",
+    )
+    y: float = Field(
+        description="Normalized y-coordinate (0.0=top edge, 1.0=bottom edge) relative to image height",
+    )
 
     def to_pixel_coordinates(
         self, image_shape: Tuple[int, int], as_int: bool = True, clip_values: bool = True
