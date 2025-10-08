@@ -11,13 +11,21 @@ from hafnia.log import sys_logger, user_logger
 
 PLATFORM_API_MAPPING = {
     "trainers": "/api/v1/trainers",
-    "dataset_recipes": "/api/v1/dataset-recipes",
+    "dataset_recipes": "/api/v1/dataset-recipes",  # DONT COMMIT THIS!!!
     "experiments": "/api/v1/experiments",
     "experiment_environments": "/api/v1/experiment-environments",
     "experiment_runs": "/api/v1/experiment-runs",
     "runs": "/api/v1/experiments-runs",
     "datasets": "/api/v1/datasets",
 }
+
+
+class SecretStr(str):
+    def __repr__(self):
+        return "********"
+
+    def __str__(self):
+        return "********"
 
 
 class ConfigSchema(BaseModel):
@@ -37,7 +45,7 @@ class ConfigSchema(BaseModel):
             sys_logger.warning("API key is missing the 'ApiKey ' prefix. Prefix is being added automatically.")
             value = f"ApiKey {value}"
 
-        return value
+        return SecretStr(value)  # Keeps the API key masked in logs and repr
 
 
 class ConfigFileSchema(BaseModel):
