@@ -12,8 +12,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import BaseModel, field_validator
 
-from hafnia.data.factory import load_dataset
-from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.log import sys_logger, user_logger
 from hafnia.utils import is_hafnia_cloud_job, now_as_str
 
@@ -141,13 +139,6 @@ class HafniaLogger:
 
         except Exception as e:
             user_logger.error(f"Failed to initialize MLflow: {e}")
-
-    def load_dataset(self, dataset_name: str) -> HafniaDataset:
-        """
-        Load a dataset from the specified path.
-        """
-        self.dataset_name = dataset_name
-        return load_dataset(dataset_name)
 
     def path_local_experiment(self) -> Path:
         """Get the path for local experiment."""

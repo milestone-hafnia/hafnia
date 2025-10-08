@@ -3,7 +3,7 @@ import json
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Set, Tuple
 
 import pytest
 
@@ -11,7 +11,9 @@ from hafnia.dataset import primitives
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
     FromMerger,
+    convert_json_recipe_to_python,
     extract_dataset_names_from_json_dict,
+    format_python_code,
     get_dataset_path_from_recipe,
 )
 from hafnia.dataset.dataset_recipe.recipe_transforms import SelectSamples, Shuffle
@@ -220,6 +222,8 @@ class IntegrationTestUseCase:
 def test_cases_integration_tests(recipe_use_case: IntegrationTestUseCase):
     """
     Test that LoadDataset recipe can be created and serialized.
+    Even if it can be considered an integration test, we keep it in the unit-test folder
+    as it doesn't require any external dependencies and runs fast.
     """
     dataset_recipe: DatasetRecipe = DatasetRecipe.from_implicit_form(recipe_use_case.recipe)
 
@@ -235,8 +239,20 @@ def test_cases_integration_tests(recipe_use_case: IntegrationTestUseCase):
     )
 
     # Smoke test: Convert to code representation
-    code_str = dataset_recipe.as_python_code()
-    assert isinstance(code_str, str), "Code representation of dataset recipe is not a string"
+    code_one_liner_str = dataset_recipe.as_python_code()
+    assert isinstance(code_one_liner_str, str), "Code representation of dataset recipe is not a string"
+
+    code_one_liner_str = dataset_recipe.as_python_code(keep_default_fields=False, as_kwargs=True)
+    # Smoke test: Convert to code representation from JSON (no dependencies)
+    code_one_liner_str = dataset_recipe.as_python_code(keep_default_fields=True, as_kwargs=True)
+    code_one_liner_no_deps_str = convert_json_recipe_to_python(json_str=dataset_recipe.as_json_str())
+    assert code_one_liner_no_deps_str == code_one_liner_str, (
+        "Code representation from JSON does not match code representation from as_python_code()"
+    )
+
+    # Smoke test: Convert one-liner code to multi-line formatted code
+    code_str = format_python_code(code_one_liner_str)
+    assert code_str != code_one_liner_str, "Formatted code should be different from the oneliner code"
 
     # Smoke test: Convert to JSON representation and back
     json_str = dataset_recipe.as_json_str()
@@ -267,9 +283,9 @@ def test_cases_integration_tests(recipe_use_case: IntegrationTestUseCase):
     # assert isinstance(dataset, HafniaDataset), "Dataset is not an instance of HafniaDataset"
 
 
-def test_get_dataset_names():
+def get_complex_recipe_for_testing() -> Tuple[DatasetRecipe, Set[str]]:
     expected_dataset_names = {"dataset0", "dataset1", "dataset2", "dataset3", "dataset4", "dataset5", "dataset6"}
-    nested_recipe = DatasetRecipe.from_merger(
+    recipe = DatasetRecipe.from_merger(
         recipes=[
             DatasetRecipe.from_merger(
                 recipes=[
@@ -294,6 +310,12 @@ def test_get_dataset_names():
         ]
     )
 
+    return recipe, expected_dataset_names
+
+
+def test_get_dataset_names():
+    nested_recipe, expected_dataset_names = get_complex_recipe_for_testing()
+
     assert set(nested_recipe.get_dataset_names()) == expected_dataset_names, "Dataset names do not match expected names"
 
     json_str = nested_recipe.as_json_str()
@@ -306,3 +328,25 @@ def test_get_dataset_names():
         "function is copy/pasted to 'dipdatalib' to extract dataset names from json dictionaries directly. "
         "If this test fails, please fix the function and copy/paste the function to dipdatalib as well."
     )
+
+
+def test_format_python_code():
+    nested_recipe, _ = get_complex_recipe_for_testing()
+    code_oneliner_str = nested_recipe.as_python_code(keep_default_fields=True, as_kwargs=True)
+
+    json_str = nested_recipe.as_json_str()
+    nested_recipe.as_json_file(path_json=Path("some_complex_recipe.json"))
+
+    code_str = format_python_code(code_oneliner_str)
+    code_oneliner_no_deps_str = convert_json_recipe_to_python(json_str=json_str)
+    code_no_deps_str = format_python_code(code_oneliner_no_deps_str)
+
+    assert code_str != code_oneliner_str, "Formatted code should be different from the oneliner code"
+
+    assert code_oneliner_str == code_oneliner_no_deps_str, (
+        "Code generated from 'as_python_code()' doesn't match code generated from 'parse_json_recipe_to_python'. "
+        "The 'parse_json_recipe_to_python' function is copied to 'dipdatalib', so if this function fails in a "
+        "critical way, you would need to update the function here and in 'dipdatalib'."
+    )
+
+    assert code_no_deps_str == code_str, "Code generated from JSON should match formatted code"

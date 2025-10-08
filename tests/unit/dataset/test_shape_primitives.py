@@ -2,8 +2,10 @@ from typing import Type
 
 import numpy as np
 import pytest
+import yaml
 
 from hafnia.dataset.dataset_names import FieldName
+from hafnia.dataset.dataset_upload_helper import DatasetImageMetadata
 from hafnia.dataset.hafnia_dataset import Sample
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.dataset.primitives.bbox import Bbox
@@ -11,6 +13,7 @@ from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.primitive import Primitive
+from tests import helper_testing
 
 
 def get_initialized_dummy_primitives_using_default_task_name(TypePrimitive: Type[Primitive]) -> Primitive:
@@ -68,3 +71,39 @@ def test_sample_primitive_names(TypePrimitive: Type[Primitive]):
         f"have been overridden in '{TypePrimitive.__name__}'. "
     )
     assert primitive.task_name == TypePrimitive.default_task_name(), msg
+
+
+def test_dataset_image_metadata_schema():
+    yaml_str = yaml.dump(DatasetImageMetadata.model_json_schema())
+
+    path_annotations_schema = helper_testing.get_path_test_data() / "dataset_image_metadata_schema.yaml"
+
+    if not path_annotations_schema.exists():
+        path_annotations_schema.write_text(yaml_str)
+        assert not path_annotations_schema.exists(), (
+            f"Expected {path_annotations_schema} to not exist. It has been recreated. Rerun test"
+        )
+
+    expected_yaml_str = path_annotations_schema.read_text()
+    assert yaml.safe_load(yaml_str) == yaml.safe_load(expected_yaml_str), (
+        "Schema has changed. Delete the file and rerun the test to regenerate. "
+        "IMPORTANT: This schema is used in the frontend to parse dataset metadata. "
+        "Notify the front-end team of changes to the schema."
+    )
+
+
+def test_dataset_image_metadata_serialization():
+    sample = helper_testing.get_sample_micro_hafnia_dataset("micro-tiny-dataset")
+    dataset_image_metadata = DatasetImageMetadata.from_sample(sample)
+
+    metadata_dict = dataset_image_metadata.model_dump(exclude_none=True)
+
+    assert "annotations" in metadata_dict
+    annotations = metadata_dict["annotations"]
+    assert "objects" in annotations
+    assert "classifications" in annotations
+
+    assert "meta" in metadata_dict
+    meta = metadata_dict["meta"]
+
+    assert "file_name" in meta

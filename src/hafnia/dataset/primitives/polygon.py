@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
+from pydantic import Field
 
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.point import Point
@@ -11,15 +12,21 @@ from hafnia.dataset.primitives.utils import class_color_by_name, get_class_name
 
 class Polygon(Primitive):
     # Names should match names in FieldName
-    points: List[Point]
-    class_name: Optional[str] = None  # This should match the string in 'FieldName.CLASS_NAME'
-    class_idx: Optional[int] = None  # This should match the string in 'FieldName.CLASS_IDX'
-    object_id: Optional[str] = None  # This should match the string in 'FieldName.OBJECT_ID'
-    confidence: Optional[float] = None  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
-    ground_truth: bool = True  # Whether this is ground truth or a prediction
+    points: List[Point] = Field(description="List of points defining the polygon")
+    class_name: Optional[str] = Field(default=None, description="Class name of the polygon")
+    class_idx: Optional[int] = Field(default=None, description="Class index of the polygon")
+    object_id: Optional[str] = Field(default=None, description="Object ID of the polygon")
+    confidence: Optional[float] = Field(
+        default=None, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox"
+    )
+    ground_truth: bool = Field(default=True, description="Whether this is ground truth or a prediction")
 
-    task_name: str = ""  # Task name to support multiple Polygon tasks in the same dataset. "" defaults to "polygon"
-    meta: Optional[Dict[str, Any]] = None  # This can be used to store additional information about the bitmask
+    task_name: str = Field(
+        default="", description="Task name to support multiple Polygon tasks in the same dataset. Defaults to 'polygon'"
+    )
+    meta: Optional[Dict[str, Any]] = Field(
+        default=None, description="This can be used to store additional information about the polygon"
+    )
 
     @staticmethod
     def from_list_of_points(
