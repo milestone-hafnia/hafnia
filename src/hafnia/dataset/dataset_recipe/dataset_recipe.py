@@ -518,8 +518,8 @@ def format_python_code(code_str: str, as_example_code: bool = True, recipe_name:
         """)
 
     try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".py") as f:
-            path_tmp_file = Path(f.name)
+        with tempfile.TemporaryDirectory() as dirname:
+            path_tmp_file = Path(dirname) / "temp.py"
             path_tmp_file.write_text(code_str)
             subprocess.run(
                 ["ruff", "format", str(path_tmp_file)],
@@ -587,7 +587,7 @@ def convert_json_recipe_to_python(json_str: str) -> str:
 
         # Handle path arguments
         if "path" in key.lower() and isinstance(value, str):
-            return f"PosixPath('{value}')"
+            return Path(value).__repr__()
 
         # Handle regular values
         return _parse_value(value)

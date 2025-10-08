@@ -446,6 +446,7 @@ class HafniaDataset:
 
     @staticmethod
     def from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
+        path_folder = Path(path_folder)
         HafniaDataset.check_dataset_path(path_folder, raise_error=True)
 
         dataset_info = DatasetInfo.from_json_file(path_folder / FILENAME_DATASET_INFO)
