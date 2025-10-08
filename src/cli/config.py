@@ -20,6 +20,14 @@ PLATFORM_API_MAPPING = {
 }
 
 
+class SecretStr(str):
+    def __repr__(self):
+        return "********"
+
+    def __str__(self):
+        return "********"
+
+
 class ConfigSchema(BaseModel):
     platform_url: str = ""
     api_key: Optional[str] = None
@@ -37,7 +45,7 @@ class ConfigSchema(BaseModel):
             sys_logger.warning("API key is missing the 'ApiKey ' prefix. Prefix is being added automatically.")
             value = f"ApiKey {value}"
 
-        return value
+        return SecretStr(value)  # Keeps the API key masked in logs and repr
 
 
 class ConfigFileSchema(BaseModel):
