@@ -31,7 +31,7 @@ def import_image_classification_directory_tree(
         path_images_per_class.append(sorted(per_class_images))
 
     # Interleave to ensure classes are balanced in the output dataset for n_samples < total
-    path_images = more_itertools.interleave_longest(*path_images_per_class)
+    path_images = list(more_itertools.interleave_longest(*path_images_per_class))
 
     for path_image_org in tqdm(path_images, desc="Convert 'image classification' dataset to Hafnia Dataset"):
         class_name = path_image_org.parent.name

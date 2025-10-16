@@ -52,10 +52,10 @@ new_dataset_splits = dataset.splits_by_ratios(split_ratios)
 # Get only samples with specific class names
 dataset_ones = dataset.select_samples_by_class_name(name="1 - one", primitive=Classification)
 
-# Get access to a few full and public dataset through Hafnia
-# For public dataset, no login required
-public_dataset = HafniaDataset.from_name_public_dataset("caltech-101")
-public_dataset.print_
+# Get access to a few full and public dataset through Hafnia (no login required)
+# Available datasets: "mnist", "caltech-101", "caltech-256", "cifar10", "cifar100"
+public_dataset = HafniaDataset.from_name_public_dataset("caltech-101", force_redownload=True, n_samples=10)
+public_dataset.print_stats()
 
 
 # Rename class names with mapping
