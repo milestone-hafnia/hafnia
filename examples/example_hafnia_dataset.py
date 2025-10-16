@@ -54,7 +54,7 @@ dataset_ones = dataset.select_samples_by_class_name(name="1 - one", primitive=Cl
 
 # Get access to a few full and public dataset through Hafnia (no login required)
 # Available datasets: "mnist", "caltech-101", "caltech-256", "cifar10", "cifar100"
-public_dataset = HafniaDataset.from_name_public_dataset("caltech-101", force_redownload=True, n_samples=10)
+public_dataset = HafniaDataset.from_name_public_dataset("caltech-101", n_samples=10)
 public_dataset.print_stats()
 
 
