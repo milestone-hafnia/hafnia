@@ -144,7 +144,7 @@ def split_primitive_columns_by_task_name(
     return samples_table
 
 
-def read_table_from_path(path: Path) -> pl.DataFrame:
+def read_samples_from_path(path: Path) -> pl.DataFrame:
     path_annotations = path / FILENAME_ANNOTATIONS_PARQUET
     if path_annotations.exists():
         user_logger.info(f"Reading dataset annotations from Parquet file: {path_annotations}")
@@ -162,7 +162,7 @@ def read_table_from_path(path: Path) -> pl.DataFrame:
 
 def check_image_paths(table: pl.DataFrame) -> bool:
     missing_files = []
-    for org_path in tqdm(table["file_name"].to_list(), desc="Check image paths"):
+    for org_path in tqdm(table[ColumnName.FILE_PATH].to_list(), desc="Check image paths"):
         org_path = Path(org_path)
         if not org_path.exists():
             missing_files.append(org_path)

@@ -49,7 +49,7 @@ class FieldName:
 
 class ColumnName:
     SAMPLE_INDEX: str = "sample_index"
-    FILE_NAME: str = "file_name"
+    FILE_PATH: str = "file_path"
     HEIGHT: str = "height"
     WIDTH: str = "width"
     SPLIT: str = "split"
@@ -57,6 +57,7 @@ class ColumnName:
     ATTRIBUTION: str = "attribution"  # Attribution for the sample (image/video), e.g. creator, license, source, etc.
     TAGS: str = "tags"
     META: str = "meta"
+    DATASET_NAME: str = "dataset_name"
 
 
 class SplitName:

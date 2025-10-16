@@ -122,7 +122,7 @@ def download_dataset_from_access_endpoint(
     try:
         fast_copy_files_s3(
             src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
-            dst_paths=dataset.samples[ColumnName.FILE_NAME].to_list(),
+            dst_paths=dataset.samples[ColumnName.FILE_PATH].to_list(),
             append_envs=envs,
             description="Downloading images",
         )

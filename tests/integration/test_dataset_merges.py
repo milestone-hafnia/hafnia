@@ -1,6 +1,6 @@
 import pytest
 
-from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS
+from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS, ColumnName
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.utils import is_hafnia_configured
@@ -49,3 +49,11 @@ def test_merge_midwest_and_coco_datasets():
 
     dataset_from_recipe = dataset_recipe.build()
     dataset_from_recipe.check_dataset()
+
+    # Ensure dataset names are
+    expected_dataset_names = {coco_name, midwest_name}
+    actual_dataset_names = set(merged_dataset.samples[ColumnName.DATASET_NAME].unique())
+    assert actual_dataset_names == expected_dataset_names, (
+        f"The '{ColumnName.DATASET_NAME}' should contain the original dataset names {expected_dataset_names}. "
+        f"But found: {actual_dataset_names}"
+    )

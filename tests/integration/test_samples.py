@@ -27,7 +27,7 @@ DATASETS_EXPECTED = [
     ("midwest-vehicle-detection", {"train": 172, "validation": 21, "test": 21}),
     ("tiny-dataset", {"train": 3, "validation": 2, "test": 3}),
     ("mnist", {"train": 176, "test": 18, "validation": 6}),
-    ("caltech-101", {"train": 156, "validation": 24, "test": 20}),
+    ("caltech-101", {"train": 166, "validation": 21, "test": 13}),
     ("caltech-256", {"train": 163, "validation": 17, "test": 20}),
     ("cifar10", {"train": 171, "validation": 4, "test": 25}),
     ("cifar100", {"train": 428, "validation": 13, "test": 59}),
@@ -56,7 +56,11 @@ def loaded_dataset(request) -> Dict[str, Any]:
         pytest.skip(
             f"Dataset format version {dataset.info.format_version} is behind "
             f"the current version {hafnia.__dataset_format_version__}. Dataset is being skipped."
-            "Run the 'formatting-step' to update the dataset format version."
+            "To don't skip set 'RUN_ON_OLD_DATASETS=True'. If you have older versions of a dataset stored locally, "
+            "you can set 'FORCE_REDOWNLOAD=True' to re-download the dataset. "
+            "If that doesn't help, the public available datasets are out of date compared to the current "
+            "format version used in this version of hafnia . Run the 'formatting-step' in the 'data-management' "
+            "repo to update the dataset format version."
         )
     return {
         "dataset": dataset,
@@ -115,7 +119,7 @@ def test_check_dataset(loaded_dataset, compare_to_expected_image):
 
     # We are arranging dataset files in multiple sub-folders to avoid S3 rate limits.
     # This test checks that the dataset files are distributed across multiple sub-folders.
-    unique_sub_folders = collections.Counter([Path(path).parent.name for path in dataset.samples[ColumnName.FILE_NAME]])
+    unique_sub_folders = collections.Counter([Path(path).parent.name for path in dataset.samples[ColumnName.FILE_PATH]])
     assert len(unique_sub_folders) > 1, "Expected dataset files to be distributed across sub-folders"
 
 

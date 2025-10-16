@@ -179,7 +179,6 @@ def check_dataset(dataset: HafniaDataset):
     from hafnia.dataset.hafnia_dataset import Sample
 
     user_logger.info("Checking Hafnia dataset...")
-    assert isinstance(dataset.info.version, str) and len(dataset.info.version) > 0
     assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0
 
     sample_dataset = dataset.create_sample_dataset()

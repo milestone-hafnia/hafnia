@@ -123,7 +123,7 @@ for i_fake_sample in range(5):
     bboxes = [Bbox(top_left_x=0.1, top_left_y=0.20, width=0.1, height=0.2, class_name="car")]
     classifications = [Classification(class_name="vehicle", class_idx=0)]
     sample = Sample(
-        file_name=f"path/to/image_{i_fake_sample:05}.jpg",
+        file_path=f"path/to/image_{i_fake_sample:05}.jpg",
         height=480,
         width=640,
         split="train",

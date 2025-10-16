@@ -1,6 +1,6 @@
 {
     "dataset_name": "coco-2017",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "tasks": [
         {
             "primitive": "Bbox",
@@ -176,6 +176,9 @@
         }
     ],
     "distributions": null,
+    "reference_bibtex": "@ARTICLE{Lin2014-wu,\n    title         = \"Microsoft {COCO}: Common objects in context\",\n    author        = \"Lin, Tsung-Yi and Maire, Michael and Belongie, Serge and\n                    Bourdev, Lubomir and Girshick, Ross and Hays, James and\n                    Perona, Pietro and Ramanan, Deva and Zitnick, C Lawrence and\n                    Doll{'a}r, Piotr\",\n    month         =  may,\n    year          =  2014,\n    copyright     = \"http://arxiv.org/licenses/nonexclusive-distrib/1.0/\",\n    archivePrefix = \"arXiv\",\n    primaryClass  = \"cs.CV\",\n    eprint        = \"1405.0312\"\n    }",
+    "reference_paper_url": "https://arxiv.org/abs/1405.0312",
+    "reference_dataset_page": "https://cocodataset.org/#home",
     "meta": {
         "info_fiftyone": {
             "description": "COCO 2017 Dataset",
@@ -319,6 +322,6 @@
         },
         "license_citation": "@ARTICLE{Lin2014-wu,\n    title         = \"Microsoft {COCO}: Common objects in context\",\n    author        = \"Lin, Tsung-Yi and Maire, Michael and Belongie, Serge and\n                    Bourdev, Lubomir and Girshick, Ross and Hays, James and\n                    Perona, Pietro and Ramanan, Deva and Zitnick, C Lawrence and\n                    Doll{'a}r, Piotr\",\n    month         =  may,\n    year          =  2014,\n    copyright     = \"http://arxiv.org/licenses/nonexclusive-distrib/1.0/\",\n    archivePrefix = \"arXiv\",\n    primaryClass  = \"cs.CV\",\n    eprint        = \"1405.0312\"\n    }"
     },
-    "format_version": "0.0.3",
-    "updated_at": "2025-10-06T13:41:56.287369"
+    "format_version": "0.1.0",
+    "updated_at": "2025-10-16T12:32:28.787235"
 }

@@ -63,6 +63,18 @@ def timed(label: str):
     return decorator
 
 
+def get_path_hafnia_cache() -> Path:
+    return Path.home() / "hafnia"
+
+
+def get_path_torchvision_downloads() -> Path:
+    return get_path_hafnia_cache() / "torchvision_downloads"
+
+
+def get_path_hafnia_conversions() -> Path:
+    return get_path_hafnia_cache() / "hafnia_conversions"
+
+
 def now_as_str() -> str:
     """Get the current date and time as a string."""
     return datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -205,3 +217,8 @@ def remove_duplicates_preserve_order(seq: Iterable) -> List:
     Remove duplicates from a list while preserving the order of elements.
     """
     return list(more_itertools.unique_everseen(seq))
+
+
+def is_image_file(file_path: Path) -> bool:
+    image_extensions = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".gif"]
+    return file_path.suffix.lower() in image_extensions

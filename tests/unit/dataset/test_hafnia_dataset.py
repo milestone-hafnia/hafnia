@@ -2,7 +2,9 @@ import os
 from pathlib import Path
 
 import pytest
+from packaging.version import Version
 
+import hafnia
 from hafnia.dataset.dataset_names import ColumnName, DeploymentStage
 from hafnia.dataset.dataset_upload_helper import dataset_info_from_dataset
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
@@ -48,7 +50,7 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
 
     samples = [
         Sample(
-            file_name=str(path),
+            file_path=str(path),
             height=100,
             width=200,
             split="train",
@@ -61,8 +63,8 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
 
     dataset_reloaded = HafniaDataset.from_path(path_dataset)
     assert dataset_reloaded.info == dataset.info
-    table_expected = dataset.samples.drop(ColumnName.FILE_NAME)
-    table_actual = dataset_reloaded.samples.drop(ColumnName.FILE_NAME)
+    table_expected = dataset.samples.drop(ColumnName.FILE_PATH)
+    table_actual = dataset_reloaded.samples.drop(ColumnName.FILE_PATH)
     assert table_expected.equals(table_actual), "The samples tables do not match after reloading the dataset."
 
 
@@ -167,3 +169,40 @@ def test_dataset_info_replace_task():
     non_existing_task = TaskInfo(primitive=Classification, class_names=["bike"], name="NonExistingTask")
     with pytest.raises(ValueError, match="Task '.*' not found in dataset info."):
         dataset_info.replace_task(old_task=non_existing_task, new_task=new_task1)
+
+
+def test_dataset_version_validation():
+    # Valid version
+    DatasetInfo(dataset_name="test_dataset", version="1.0")
+
+    # Invalid version
+    with pytest.raises(ValueError, match="Invalid dataset_version '.*'. Must be a valid version string"):
+        DatasetInfo(dataset_name="test_dataset", version="invalid_version")
+
+
+def test_dataset_format_version_validation():
+    # Valid dataset format version
+    dataset_info = DatasetInfo(dataset_name="test_dataset")
+    assert dataset_info.format_version == hafnia.__dataset_format_version__
+
+    # Explicitly set valid version
+    dataset_info = DatasetInfo(dataset_name="test_dataset", format_version=hafnia.__dataset_format_version__)
+    assert dataset_info.format_version == hafnia.__dataset_format_version__
+
+    # Invalid version
+    with pytest.raises(ValueError, match="Invalid format_version '.*'. Must be a valid version string"):
+        DatasetInfo(dataset_name="test_dataset", format_version="invalid_version")
+
+
+def test_dataset_format_version_is_newer_warning():
+    from unittest.mock import patch
+
+    c_format_version = Version(hafnia.__dataset_format_version__)
+    n_format_version = f"{c_format_version.major}.{c_format_version.minor}.{c_format_version.micro + 1}"
+
+    # Check warning is logged to the user logger. Because caplog/pytest.raises doesn't work with 'user_logger'
+    with patch("hafnia.log.user_logger.warning") as mock_warning:
+        DatasetInfo(dataset_name="test_dataset", format_version=n_format_version)
+        mock_warning.assert_called_once()
+        call_args = mock_warning.call_args[0][0]  # Get the first argument (message)
+        assert "Please consider updating Hafnia package" in call_args
