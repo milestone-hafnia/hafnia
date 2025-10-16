@@ -46,10 +46,10 @@ class DatasetRecipe(Serializable):
         return DatasetRecipe(creation=creation)
 
     @staticmethod
-    def from_name_full_dataset(
+    def from_name_public_dataset(
         name: str, force_redownload: bool = False, n_samples: Optional[int] = None
     ) -> DatasetRecipe:
-        creation = FromNameFullDataset(
+        creation = FromNamePublicDataset(
             name=name,
             force_redownload=force_redownload,
             n_samples=n_samples,
@@ -423,14 +423,14 @@ class FromName(RecipeCreation):
         return [self.name]
 
 
-class FromNameFullDataset(RecipeCreation):
+class FromNamePublicDataset(RecipeCreation):
     name: str
     force_redownload: bool = False
     n_samples: Optional[int] = None
 
     @staticmethod
     def get_function() -> Callable[..., "HafniaDataset"]:
-        return HafniaDataset.from_name_full_dataset
+        return HafniaDataset.from_name_public_dataset
 
     def as_short_name(self) -> str:
         return f"Torchvision('{self.name}')"

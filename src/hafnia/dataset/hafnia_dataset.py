@@ -600,7 +600,7 @@ class HafniaDataset:
         return merged_dataset
 
     @staticmethod
-    def from_name_full_dataset(
+    def from_name_public_dataset(
         name: str,
         force_redownload: bool = False,
         n_samples: Optional[int] = None,
