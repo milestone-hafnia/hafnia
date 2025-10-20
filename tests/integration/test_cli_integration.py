@@ -1,5 +1,5 @@
 import pytest
-from click import MissingParameter
+from click.exceptions import MissingParameter, NoArgsIsHelpError
 
 from hafnia import utils
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
@@ -19,7 +19,8 @@ def test_cli_integration_test():
         pytest.skip("Hafnia platform not configured. Skipping CLI integration test.")
 
     # Main help
-    hafnia_cli(args=[], standalone_mode=False)
+    with pytest.raises(NoArgsIsHelpError):
+        hafnia_cli(args=[], standalone_mode=False)
     hafnia_cli(args=["--version"], standalone_mode=False)
 
     # Configuration
@@ -36,7 +37,8 @@ def test_cli_integration_test():
 
     # Dataset commands
     CMD_DATASET = "dataset"
-    hafnia_cli(args=[CMD_DATASET], standalone_mode=False)
+    with pytest.raises(NoArgsIsHelpError):
+        hafnia_cli(args=[CMD_DATASET], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET, "--help"], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET, "ls"], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET, "download", "mnist", "--force"], standalone_mode=False)
@@ -44,7 +46,8 @@ def test_cli_integration_test():
 
     # Dataset recipe commands
     CMD_DATASET_RECIPE = "dataset-recipe"
-    hafnia_cli(args=[CMD_DATASET_RECIPE], standalone_mode=False)
+    with pytest.raises(NoArgsIsHelpError):
+        hafnia_cli(args=[CMD_DATASET_RECIPE], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET_RECIPE, "--help"], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET_RECIPE, "ls"], standalone_mode=False)
     with pytest.raises(MissingParameter):
@@ -67,7 +70,8 @@ def test_cli_integration_test():
 
     # Trainer package commands
     CMD_TRAINER_PACKAGE = "trainer"
-    hafnia_cli(args=[CMD_TRAINER_PACKAGE], standalone_mode=False)
+    with pytest.raises(NoArgsIsHelpError):
+        hafnia_cli(args=[CMD_TRAINER_PACKAGE], standalone_mode=False)
     hafnia_cli(args=[CMD_TRAINER_PACKAGE, "--help"], standalone_mode=False)
     hafnia_cli(args=[CMD_TRAINER_PACKAGE, "ls"], standalone_mode=False)
 
@@ -78,8 +82,9 @@ def test_cli_integration_test():
 
     # Experiment commands
     CMD_EXPERIMENT = "experiment"
-    hafnia_cli(args=[CMD_EXPERIMENT], standalone_mode=False)
     hafnia_cli(args=[CMD_EXPERIMENT, "environments"], standalone_mode=False)
+    with pytest.raises(NoArgsIsHelpError):
+        hafnia_cli(args=[CMD_EXPERIMENT], standalone_mode=False)
     with pytest.raises(MissingParameter):
         hafnia_cli(args=[CMD_EXPERIMENT, "create", "--dataset", "mnist"], standalone_mode=False)
 

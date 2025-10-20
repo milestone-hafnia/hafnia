@@ -47,7 +47,7 @@ def config_with_profiles(test_config_path: Path, profile_data: dict) -> Config:
 
 
 def test_configure(cli_runner: CliRunner, empty_config: Config, api_key: str) -> None:
-    inputs = f"default\nApiKey some-fake-test-api-key\n{consts.DEFAULT_API_URL}\n"
+    inputs = f"default\nApiKey some-fake-test-api-key\n{consts.DEFAULT_API_URL}\nN\n"
     result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
     assert result.exit_code == 0
     assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
@@ -61,7 +61,7 @@ def test_configure_api_key_autofix(cli_runner: CliRunner, empty_config: Config, 
     Many users submit the api key without the prefix.
     This test ensures that the CLI will automatically add the prefix if missing.
     """
-    inputs = f"default\nfake-api-key-with-out-prefix\n{consts.DEFAULT_API_URL}\n"
+    inputs = f"default\nfake-api-key-with-out-prefix\n{consts.DEFAULT_API_URL}\nN\n"
     result = cli_runner.invoke(cli.main, ["configure"], input="".join(inputs))
     assert result.exit_code == 0
     assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
