@@ -91,6 +91,9 @@
             "name": "Time of Day"
         }
     ],
+    "reference_bibtex": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Hafnia Dataset: Tiny Dataset},\n    url = https://mdi.milestonesys.com/datasets/070b3bd5-0266-4446-a318-052c993558ef,\n    note = {Part of the Hafnia project},\n    version = {0.0.1},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}",
+    "reference_paper_url": null,
+    "reference_dataset_page": null,
     "meta": {
         "annotation_project_id": "d8cd6a5b-32da-42fb-9bab-b20b327cca9a",
         "n_videos": 1,
@@ -105,6 +108,6 @@
         "annotation_dataset_id": "9a0faaba-46d7-484a-91e8-b34b7c9ef236",
         "license_citation": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Hafnia Dataset: Tiny Dataset},\n    url = https://mdi.milestonesys.com/datasets/070b3bd5-0266-4446-a318-052c993558ef,\n    note = {Part of the Hafnia project},\n    version = {0.0.1},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}"
     },
-    "format_version": "0.0.3",
-    "updated_at": "2025-10-06T13:41:09.062470"
+    "format_version": "0.1.0",
+    "updated_at": "2025-10-16T11:40:50.416198"
 }

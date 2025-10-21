@@ -12,7 +12,11 @@ from pydantic import (
 
 from hafnia import utils
 from hafnia.dataset.dataset_recipe import recipe_transforms
-from hafnia.dataset.dataset_recipe.recipe_types import RecipeCreation, RecipeTransform, Serializable
+from hafnia.dataset.dataset_recipe.recipe_types import (
+    RecipeCreation,
+    RecipeTransform,
+    Serializable,
+)
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.primitives.primitive import Primitive
 
@@ -39,6 +43,17 @@ class DatasetRecipe(Serializable):
     @staticmethod
     def from_name(name: str, force_redownload: bool = False, download_files: bool = True) -> DatasetRecipe:
         creation = FromName(name=name, force_redownload=force_redownload, download_files=download_files)
+        return DatasetRecipe(creation=creation)
+
+    @staticmethod
+    def from_name_public_dataset(
+        name: str, force_redownload: bool = False, n_samples: Optional[int] = None
+    ) -> DatasetRecipe:
+        creation = FromNamePublicDataset(
+            name=name,
+            force_redownload=force_redownload,
+            n_samples=n_samples,
+        )
         return DatasetRecipe(creation=creation)
 
     @staticmethod
@@ -247,10 +262,17 @@ class DatasetRecipe(Serializable):
         return recipe
 
     def select_samples(
-        recipe: DatasetRecipe, n_samples: int, shuffle: bool = True, seed: int = 42, with_replacement: bool = False
+        recipe: DatasetRecipe,
+        n_samples: int,
+        shuffle: bool = True,
+        seed: int = 42,
+        with_replacement: bool = False,
     ) -> DatasetRecipe:
         operation = recipe_transforms.SelectSamples(
-            n_samples=n_samples, shuffle=shuffle, seed=seed, with_replacement=with_replacement
+            n_samples=n_samples,
+            shuffle=shuffle,
+            seed=seed,
+            with_replacement=with_replacement,
         )
         recipe.append_operation(operation)
         return recipe
@@ -401,6 +423,22 @@ class FromName(RecipeCreation):
         return [self.name]
 
 
+class FromNamePublicDataset(RecipeCreation):
+    name: str
+    force_redownload: bool = False
+    n_samples: Optional[int] = None
+
+    @staticmethod
+    def get_function() -> Callable[..., "HafniaDataset"]:
+        return HafniaDataset.from_name_public_dataset
+
+    def as_short_name(self) -> str:
+        return f"Torchvision('{self.name}')"
+
+    def get_dataset_names(self) -> List[str]:
+        return []
+
+
 class FromMerge(RecipeCreation):
     recipe0: DatasetRecipe
     recipe1: DatasetRecipe
@@ -415,7 +453,10 @@ class FromMerge(RecipeCreation):
 
     def get_dataset_names(self) -> List[str]:
         """Get the dataset names from the merged recipes."""
-        names = [*self.recipe0.creation.get_dataset_names(), *self.recipe1.creation.get_dataset_names()]
+        names = [
+            *self.recipe0.creation.get_dataset_names(),
+            *self.recipe1.creation.get_dataset_names(),
+        ]
         return names
 
 
