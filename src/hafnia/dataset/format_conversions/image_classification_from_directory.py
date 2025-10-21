@@ -26,9 +26,8 @@ def import_image_classification_directory_tree(
     for path_class_folder in class_folder_paths:
         per_class_images = []
         for path_image in list(path_class_folder.rglob("*.*")):
-            if not is_image_file(path_image):
-                continue
-            per_class_images.append(path_image)
+            if is_image_file(path_image):
+                per_class_images.append(path_image)
         path_images_per_class.append(sorted(per_class_images))
 
     # Interleave to ensure classes are balanced in the output dataset for n_samples < total
