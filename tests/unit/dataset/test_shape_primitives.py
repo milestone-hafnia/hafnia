@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import yaml
 
-from hafnia.dataset.dataset_names import FieldName
+from hafnia.dataset.dataset_names import ColumnName, FieldName
 from hafnia.dataset.dataset_upload_helper import DatasetImageMetadata
 from hafnia.dataset.hafnia_dataset import Sample
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
@@ -48,7 +48,7 @@ def assert_bbox_is_close(actual: Bbox, expected: Bbox, atol: float = 0.001):
 
 @pytest.mark.parametrize("TypePrimitive", PRIMITIVE_TYPES)
 def test_sample_primitive_names(TypePrimitive: Type[Primitive]):
-    sample = Sample(file_name="test_image.jpg", width=100, height=100, split="test_split")
+    sample = Sample(file_path="test_image.jpg", width=100, height=100, split="test_split")
 
     for expected_field in FieldName.fields():
         assert expected_field in TypePrimitive.__annotations__, (
@@ -106,4 +106,4 @@ def test_dataset_image_metadata_serialization():
     assert "meta" in metadata_dict
     meta = metadata_dict["meta"]
 
-    assert "file_name" in meta
+    assert ColumnName.FILE_PATH in meta

@@ -13,9 +13,10 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import more_itertools
 import numpy as np
 import polars as pl
+from packaging.version import Version
 from PIL import Image
 from pydantic import BaseModel, Field, field_serializer, field_validator
-from tqdm import tqdm
+from rich.progress import track
 
 import hafnia
 from hafnia.dataset import dataset_helpers
@@ -29,10 +30,14 @@ from hafnia.dataset.dataset_names import (
     ColumnName,
     SplitName,
 )
-from hafnia.dataset.operations import dataset_stats, dataset_transformations, table_transformations
+from hafnia.dataset.operations import (
+    dataset_stats,
+    dataset_transformations,
+    table_transformations,
+)
 from hafnia.dataset.operations.table_transformations import (
     check_image_paths,
-    read_table_from_path,
+    read_samples_from_path,
 )
 from hafnia.dataset.primitives import PRIMITIVE_TYPES, get_primitive_type_from_string
 from hafnia.dataset.primitives.bbox import Bbox
@@ -108,9 +113,21 @@ class TaskInfo(BaseModel):
 
 class DatasetInfo(BaseModel):
     dataset_name: str = Field(description="Name of the dataset, e.g. 'coco'")
-    version: str = Field(description="Version of the dataset")
-    tasks: List[TaskInfo] = Field(description="List of tasks in the dataset")
+    version: Optional[str] = Field(default=None, description="Version of the dataset")
+    tasks: List[TaskInfo] = Field(default=None, description="List of tasks in the dataset")
     distributions: Optional[List[TaskInfo]] = Field(default=None, description="Optional list of task distributions")
+    reference_bibtex: Optional[str] = Field(
+        default=None,
+        description="Optional, BibTeX reference to dataset publication",
+    )
+    reference_paper_url: Optional[str] = Field(
+        default=None,
+        description="Optional, URL to dataset publication",
+    )
+    reference_dataset_page: Optional[str] = Field(
+        default=None,
+        description="Optional, URL to the dataset page",
+    )
     meta: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the dataset")
     format_version: str = Field(
         default=hafnia.__dataset_format_version__,
@@ -123,7 +140,9 @@ class DatasetInfo(BaseModel):
 
     @field_validator("tasks", mode="after")
     @classmethod
-    def _validate_check_for_duplicate_tasks(cls, tasks: List[TaskInfo]) -> List[TaskInfo]:
+    def _validate_check_for_duplicate_tasks(cls, tasks: Optional[List[TaskInfo]]) -> List[TaskInfo]:
+        if tasks is None:
+            return []
         task_name_counts = collections.Counter(task.name for task in tasks)
         duplicate_task_names = [name for name, count in task_name_counts.items() if count > 1]
         if duplicate_task_names:
@@ -131,6 +150,35 @@ class DatasetInfo(BaseModel):
                 f"Tasks must be unique. The following tasks appear multiple times: {duplicate_task_names}."
             )
         return tasks
+
+    @field_validator("format_version")
+    @classmethod
+    def _validate_format_version(cls, format_version: str) -> str:
+        try:
+            Version(format_version)
+        except Exception as e:
+            raise ValueError(f"Invalid format_version '{format_version}'. Must be a valid version string.") from e
+
+        if Version(format_version) > Version(hafnia.__dataset_format_version__):
+            user_logger.warning(
+                f"The loaded dataset format version '{format_version}' is newer than the format version "
+                f"'{hafnia.__dataset_format_version__}' used in your version of Hafnia. Please consider "
+                f"updating Hafnia package."
+            )
+        return format_version
+
+    @field_validator("version")
+    @classmethod
+    def _validate_version(cls, dataset_version: Optional[str]) -> Optional[str]:
+        if dataset_version is None:
+            return None
+
+        try:
+            Version(dataset_version)
+        except Exception as e:
+            raise ValueError(f"Invalid dataset_version '{dataset_version}'. Must be a valid version string.") from e
+
+        return dataset_version
 
     def check_for_duplicate_task_names(self) -> List[TaskInfo]:
         return self._validate_check_for_duplicate_tasks(self.tasks)
@@ -201,7 +249,7 @@ class DatasetInfo(BaseModel):
         meta.update(info1.meta or {})
         return DatasetInfo(
             dataset_name=info0.dataset_name + "+" + info1.dataset_name,
-            version="merged",
+            version=None,
             tasks=list(unique_tasks),
             distributions=list(distributions),
             meta=meta,
@@ -272,18 +320,20 @@ class DatasetInfo(BaseModel):
 
 
 class Sample(BaseModel):
-    file_name: str = Field(description="Path to the image file")
+    file_path: str = Field(description="Path to the image file")
     height: int = Field(description="Height of the image")
     width: int = Field(description="Width of the image")
     split: str = Field(description="Split name, e.g., 'train', 'val', 'test'")
     tags: List[str] = Field(
-        default_factory=list, description="Tags for a given sample. Used for creating subsets of the dataset."
+        default_factory=list,
+        description="Tags for a given sample. Used for creating subsets of the dataset.",
     )
     collection_index: Optional[int] = Field(default=None, description="Optional e.g. frame number for video datasets")
     collection_id: Optional[str] = Field(default=None, description="Optional e.g. video name for video datasets")
     remote_path: Optional[str] = Field(default=None, description="Optional remote path for the image, if applicable")
     sample_index: Optional[int] = Field(
-        default=None, description="Don't manually set this, it is used for indexing samples in the dataset."
+        default=None,
+        description="Don't manually set this, it is used for indexing samples in the dataset.",
     )
     classifications: Optional[List[Classification]] = Field(
         default=None, description="Optional list of classifications"
@@ -293,7 +343,17 @@ class Sample(BaseModel):
     polygons: Optional[List[Polygon]] = Field(default=None, description="Optional list of polygons")
 
     attribution: Optional[Attribution] = Field(default=None, description="Attribution information for the image")
-    meta: Optional[Dict] = Field(default=None, description="Additional metadata, e.g., camera settings, GPS data, etc.")
+    dataset_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Don't manually set this, it will be automatically defined during initialization. "
+            "Name of the dataset the sample belongs to. E.g. 'coco-2017' or 'midwest-vehicle-detection'."
+        ),
+    )
+    meta: Optional[Dict] = Field(
+        default=None,
+        description="Additional metadata, e.g., camera settings, GPS data, etc.",
+    )
 
     def get_annotations(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
         """
@@ -314,7 +374,7 @@ class Sample(BaseModel):
         Reads the image from the file path and returns it as a PIL Image.
         Raises FileNotFoundError if the image file does not exist.
         """
-        path_image = Path(self.file_name)
+        path_image = Path(self.file_path)
         if not path_image.exists():
             raise FileNotFoundError(f"Image file {path_image} does not exist. Please check the file path.")
 
@@ -433,16 +493,7 @@ class HafniaDataset:
             yield row
 
     def __post_init__(self):
-        samples = self.samples
-        if ColumnName.SAMPLE_INDEX not in samples.columns:
-            samples = samples.with_row_index(name=ColumnName.SAMPLE_INDEX)
-
-        # Backwards compatibility: If tags-column doesn't exist, create it with empty lists
-        if ColumnName.TAGS not in samples.columns:
-            tags_column: List[List[str]] = [[] for _ in range(len(self))]  # type: ignore[annotation-unchecked]
-            samples = samples.with_columns(pl.Series(tags_column, dtype=pl.List(pl.String)).alias(ColumnName.TAGS))
-
-        self.samples = samples
+        self.samples, self.info = _dataset_corrections(self.samples, self.info)
 
     @staticmethod
     def from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
@@ -450,14 +501,15 @@ class HafniaDataset:
         HafniaDataset.check_dataset_path(path_folder, raise_error=True)
 
         dataset_info = DatasetInfo.from_json_file(path_folder / FILENAME_DATASET_INFO)
-        table = read_table_from_path(path_folder)
+        samples = read_samples_from_path(path_folder)
+        samples, dataset_info = _dataset_corrections(samples, dataset_info)
 
         # Convert from relative paths to absolute paths
         dataset_root = path_folder.absolute().as_posix() + "/"
-        table = table.with_columns((dataset_root + pl.col("file_name")).alias("file_name"))
+        samples = samples.with_columns((dataset_root + pl.col(ColumnName.FILE_PATH)).alias(ColumnName.FILE_PATH))
         if check_for_images:
-            check_image_paths(table)
-        return HafniaDataset(samples=table, info=dataset_info)
+            check_image_paths(samples)
+        return HafniaDataset(samples=samples, info=dataset_info)
 
     @staticmethod
     def from_name(name: str, force_redownload: bool = False, download_files: bool = True) -> "HafniaDataset":
@@ -485,6 +537,14 @@ class HafniaDataset:
 
         table = pl.from_records(json_samples)
         table = table.drop(ColumnName.SAMPLE_INDEX).with_row_index(name=ColumnName.SAMPLE_INDEX)
+
+        # Add 'dataset_name' to samples
+        table = table.with_columns(
+            pl.when(pl.col(ColumnName.DATASET_NAME).is_null())
+            .then(pl.lit(info.dataset_name))
+            .otherwise(pl.col(ColumnName.DATASET_NAME))
+            .alias(ColumnName.DATASET_NAME)
+        )
         return HafniaDataset(info=info, samples=table)
 
     @staticmethod
@@ -538,6 +598,28 @@ class HafniaDataset:
         for dataset in remaining_datasets:
             merged_dataset = HafniaDataset.merge(merged_dataset, dataset)
         return merged_dataset
+
+    @staticmethod
+    def from_name_public_dataset(
+        name: str,
+        force_redownload: bool = False,
+        n_samples: Optional[int] = None,
+    ) -> HafniaDataset:
+        from hafnia.dataset.format_conversions.torchvision_datasets import (
+            torchvision_to_hafnia_converters,
+        )
+
+        name_to_torchvision_function = torchvision_to_hafnia_converters()
+
+        if name not in name_to_torchvision_function:
+            raise ValueError(
+                f"Unknown torchvision dataset name: {name}. Supported: {list(name_to_torchvision_function.keys())}"
+            )
+        vision_dataset = name_to_torchvision_function[name]
+        return vision_dataset(
+            force_redownload=force_redownload,
+            n_samples=n_samples,
+        )
 
     def shuffle(dataset: HafniaDataset, seed: int = 42) -> HafniaDataset:
         table = dataset.samples.sample(n=len(dataset), with_replacement=False, seed=seed, shuffle=True)
@@ -799,13 +881,14 @@ class HafniaDataset:
             path_folder.mkdir(parents=True)
 
         new_relative_paths = []
-        for org_path in tqdm(self.samples["file_name"].to_list(), desc="- Copy images"):
+        org_paths = self.samples[ColumnName.FILE_PATH].to_list()
+        for org_path in track(org_paths, description="- Copy images"):
             new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
                 path_source=Path(org_path),
                 path_dataset_root=path_folder,
             )
             new_relative_paths.append(str(new_path.relative_to(path_folder)))
-        table = self.samples.with_columns(pl.Series(new_relative_paths).alias("file_name"))
+        table = self.samples.with_columns(pl.Series(new_relative_paths).alias(ColumnName.FILE_PATH))
 
         if drop_null_cols:  # Drops all unused/Null columns
             table = table.drop(pl.selectors.by_dtype(pl.Null))
@@ -867,3 +950,25 @@ def get_or_create_dataset_path_from_recipe(
     dataset.write(path_dataset)
 
     return path_dataset
+
+
+def _dataset_corrections(samples: pl.DataFrame, dataset_info: DatasetInfo) -> Tuple[pl.DataFrame, DatasetInfo]:
+    format_version_of_dataset = Version(dataset_info.format_version)
+
+    ## Backwards compatibility fixes for older dataset versions
+    if format_version_of_dataset <= Version("0.3.0"):
+        if ColumnName.DATASET_NAME not in samples.columns:
+            samples = samples.with_columns(pl.lit(dataset_info.dataset_name).alias(ColumnName.DATASET_NAME))
+
+        if "file_name" in samples.columns:
+            samples = samples.rename({"file_name": ColumnName.FILE_PATH})
+
+        if ColumnName.SAMPLE_INDEX not in samples.columns:
+            samples = samples.with_row_index(name=ColumnName.SAMPLE_INDEX)
+
+        # Backwards compatibility: If tags-column doesn't exist, create it with empty lists
+        if ColumnName.TAGS not in samples.columns:
+            tags_column: List[List[str]] = [[] for _ in range(len(samples))]  # type: ignore[annotation-unchecked]
+            samples = samples.with_columns(pl.Series(tags_column, dtype=pl.List(pl.String)).alias(ColumnName.TAGS))
+
+    return samples, dataset_info

@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import boto3
 from botocore.exceptions import ClientError
 from pydantic import BaseModel, field_validator
-from tqdm import tqdm
+from rich.progress import Progress
 
 from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
@@ -125,13 +125,15 @@ def download_single_object(s3_client, bucket: str, object_key: str, output_dir: 
     return local_path
 
 
-def download_resource(resource_url: str, destination: str, api_key: str) -> Dict:
+def download_resource(resource_url: str, destination: str, api_key: str, prefix: Optional[str] = None) -> Dict:
     """
     Downloads either a single file from S3 or all objects under a prefix.
 
     Args:
         resource_url (str): The URL or identifier used to fetch S3 credentials.
         destination (str): Path to local directory where files will be stored.
+        api_key (str): API key for authentication when fetching credentials.
+        prefix (Optional[str]): If provided, only download objects under this prefix.
 
     Returns:
         Dict[str, Any]: A dictionary containing download info, e.g.:
@@ -147,7 +149,7 @@ def download_resource(resource_url: str, destination: str, api_key: str) -> Dict
     res_credentials = get_resource_credentials(resource_url, api_key)
 
     bucket_name = res_credentials.bucket_name()
-    key = res_credentials.object_key()
+    prefix = prefix or res_credentials.object_key()
 
     output_path = Path(destination)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -159,29 +161,32 @@ def download_resource(resource_url: str, destination: str, api_key: str) -> Dict
     )
     downloaded_files = []
     try:
-        s3_client.head_object(Bucket=bucket_name, Key=key)
-        local_file = download_single_object(s3_client, bucket_name, key, output_path)
+        s3_client.head_object(Bucket=bucket_name, Key=prefix)
+        local_file = download_single_object(s3_client, bucket_name, prefix, output_path)
         downloaded_files.append(str(local_file))
         user_logger.info(f"Downloaded single file: {local_file}")
 
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code")
         if error_code == "404":
-            sys_logger.debug(f"Object '{key}' not found; trying as a prefix.")
-            response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=key)
+            sys_logger.debug(f"Object '{prefix}' not found; trying as a prefix.")
+            response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
             contents = response.get("Contents", [])
 
             if not contents:
-                raise ValueError(f"No objects found for prefix '{key}' in bucket '{bucket_name}'")
-            pbar = tqdm(contents)
-            for obj in pbar:
-                sub_key = obj["Key"]
-                size_mb = obj.get("Size", 0) / 1024 / 1024
-                pbar.set_description(f"{sub_key} ({size_mb:.2f} MB)")
-                local_file = download_single_object(s3_client, bucket_name, sub_key, output_path)
-                downloaded_files.append(local_file.as_posix())
+                raise ValueError(f"No objects found for prefix '{prefix}' in bucket '{bucket_name}'")
 
-            user_logger.info(f"Downloaded folder/prefix '{key}' with {len(downloaded_files)} object(s).")
+            with Progress() as progress:
+                task = progress.add_task("Downloading files", total=len(contents))
+                for obj in contents:
+                    sub_key = obj["Key"]
+                    size_mb = obj.get("Size", 0) / 1024 / 1024
+                    progress.update(task, description=f"Downloading {sub_key} ({size_mb:.2f} MB)")
+                    local_file = download_single_object(s3_client, bucket_name, sub_key, output_path)
+                    downloaded_files.append(local_file.as_posix())
+                    progress.advance(task)
+
+            user_logger.info(f"Downloaded folder/prefix '{prefix}' with {len(downloaded_files)} object(s).")
         else:
             user_logger.error(f"Error checking object or prefix: {e}")
             raise RuntimeError(f"Failed to check or download S3 resource: {e}") from e

@@ -223,7 +223,7 @@ def test_shuffle_transformation():
     is_same = all(new_dataset.samples[ColumnName.SAMPLE_INDEX] == new_dataset2.samples[ColumnName.SAMPLE_INDEX])
     assert is_same, "Shuffled datasets should be equal with the same seed"
 
-    is_same = all(new_dataset.samples[ColumnName.FILE_NAME] == dataset.samples[ColumnName.FILE_NAME])
+    is_same = all(new_dataset.samples[ColumnName.FILE_PATH] == dataset.samples[ColumnName.FILE_PATH])
     assert not is_same, "Shuffled dataset should not match original dataset"
     assert isinstance(new_dataset, HafniaDataset), "Shuffled dataset is not a HafniaDataset instance"
     assert len(new_dataset) == len(dataset), (

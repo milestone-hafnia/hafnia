@@ -52,6 +52,7 @@ class DbDataset(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     license_citation: Optional[str] = None
     version: Optional[str] = None
     s3_bucket_name: Optional[str] = None
+    dataset_format_version: Optional[str] = None
     annotation_date: Optional[datetime] = None
     annotation_project_id: Optional[str] = None
     annotation_dataset_id: Optional[str] = None
@@ -209,10 +210,10 @@ class DatasetImageMetadata(BaseModel):
     @classmethod
     def from_sample(cls, sample: Sample) -> "DatasetImageMetadata":
         sample = sample.model_copy(deep=True)
-        sample.file_name = "/".join(Path(sample.file_name).parts[-3:])
+        sample.file_path = "/".join(Path(sample.file_path).parts[-3:])
         metadata = {}
         metadata_field_names = [
-            ColumnName.FILE_NAME,
+            ColumnName.FILE_PATH,
             ColumnName.HEIGHT,
             ColumnName.WIDTH,
             ColumnName.SPLIT,
@@ -303,7 +304,7 @@ def upload_dataset_details(cfg: Config, data: str, dataset_name: str) -> dict:
     import_endpoint = f"{dataset_endpoint}/{dataset_id}/import"
     headers = {"Authorization": cfg.api_key}
 
-    user_logger.info("Importing dataset details. This may take up to 30 seconds...")
+    user_logger.info("Exporting dataset details to platform. This may take up to 30 seconds...")
     response = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
     return response  # type: ignore[return-value]
 
@@ -618,7 +619,9 @@ def dataset_info_from_dataset(
         s3_bucket_name=bucket_sample,
         dataset_variants=dataset_variants,
         split_annotations_reports=dataset_reports,
-        license_citation=dataset_meta_info.get("license_citation", None),
+        latest_update=dataset.info.updated_at,
+        dataset_format_version=dataset.info.format_version,
+        license_citation=dataset.info.reference_bibtex,
         data_captured_start=dataset_meta_info.get("data_captured_start", None),
         data_captured_end=dataset_meta_info.get("data_captured_end", None),
         data_received_start=dataset_meta_info.get("data_received_start", None),
@@ -643,7 +646,7 @@ def create_gallery_images(
         path_gallery_images.mkdir(parents=True, exist_ok=True)
         COL_IMAGE_NAME = "image_name"
         samples = dataset.samples.with_columns(
-            dataset.samples[ColumnName.FILE_NAME].str.split("/").list.last().alias(COL_IMAGE_NAME)
+            dataset.samples[ColumnName.FILE_PATH].str.split("/").list.last().alias(COL_IMAGE_NAME)
         )
         gallery_samples = samples.filter(pl.col(COL_IMAGE_NAME).is_in(gallery_image_names))
 

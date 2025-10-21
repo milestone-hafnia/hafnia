@@ -38,12 +38,19 @@ def hash_from_bytes(data: bytes) -> str:
 
 def save_image_with_hash_name(image: np.ndarray, path_folder: Path) -> Path:
     pil_image = Image.fromarray(image)
+    path_image = save_pil_image_with_hash_name(pil_image, path_folder)
+    return path_image
+
+
+def save_pil_image_with_hash_name(image: Image.Image, path_folder: Path, allow_skip: bool = True) -> Path:
     buffer = io.BytesIO()
-    pil_image.save(buffer, format="PNG")
+    image.save(buffer, format="PNG")
     hash_value = hash_from_bytes(buffer.getvalue())
     path_image = Path(path_folder) / relative_path_from_hash(hash=hash_value, suffix=".png")
+    if allow_skip and path_image.exists():
+        return path_image
     path_image.parent.mkdir(parents=True, exist_ok=True)
-    pil_image.save(path_image)
+    image.save(path_image)
     return path_image
 
 

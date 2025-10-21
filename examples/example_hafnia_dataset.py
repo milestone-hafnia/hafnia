@@ -18,7 +18,7 @@ from hafnia.dataset.primitives.polygon import Polygon
 # And configure it with your Hafnia account:
 #   hafnia configure
 
-# Load dataset
+# Load sample dataset
 dataset = HafniaDataset.from_name("mnist")
 
 # Dataset information is stored in 'dataset.info'
@@ -51,6 +51,12 @@ new_dataset_splits = dataset.splits_by_ratios(split_ratios)
 
 # Get only samples with specific class names
 dataset_ones = dataset.select_samples_by_class_name(name="1 - one", primitive=Classification)
+
+# Get access to a few full and public dataset through Hafnia (no login required)
+# Available datasets: "mnist", "caltech-101", "caltech-256", "cifar10", "cifar100"
+public_dataset = HafniaDataset.from_name_public_dataset("mnist", n_samples=100)
+public_dataset.print_stats()
+
 
 # Rename class names with mapping
 class_mapping_strict = {
@@ -123,7 +129,7 @@ for i_fake_sample in range(5):
     bboxes = [Bbox(top_left_x=0.1, top_left_y=0.20, width=0.1, height=0.2, class_name="car")]
     classifications = [Classification(class_name="vehicle", class_idx=0)]
     sample = Sample(
-        file_name=f"path/to/image_{i_fake_sample:05}.jpg",
+        file_path=f"path/to/image_{i_fake_sample:05}.jpg",
         height=480,
         width=640,
         split="train",

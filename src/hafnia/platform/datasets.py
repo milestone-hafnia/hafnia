@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import rich
 from rich import print as rprint
-from tqdm import tqdm
+from rich.progress import track
 
 from cli.config import Config
 from hafnia import http, utils
@@ -122,7 +122,7 @@ def download_dataset_from_access_endpoint(
     try:
         fast_copy_files_s3(
             src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
-            dst_paths=dataset.samples[ColumnName.FILE_NAME].to_list(),
+            dst_paths=dataset.samples[ColumnName.FILE_PATH].to_list(),
             append_envs=envs,
             description="Downloading images",
         )
@@ -196,7 +196,7 @@ def execute_s5cmd_commands(
 
         error_lines = []
         lines = []
-        for line in tqdm(process.stdout, total=len(commands), desc=description):
+        for line in track(process.stdout, total=len(commands), description=description):
             if "ERROR" in line or "error" in line:
                 error_lines.append(line.strip())
             lines.append(line.strip())

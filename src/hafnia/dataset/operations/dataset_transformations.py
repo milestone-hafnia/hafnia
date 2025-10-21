@@ -40,10 +40,10 @@ import more_itertools
 import numpy as np
 import polars as pl
 from PIL import Image
-from tqdm import tqdm
+from rich.progress import track
 
 from hafnia.dataset import dataset_helpers
-from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS, FieldName
+from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS, ColumnName, FieldName
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.utils import remove_duplicates_preserve_order
@@ -73,7 +73,8 @@ def transform_images(
     path_image_folder = path_output / "data"
     path_image_folder.mkdir(parents=True, exist_ok=True)
 
-    for org_path in tqdm(dataset.samples["file_name"].to_list(), desc="Transform images"):
+    org_paths = dataset.samples[ColumnName.FILE_PATH].to_list()
+    for org_path in track(org_paths, description="Transform images"):
         org_path = Path(org_path)
         if not org_path.exists():
             raise FileNotFoundError(f"File {org_path} does not exist in the dataset.")
@@ -86,7 +87,7 @@ def transform_images(
             raise FileNotFoundError(f"Transformed file {new_path} does not exist in the dataset.")
         new_paths.append(str(new_path))
 
-    table = dataset.samples.with_columns(pl.Series(new_paths).alias("file_name"))
+    table = dataset.samples.with_columns(pl.Series(new_paths).alias(ColumnName.FILE_PATH))
     return dataset.update_samples(table)
 
 
