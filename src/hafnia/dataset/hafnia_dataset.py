@@ -16,7 +16,7 @@ import polars as pl
 from packaging.version import Version
 from PIL import Image
 from pydantic import BaseModel, Field, field_serializer, field_validator
-from tqdm import tqdm
+from rich.progress import track
 
 import hafnia
 from hafnia.dataset import dataset_helpers
@@ -881,7 +881,8 @@ class HafniaDataset:
             path_folder.mkdir(parents=True)
 
         new_relative_paths = []
-        for org_path in tqdm(self.samples[ColumnName.FILE_PATH].to_list(), desc="- Copy images"):
+        org_paths = self.samples[ColumnName.FILE_PATH].to_list()
+        for org_path in track(org_paths, description="- Copy images"):
             new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
                 path_source=Path(org_path),
                 path_dataset_root=path_folder,

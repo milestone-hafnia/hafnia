@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import rich
 from rich import print as rprint
-from tqdm import tqdm
+from rich.progress import track
 
 from cli.config import Config
 from hafnia import http, utils
@@ -196,7 +196,7 @@ def execute_s5cmd_commands(
 
         error_lines = []
         lines = []
-        for line in tqdm(process.stdout, total=len(commands), desc=description):
+        for line in track(process.stdout, total=len(commands), description=description):
             if "ERROR" in line or "error" in line:
                 error_lines.append(line.strip())
             lines.append(line.strip())

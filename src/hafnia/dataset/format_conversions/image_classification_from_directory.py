@@ -1,11 +1,11 @@
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import more_itertools
 import polars as pl
 from PIL import Image
-from tqdm import tqdm
+from rich.progress import track
 
 from hafnia.dataset.dataset_names import ColumnName, FieldName
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
@@ -18,22 +18,26 @@ def import_image_classification_directory_tree(
     split: str,
     n_samples: Optional[int] = None,
 ) -> HafniaDataset:
-    class_folders = [path for path in path_folder.iterdir() if path.is_dir()]
-    class_names = sorted([folder.name for folder in class_folders])  # Sort for determinism
+    class_folder_paths = [path for path in path_folder.iterdir() if path.is_dir()]
+    class_names = sorted([folder.name for folder in class_folder_paths])  # Sort for determinism
 
-    samples = []
-    path_images_per_class = []
-    for class_folder_ in class_folders:
+    # Gather all image paths per class
+    path_images_per_class: List[List[Path]] = []
+    for path_class_folder in class_folder_paths:
         per_class_images = []
-        for path_image in list(class_folder_.rglob("*.*")):
-            if is_image_file(path_image):
+        for path_image in list(path_class_folder.rglob("*.*")):
+            if not is_image_file(path_image):
                 per_class_images.append(path_image)
         path_images_per_class.append(sorted(per_class_images))
 
     # Interleave to ensure classes are balanced in the output dataset for n_samples < total
     path_images = list(more_itertools.interleave_longest(*path_images_per_class))
 
-    for path_image_org in tqdm(path_images, desc="Convert 'image classification' dataset to Hafnia Dataset"):
+    if n_samples is not None:
+        path_images = path_images[:n_samples]
+
+    samples = []
+    for path_image_org in track(path_images, description="Convert 'image classification' dataset to Hafnia Dataset"):
         class_name = path_image_org.parent.name
 
         read_image = Image.open(path_image_org)
@@ -48,9 +52,6 @@ def import_image_classification_directory_tree(
             classifications=classifications,
         )
         samples.append(sample)
-
-        if n_samples is not None and len(samples) >= n_samples:
-            break
 
     dataset_info = DatasetInfo(
         dataset_name="ImageClassificationFromDirectoryTree",
@@ -75,12 +76,13 @@ def export_image_classification_directory_tree(
         .alias(task.primitive.column_name())
     )
 
-    no_classification_samples = samples.filter(pl.col(task.primitive.column_name()).list.len() == 0)
-    if no_classification_samples.height > 0:
+    classification_counts = samples[task.primitive.column_name()].list.len()
+    has_no_classification_samples = (classification_counts == 0).sum()
+    if has_no_classification_samples > 0:
         raise ValueError(f"Some samples do not have a classification for task '{task.name}'.")
 
-    multi_classification_samples = samples.filter(pl.col(task.primitive.column_name()).list.len() > 1)
-    if multi_classification_samples.height > 0:
+    has_multi_classification_samples = (classification_counts > 1).sum()
+    if has_multi_classification_samples > 0:
         raise ValueError(f"Some samples have multiple classifications for task '{task.name}'.")
 
     if clean_folder:
@@ -88,7 +90,7 @@ def export_image_classification_directory_tree(
     path_output.mkdir(parents=True, exist_ok=True)
 
     description = "Export Hafnia Dataset to directory tree"
-    for sample_dict in tqdm(samples.iter_rows(named=True), desc=description):
+    for sample_dict in track(samples.iter_rows(named=True), total=len(samples), description=description):
         classifications = sample_dict[task.primitive.column_name()]
         if len(classifications) != 1:
             raise ValueError("Each sample should have exactly one classification.")

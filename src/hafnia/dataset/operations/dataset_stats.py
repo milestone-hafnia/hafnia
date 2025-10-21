@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Dict, Optional, Type
 import polars as pl
 import rich
 from rich import print as rprint
+from rich.progress import track
 from rich.table import Table
-from tqdm import tqdm
 
 from hafnia.dataset.dataset_names import ColumnName, FieldName, SplitName
 from hafnia.dataset.operations.table_transformations import create_primitive_table
@@ -214,7 +214,7 @@ def check_dataset(dataset: HafniaDataset):
                 f"classes: {class_names}. "
             )
 
-    for sample_dict in tqdm(dataset, desc="Checking samples in dataset"):
+    for sample_dict in track(dataset, description="Checking samples in dataset"):
         sample = Sample(**sample_dict)  # noqa: F841
 
 

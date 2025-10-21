@@ -1,3 +1,4 @@
+import inspect
 import os
 import shutil
 import tempfile
@@ -5,10 +6,10 @@ import textwrap
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
+from rich.progress import track
 from torchvision import datasets as tv_datasets
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import download_and_extract_archive, extract_archive
-from tqdm import tqdm
 
 from hafnia import utils
 from hafnia.dataset.dataset_helpers import save_pil_image_with_hash_name
@@ -31,7 +32,7 @@ def torchvision_to_hafnia_converters() -> Dict[str, Callable]:
 
 
 def mnist_as_hafnia_dataset(force_redownload=False, n_samples: Optional[int] = None) -> HafniaDataset:
-    samples, tasks = torchvision_mnist_like_dataset_as_hafnia_dataset(
+    samples, tasks = torchvision_basic_image_classification_dataset_as_hafnia_dataset(
         dataset_loader=tv_datasets.MNIST,
         force_redownload=force_redownload,
         n_samples=n_samples,
@@ -135,7 +136,7 @@ def cifar_as_hafnia_dataset(
         dataset_loader = tv_datasets.CIFAR100
     else:
         raise ValueError(f"Unknown dataset name: {dataset_name}. Supported: cifar10, cifar100")
-    samples, tasks = torchvision_mnist_like_dataset_as_hafnia_dataset(
+    samples, tasks = torchvision_basic_image_classification_dataset_as_hafnia_dataset(
         dataset_loader=dataset_loader,
         force_redownload=force_redownload,
         n_samples=n_samples,
@@ -159,12 +160,37 @@ def cifar_as_hafnia_dataset(
     return HafniaDataset.from_samples_list(samples_list=samples, info=dataset_info)
 
 
-def torchvision_mnist_like_dataset_as_hafnia_dataset(
+def torchvision_basic_image_classification_dataset_as_hafnia_dataset(
     dataset_loader: VisionDataset,
     force_redownload: bool = False,
     n_samples: Optional[int] = None,
 ) -> Tuple[List[Sample], List[TaskInfo]]:
+    """
+    Converts a certain group of torchvision-based image classification datasets to a Hafnia Dataset.
+
+    This conversion only works for certain group of image classification VisionDataset by torchvision.
+    Common for these datasets is:
+    1) They provide a 'class_to_idx' mapping,
+    2) A "train" boolean parameter in the init function to separate training and test data - thus no validation split
+       is available for these datasets,
+    3) Datasets are in-memory and not on disk
+    4) Samples consist of a PIL image and a class index.
+
+    """
     torchvision_dataset_name = dataset_loader.__name__
+
+    # Check if loader has train-parameter using inspect module
+    params = inspect.signature(dataset_loader).parameters
+
+    has_train_param = ("train" in params) and (params["train"].annotation is bool)
+    if not has_train_param:
+        raise ValueError(
+            f"The dataset loader '{dataset_loader.__name__}' does not have a 'train: bool' parameter in the init "
+            "function. This is a sign that the wrong dataset loader is being used. This conversion function only "
+            "works for certain image classification datasets provided by torchvision that are similar to e.g. "
+            "MNIST, CIFAR-10, CIFAR-100"
+        )
+
     path_torchvision_dataset = utils.get_path_torchvision_downloads() / torchvision_dataset_name
     path_hafnia_conversions = utils.get_path_hafnia_conversions() / torchvision_dataset_name
 
@@ -173,7 +199,7 @@ def torchvision_mnist_like_dataset_as_hafnia_dataset(
         shutil.rmtree(path_hafnia_conversions, ignore_errors=True)
 
     splits = {
-        SplitName.TRAIN: dataset_loader(root=path_torchvision_dataset, download=True),
+        SplitName.TRAIN: dataset_loader(root=path_torchvision_dataset, train=True, download=True),
         SplitName.TEST: dataset_loader(root=path_torchvision_dataset, train=False, download=True),
     }
 
@@ -184,7 +210,7 @@ def torchvision_mnist_like_dataset_as_hafnia_dataset(
         class_index_to_name = {v: k for k, v in class_name_to_index.items()}
         description = f"Convert '{torchvision_dataset_name}' ({split_name} split) to Hafnia Dataset "
         samples_in_split = []
-        for image, class_idx in tqdm(torchvision_dataset, total=n_samples_per_split, desc=description):
+        for image, class_idx in track(torchvision_dataset, total=n_samples_per_split, description=description):
             (width, height) = image.size
             path_image = save_pil_image_with_hash_name(image, path_hafnia_conversions)
             sample = Sample(

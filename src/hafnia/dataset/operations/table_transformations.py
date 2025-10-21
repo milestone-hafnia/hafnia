@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Optional, Type
 
 import polars as pl
-from tqdm import tqdm
+from rich.progress import track
 
 from hafnia.dataset.dataset_names import (
     FILENAME_ANNOTATIONS_JSONL,
@@ -162,7 +162,8 @@ def read_samples_from_path(path: Path) -> pl.DataFrame:
 
 def check_image_paths(table: pl.DataFrame) -> bool:
     missing_files = []
-    for org_path in tqdm(table[ColumnName.FILE_PATH].to_list(), desc="Check image paths"):
+    org_paths = table[ColumnName.FILE_PATH].to_list()
+    for org_path in track(org_paths, description="Check image paths"):
         org_path = Path(org_path)
         if not org_path.exists():
             missing_files.append(org_path)

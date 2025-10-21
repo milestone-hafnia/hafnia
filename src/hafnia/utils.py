@@ -220,5 +220,5 @@ def remove_duplicates_preserve_order(seq: Iterable) -> List:
 
 
 def is_image_file(file_path: Path) -> bool:
-    image_extensions = [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".gif"]
+    image_extensions = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".gif")
     return file_path.suffix.lower() in image_extensions
