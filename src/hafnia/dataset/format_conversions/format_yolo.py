@@ -7,7 +7,6 @@ from rich.progress import track
 
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import SplitName
-from hafnia.dataset.format_conversions import format_yolo
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 
 FILENAME_YOLO_CLASS_NAMES = "obj.names"
@@ -123,7 +122,7 @@ def export_as_yolo_format(
             f"Hafnia dataset task '{bbox_task.name}' has no class names defined. This is required for YOLO export."
         )
     path_export_yolo_dataset.mkdir(parents=True, exist_ok=True)
-    path_class_names = path_export_yolo_dataset / format_yolo.FILENAME_YOLO_CLASS_NAMES
+    path_class_names = path_export_yolo_dataset / FILENAME_YOLO_CLASS_NAMES
     path_class_names.write_text("\n".join(class_names))
 
     path_data_folder = path_export_yolo_dataset / "data"
@@ -137,10 +136,10 @@ def export_as_yolo_format(
         image_paths.append(str(path_image_dst.relative_to(path_export_yolo_dataset).as_posix()))
         path_label = path_image_dst.with_suffix(".txt")
         bboxes = sample.objects or []
-        bbox_strings = [format_yolo.bbox_to_yolo_format(bbox) for bbox in bboxes]
+        bbox_strings = [bbox_to_yolo_format(bbox) for bbox in bboxes]
         path_label.write_text("\n".join(bbox_strings))
 
-    path_images_txt = path_export_yolo_dataset / format_yolo.FILENAME_YOLO_IMAGES_TXT
+    path_images_txt = path_export_yolo_dataset / FILENAME_YOLO_IMAGES_TXT
     path_images_txt.write_text("\n".join(image_paths))
 
 

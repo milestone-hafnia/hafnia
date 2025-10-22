@@ -124,7 +124,7 @@ def caltech_256_as_hafnia_dataset(
 
     task = hafnia_dataset.info.get_task_by_primitive(Classification)
 
-    # Class Mapping: To remove remove numeric prefixes from class names
+    # Class Mapping: To remove numeric prefixes from class names
     # E.g. "001.ak47 --> ak47", "002.american-flag --> american-flag", ...
     class_mapping = {name: name.split(".")[-1] for name in task.class_names or []}
     hafnia_dataset = hafnia_dataset.class_mapper(class_mapping=class_mapping, task_name=task.name)
