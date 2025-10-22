@@ -27,6 +27,10 @@ def get_path_test_data() -> Path:
     return get_path_workspace() / "tests" / "data"
 
 
+def get_path_test_dataset_formats() -> Path:
+    return get_path_test_data() / "dataset_formats"
+
+
 def get_path_micro_hafnia_dataset_no_check() -> Path:
     return get_path_test_data() / "micro_test_datasets"
 

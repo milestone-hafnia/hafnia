@@ -70,6 +70,10 @@ class SplitName:
     def valid_splits() -> List[str]:
         return [SplitName.TRAIN, SplitName.VAL, SplitName.TEST]
 
+    @staticmethod
+    def all_split_names() -> List[str]:
+        return [*SplitName.valid_splits(), SplitName.UNDEFINED]
+
 
 class DatasetVariant(Enum):
     DUMP = "dump"
