@@ -13,7 +13,7 @@ from hafnia.dataset.primitives import Classification
 from hafnia.utils import is_image_file
 
 
-def import_image_classification_directory_tree(
+def import_from_image_classification_directory_tree(
     path_folder: Path,
     split: str,
     n_samples: Optional[int] = None,
@@ -62,7 +62,7 @@ def import_image_classification_directory_tree(
     return hafnia_dataset
 
 
-def export_image_classification_directory_tree(
+def export_as_image_classification_directory_tree(
     dataset: HafniaDataset,
     path_output: Path,
     task_name: Optional[str] = None,

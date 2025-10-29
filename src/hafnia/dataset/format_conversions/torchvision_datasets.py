@@ -14,8 +14,8 @@ from torchvision.datasets.utils import download_and_extract_archive, extract_arc
 from hafnia import utils
 from hafnia.dataset.dataset_helpers import save_pil_image_with_hash_name
 from hafnia.dataset.dataset_names import SplitName
-from hafnia.dataset.format_conversions.image_classification_from_directory import (
-    import_image_classification_directory_tree,
+from hafnia.dataset.format_conversions.format_image_classification_from_directory import (
+    import_from_image_classification_directory_tree,
 )
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.primitives import Classification
@@ -72,7 +72,7 @@ def caltech_101_as_hafnia_dataset(
     path_image_classification_folder = _download_and_extract_caltech_dataset(
         dataset_name, force_redownload=force_redownload
     )
-    hafnia_dataset = import_image_classification_directory_tree(
+    hafnia_dataset = import_from_image_classification_directory_tree(
         path_image_classification_folder,
         split=SplitName.TRAIN,
         n_samples=n_samples,
@@ -102,7 +102,7 @@ def caltech_256_as_hafnia_dataset(
     path_image_classification_folder = _download_and_extract_caltech_dataset(
         dataset_name, force_redownload=force_redownload
     )
-    hafnia_dataset = import_image_classification_directory_tree(
+    hafnia_dataset = import_from_image_classification_directory_tree(
         path_image_classification_folder,
         split=SplitName.TRAIN,
         n_samples=n_samples,
@@ -122,6 +122,12 @@ def caltech_256_as_hafnia_dataset(
         }""")
     hafnia_dataset.info.reference_dataset_page = "https://data.caltech.edu/records/nyy15-4j048"
 
+    task = hafnia_dataset.info.get_task_by_primitive(Classification)
+
+    # Class Mapping: To remove numeric prefixes from class names
+    # E.g. "001.ak47 --> ak47", "002.american-flag --> american-flag", ...
+    class_mapping = {name: name.split(".")[-1] for name in task.class_names or []}
+    hafnia_dataset = hafnia_dataset.class_mapper(class_mapping=class_mapping, task_name=task.name)
     return hafnia_dataset
 
 
