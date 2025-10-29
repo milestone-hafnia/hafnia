@@ -18,7 +18,7 @@ def get_image_size(path: Path) -> tuple[int, int]:
         return img.size  # (width, height)
 
 
-def import_from_yolo_format(
+def from_yolo_format(
     path_yolo_dataset: Path,
     split_name: str = SplitName.UNDEFINED,
     dataset_name: str = "yolo-dataset",
@@ -75,10 +75,7 @@ def import_from_yolo_format(
                 raise ValueError(f"Invalid bbox format in file {path_label.resolve()}: {bbox_string}")
 
             class_idx = int(parts[0])
-            x_center = float(parts[1])
-            y_center = float(parts[2])
-            bbox_width = float(parts[3])
-            bbox_height = float(parts[4])
+            x_center, y_center, bbox_width, bbox_height = (float(value) for value in parts[1:5])
 
             top_left_x = x_center - bbox_width / 2
             top_left_y = y_center - bbox_height / 2
@@ -108,7 +105,7 @@ def import_from_yolo_format(
     return hafnia_dataset
 
 
-def export_as_yolo_format(
+def as_yolo_format(
     dataset: HafniaDataset,
     path_export_yolo_dataset: Path,
     task_name: Optional[str] = None,
@@ -127,13 +124,13 @@ def export_as_yolo_format(
 
     path_data_folder = path_export_yolo_dataset / "data"
     path_data_folder.mkdir(parents=True, exist_ok=True)
-    image_paths: list[str] = []
+    image_paths: List[str] = []
     for sample_dict in dataset:
         sample = Sample(**sample_dict)
         path_image_src = Path(sample.file_path)
         path_image_dst = path_data_folder / path_image_src.name
         shutil.copy2(path_image_src, path_image_dst)
-        image_paths.append(str(path_image_dst.relative_to(path_export_yolo_dataset).as_posix()))
+        image_paths.append(path_image_dst.relative_to(path_export_yolo_dataset).as_posix())
         path_label = path_image_dst.with_suffix(".txt")
         bboxes = sample.objects or []
         bbox_strings = [bbox_to_yolo_format(bbox) for bbox in bboxes]

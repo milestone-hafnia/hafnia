@@ -88,16 +88,16 @@ dataset_again = HafniaDataset.from_path(path_dataset)
 
 
 ## Dataset importers and exporters ##
-from hafnia.dataset.format_conversions.format_yolo import export_as_yolo_format, import_from_yolo_format
+from hafnia.dataset.format_conversions.format_yolo import as_yolo_format, from_yolo_format
 
 dataset_coco = HafniaDataset.from_name("coco-2017").select_samples(n_samples=5, seed=42)
 path_yolo_format = Path(".data/tmp/yolo_dataset")
 
 # Export dataset to YOLO format
-export_as_yolo_format(dataset_coco, path_export_yolo_dataset=path_yolo_format)
+as_yolo_format(dataset_coco, path_export_yolo_dataset=path_yolo_format)
 
 # Import dataset from YOLO format
-dataset_reimported: HafniaDataset = import_from_yolo_format(path_yolo_format)
+dataset_reimported: HafniaDataset = from_yolo_format(path_yolo_format)
 
 ## Custom dataset operations and statistics ##
 # Want custom dataset transformations or statistics? Use the polars table (dataset.samples) directly

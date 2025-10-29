@@ -11,7 +11,7 @@ from tests.helper_testing import get_micro_hafnia_dataset, get_path_test_dataset
 def test_import_yolo_format_visualized(compare_to_expected_image: Callable) -> None:
     path_yolo_dataset = get_path_test_dataset_formats() / "format_yolo"
 
-    hafnia_dataset = format_yolo.import_from_yolo_format(path_yolo_dataset)
+    hafnia_dataset = format_yolo.from_yolo_format(path_yolo_dataset)
 
     for sample_dict in hafnia_dataset:
         sample = Sample(**sample_dict)
@@ -24,12 +24,12 @@ def test_format_yolo_import_export_tiny_dataset(tmp_path: Path, compare_to_expec
     dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
 
     path_yolo_dataset_exported = tmp_path / "exported_yolo_dataset"
-    format_yolo.export_as_yolo_format(
+    format_yolo.as_yolo_format(
         dataset=dataset,
         path_export_yolo_dataset=path_yolo_dataset_exported,
     )
 
-    dataset_reloaded = format_yolo.import_from_yolo_format(path_yolo_dataset_exported)
+    dataset_reloaded = format_yolo.from_yolo_format(path_yolo_dataset_exported)
 
     for sample_dict in dataset_reloaded:
         sample = Sample(**sample_dict)
@@ -47,7 +47,7 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
     assert path_expected_images_txt.exists()
 
     # Test case 1: Import YOLO dataset
-    dataset = format_yolo.import_from_yolo_format(path_import_yolo_dataset)
+    dataset = format_yolo.from_yolo_format(path_import_yolo_dataset)
 
     assert len(dataset) == 3
     assert len(dataset.info.tasks) == 1
@@ -58,7 +58,7 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
 
     # Test case 2: Export yolo dataset
     path_yolo_dataset_exported = tmp_path / "exported_yolo_dataset"
-    format_yolo.export_as_yolo_format(
+    format_yolo.as_yolo_format(
         dataset=dataset,
         path_export_yolo_dataset=path_yolo_dataset_exported,
         task_name=None,
@@ -76,7 +76,7 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
         assert path_label.exists()
 
     # Test case 3: Re-import exported YOLO dataset
-    dataset_reimported = format_yolo.import_from_yolo_format(path_yolo_dataset_exported)
+    dataset_reimported = format_yolo.from_yolo_format(path_yolo_dataset_exported)
 
     assert len(dataset_reimported) == len(dataset)
     assert len(dataset_reimported.info.tasks) == len(dataset.info.tasks)
