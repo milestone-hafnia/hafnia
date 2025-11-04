@@ -121,10 +121,10 @@ def download_dataset_from_access_endpoint(
     dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
     try:
         dataset = dataset.download_files_aws(path_dataset, aws_credentials=resource_credentials, force_redownload=True)
-        dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
     except ValueError as e:
         user_logger.error(f"Failed to download images: {e}")
         return
+    dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
 
 
 def fast_copy_files_s3(

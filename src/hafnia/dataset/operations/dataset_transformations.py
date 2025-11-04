@@ -147,7 +147,6 @@ def convert_to_image_storage_format(
                     SampleField.COLLECTION_ID: sample_dict[SampleField.COLLECTION_ID],
                     SampleField.COLLECTION_INDEX: frame_number,
                     SampleField.FILE_PATH: path_image.as_posix(),
-                    SampleField.SAMPLE_TITLE: image_name,
                     SampleField.STORAGE_FORMAT: StorageFormat.IMAGE,
                 }
             )

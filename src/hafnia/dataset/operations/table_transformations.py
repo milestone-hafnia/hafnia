@@ -324,14 +324,6 @@ def add_sample_index(samples: pl.DataFrame) -> pl.DataFrame:
     return samples
 
 
-def add_sample_title_if_missing(samples: pl.DataFrame) -> pl.DataFrame:
-    if SampleField.SAMPLE_TITLE not in samples.columns:
-        samples = samples.with_columns(
-            pl.col(SampleField.FILE_PATH).str.split("/").list.last().alias(SampleField.SAMPLE_TITLE)
-        )
-    return samples
-
-
 def add_dataset_name_if_missing(table: pl.DataFrame, dataset_name: str) -> pl.DataFrame:
     if SampleField.DATASET_NAME not in table.columns:
         table = table.with_columns(pl.lit(dataset_name).alias(SampleField.DATASET_NAME))

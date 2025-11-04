@@ -63,7 +63,6 @@ class SampleField:
     POLYGONS: str = "polygons"
 
     STORAGE_FORMAT: str = "storage_format"  # E.g. "image", "video", "zip"
-    SAMPLE_TITLE: str = "sample_title"
     COLLECTION_INDEX: str = "collection_index"
     COLLECTION_ID: str = "collection_id"
     REMOTE_PATH: str = "remote_path"  # Path to the file in remote storage, e.g. S3

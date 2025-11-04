@@ -349,10 +349,6 @@ class Sample(BaseModel):
         default_factory=list,
         description="Tags for a given sample. Used for creating subsets of the dataset.",
     )
-    sample_title: Optional[str] = Field(
-        default=None,
-        description="Optional. Title for the image/sample. For 'None' it uses the file name.",
-    )
     storage_format: str = Field(
         default=StorageFormat.IMAGE,
         description="Storage format. Sample data is stored as image or inside a video or zip file.",
@@ -590,7 +586,6 @@ class HafniaDataset:
         table = pl.from_records(json_samples)
         table = table.drop(pl.selectors.by_dtype(pl.Null))
         table = table_transformations.add_sample_index(table)
-        table = table_transformations.add_sample_title_if_missing(table)
         table = table_transformations.add_dataset_name_if_missing(table, dataset_name=info.dataset_name)
         return HafniaDataset(info=info, samples=table)
 
@@ -902,8 +897,8 @@ class HafniaDataset:
         remote_src_paths = unique_paths_df[SampleField.REMOTE_PATH].to_list()
         update_rows = []
         local_dst_paths = []
-        for relative_path_str, remote_src_path in unique_paths_df.iter_rows():
-            local_path_str = (path_output_folder / relative_path_str).absolute().as_posix()
+        for file_path_str, remote_src_path in unique_paths_df.iter_rows():
+            local_path_str = (path_output_folder / "data" / Path(file_path_str).name).absolute().as_posix()
             local_dst_paths.append(local_path_str)
 
             update_rows.append(
@@ -1025,6 +1020,7 @@ class HafniaDataset:
 
     def write(self, path_folder: Path, add_version: bool = False, drop_null_cols: bool = True) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
+        path_folder = path_folder.absolute()
         if not path_folder.exists():
             path_folder.mkdir(parents=True)
         hafnia_dataset = self.copy()  # To avoid inplace modifications
@@ -1053,6 +1049,7 @@ class HafniaDataset:
         Writes only the annotations files (JSONL and Parquet) to the specified folder.
         """
         user_logger.info(f"Writing dataset annotations to {path_folder}...")
+        path_folder = path_folder.absolute()
         if not path_folder.exists():
             path_folder.mkdir(parents=True)
         dataset.info.write_json(path_folder / FILENAME_DATASET_INFO)
@@ -1147,7 +1144,5 @@ def _dataset_corrections(samples: pl.DataFrame, dataset_info: DatasetInfo) -> Tu
 
         if SampleField.SAMPLE_INDEX in samples.columns and samples[SampleField.SAMPLE_INDEX].dtype != pl.UInt64:
             samples = samples.cast({SampleField.SAMPLE_INDEX: pl.UInt64})
-
-        samples = table_transformations.add_sample_title_if_missing(samples)
 
     return samples, dataset_info
