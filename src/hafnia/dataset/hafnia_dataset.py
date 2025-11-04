@@ -350,7 +350,8 @@ class Sample(BaseModel):
         description="Tags for a given sample. Used for creating subsets of the dataset.",
     )
     sample_title: Optional[str] = Field(
-        default=None, description="Optional. Title for the image/sample. For 'None' it uses the file name."
+        default=None,
+        description="Optional. Title for the image/sample. For 'None' it uses the file name.",
     )
     storage_format: str = Field(
         default=StorageFormat.IMAGE,
@@ -901,12 +902,8 @@ class HafniaDataset:
         remote_src_paths = unique_paths_df[SampleField.REMOTE_PATH].to_list()
         update_rows = []
         local_dst_paths = []
-        for local_dst_path, remote_src_path in unique_paths_df.iter_rows():
-            if local_dst_path is None:  # Some datasets may not have local file paths yet
-                local_dst_path = path_output_folder / "data" / Path(remote_src_path).name
-            else:
-                local_dst_path = Path(local_dst_path)
-            local_path_str = local_dst_path.absolute().as_posix()
+        for relative_path_str, remote_src_path in unique_paths_df.iter_rows():
+            local_path_str = (path_output_folder / relative_path_str).absolute().as_posix()
             local_dst_paths.append(local_path_str)
 
             update_rows.append(

@@ -172,7 +172,7 @@
                 "hair drier",
                 "toothbrush"
             ],
-            "name": "instance_segmentation_mask"
+            "name": "mask_detection"
         }
     ],
     "reference_bibtex": "@ARTICLE{Lin2014-wu,\n    title         = \"Microsoft {COCO}: Common objects in context\",\n    author        = \"Lin, Tsung-Yi and Maire, Michael and Belongie, Serge and\n                    Bourdev, Lubomir and Girshick, Ross and Hays, James and\n                    Perona, Pietro and Ramanan, Deva and Zitnick, C Lawrence and\n                    Doll{'a}r, Piotr\",\n    month         =  may,\n    year          =  2014,\n    copyright     = \"http://arxiv.org/licenses/nonexclusive-distrib/1.0/\",\n    archivePrefix = \"arXiv\",\n    primaryClass  = \"cs.CV\",\n    eprint        = \"1405.0312\"\n    }",
@@ -321,5 +321,5 @@
         }
     },
     "format_version": "0.2.0",
-    "updated_at": "2025-11-04T10:51:43.599813"
+    "updated_at": "2025-11-04T13:08:26.699696"
 }

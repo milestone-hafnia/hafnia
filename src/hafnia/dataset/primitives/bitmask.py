@@ -41,7 +41,7 @@ class Bitmask(Primitive):
 
     @staticmethod
     def default_task_name() -> str:
-        return "instance_mask"
+        return "mask_detection"
 
     @staticmethod
     def column_name() -> str:

@@ -38,7 +38,7 @@ class Polygon(Primitive):
 
     @staticmethod
     def default_task_name() -> str:
-        return "instance_polygon"
+        return "polygon_detection"
 
     @staticmethod
     def column_name() -> str:
