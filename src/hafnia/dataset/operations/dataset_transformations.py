@@ -85,10 +85,6 @@ def transform_images(
 
     for sample_dict in track(dataset, description=description):
         sample = Sample(**sample_dict)
-        org_path = Path(sample.file_path)
-        if not org_path.exists():
-            raise FileNotFoundError(f"File {org_path} does not exist in the dataset.")
-
         image = sample.read_image()
         image_transformed = transform(image, sample)
         new_path = dataset_helpers.save_image_with_hash_name(image_transformed, path_image_folder)

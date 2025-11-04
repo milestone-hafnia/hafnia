@@ -133,6 +133,8 @@ def to_yolo_format(
     image_paths: List[str] = []
     for sample_dict in dataset:
         sample = Sample(**sample_dict)
+        if sample.file_path is None:
+            raise ValueError("Sample has no file_path defined.")
         path_image_src = Path(sample.file_path)
         path_image_dst = path_data_folder / path_image_src.name
         shutil.copy2(path_image_src, path_image_dst)

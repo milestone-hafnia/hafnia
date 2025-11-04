@@ -341,7 +341,7 @@ class DatasetInfo(BaseModel):
 
 
 class Sample(BaseModel):
-    file_path: str = Field(description="Path to the image/video file.")
+    file_path: Optional[str] = Field(description="Path to the image/video file.")
     height: int = Field(description="Height of the image")
     width: int = Field(description="Width of the image")
     split: str = Field(description="Split name, e.g., 'train', 'val', 'test'")
@@ -399,6 +399,8 @@ class Sample(BaseModel):
         Reads the image from the file path and returns it as a PIL Image.
         Raises FileNotFoundError if the image file does not exist.
         """
+        if self.file_path is None:
+            raise ValueError(f"Sample has no '{SampleField.FILE_PATH}' defined.")
         path_image = Path(self.file_path)
         if not path_image.exists():
             raise FileNotFoundError(f"Image file {path_image} does not exist. Please check the file path.")
@@ -891,16 +893,12 @@ class HafniaDataset:
     ) -> HafniaDataset:
         from hafnia.platform.datasets import fast_copy_files_s3
 
-        # Ensure that remote files are only downloaded once (this is important video datasets where multiple
-        # samples/frames point to the same video file). We also add missing potential local file paths.
-        unique_paths_df = dataset.samples[SampleField.FILE_PATH, SampleField.REMOTE_PATH].unique()
-        remote_src_paths = unique_paths_df[SampleField.REMOTE_PATH].to_list()
+        remote_src_paths = dataset.samples[SampleField.REMOTE_PATH].unique().to_list()
         update_rows = []
         local_dst_paths = []
-        for file_path_str, remote_src_path in unique_paths_df.iter_rows():
-            local_path_str = (path_output_folder / "data" / Path(file_path_str).name).absolute().as_posix()
+        for remote_src_path in remote_src_paths:
+            local_path_str = (path_output_folder / "data" / Path(remote_src_path).name).absolute().as_posix()
             local_dst_paths.append(local_path_str)
-
             update_rows.append(
                 {
                     SampleField.REMOTE_PATH: remote_src_path,

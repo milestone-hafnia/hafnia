@@ -210,6 +210,8 @@ class DatasetImageMetadata(BaseModel):
     @classmethod
     def from_sample(cls, sample: Sample) -> "DatasetImageMetadata":
         sample = sample.model_copy(deep=True)
+        if sample.file_path is None:
+            raise ValueError("Sample has no file_path defined.")
         sample.file_path = "/".join(Path(sample.file_path).parts[-3:])
         metadata = {}
         metadata_field_names = [
