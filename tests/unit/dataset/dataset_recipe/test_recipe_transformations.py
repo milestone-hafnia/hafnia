@@ -6,7 +6,7 @@ from typing import Type
 import polars as pl
 import pytest
 
-from hafnia.dataset.dataset_names import TAG_IS_SAMPLE, ColumnName
+from hafnia.dataset.dataset_names import TAG_IS_SAMPLE, SampleField
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe, FromName
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
     ClassMapper,
@@ -220,10 +220,10 @@ def test_shuffle_transformation():
 
     shuffle_transformation = Shuffle(seed=123)
     new_dataset2 = shuffle_transformation.build(dataset)
-    is_same = all(new_dataset.samples[ColumnName.SAMPLE_INDEX] == new_dataset2.samples[ColumnName.SAMPLE_INDEX])
+    is_same = all(new_dataset.samples[SampleField.SAMPLE_INDEX] == new_dataset2.samples[SampleField.SAMPLE_INDEX])
     assert is_same, "Shuffled datasets should be equal with the same seed"
 
-    is_same = all(new_dataset.samples[ColumnName.FILE_PATH] == dataset.samples[ColumnName.FILE_PATH])
+    is_same = all(new_dataset.samples[SampleField.FILE_PATH] == dataset.samples[SampleField.FILE_PATH])
     assert not is_same, "Shuffled dataset should not match original dataset"
     assert isinstance(new_dataset, HafniaDataset), "Shuffled dataset is not a HafniaDataset instance"
     assert len(new_dataset) == len(dataset), (
@@ -241,7 +241,7 @@ def test_splits_by_ratios_transformation():
     new_dataset = splits_transformation.build(dataset)
     assert isinstance(new_dataset, HafniaDataset), "Splits dataset is not a HafniaDataset instance"
 
-    actual_split_counts = new_dataset.split_counts()
+    actual_split_counts = new_dataset.calculate_split_counts()
     expected_split_count = {name: int(ratio * len(dataset)) for name, ratio in split_ratios.items()}
     assert actual_split_counts == expected_split_count
 
@@ -257,11 +257,11 @@ def test_define_sample_by_size_transformation():
     assert isinstance(new_dataset, HafniaDataset), "Sampled dataset is not a HafniaDataset instance"
 
     n_samples_with_tag = (
-        new_dataset.samples[ColumnName.TAGS].list.eval(pl.element().filter(pl.element() == TAG_IS_SAMPLE)).list.len()
+        new_dataset.samples[SampleField.TAGS].list.eval(pl.element().filter(pl.element() == TAG_IS_SAMPLE)).list.len()
         > 0
     ).sum()
     assert n_samples_with_tag == n_samples, (
-        f"Sampled dataset should have {n_samples} samples, but has {new_dataset.samples[ColumnName.TAGS].sum()}"
+        f"Sampled dataset should have {n_samples} samples, but has {new_dataset.samples[SampleField.TAGS].sum()}"
     )
 
 
@@ -281,7 +281,7 @@ def test_split_into_multiple_splits():
     new_dataset = split_transformation.build(dataset)
 
     expected_split_counts = {"train": int(0.5 * n_samples), "test": int(0.25 * n_samples), "val": int(0.25 * n_samples)}
-    actual_split_counts = new_dataset.split_counts()
+    actual_split_counts = new_dataset.calculate_split_counts()
     assert isinstance(new_dataset, HafniaDataset), "New dataset is not a HafniaDataset instance"
     assert actual_split_counts == expected_split_counts, (
         f"Expected split counts {expected_split_counts}, but got {actual_split_counts}"

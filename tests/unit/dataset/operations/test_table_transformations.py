@@ -3,7 +3,7 @@ from typing import List, Type
 import polars as pl
 import pytest
 
-from hafnia.dataset.dataset_names import FieldName
+from hafnia.dataset.dataset_names import PrimitiveField
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.operations.table_transformations import unnest_classification_tasks
 from hafnia.dataset.primitives.bbox import Bbox
@@ -62,7 +62,11 @@ def test_split_primitive_columns_by_task_name():
         for PrimitiveType in PrimitiveTypes:
             assert PrimitiveType.column_name() not in table_after.columns
             task_names = (
-                table_before[PrimitiveType.column_name()].explode().struct.field(FieldName.TASK_NAME).unique().to_list()
+                table_before[PrimitiveType.column_name()]
+                .explode()
+                .struct.field(PrimitiveField.TASK_NAME)
+                .unique()
+                .to_list()
             )
             for task_name in task_names:
                 assert f"{PrimitiveType.column_name()}.{task_name}" in table_after.columns
@@ -86,7 +90,9 @@ def test_unnest_classification_tasks():
 
     table_unnested = unnest_classification_tasks(table)
 
-    class_tasks = table[Classification.column_name()].explode().struct.field(FieldName.TASK_NAME).unique().to_list()
+    class_tasks = (
+        table[Classification.column_name()].explode().struct.field(PrimitiveField.TASK_NAME).unique().to_list()
+    )
 
     for task_name in class_tasks:
         expected_column_name = f"{Classification.column_name()}.{task_name}"

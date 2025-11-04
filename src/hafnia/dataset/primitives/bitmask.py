@@ -7,7 +7,6 @@ import numpy as np
 import pycocotools.mask as coco_mask
 from pydantic import Field
 
-from hafnia.dataset.dataset_names import FieldName
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import (
     anonymize_by_resizing,
@@ -15,8 +14,6 @@ from hafnia.dataset.primitives.utils import (
     get_class_name,
     text_org_from_left_bottom_to_centered,
 )
-
-FieldName
 
 
 class Bitmask(Primitive):
@@ -34,9 +31,7 @@ class Bitmask(Primitive):
     class_name: Optional[str] = Field(default=None, description="Class name of the object represented by the bitmask")
     class_idx: Optional[int] = Field(default=None, description="Class index of the object represented by the bitmask")
     object_id: Optional[str] = Field(default=None, description="Object ID of the instance represented by the bitmask")
-    confidence: Optional[float] = Field(
-        default=None, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox"
-    )
+    confidence: float = Field(default=1.0, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox")
     ground_truth: bool = Field(default=True, description="Whether this is ground truth or a prediction")
 
     task_name: str = Field(
@@ -46,7 +41,7 @@ class Bitmask(Primitive):
 
     @staticmethod
     def default_task_name() -> str:
-        return "bitmask"
+        return "instance_mask"
 
     @staticmethod
     def column_name() -> str:

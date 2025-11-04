@@ -1,5 +1,5 @@
 {
-    "dataset_name": "coco-2017",
+    "dataset_name": "coco-2017-tiny",
     "version": "1.1.0",
     "tasks": [
         {
@@ -86,7 +86,7 @@
                 "hair drier",
                 "toothbrush"
             ],
-            "name": "bboxes"
+            "name": "object_detection"
         },
         {
             "primitive": "Bitmask",
@@ -172,10 +172,9 @@
                 "hair drier",
                 "toothbrush"
             ],
-            "name": "bitmask"
+            "name": "instance_segmentation_mask"
         }
     ],
-    "distributions": null,
     "reference_bibtex": "@ARTICLE{Lin2014-wu,\n    title         = \"Microsoft {COCO}: Common objects in context\",\n    author        = \"Lin, Tsung-Yi and Maire, Michael and Belongie, Serge and\n                    Bourdev, Lubomir and Girshick, Ross and Hays, James and\n                    Perona, Pietro and Ramanan, Deva and Zitnick, C Lawrence and\n                    Doll{'a}r, Piotr\",\n    month         =  may,\n    year          =  2014,\n    copyright     = \"http://arxiv.org/licenses/nonexclusive-distrib/1.0/\",\n    archivePrefix = \"arXiv\",\n    primaryClass  = \"cs.CV\",\n    eprint        = \"1405.0312\"\n    }",
     "reference_paper_url": "https://arxiv.org/abs/1405.0312",
     "reference_dataset_page": "https://cocodataset.org/#home",
@@ -319,9 +318,8 @@
                 "location": null,
                 "notes": null
             }
-        },
-        "license_citation": "@ARTICLE{Lin2014-wu,\n    title         = \"Microsoft {COCO}: Common objects in context\",\n    author        = \"Lin, Tsung-Yi and Maire, Michael and Belongie, Serge and\n                    Bourdev, Lubomir and Girshick, Ross and Hays, James and\n                    Perona, Pietro and Ramanan, Deva and Zitnick, C Lawrence and\n                    Doll{'a}r, Piotr\",\n    month         =  may,\n    year          =  2014,\n    copyright     = \"http://arxiv.org/licenses/nonexclusive-distrib/1.0/\",\n    archivePrefix = \"arXiv\",\n    primaryClass  = \"cs.CV\",\n    eprint        = \"1405.0312\"\n    }"
+        }
     },
-    "format_version": "0.1.0",
-    "updated_at": "2025-10-16T12:32:28.787235"
+    "format_version": "0.2.0",
+    "updated_at": "2025-11-04T10:51:43.599813"
 }

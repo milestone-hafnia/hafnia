@@ -1,13 +1,15 @@
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from PIL import Image
 from rich.progress import track
 
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import SplitName
-from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+
+if TYPE_CHECKING:
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 FILENAME_YOLO_CLASS_NAMES = "obj.names"
 FILENAME_YOLO_IMAGES_TXT = "images.txt"
@@ -24,10 +26,12 @@ def from_yolo_format(
     dataset_name: str = "yolo-dataset",
     filename_class_names: str = FILENAME_YOLO_CLASS_NAMES,
     filename_images_txt: str = FILENAME_YOLO_IMAGES_TXT,
-):
+) -> "HafniaDataset":
     """
     Imports a YOLO (Darknet) formatted dataset as a HafniaDataset.
     """
+    from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+
     path_class_names = path_yolo_dataset / filename_class_names
 
     if split_name not in SplitName.all_split_names():
@@ -95,7 +99,7 @@ def from_yolo_format(
             height=height,
             width=width,
             split=split_name,
-            objects=boxes,
+            bboxes=boxes,
         )
         samples.append(sample)
 
@@ -105,12 +109,14 @@ def from_yolo_format(
     return hafnia_dataset
 
 
-def as_yolo_format(
-    dataset: HafniaDataset,
+def to_yolo_format(
+    dataset: "HafniaDataset",
     path_export_yolo_dataset: Path,
     task_name: Optional[str] = None,
 ):
     """Exports a HafniaDataset as YOLO (Darknet) format."""
+    from hafnia.dataset.hafnia_dataset import Sample
+
     bbox_task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitives.Bbox)
 
     class_names = bbox_task.class_names or []
@@ -132,7 +138,7 @@ def as_yolo_format(
         shutil.copy2(path_image_src, path_image_dst)
         image_paths.append(path_image_dst.relative_to(path_export_yolo_dataset).as_posix())
         path_label = path_image_dst.with_suffix(".txt")
-        bboxes = sample.objects or []
+        bboxes = sample.bboxes or []
         bbox_strings = [bbox_to_yolo_format(bbox) for bbox in bboxes]
         path_label.write_text("\n".join(bbox_strings))
 

@@ -3,15 +3,21 @@ from pathlib import Path
 from types import FunctionType
 from typing import Any, Callable, Dict, List, Tuple, Union, get_origin
 
+import cv2
+import numpy as np
+import polars as pl
+
 import hafnia
 from hafnia.dataset import primitives
-from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL
+from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, SampleField, SplitName, StorageFormat
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.primitives import Bbox
+from hafnia.visualizations import image_visualizations
 
 MICRO_DATASETS = {
     "micro-tiny-dataset": "tiny-dataset",
-    "micro-coco-2017": "coco-2017",
+    "micro-coco-2017": "coco-2017-tiny",
 }
 
 
@@ -48,7 +54,11 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
 
     hafnia_dataset_name = MICRO_DATASETS[dataset_name]
     hafnia_dataset = HafniaDataset.from_name(hafnia_dataset_name, force_redownload=True)
-    hafnia_dataset = hafnia_dataset.select_samples(n_samples=3, seed=42)
+    if hafnia_dataset_name == "tiny-dataset":
+        select_samples = [0, 2, 6]
+        hafnia_dataset.samples = hafnia_dataset.samples.filter(pl.col(SampleField.SAMPLE_INDEX).is_in(select_samples))
+    else:
+        hafnia_dataset = hafnia_dataset.select_samples(n_samples=3, seed=0)
     hafnia_dataset.write(path_test_dataset)
 
     format_version_mismatch = hafnia_dataset.info.format_version != hafnia.__dataset_format_version__
@@ -194,3 +204,86 @@ def get_strict_class_mapping_mnist() -> Dict[str, str]:
 
 def dict_as_list_of_tuples(mapping: Dict[str, str]) -> List[Tuple[str, str]]:
     return [(key, value) for key, value in mapping.items()]
+
+
+def simulate_hafnia_video_dataset(
+    path_dataset: Path, n_frames: int = 10, fps: int = 1, add_bboxes: bool = True
+) -> HafniaDataset:
+    video_path = path_dataset / "video.mp4"
+
+    def simulate_frame(frame_number: int):
+        img_shape_before_appended_text = (200, 300, 3)
+        text_size_ratio = 0.2
+        img_zeros = np.zeros(img_shape_before_appended_text, dtype=np.uint8)
+        img_simulated = image_visualizations.append_text_below_frame(
+            img_zeros,
+            text=f"F{frame_number:04}",
+            text_size_ratio=text_size_ratio,
+        )
+        return img_simulated
+
+    img_simulated = simulate_frame(0)
+    image_shape = img_simulated.shape  # (width, height)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video_writer = cv2.VideoWriter(str(video_path), fourcc=fourcc, fps=fps, frameSize=image_shape[1::-1], isColor=True)
+    class_names = ["vehicle", "person", "sun"]
+    step = 1.0 / n_frames
+    samples_list = []
+    for i_frame in range(n_frames):
+        img_simulated = simulate_frame(i_frame)
+        if img_simulated.shape != image_shape:
+            raise ValueError("All frames must have the same size.")
+
+        video_writer.write(img_simulated)
+
+        bboxes = None
+        if add_bboxes:
+            bboxes = [
+                Bbox(
+                    height=0.05,
+                    width=0.15,
+                    top_left_x=step * i_frame,
+                    top_left_y=0.4,
+                    class_name="vehicle",
+                    class_idx=class_names.index("vehicle"),
+                ),
+                Bbox(
+                    height=0.15,
+                    width=0.07,
+                    top_left_x=step * i_frame,
+                    top_left_y=0.6,
+                    class_name="person",
+                    class_idx=class_names.index("person"),
+                ),
+                Bbox(
+                    height=0.04,
+                    width=0.04,
+                    top_left_x=step * i_frame,
+                    top_left_y=step * i_frame,
+                    class_name="sun",
+                    class_idx=class_names.index("sun"),
+                ),
+            ]
+        samples_list.append(
+            Sample(
+                file_path=str(video_path),
+                height=image_shape[0],
+                width=image_shape[1],
+                split=SplitName.TRAIN,
+                collection_index=i_frame,
+                collection_id=video_path.name,
+                storage_format=StorageFormat.VIDEO,
+                bboxes=bboxes,
+            )
+        )
+
+    video_writer.release()
+    tasks = []
+    if add_bboxes:
+        tasks.append(TaskInfo(primitive=Bbox, class_names=class_names))
+    dataset_info = DatasetInfo(
+        dataset_name="SimulatedHafniaVideoDataset",
+        tasks=tasks,
+    )
+    dataset = HafniaDataset.from_samples_list(samples_list=samples_list, info=dataset_info)
+    return dataset

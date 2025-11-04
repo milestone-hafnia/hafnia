@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Callable
 
 from hafnia.dataset import primitives
-from hafnia.dataset.dataset_names import ColumnName
+from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.format_conversions import format_yolo
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 from tests.helper_testing import get_micro_hafnia_dataset, get_path_test_dataset_formats
@@ -24,7 +24,7 @@ def test_format_yolo_import_export_tiny_dataset(tmp_path: Path, compare_to_expec
     dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
 
     path_yolo_dataset_exported = tmp_path / "exported_yolo_dataset"
-    format_yolo.as_yolo_format(
+    format_yolo.to_yolo_format(
         dataset=dataset,
         path_export_yolo_dataset=path_yolo_dataset_exported,
     )
@@ -52,13 +52,13 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
     assert len(dataset) == 3
     assert len(dataset.info.tasks) == 1
     task = dataset.info.tasks[0]
-    assert len(task.class_names) == 80
+    assert len(task.class_names or []) == 80
     assert task.primitive == primitives.Bbox
     assert task.name == primitives.Bbox.default_task_name()
 
     # Test case 2: Export yolo dataset
     path_yolo_dataset_exported = tmp_path / "exported_yolo_dataset"
-    format_yolo.as_yolo_format(
+    format_yolo.to_yolo_format(
         dataset=dataset,
         path_export_yolo_dataset=path_yolo_dataset_exported,
         task_name=None,
@@ -80,6 +80,6 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
 
     assert len(dataset_reimported) == len(dataset)
     assert len(dataset_reimported.info.tasks) == len(dataset.info.tasks)
-    actual_samples = dataset_reimported.samples.drop(ColumnName.FILE_PATH)
-    expected_samples = dataset.samples.drop(ColumnName.FILE_PATH)
+    actual_samples = dataset_reimported.samples.drop(SampleField.FILE_PATH)
+    expected_samples = dataset.samples.drop(SampleField.FILE_PATH)
     assert actual_samples.equals(expected_samples)

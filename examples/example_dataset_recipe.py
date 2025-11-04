@@ -129,26 +129,28 @@ mapping_midwest = {
     "Vehicle*": "Vehicle",  # Wildcard mapping. Selects class names starting with 'Vehicle.' e.g. 'Vehicle.Bicycle', "Vehicle.Car', etc.
     "Vehicle.Trailer": OPS_REMOVE_CLASS,  # Use this to remove a class
 }
-coco_remapped = coco.class_mapper(class_mapping=mappings_coco, method="remove_undefined", task_name="bboxes")
-midwest_remapped = midwest.class_mapper(class_mapping=mapping_midwest, task_name="bboxes")
+coco_remapped = coco.class_mapper(class_mapping=mappings_coco, method="remove_undefined", task_name="object_detection")
+midwest_remapped = midwest.class_mapper(class_mapping=mapping_midwest, task_name="object_detection")
 
 # 2b) Merge datasets
 merged_dataset_all_images = HafniaDataset.from_merge(dataset0=coco_remapped, dataset1=midwest_remapped)
 
 # 2c) Remove images without 'Person' or 'Vehicle' annotations
-merged_dataset = merged_dataset_all_images.select_samples_by_class_name(name=["Person", "Vehicle"], task_name="bboxes")
+merged_dataset = merged_dataset_all_images.select_samples_by_class_name(
+    name=["Person", "Vehicle"], task_name="object_detection"
+)
 merged_dataset.print_stats()
 
 # 3) Once you have verified operations using the 'HafniaDataset' interface, you can convert
 # the operations to a single 'DatasetRecipe'
 merged_recipe = DatasetRecipe.from_merge(
     recipe0=DatasetRecipe.from_name("coco-2017").class_mapper(
-        class_mapping=mappings_coco, method="remove_undefined", task_name="bboxes"
+        class_mapping=mappings_coco, method="remove_undefined", task_name="object_detection"
     ),
     recipe1=DatasetRecipe.from_name("midwest-vehicle-detection").class_mapper(
-        class_mapping=mapping_midwest, task_name="bboxes"
+        class_mapping=mapping_midwest, task_name="object_detection"
     ),
-).select_samples_by_class_name(name=["Person", "Vehicle"], task_name="bboxes")
+).select_samples_by_class_name(name=["Person", "Vehicle"], task_name="object_detection")
 
 # 3a) Verify again on the sample datasets, that the recipe works and can build as a dataset
 merged_dataset = merged_recipe.build()

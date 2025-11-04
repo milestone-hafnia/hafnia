@@ -31,6 +31,7 @@ that the signatures match.
 
 import json
 import re
+import shutil
 import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, Union
@@ -39,17 +40,23 @@ import cv2
 import more_itertools
 import numpy as np
 import polars as pl
-from PIL import Image
 from rich.progress import track
 
 from hafnia.dataset import dataset_helpers
-from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS, ColumnName, FieldName
+from hafnia.dataset.dataset_names import (
+    OPS_REMOVE_CLASS,
+    PrimitiveField,
+    SampleField,
+    StorageFormat,
+)
+from hafnia.dataset.operations.table_transformations import update_class_indices
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
+from hafnia.log import user_logger
 from hafnia.utils import remove_duplicates_preserve_order
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
-    from hafnia.dataset.hafnia_dataset import HafniaDataset, TaskInfo
+    from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample, TaskInfo
 
 
 ### Image transformations ###
@@ -57,7 +64,7 @@ class AnonymizeByPixelation:
     def __init__(self, resize_factor: float = 0.10):
         self.resize_factor = resize_factor
 
-    def __call__(self, frame: np.ndarray) -> np.ndarray:
+    def __call__(self, frame: np.ndarray, sample: "Sample") -> np.ndarray:
         org_size = frame.shape[:2]
         frame = cv2.resize(frame, (0, 0), fx=self.resize_factor, fy=self.resize_factor)
         frame = cv2.resize(frame, org_size[::-1], interpolation=cv2.INTER_NEAREST)
@@ -66,29 +73,103 @@ class AnonymizeByPixelation:
 
 def transform_images(
     dataset: "HafniaDataset",
-    transform: Callable[[np.ndarray], np.ndarray],
+    transform: Callable[[np.ndarray, "Sample"], np.ndarray],
     path_output: Path,
+    description: str = "Transform images",
 ) -> "HafniaDataset":
+    from hafnia.dataset.hafnia_dataset import Sample
+
     new_paths = []
     path_image_folder = path_output / "data"
     path_image_folder.mkdir(parents=True, exist_ok=True)
 
-    org_paths = dataset.samples[ColumnName.FILE_PATH].to_list()
-    for org_path in track(org_paths, description="Transform images"):
-        org_path = Path(org_path)
+    for sample_dict in track(dataset, description=description):
+        sample = Sample(**sample_dict)
+        org_path = Path(sample.file_path)
         if not org_path.exists():
             raise FileNotFoundError(f"File {org_path} does not exist in the dataset.")
 
-        image = np.array(Image.open(org_path))
-        image_transformed = transform(image)
+        image = sample.read_image()
+        image_transformed = transform(image, sample)
         new_path = dataset_helpers.save_image_with_hash_name(image_transformed, path_image_folder)
 
         if not new_path.exists():
             raise FileNotFoundError(f"Transformed file {new_path} does not exist in the dataset.")
         new_paths.append(str(new_path))
 
-    table = dataset.samples.with_columns(pl.Series(new_paths).alias(ColumnName.FILE_PATH))
+    table = dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
     return dataset.update_samples(table)
+
+
+def convert_to_image_storage_format(
+    dataset: "HafniaDataset",
+    path_output_folder: Path,
+    reextract_frames: bool,
+    image_format: str = "png",
+    transform: Optional[Callable[[np.ndarray, "Sample"], np.ndarray]] = None,
+) -> "HafniaDataset":
+    """
+    Convert a video-based dataset ("storage_format" == "video", FieldName.STORAGE_FORMAT == StorageFormat.VIDEO)
+    to an image-based dataset by extracting frames.
+    """
+    from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+
+    path_images = path_output_folder / "data"
+    path_images.mkdir(parents=True, exist_ok=True)
+
+    # Only video format dataset samples are processed
+    video_based_samples = dataset.samples.filter(pl.col(SampleField.STORAGE_FORMAT) == StorageFormat.VIDEO)
+
+    if video_based_samples.is_empty():
+        user_logger.info("Dataset has no video-based samples. Returning dataset unchanged.")
+        return dataset
+
+    update_list = []
+    for (path_video,), video_samples in video_based_samples.group_by(SampleField.FILE_PATH):
+        assert Path(path_video).exists(), (
+            f"'{path_video}' not found. We expect the video to be downloaded to '{path_output_folder}'"
+        )
+        video = cv2.VideoCapture(str(path_video))
+
+        video_samples = video_samples.sort(SampleField.COLLECTION_INDEX)
+        for sample_dict in track(
+            video_samples.iter_rows(named=True),
+            total=video_samples.height,
+            description=f"Extracting frames from '{Path(path_video).name}'",
+        ):
+            frame_number = sample_dict[SampleField.COLLECTION_INDEX]
+            image_name = f"{Path(path_video).stem}_F{frame_number:06d}.{image_format}"
+            path_image = path_images / image_name
+
+            update_list.append(
+                {
+                    SampleField.SAMPLE_INDEX: sample_dict[SampleField.SAMPLE_INDEX],
+                    SampleField.COLLECTION_ID: sample_dict[SampleField.COLLECTION_ID],
+                    SampleField.COLLECTION_INDEX: frame_number,
+                    SampleField.FILE_PATH: path_image.as_posix(),
+                    SampleField.SAMPLE_TITLE: image_name,
+                    SampleField.STORAGE_FORMAT: StorageFormat.IMAGE,
+                }
+            )
+            if reextract_frames:
+                shutil.rmtree(path_image, ignore_errors=True)
+            if path_image.exists():
+                continue
+
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            ret, frame_org = video.read()
+            if not ret:
+                raise RuntimeError(f"Could not read frame {frame_number} from video '{path_video}'")
+
+            if transform is not None:
+                frame_org = transform(frame_org, Sample(**sample_dict))
+
+            cv2.imwrite(str(path_image), frame_org)
+    df_updates = pl.DataFrame(update_list)
+    samples_as_images = dataset.samples.update(df_updates, on=[SampleField.COLLECTION_ID, SampleField.COLLECTION_INDEX])
+    hafnia_dataset = HafniaDataset(samples=samples_as_images, info=dataset.info)
+
+    return hafnia_dataset
 
 
 def get_task_info_from_task_name_and_primitive(
@@ -223,25 +304,10 @@ def class_mapper(
         pl.col(task.primitive.column_name())
         .list.eval(
             pl.element().struct.with_fields(
-                pl.when(pl.field(FieldName.TASK_NAME) == task.name)
-                .then(pl.field(FieldName.CLASS_NAME).replace_strict(class_mapping))
-                .otherwise(pl.field(FieldName.CLASS_NAME))
-                .alias(FieldName.CLASS_NAME)
-            )
-        )
-        .alias(task.primitive.column_name())
-    )
-
-    # Update class indices too
-    name_2_idx_mapping: Dict[str, int] = {name: idx for idx, name in enumerate(new_class_names)}
-    samples_updated = samples_updated.with_columns(
-        pl.col(task.primitive.column_name())
-        .list.eval(
-            pl.element().struct.with_fields(
-                pl.when(pl.field(FieldName.TASK_NAME) == task.name)
-                .then(pl.field(FieldName.CLASS_NAME).replace_strict(name_2_idx_mapping))
-                .otherwise(pl.field(FieldName.CLASS_IDX))
-                .alias(FieldName.CLASS_IDX)
+                pl.when(pl.field(PrimitiveField.TASK_NAME) == task.name)
+                .then(pl.field(PrimitiveField.CLASS_NAME).replace_strict(class_mapping, default="Missing"))
+                .otherwise(pl.field(PrimitiveField.CLASS_NAME))
+                .alias(PrimitiveField.CLASS_NAME)
             )
         )
         .alias(task.primitive.column_name())
@@ -250,7 +316,7 @@ def class_mapper(
     if OPS_REMOVE_CLASS in new_class_names:  # Remove class_names that are mapped to REMOVE_CLASS
         samples_updated = samples_updated.with_columns(
             pl.col(task.primitive.column_name())
-            .list.filter(pl.element().struct.field(FieldName.CLASS_NAME) != OPS_REMOVE_CLASS)
+            .list.filter(pl.element().struct.field(PrimitiveField.CLASS_NAME) != OPS_REMOVE_CLASS)
             .alias(task.primitive.column_name())
         )
 
@@ -259,6 +325,10 @@ def class_mapper(
     new_task = task.model_copy(deep=True)
     new_task.class_names = new_class_names
     dataset_info = dataset.info.replace_task(old_task=task, new_task=new_task)
+
+    # Update class indices to match new class names
+    samples_updated = update_class_indices(samples_updated, new_task)
+
     return HafniaDataset(info=dataset_info, samples=samples_updated)
 
 
@@ -317,7 +387,7 @@ def rename_task(
         pl.col(old_task.primitive.column_name())
         .list.eval(
             pl.element().struct.with_fields(
-                pl.field(FieldName.TASK_NAME).replace(old_task.name, new_task.name).alias(FieldName.TASK_NAME)
+                pl.field(PrimitiveField.TASK_NAME).replace(old_task.name, new_task.name).alias(PrimitiveField.TASK_NAME)
             )
         )
         .alias(new_task.primitive.column_name())
@@ -343,8 +413,8 @@ def select_samples_by_class_name(
     samples = dataset.samples.filter(
         pl.col(task.primitive.column_name())
         .list.eval(
-            pl.element().struct.field(FieldName.CLASS_NAME).is_in(class_names)
-            & (pl.element().struct.field(FieldName.TASK_NAME) == task.name)
+            pl.element().struct.field(PrimitiveField.CLASS_NAME).is_in(class_names)
+            & (pl.element().struct.field(PrimitiveField.TASK_NAME) == task.name)
         )
         .list.any()
     )

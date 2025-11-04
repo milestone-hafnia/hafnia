@@ -11,7 +11,7 @@ from torchvision.transforms import v2
 
 import hafnia
 from hafnia import torch_helpers
-from hafnia.dataset.dataset_names import ColumnName
+from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
@@ -100,7 +100,7 @@ def test_dataset_lengths(loaded_dataset):
     dataset = loaded_dataset["dataset"]
     expected_split_counts = loaded_dataset["expected_lengths"]
 
-    actual_split_counts = dict(dataset.samples[ColumnName.SPLIT].value_counts().iter_rows())
+    actual_split_counts = dict(dataset.samples[SampleField.SPLIT].value_counts().iter_rows())
     assert actual_split_counts == expected_split_counts
 
 
@@ -119,7 +119,9 @@ def test_check_dataset(loaded_dataset, compare_to_expected_image):
 
     # We are arranging dataset files in multiple sub-folders to avoid S3 rate limits.
     # This test checks that the dataset files are distributed across multiple sub-folders.
-    unique_sub_folders = collections.Counter([Path(path).parent.name for path in dataset.samples[ColumnName.FILE_PATH]])
+    unique_sub_folders = collections.Counter(
+        [Path(path).parent.name for path in dataset.samples[SampleField.FILE_PATH]]
+    )
     assert len(unique_sub_folders) > 1, "Expected dataset files to be distributed across sub-folders"
 
 

@@ -13,7 +13,7 @@ from rich.progress import track
 
 from cli.config import Config
 from hafnia import http, utils
-from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED, ColumnName
+from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
     get_dataset_path_from_recipe,
@@ -120,12 +120,8 @@ def download_dataset_from_access_endpoint(
         return
     dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
     try:
-        fast_copy_files_s3(
-            src_paths=dataset.samples[ColumnName.REMOTE_PATH].to_list(),
-            dst_paths=dataset.samples[ColumnName.FILE_PATH].to_list(),
-            append_envs=envs,
-            description="Downloading images",
-        )
+        dataset = dataset.download_files_aws(path_dataset, aws_credentials=resource_credentials, force_redownload=True)
+        dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
     except ValueError as e:
         user_logger.error(f"Failed to download images: {e}")
         return

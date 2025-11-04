@@ -24,11 +24,11 @@ class Segmentation(Primitive):
 
     @staticmethod
     def default_task_name() -> str:
-        return "segmentation"
+        return "semantic_segmentation"
 
     @staticmethod
     def column_name() -> str:
-        return "segmentation"
+        return "segmentations"
 
     def calculate_area(self) -> float:
         raise NotImplementedError()

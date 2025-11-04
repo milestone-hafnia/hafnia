@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from hafnia.dataset.format_conversions.format_image_classification_from_directory import (
-    export_as_image_classification_directory_tree,
-    import_from_image_classification_directory_tree,
+from hafnia.dataset.format_conversions.format_image_classification_folder import (
+    from_image_classification_folder,
+    to_image_classification_folder,
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from tests.helper_testing import get_micro_hafnia_dataset
@@ -15,10 +15,10 @@ def test_import_export_image_classification_from_directory(tmp_path: Path) -> No
 
     path_exported = tmp_path / "exported"
     with pytest.raises(ValueError, match="Found multiple tasks"):
-        export_as_image_classification_directory_tree(dataset, path_output=path_exported)
+        to_image_classification_folder(dataset, path_output=path_exported)
 
     task = dataset.info.get_task_by_task_name_and_primitive(task_name="Time of Day", primitive=None)
-    path_dataset_exported = export_as_image_classification_directory_tree(
+    path_dataset_exported = to_image_classification_folder(
         dataset, path_output=path_exported, task_name=task.name, clean_folder=True
     )
 
@@ -26,7 +26,7 @@ def test_import_export_image_classification_from_directory(tmp_path: Path) -> No
     assert len(actual_class_names) == 3
     expected_class_names = [n.replace("/", "_") for n in task.class_names or []]
     assert set(actual_class_names).issubset(set(expected_class_names))
-    hafnia_dataset_imported = import_from_image_classification_directory_tree(
+    hafnia_dataset_imported = from_image_classification_folder(
         path_folder=path_dataset_exported,
         split="train",
         n_samples=None,
@@ -36,7 +36,7 @@ def test_import_export_image_classification_from_directory(tmp_path: Path) -> No
     assert hafnia_dataset_imported.info.tasks[0].primitive == task.primitive
     assert len(hafnia_dataset_imported.samples) == len(dataset.samples)
 
-    hafnia_dataset_imported = import_from_image_classification_directory_tree(
+    hafnia_dataset_imported = from_image_classification_folder(
         path_folder=path_dataset_exported,
         split="train",
         n_samples=2,
