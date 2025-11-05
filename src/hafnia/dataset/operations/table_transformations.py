@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Type
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
 import polars as pl
 from rich.progress import track
@@ -7,8 +7,8 @@ from rich.progress import track
 from hafnia.dataset.dataset_names import (
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
-    ColumnName,
-    FieldName,
+    PrimitiveField,
+    SampleField,
 )
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
@@ -16,9 +16,15 @@ from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 
+if TYPE_CHECKING:
+    from hafnia.dataset.hafnia_dataset import TaskInfo
+
 
 def create_primitive_table(
-    samples_table: pl.DataFrame, PrimitiveType: Type[Primitive], keep_sample_data: bool = False
+    samples_table: pl.DataFrame,
+    PrimitiveType: Type[Primitive],
+    keep_sample_data: bool = False,
+    task_name: Optional[str] = None,
 ) -> Optional[pl.DataFrame]:
     """
     Returns a DataFrame with objects of the specified primitive type.
@@ -48,6 +54,9 @@ def create_primitive_table(
         objects_df = remove_no_object_frames.explode(column_name).unnest(column_name)
     else:
         objects_df = remove_no_object_frames.select(pl.col(column_name).explode().struct.unnest())
+
+    if task_name is not None:
+        objects_df = objects_df.filter(pl.col(PrimitiveField.TASK_NAME) == task_name)
     return objects_df
 
 
@@ -55,11 +64,12 @@ def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFram
     has_same_schema = samples0.schema == samples1.schema
     if not has_same_schema:
         shared_columns = []
-        for column_name, column_type in samples0.schema.items():
+        for column_name, s0_column_type in samples0.schema.items():
             if column_name not in samples1.schema:
                 continue
+            samples0, samples1 = correction_of_list_struct_primitives(samples0, samples1, column_name)
 
-            if column_type != samples1.schema[column_name]:
+            if samples0.schema[column_name] != samples1.schema[column_name]:
                 continue
             shared_columns.append(column_name)
 
@@ -79,8 +89,50 @@ def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFram
         samples0 = samples0.select(list(shared_columns))
         samples1 = samples1.select(list(shared_columns))
     merged_samples = pl.concat([samples0, samples1], how="vertical")
-    merged_samples = merged_samples.drop(ColumnName.SAMPLE_INDEX).with_row_index(name=ColumnName.SAMPLE_INDEX)
+    merged_samples = add_sample_index(merged_samples)
     return merged_samples
+
+
+def correction_of_list_struct_primitives(
+    samples0: pl.DataFrame,
+    samples1: pl.DataFrame,
+    column_name: str,
+) -> Tuple[pl.DataFrame, pl.DataFrame]:
+    """
+    Corrects primitive columns (bboxes, polygons etc of type 'list[struct]') by removing non-matching struct fields
+    between two datasets. This is useful when merging two datasets with the same primitive (e.g. Bbox), where
+    some (less important) field types in the struct differ between the two datasets.
+    This issue often occurs with the 'meta' field as different dataset formats may store different metadata information.
+    """
+    s0_column_type = samples0.schema[column_name]
+    s1_column_type = samples1.schema[column_name]
+    is_list_structs = s1_column_type == pl.List(pl.Struct) and s0_column_type == pl.List(pl.Struct)
+    is_non_matching_types = s1_column_type != s0_column_type
+    if is_list_structs and is_non_matching_types:  # Only perform correction for list[struct] types that do not match
+        s0_fields = set(s0_column_type.inner.fields)
+        s1_fields = set(s1_column_type.inner.fields)
+        similar_fields = s0_fields.intersection(s1_fields)
+        s0_dropped_fields = s0_fields - similar_fields
+        if len(s0_dropped_fields) > 0:
+            samples0 = samples0.with_columns(
+                pl.col(column_name)
+                .list.eval(pl.struct([pl.element().struct.field(k.name) for k in similar_fields]))
+                .alias(column_name)
+            )
+        s1_dropped_fields = s1_fields - similar_fields
+        if len(s1_dropped_fields) > 0:
+            samples1 = samples1.with_columns(
+                pl.col(column_name)
+                .list.eval(pl.struct([pl.element().struct.field(k.name) for k in similar_fields]))
+                .alias(column_name)
+            )
+        user_logger.warning(
+            f"Primitive column '{column_name}' has none-matching fields in the two datasets. "
+            f"Dropping fields in samples0: {[f.name for f in s0_dropped_fields]}. "
+            f"Dropping fields in samples1: {[f.name for f in s1_dropped_fields]}."
+        )
+
+    return samples0, samples1
 
 
 def filter_table_for_class_names(
@@ -88,7 +140,7 @@ def filter_table_for_class_names(
 ) -> Optional[pl.DataFrame]:
     table_with_selected_class_names = samples_table.filter(
         pl.col(PrimitiveType.column_name())
-        .list.eval(pl.element().struct.field(FieldName.CLASS_NAME).is_in(class_names))
+        .list.eval(pl.element().struct.field(PrimitiveField.CLASS_NAME).is_in(class_names))
         .list.any()
     )
 
@@ -100,20 +152,20 @@ def split_primitive_columns_by_task_name(
     coordinate_types: Optional[List[Type[Primitive]]] = None,
 ) -> pl.DataFrame:
     """
-    Convert Primitive columns such as "objects" (Bbox) into a column for each task name.
-    For example, if the "objects" column (containing Bbox objects) has tasks "task1" and "task2".
+    Convert Primitive columns such as "bboxes" (Bbox) into a column for each task name.
+    For example, if the "bboxes" column (containing Bbox objects) has tasks "task1" and "task2".
 
 
     This:
     ─┬────────────┬─
-     ┆ objects    ┆
+     ┆ bboxes    ┆
      ┆ ---        ┆
      ┆ list[struc ┆
      ┆ t[11]]     ┆
     ═╪════════════╪═
     becomes this:
     ─┬────────────┬────────────┬─
-     ┆ objects.   ┆ objects.   ┆
+     ┆ bboxes.   ┆ bboxes.   ┆
      ┆ task1      ┆ task2      ┆
      ┆ ---        ┆ ---        ┆
      ┆ list[struc ┆ list[struc ┆
@@ -131,11 +183,11 @@ def split_primitive_columns_by_task_name(
         if samples_table[col_name].dtype != pl.List(pl.Struct):
             continue
 
-        task_names = samples_table[col_name].explode().struct.field(FieldName.TASK_NAME).unique().to_list()
+        task_names = samples_table[col_name].explode().struct.field(PrimitiveField.TASK_NAME).unique().to_list()
         samples_table = samples_table.with_columns(
             [
                 pl.col(col_name)
-                .list.filter(pl.element().struct.field(FieldName.TASK_NAME).eq(task_name))
+                .list.filter(pl.element().struct.field(PrimitiveField.TASK_NAME).eq(task_name))
                 .alias(f"{col_name}.{task_name}")
                 for task_name in task_names
             ]
@@ -162,7 +214,7 @@ def read_samples_from_path(path: Path) -> pl.DataFrame:
 
 def check_image_paths(table: pl.DataFrame) -> bool:
     missing_files = []
-    org_paths = table[ColumnName.FILE_PATH].to_list()
+    org_paths = table[SampleField.FILE_PATH].to_list()
     for org_path in track(org_paths, description="Check image paths"):
         org_path = Path(org_path)
         if not org_path.exists():
@@ -219,3 +271,68 @@ def unnest_classification_tasks(table: pl.DataFrame, strict: bool = True) -> pl.
 
     table_out = table_out.with_columns([pl.col(c).list.first() for c in classification_columns])
     return table_out
+
+
+def update_class_indices(samples: pl.DataFrame, task: "TaskInfo") -> pl.DataFrame:
+    if task.class_names is None or len(task.class_names) == 0:
+        raise ValueError(f"Task '{task.name}' does not have defined class names to update class indices.")
+
+    objs = (
+        samples[task.primitive.column_name()]
+        .explode()
+        .struct.unnest()
+        .filter(pl.col(PrimitiveField.TASK_NAME) == task.name)
+    )
+    expected_class_names = set(objs[PrimitiveField.CLASS_NAME].unique())
+    missing_class_names = expected_class_names - set(task.class_names)
+    if len(missing_class_names) > 0:
+        raise ValueError(
+            f"Task '{task.name}' is missing class names: {missing_class_names}. Cannot update class indices."
+        )
+
+    name_2_idx_mapping = {name: idx for idx, name in enumerate(task.class_names)}
+
+    samples_updated = samples.with_columns(
+        pl.col(task.primitive.column_name())
+        .list.eval(
+            pl.element().struct.with_fields(
+                pl.when(pl.field(PrimitiveField.TASK_NAME) == task.name)
+                .then(pl.field(PrimitiveField.CLASS_NAME).replace_strict(name_2_idx_mapping, default=-1))
+                .otherwise(pl.field(PrimitiveField.CLASS_IDX))
+                .alias(PrimitiveField.CLASS_IDX)
+            )
+        )
+        .alias(task.primitive.column_name())
+    )
+
+    return samples_updated
+
+
+def add_sample_index(samples: pl.DataFrame) -> pl.DataFrame:
+    """
+    Adds a sample index column to the samples DataFrame.
+
+    Note: Unlike the built-in 'polars.DataFrame.with_row_count', this function
+    always guarantees 'pl.UInt64' type for the index column.
+    """
+    if SampleField.SAMPLE_INDEX in samples.columns:
+        samples = samples.drop(SampleField.SAMPLE_INDEX)
+    samples = samples.select(
+        pl.int_range(0, pl.count(), dtype=pl.UInt64).alias(SampleField.SAMPLE_INDEX),
+        pl.all(),
+    )
+    return samples
+
+
+def add_dataset_name_if_missing(table: pl.DataFrame, dataset_name: str) -> pl.DataFrame:
+    if SampleField.DATASET_NAME not in table.columns:
+        table = table.with_columns(pl.lit(dataset_name).alias(SampleField.DATASET_NAME))
+    else:
+        table = table.with_columns(
+            pl.when(pl.col(SampleField.DATASET_NAME).is_null())
+            .then(pl.lit(dataset_name))
+            .otherwise(pl.col(SampleField.DATASET_NAME))
+            .alias(SampleField.DATASET_NAME)
+        )
+
+    return table

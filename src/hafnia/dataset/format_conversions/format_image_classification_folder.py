@@ -1,23 +1,27 @@
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import more_itertools
 import polars as pl
 from PIL import Image
 from rich.progress import track
 
-from hafnia.dataset.dataset_names import ColumnName, FieldName
-from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.primitives import Classification
 from hafnia.utils import is_image_file
 
+if TYPE_CHECKING:
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-def import_from_image_classification_directory_tree(
+
+def from_image_classification_folder(
     path_folder: Path,
     split: str,
     n_samples: Optional[int] = None,
-) -> HafniaDataset:
+) -> "HafniaDataset":
+    from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+
     class_folder_paths = [path for path in path_folder.iterdir() if path.is_dir()]
     class_names = sorted([folder.name for folder in class_folder_paths])  # Sort for determinism
 
@@ -62,8 +66,8 @@ def import_from_image_classification_directory_tree(
     return hafnia_dataset
 
 
-def export_as_image_classification_directory_tree(
-    dataset: HafniaDataset,
+def to_image_classification_folder(
+    dataset: "HafniaDataset",
     path_output: Path,
     task_name: Optional[str] = None,
     clean_folder: bool = False,
@@ -72,7 +76,7 @@ def export_as_image_classification_directory_tree(
 
     samples = dataset.samples.with_columns(
         pl.col(task.primitive.column_name())
-        .list.filter(pl.element().struct.field(FieldName.TASK_NAME) == task.name)
+        .list.filter(pl.element().struct.field(PrimitiveField.TASK_NAME) == task.name)
         .alias(task.primitive.column_name())
     )
 
@@ -95,11 +99,11 @@ def export_as_image_classification_directory_tree(
         if len(classifications) != 1:
             raise ValueError("Each sample should have exactly one classification.")
         classification = classifications[0]
-        class_name = classification[FieldName.CLASS_NAME].replace("/", "_")  # Avoid issues with subfolders
+        class_name = classification[PrimitiveField.CLASS_NAME].replace("/", "_")  # Avoid issues with subfolders
         path_class_folder = path_output / class_name
         path_class_folder.mkdir(parents=True, exist_ok=True)
 
-        path_image_org = Path(sample_dict[ColumnName.FILE_PATH])
+        path_image_org = Path(sample_dict[SampleField.FILE_PATH])
         path_image_new = path_class_folder / path_image_org.name
         shutil.copy2(path_image_org, path_image_new)
 

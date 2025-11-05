@@ -12,8 +12,8 @@ class Classification(Primitive):
     class_name: Optional[str] = Field(default=None, description="Class name, e.g. 'car'")
     class_idx: Optional[int] = Field(default=None, description="Class index, e.g. 0 for 'car' if it is the first class")
     object_id: Optional[str] = Field(default=None, description="Unique identifier for the object, e.g. '12345123'")
-    confidence: Optional[float] = Field(
-        default=None, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification"
+    confidence: float = Field(
+        default=1.0, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification"
     )
     ground_truth: bool = Field(default=True, description="Whether this is ground truth or a prediction")
 
@@ -27,7 +27,7 @@ class Classification(Primitive):
 
     @staticmethod
     def default_task_name() -> str:
-        return "classification"
+        return "image_classification"
 
     @staticmethod
     def column_name() -> str:

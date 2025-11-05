@@ -14,10 +14,10 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from cli.config import Config
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import (
-    ColumnName,
     DatasetVariant,
     DeploymentStage,
-    FieldName,
+    PrimitiveField,
+    SampleField,
     SplitName,
 )
 from hafnia.dataset.hafnia_dataset import Attribution, HafniaDataset, Sample, TaskInfo
@@ -193,7 +193,7 @@ class Annotations(BaseModel):
     in gallery images on the dataset detail page.
     """
 
-    objects: Optional[List[Bbox]] = None
+    bboxes: Optional[List[Bbox]] = None
     classifications: Optional[List[Classification]] = None
     polygons: Optional[List[Polygon]] = None
     bitmasks: Optional[List[Bitmask]] = None
@@ -210,13 +210,15 @@ class DatasetImageMetadata(BaseModel):
     @classmethod
     def from_sample(cls, sample: Sample) -> "DatasetImageMetadata":
         sample = sample.model_copy(deep=True)
+        if sample.file_path is None:
+            raise ValueError("Sample has no file_path defined.")
         sample.file_path = "/".join(Path(sample.file_path).parts[-3:])
         metadata = {}
         metadata_field_names = [
-            ColumnName.FILE_PATH,
-            ColumnName.HEIGHT,
-            ColumnName.WIDTH,
-            ColumnName.SPLIT,
+            SampleField.FILE_PATH,
+            SampleField.HEIGHT,
+            SampleField.WIDTH,
+            SampleField.SPLIT,
         ]
         for field_name in metadata_field_names:
             if hasattr(sample, field_name) and getattr(sample, field_name) is not None:
@@ -224,7 +226,7 @@ class DatasetImageMetadata(BaseModel):
 
         obj = DatasetImageMetadata(
             annotations=Annotations(
-                objects=sample.objects,
+                bboxes=sample.bboxes,
                 classifications=sample.classifications,
                 polygons=sample.polygons,
                 bitmasks=sample.bitmasks,
@@ -343,13 +345,13 @@ def calculate_distribution_values(
     classifications = dataset_split.select(pl.col(classification_column).explode())
     classifications = classifications.filter(pl.col(classification_column).is_not_null()).unnest(classification_column)
     classifications = classifications.filter(
-        pl.col(FieldName.TASK_NAME).is_in([task.name for task in distribution_tasks])
+        pl.col(PrimitiveField.TASK_NAME).is_in([task.name for task in distribution_tasks])
     )
     dist_values = []
-    for (task_name,), task_group in classifications.group_by(FieldName.TASK_NAME):
+    for (task_name,), task_group in classifications.group_by(PrimitiveField.TASK_NAME):
         distribution_type = DbDistributionType(name=task_name)
         n_annotated_total = len(task_group)
-        for (class_name,), class_group in task_group.group_by(FieldName.CLASS_NAME):
+        for (class_name,), class_group in task_group.group_by(PrimitiveField.CLASS_NAME):
             class_count = len(class_group)
 
             dist_values.append(
@@ -383,6 +385,7 @@ def dataset_info_from_dataset(
     path_hidden: Optional[Path],
     path_gallery_images: Optional[Path] = None,
     gallery_image_names: Optional[List[str]] = None,
+    distribution_task_names: Optional[List[TaskInfo]] = None,
 ) -> DbDataset:
     dataset_variants = []
     dataset_reports = []
@@ -427,13 +430,15 @@ def dataset_info_from_dataset(
             )
         )
 
+        distribution_task_names = distribution_task_names or []
+        distribution_tasks = [t for t in dataset.info.tasks if t.name in distribution_task_names]
         for split_name in SplitChoices:
             split_names = SPLIT_CHOICE_MAPPING[split_name]
-            dataset_split = dataset_variant.samples.filter(pl.col(ColumnName.SPLIT).is_in(split_names))
+            dataset_split = dataset_variant.samples.filter(pl.col(SampleField.SPLIT).is_in(split_names))
 
             distribution_values = calculate_distribution_values(
                 dataset_split=dataset_split,
-                distribution_tasks=dataset.info.distributions,
+                distribution_tasks=distribution_tasks,
             )
             report = DbSplitAnnotationsReport(
                 variant_type=VARIANT_TYPE_MAPPING[variant_type],  # type: ignore[index]
@@ -461,7 +466,7 @@ def dataset_info_from_dataset(
 
                 annotation_type = DbAnnotationType(name=AnnotationType.ObjectDetection.value)
                 for (class_name, task_name), class_group in df_per_instance.group_by(
-                    FieldName.CLASS_NAME, FieldName.TASK_NAME
+                    PrimitiveField.CLASS_NAME, PrimitiveField.TASK_NAME
                 ):
                     if class_name is None:
                         continue
@@ -473,10 +478,10 @@ def dataset_info_from_dataset(
                                 annotation_type=annotation_type,
                                 task_name=task_name,
                             ),
-                            unique_obj_ids=class_group[FieldName.OBJECT_ID].n_unique(),
+                            unique_obj_ids=class_group[PrimitiveField.OBJECT_ID].n_unique(),
                             obj_instances=len(class_group),
                             annotation_type=[annotation_type],
-                            images_with_obj=class_group[ColumnName.SAMPLE_INDEX].n_unique(),
+                            images_with_obj=class_group[SampleField.SAMPLE_INDEX].n_unique(),
                             area_avg_ratio=class_group["area"].mean(),
                             area_min_ratio=class_group["area"].min(),
                             area_max_ratio=class_group["area"].max(),
@@ -495,7 +500,7 @@ def dataset_info_from_dataset(
                             width_avg_px=class_group["width_px"].mean(),
                             width_min_px=int(class_group["width_px"].min()),
                             width_max_px=int(class_group["width_px"].max()),
-                            average_count_per_image=len(class_group) / class_group[ColumnName.SAMPLE_INDEX].n_unique(),
+                            average_count_per_image=len(class_group) / class_group[SampleField.SAMPLE_INDEX].n_unique(),
                         )
                     )
 
@@ -509,13 +514,13 @@ def dataset_info_from_dataset(
 
                     # Include only classification tasks that are defined in the dataset info
                     classification_df = classification_df.filter(
-                        pl.col(FieldName.TASK_NAME).is_in(classification_tasks)
+                        pl.col(PrimitiveField.TASK_NAME).is_in(classification_tasks)
                     )
 
                     for (
                         task_name,
                         class_name,
-                    ), class_group in classification_df.group_by(FieldName.TASK_NAME, FieldName.CLASS_NAME):
+                    ), class_group in classification_df.group_by(PrimitiveField.TASK_NAME, PrimitiveField.CLASS_NAME):
                         if class_name is None:
                             continue
                         if task_name == Classification.default_task_name():
@@ -544,7 +549,7 @@ def dataset_info_from_dataset(
             if has_primitive(dataset_split, PrimitiveType=Bitmask):
                 col_name = Bitmask.column_name()
                 drop_columns = [col for col in primitive_columns if col != col_name]
-                drop_columns.append(FieldName.META)
+                drop_columns.append(PrimitiveField.META)
 
                 df_per_instance = table_transformations.create_primitive_table(
                     dataset_split, PrimitiveType=Bitmask, keep_sample_data=True
@@ -562,7 +567,7 @@ def dataset_info_from_dataset(
 
                 annotation_type = DbAnnotationType(name=AnnotationType.InstanceSegmentation)
                 for (class_name, task_name), class_group in df_per_instance.group_by(
-                    FieldName.CLASS_NAME, FieldName.TASK_NAME
+                    PrimitiveField.CLASS_NAME, PrimitiveField.TASK_NAME
                 ):
                     if class_name is None:
                         continue
@@ -574,11 +579,11 @@ def dataset_info_from_dataset(
                                 annotation_type=annotation_type,
                                 task_name=task_name,
                             ),
-                            unique_obj_ids=class_group[FieldName.OBJECT_ID].n_unique(),
+                            unique_obj_ids=class_group[PrimitiveField.OBJECT_ID].n_unique(),
                             obj_instances=len(class_group),
                             annotation_type=[annotation_type],
-                            average_count_per_image=len(class_group) / class_group[ColumnName.SAMPLE_INDEX].n_unique(),
-                            images_with_obj=class_group[ColumnName.SAMPLE_INDEX].n_unique(),
+                            average_count_per_image=len(class_group) / class_group[SampleField.SAMPLE_INDEX].n_unique(),
+                            images_with_obj=class_group[SampleField.SAMPLE_INDEX].n_unique(),
                             area_avg_ratio=class_group["area"].mean(),
                             area_min_ratio=class_group["area"].min(),
                             area_max_ratio=class_group["area"].max(),
@@ -646,7 +651,7 @@ def create_gallery_images(
         path_gallery_images.mkdir(parents=True, exist_ok=True)
         COL_IMAGE_NAME = "image_name"
         samples = dataset.samples.with_columns(
-            dataset.samples[ColumnName.FILE_PATH].str.split("/").list.last().alias(COL_IMAGE_NAME)
+            dataset.samples[SampleField.FILE_PATH].str.split("/").list.last().alias(COL_IMAGE_NAME)
         )
         gallery_samples = samples.filter(pl.col(COL_IMAGE_NAME).is_in(gallery_image_names))
 

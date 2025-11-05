@@ -22,7 +22,7 @@ class Primitive(BaseModel, metaclass=ABCMeta):
     def column_name() -> str:
         """
         Name of field used in hugging face datasets for storing annotations
-        E.g. "objects" for Bbox.
+        E.g. "bboxes" for Bbox.
         """
         pass
 

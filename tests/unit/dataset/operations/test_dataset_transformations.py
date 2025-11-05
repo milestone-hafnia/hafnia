@@ -1,13 +1,20 @@
+from pathlib import Path
+from typing import Callable
+
 import pytest
 
-from hafnia.dataset.dataset_names import FieldName
-from hafnia.dataset.hafnia_dataset import HafniaDataset, TaskInfo
+from hafnia.dataset.dataset_names import PrimitiveField, SampleField, StorageFormat
+from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.operations.dataset_transformations import (
     expand_class_mapping,
     get_task_info_from_task_name_and_primitive,
 )
 from hafnia.dataset.primitives import Bbox, Classification
-from tests.helper_testing import get_path_micro_hafnia_dataset, get_strict_class_mapping_midwest
+from tests.helper_testing import (
+    get_path_micro_hafnia_dataset,
+    get_strict_class_mapping_midwest,
+    simulate_hafnia_video_dataset,
+)
 
 
 def test_class_mapper_strict():
@@ -27,8 +34,8 @@ def test_class_mapper_strict():
     expected_indices = list(range(len(expected_class_names)))
     assert task_bbox.class_names == expected_class_names
     bboxes = dataset_updated.samples[task_bbox.primitive.column_name()].explode().struct.unnest()
-    assert set(bboxes[FieldName.CLASS_NAME]).issubset(expected_class_names)
-    assert set(bboxes[FieldName.CLASS_IDX]).issubset(set(expected_indices))
+    assert set(bboxes[PrimitiveField.CLASS_NAME]).issubset(expected_class_names)
+    assert set(bboxes[PrimitiveField.CLASS_IDX]).issubset(set(expected_indices))
     assert not dataset.samples.equals(dataset_updated.samples), (
         "Samples should be different after class mapping. Verify that original 'dataset.samples' is not mutated."
     )
@@ -182,7 +189,7 @@ def test_rename_task():
     dataset = HafniaDataset.from_path(path_dataset)
 
     old_task_name = Bbox.default_task_name()
-    new_task_name = "renamed_objects"
+    new_task_name = "renamed_bboxes"
     dataset_renamed = dataset.rename_task(old_task_name=old_task_name, new_task_name=new_task_name)
 
     dataset_renamed.check_dataset_tasks()
@@ -190,8 +197,8 @@ def test_rename_task():
     task_bbox = [t for t in dataset_renamed.info.tasks if t.primitive == Bbox][0]
     assert task_bbox.name == new_task_name
     bboxes = dataset_renamed.samples[task_bbox.primitive.column_name()].explode().struct.unnest()
-    assert FieldName.TASK_NAME in bboxes.columns
-    assert set(bboxes[FieldName.TASK_NAME]) == {new_task_name}
+    assert PrimitiveField.TASK_NAME in bboxes.columns
+    assert set(bboxes[PrimitiveField.TASK_NAME]) == {new_task_name}
     assert not dataset.samples.equals(dataset_renamed.samples), (
         "Samples should be different after renaming task. Verify that original 'dataset.samples' is not mutated."
     )
@@ -230,7 +237,7 @@ def test_select_samples_by_class_name():
     dataset = HafniaDataset.from_path(path_dataset)
 
     # Use case 1: Select samples by class name (task_name and primitive are auto-inferred)
-    dataset_updated = dataset.select_samples_by_class_name(name="Vehicle.Car", primitive=Bbox)
+    dataset_updated = dataset.select_samples_by_class_name(name="Vehicle.Car")
     assert len(dataset_updated) < len(dataset), "Expected fewer samples after filtering by class name"
 
     # Use case 2: Select samples by class name with explicit 'primitive'
@@ -310,3 +317,76 @@ def test_get_task_info_from_task_name_and_primitive():
         get_task_info_from_task_name_and_primitive(
             tasks=[task_class, task_class], task_name=task_class.name, primitive=task_class.primitive
         )
+
+
+def test_video_storage_format_read_image(tmp_path: Path, compare_to_expected_image: Callable) -> None:
+    hafnia_dataset = simulate_hafnia_video_dataset(path_dataset=tmp_path, n_frames=10, fps=1)
+    for sample_dict in hafnia_dataset:
+        sample = Sample(**sample_dict)
+        assert sample.storage_format == StorageFormat.VIDEO
+        sample.read_image()
+        image_annotations = sample.draw_annotations()
+        break
+
+    compare_to_expected_image(image_annotations)
+
+
+def test_convert_to_image_storage_format(tmp_path: Path, compare_to_expected_image: Callable) -> None:
+    dataset_video: HafniaDataset = simulate_hafnia_video_dataset(path_dataset=tmp_path, n_frames=10, fps=1)
+    path_image_based_dataset = tmp_path / "image_based_dataset"
+    dataset_images: HafniaDataset = dataset_video.convert_to_image_storage_format(
+        path_output_folder=path_image_based_dataset,
+        reextract_frames=False,
+    )
+
+    path_image_based_dataset / "data"
+    dataset_images.samples[SampleField.FILE_PATH].to_list()
+    dataset_images.check_dataset(check_splits=False)
+
+
+def test_drop_task_by_name():
+    dataset_name = "micro-tiny-dataset"
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+
+    assert len(dataset.info.get_tasks_by_primitive(Bbox)) == 1, (
+        "The test expect that the dataset should have one Bbox task before execution."
+    )
+    n_classification_tasks = len(dataset.info.get_tasks_by_primitive(Classification))
+    assert n_classification_tasks > 1, (
+        "The test expect that the dataset should have multiple Classification tasks before execution"
+    )
+    dataset_org = dataset.copy()  # to verify that original dataset is not mutated
+
+    ## Use case 1: Drop task by name - only task with the primitive
+    task_name_to_drop = Bbox.default_task_name()
+    dataset_dropped = dataset.drop_task(task_name=task_name_to_drop)
+    assert len(dataset_dropped.info.get_tasks_by_primitive(Bbox)) == 0, "Task should be dropped from dataset info"
+    assert Bbox.column_name() not in dataset_dropped.samples.columns, "Task column should be dropped from samples"
+    assert dataset == dataset_org, "Original dataset have been mutated after operation -- it should not."
+
+    ## Use case 2: Drop primitive - only task with the primitive
+    dataset_dropped = dataset.drop_primitive(primitive=Bbox)
+    assert len(dataset_dropped.info.get_tasks_by_primitive(Bbox)) == 0, "Task should be dropped from dataset info"
+    assert Bbox.column_name() not in dataset_dropped.samples.columns, "Task column should be dropped from samples"
+    assert dataset == dataset_org, "Original dataset have been mutated after operation -- it should not."
+
+    ## Use case 3: Drop task by name - multiple tasks with the same primitive
+    task_name_to_drop = dataset.info.get_tasks_by_primitive(Classification)[0].name
+    dataset_dropped = dataset.drop_task(task_name=task_name_to_drop)
+    assert len(dataset_dropped.info.get_tasks_by_primitive(Classification)) == n_classification_tasks - 1, (
+        "Only one task should be dropped from dataset info"
+    )
+    tasks = dataset_dropped.samples[Classification.column_name()].explode().struct.unnest()[PrimitiveField.TASK_NAME]
+    assert task_name_to_drop not in set(tasks.unique())
+    assert dataset == dataset_org, "Original dataset have been mutated after operation -- it should not."
+
+    ## Use case 4: Drop primitive - multiple tasks with the same primitive
+    dataset_dropped = dataset.drop_primitive(primitive=Classification)
+    assert len(dataset_dropped.info.get_tasks_by_primitive(Classification)) == 0, (
+        "All classification tasks should be dropped from dataset info"
+    )
+    assert Classification.column_name() not in dataset_dropped.samples.columns, (
+        "Task column should be dropped from samples"
+    )
+    assert dataset == dataset_org, "Original dataset have been mutated after operation -- it should not."
