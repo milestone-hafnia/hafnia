@@ -14,8 +14,8 @@ from torchvision.datasets.utils import download_and_extract_archive, extract_arc
 from hafnia import utils
 from hafnia.dataset.dataset_helpers import save_pil_image_with_hash_name
 from hafnia.dataset.dataset_names import SplitName
-from hafnia.dataset.format_conversions.format_image_classification_from_directory import (
-    import_from_image_classification_directory_tree,
+from hafnia.dataset.format_conversions.format_image_classification_folder import (
+    from_image_classification_folder,
 )
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.primitives import Classification
@@ -72,7 +72,7 @@ def caltech_101_as_hafnia_dataset(
     path_image_classification_folder = _download_and_extract_caltech_dataset(
         dataset_name, force_redownload=force_redownload
     )
-    hafnia_dataset = import_from_image_classification_directory_tree(
+    hafnia_dataset = from_image_classification_folder(
         path_image_classification_folder,
         split=SplitName.TRAIN,
         n_samples=n_samples,
@@ -102,7 +102,7 @@ def caltech_256_as_hafnia_dataset(
     path_image_classification_folder = _download_and_extract_caltech_dataset(
         dataset_name, force_redownload=force_redownload
     )
-    hafnia_dataset = import_from_image_classification_directory_tree(
+    hafnia_dataset = from_image_classification_folder(
         path_image_classification_folder,
         split=SplitName.TRAIN,
         n_samples=n_samples,

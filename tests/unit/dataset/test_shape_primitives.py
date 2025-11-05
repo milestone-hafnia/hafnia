@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import yaml
 
-from hafnia.dataset.dataset_names import ColumnName, FieldName
+from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.dataset_upload_helper import DatasetImageMetadata
 from hafnia.dataset.hafnia_dataset import Sample
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
@@ -50,7 +50,7 @@ def assert_bbox_is_close(actual: Bbox, expected: Bbox, atol: float = 0.001):
 def test_sample_primitive_names(TypePrimitive: Type[Primitive]):
     sample = Sample(file_path="test_image.jpg", width=100, height=100, split="test_split")
 
-    for expected_field in FieldName.fields():
+    for expected_field in PrimitiveField.fields():
         assert expected_field in TypePrimitive.__annotations__, (
             f"Expected field '{expected_field}' not found in {{TypePrimitive.__name__}} annotations."
         )
@@ -86,7 +86,7 @@ def test_dataset_image_metadata_schema():
 
     expected_yaml_str = path_annotations_schema.read_text()
     assert yaml.safe_load(yaml_str) == yaml.safe_load(expected_yaml_str), (
-        "Schema has changed. Delete the file and rerun the test to regenerate. "
+        f"Schema has changed. Delete the file {path_annotations_schema}\nand rerun the test to regenerate. "
         "IMPORTANT: This schema is used in the frontend to parse dataset metadata. "
         "Notify the front-end team of changes to the schema."
     )
@@ -100,10 +100,10 @@ def test_dataset_image_metadata_serialization():
 
     assert "annotations" in metadata_dict
     annotations = metadata_dict["annotations"]
-    assert "objects" in annotations
+    assert "bboxes" in annotations
     assert "classifications" in annotations
 
     assert "meta" in metadata_dict
     meta = metadata_dict["meta"]
 
-    assert ColumnName.FILE_PATH in meta
+    assert SampleField.FILE_PATH in meta

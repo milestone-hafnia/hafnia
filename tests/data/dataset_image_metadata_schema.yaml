@@ -4,6 +4,14 @@ $defs:
 
       in gallery images on the dataset detail page.'
     properties:
+      bboxes:
+        anyOf:
+        - items:
+            $ref: '#/$defs/Bbox'
+          type: array
+        - type: 'null'
+        default: null
+        title: Bboxes
       bitmasks:
         anyOf:
         - items:
@@ -20,14 +28,6 @@ $defs:
         - type: 'null'
         default: null
         title: Classifications
-      objects:
-        anyOf:
-        - items:
-            $ref: '#/$defs/Bbox'
-          type: array
-        - type: 'null'
-        default: null
-        title: Objects
       polygons:
         anyOf:
         - items:
@@ -55,12 +55,10 @@ $defs:
         description: Class name, e.g. 'car'
         title: Class Name
       confidence:
-        anyOf:
-        - type: number
-        - type: 'null'
-        default: null
+        default: 1.0
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
         title: Confidence
+        type: number
       ground_truth:
         default: true
         description: Whether this is ground truth or a prediction
@@ -138,12 +136,10 @@ $defs:
         description: Class name of the object represented by the bitmask
         title: Class Name
       confidence:
-        anyOf:
-        - type: number
-        - type: 'null'
-        default: null
+        default: 1.0
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
         title: Confidence
+        type: number
       ground_truth:
         default: true
         description: Whether this is ground truth or a prediction
@@ -216,12 +212,10 @@ $defs:
         description: Class name, e.g. 'car'
         title: Class Name
       confidence:
-        anyOf:
-        - type: number
-        - type: 'null'
-        default: null
+        default: 1.0
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification
         title: Confidence
+        type: number
       ground_truth:
         default: true
         description: Whether this is ground truth or a prediction
@@ -284,12 +278,10 @@ $defs:
         description: Class name of the polygon
         title: Class Name
       confidence:
-        anyOf:
-        - type: number
-        - type: 'null'
-        default: null
+        default: 1.0
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
         title: Confidence
+        type: number
       ground_truth:
         default: true
         description: Whether this is ground truth or a prediction

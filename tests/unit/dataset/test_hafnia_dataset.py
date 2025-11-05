@@ -5,7 +5,7 @@ import pytest
 from packaging.version import Version
 
 import hafnia
-from hafnia.dataset.dataset_names import ColumnName, DeploymentStage
+from hafnia.dataset.dataset_names import DeploymentStage, SampleField
 from hafnia.dataset.dataset_upload_helper import dataset_info_from_dataset
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 
@@ -63,8 +63,8 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
 
     dataset_reloaded = HafniaDataset.from_path(path_dataset)
     assert dataset_reloaded.info == dataset.info
-    table_expected = dataset.samples.drop(ColumnName.FILE_PATH)
-    table_actual = dataset_reloaded.samples.drop(ColumnName.FILE_PATH)
+    table_expected = dataset.samples.drop(SampleField.FILE_PATH)
+    table_actual = dataset_reloaded.samples.drop(SampleField.FILE_PATH)
     assert table_expected.equals(table_actual), "The samples tables do not match after reloading the dataset."
 
 

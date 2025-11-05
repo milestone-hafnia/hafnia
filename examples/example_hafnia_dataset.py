@@ -33,8 +33,8 @@ dataset.print_class_distribution()
 dataset.print_stats()  # Print verbose dataset statistics
 
 # Get dataset stats
-dataset.class_counts_all()  # Get class counts for all tasks
-dataset.class_counts_for_task(primitive=Classification)  # Get class counts for a specific task
+dataset.calculate_class_counts()  # Get class counts for all tasks
+dataset.calculate_task_class_counts(primitive=Classification)  # Get class counts for a specific task
 
 # Create a dataset split for training
 dataset_train = dataset.create_split_dataset("train")
@@ -86,22 +86,19 @@ dataset.write(path_dataset)
 # Load dataset from disk
 dataset_again = HafniaDataset.from_path(path_dataset)
 
-
 ## Dataset importers and exporters ##
-from hafnia.dataset.format_conversions.format_yolo import as_yolo_format, from_yolo_format
-
 dataset_coco = HafniaDataset.from_name("coco-2017").select_samples(n_samples=5, seed=42)
 path_yolo_format = Path(".data/tmp/yolo_dataset")
 
 # Export dataset to YOLO format
-as_yolo_format(dataset_coco, path_export_yolo_dataset=path_yolo_format)
+dataset_coco.to_yolo_format(path_export_yolo_dataset=path_yolo_format)
 
 # Import dataset from YOLO format
-dataset_reimported: HafniaDataset = from_yolo_format(path_yolo_format)
+dataset_coco_imported = HafniaDataset.from_yolo_format(path_yolo_format)
 
 ## Custom dataset operations and statistics ##
 # Want custom dataset transformations or statistics? Use the polars table (dataset.samples) directly
-n_objects = dataset.samples["objects"].list.len().sum()
+n_objects = dataset.samples["bboxes"].list.len().sum()
 n_objects = dataset.samples[Bbox.column_name()].list.len().sum()  # Use Bbox.column_name() to avoid magic variables
 n_classifications = dataset.samples[Classification.column_name()].list.len().sum()
 
@@ -119,7 +116,7 @@ for sample_dict in dataset_train:
 # Unpack dict into a Sample-object! Important for data validation, useability, IDE completion and mypy hints
 sample: Sample = Sample(**sample_dict)
 
-objects: List[Bbox] = sample.objects  # Use 'sample.objects' access bounding boxes as a list of Bbox objects
+bboxes: List[Bbox] = sample.bboxes  # Use 'sample.bboxes' access bounding boxes as a list of Bbox objects
 bitmasks: List[Bitmask] = sample.bitmasks  # Use 'sample.bitmasks' to access bitmasks as a list of Bitmask objects
 polygons: List[Polygon] = sample.polygons  # Use 'sample.polygons' to access polygons as a list of Polygon objects
 classifications: List[Classification] = sample.classifications  # As a list of Classification objects
@@ -147,7 +144,7 @@ for i_fake_sample in range(5):
         width=640,
         split="train",
         tags=["sample"],
-        objects=bboxes,
+        bboxes=bboxes,
         classifications=classifications,
     )
     fake_samples.append(sample)

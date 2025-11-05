@@ -193,6 +193,8 @@ def save_dataset_sample_set_visualizations(
         image = draw_annotations(image, annotations, draw_settings=draw_settings)
 
         pil_image = Image.fromarray(image)
+        if sample.file_path is None:
+            raise ValueError("Sample has no file_path defined.")
         path_image = path_output_folder / Path(sample.file_path).name
         pil_image.save(path_image)
         paths.append(path_image)

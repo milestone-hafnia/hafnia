@@ -129,7 +129,7 @@ and `dataset.samples` with annotations as a polars DataFrame
 print(dataset.samples.head(2))
 shape: (2, 14)
 ┌──────────────┬─────────────────────────────────┬────────┬───────┬───┬─────────────────────────────────┬──────────┬──────────┬─────────────────────────────────┐
-│ sample_index ┆ file_name                       ┆ height ┆ width ┆ … ┆ objects                         ┆ bitmasks ┆ polygons ┆ meta                            │
+│ sample_index ┆ file_name                       ┆ height ┆ width ┆ … ┆ bboxes                          ┆ bitmasks ┆ polygons ┆ meta                            │
 │ ---          ┆ ---                             ┆ ---    ┆ ---   ┆   ┆ ---                             ┆ ---      ┆ ---      ┆ ---                             │
 │ u32          ┆ str                             ┆ i64    ┆ i64   ┆   ┆ list[struct[11]]                ┆ null     ┆ null     ┆ struct[5]                       │
 ╞══════════════╪═════════════════════════════════╪════════╪═══════╪═══╪═════════════════════════════════╪══════════╪══════════╪═════════════════════════════════╡
@@ -189,7 +189,7 @@ sample_dict = dataset[0]
 
 for sample_dict in dataset:
     sample = Sample(**sample_dict)
-    print(sample.sample_id, sample.objects)
+    print(sample.sample_id, sample.bboxes)
     break
 ```
 Not that it is possible to create a `Sample` object from the sample dictionary.
@@ -392,7 +392,7 @@ pil_image.save("visualized_labels.png")
 
 # Create DataLoaders - using TorchVisionCollateFn
 collate_fn = torch_helpers.TorchVisionCollateFn(
-    skip_stacking=["objects.bbox", "objects.class_idx"]
+    skip_stacking=["bboxes.bbox", "bboxes.class_idx"]
 )
 train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 ```

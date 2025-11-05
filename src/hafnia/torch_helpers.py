@@ -9,7 +9,7 @@ from torchvision import tv_tensors
 from torchvision import utils as tv_utils
 from torchvision.transforms import v2
 
-from hafnia.dataset.dataset_names import FieldName
+from hafnia.dataset.dataset_names import PrimitiveField
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 from hafnia.dataset.primitives import (
     PRIMITIVE_COLUMN_NAMES,
@@ -68,8 +68,8 @@ class TorchvisionDataset(torch.utils.data.Dataset):
         for task_name, classifications in class_tasks.items():
             assert len(classifications) == 1, "Expected exactly one classification task per sample"
             target_flat[f"{Classification.column_name()}.{task_name}"] = {
-                FieldName.CLASS_IDX: classifications[0].class_idx,
-                FieldName.CLASS_NAME: classifications[0].class_name,
+                PrimitiveField.CLASS_IDX: classifications[0].class_idx,
+                PrimitiveField.CLASS_NAME: classifications[0].class_name,
             }
 
         bbox_tasks: Dict[str, List[Bbox]] = get_primitives_per_task_name_for_primitive(sample, Bbox)
@@ -77,8 +77,8 @@ class TorchvisionDataset(torch.utils.data.Dataset):
             bboxes_list = [bbox.to_coco(image_height=h, image_width=w) for bbox in bboxes]
             bboxes_tensor = torch.as_tensor(bboxes_list).reshape(-1, 4)
             target_flat[f"{Bbox.column_name()}.{task_name}"] = {
-                FieldName.CLASS_IDX: [bbox.class_idx for bbox in bboxes],
-                FieldName.CLASS_NAME: [bbox.class_name for bbox in bboxes],
+                PrimitiveField.CLASS_IDX: [bbox.class_idx for bbox in bboxes],
+                PrimitiveField.CLASS_NAME: [bbox.class_name for bbox in bboxes],
                 "bbox": tv_tensors.BoundingBoxes(bboxes_tensor, format="XYWH", canvas_size=(h, w)),
             }
 
@@ -86,8 +86,8 @@ class TorchvisionDataset(torch.utils.data.Dataset):
         for task_name, bitmasks in bitmask_tasks.items():
             bitmasks_np = np.array([bitmask.to_mask(img_height=h, img_width=w) for bitmask in bitmasks])
             target_flat[f"{Bitmask.column_name()}.{task_name}"] = {
-                FieldName.CLASS_IDX: [bitmask.class_idx for bitmask in bitmasks],
-                FieldName.CLASS_NAME: [bitmask.class_name for bitmask in bitmasks],
+                PrimitiveField.CLASS_IDX: [bitmask.class_idx for bitmask in bitmasks],
+                PrimitiveField.CLASS_NAME: [bitmask.class_name for bitmask in bitmasks],
                 "mask": tv_tensors.Mask(bitmasks_np),
             }
 
@@ -161,7 +161,7 @@ def draw_image_and_targets(
     if Bitmask.column_name() in targets:
         primitive_annotations = targets[Bitmask.column_name()]
         for task_name, task_annotations in primitive_annotations.items():
-            colors = [class_color_by_name(class_name) for class_name in task_annotations[FieldName.CLASS_NAME]]
+            colors = [class_color_by_name(class_name) for class_name in task_annotations[PrimitiveField.CLASS_NAME]]
             visualize_image = tv_utils.draw_segmentation_masks(
                 image=visualize_image,
                 masks=task_annotations["mask"],
@@ -172,11 +172,11 @@ def draw_image_and_targets(
         primitive_annotations = targets[Bbox.column_name()]
         for task_name, task_annotations in primitive_annotations.items():
             bboxes = torchvision.ops.box_convert(task_annotations["bbox"], in_fmt="xywh", out_fmt="xyxy")
-            colors = [class_color_by_name(class_name) for class_name in task_annotations[FieldName.CLASS_NAME]]
+            colors = [class_color_by_name(class_name) for class_name in task_annotations[PrimitiveField.CLASS_NAME]]
             visualize_image = tv_utils.draw_bounding_boxes(
                 image=visualize_image,
                 boxes=bboxes,
-                labels=task_annotations[FieldName.CLASS_NAME],
+                labels=task_annotations[PrimitiveField.CLASS_NAME],
                 width=2,
                 colors=colors,
             )
@@ -187,9 +187,9 @@ def draw_image_and_targets(
         text_labels = []
         for task_name, task_annotations in primitive_annotations.items():
             if task_name == Classification.default_task_name():
-                text_label = task_annotations[FieldName.CLASS_NAME]
+                text_label = task_annotations[PrimitiveField.CLASS_NAME]
             else:
-                text_label = f"{task_name}: {task_annotations[FieldName.CLASS_NAME]}"
+                text_label = f"{task_name}: {task_annotations[PrimitiveField.CLASS_NAME]}"
             text_labels.append(text_label)
         visualize_image = draw_image_classification(visualize_image, text_labels)
     return visualize_image
