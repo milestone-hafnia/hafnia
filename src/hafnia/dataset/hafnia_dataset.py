@@ -585,7 +585,9 @@ class HafniaDataset:
         else:
             raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
 
-        table = pl.from_records(json_samples)
+        # To ensure that the 'file_path' column is of type string even if all samples have 'None' as file_path
+        schema_override = {SampleField.FILE_PATH: pl.String}
+        table = pl.from_records(json_samples, schema_overrides=schema_override)
         table = table.drop(pl.selectors.by_dtype(pl.Null))
         table = table_transformations.add_sample_index(table)
         table = table_transformations.add_dataset_name_if_missing(table, dataset_name=info.dataset_name)
