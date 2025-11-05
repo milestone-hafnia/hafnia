@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, List, Optional, Tuple, Type
 
 import polars as pl
 from rich.progress import track
@@ -113,24 +113,24 @@ def correction_of_list_struct_primitives(
         s1_fields = set(s1_column_type.inner.fields)
         similar_fields = s0_fields.intersection(s1_fields)
         s0_dropped_fields = s0_fields - similar_fields
-        s1_dropped_fields = s1_fields - similar_fields
-        user_logger.warning(
-            f"Primitive column '{column_name}' has none-matching fields in the two datasets. "
-            f"Dropping fields in samples0: {[f.name for f in s0_dropped_fields]}. "
-            f"Dropping fields in samples1: {[f.name for f in s1_dropped_fields]}."
-        )
         if len(s0_dropped_fields) > 0:
             samples0 = samples0.with_columns(
                 pl.col(column_name)
                 .list.eval(pl.struct([pl.element().struct.field(k.name) for k in similar_fields]))
                 .alias(column_name)
             )
+        s1_dropped_fields = s1_fields - similar_fields
         if len(s1_dropped_fields) > 0:
             samples1 = samples1.with_columns(
                 pl.col(column_name)
                 .list.eval(pl.struct([pl.element().struct.field(k.name) for k in similar_fields]))
                 .alias(column_name)
             )
+        user_logger.warning(
+            f"Primitive column '{column_name}' has none-matching fields in the two datasets. "
+            f"Dropping fields in samples0: {[f.name for f in s0_dropped_fields]}. "
+            f"Dropping fields in samples1: {[f.name for f in s1_dropped_fields]}."
+        )
 
     return samples0, samples1
 
@@ -283,14 +283,14 @@ def update_class_indices(samples: pl.DataFrame, task: "TaskInfo") -> pl.DataFram
         .struct.unnest()
         .filter(pl.col(PrimitiveField.TASK_NAME) == task.name)
     )
-    expected_class_names = objs[PrimitiveField.CLASS_NAME].unique().to_list()
-    missing_class_names = set(expected_class_names) - set(task.class_names)
+    expected_class_names = set(objs[PrimitiveField.CLASS_NAME].unique())
+    missing_class_names = expected_class_names - set(task.class_names)
     if len(missing_class_names) > 0:
         raise ValueError(
             f"Task '{task.name}' is missing class names: {missing_class_names}. Cannot update class indices."
         )
 
-    name_2_idx_mapping: Dict[str, int] = {name: idx for idx, name in enumerate(task.class_names)}
+    name_2_idx_mapping = {name: idx for idx, name in enumerate(task.class_names)}
 
     samples_updated = samples.with_columns(
         pl.col(task.primitive.column_name())
