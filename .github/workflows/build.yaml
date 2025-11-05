@@ -6,6 +6,10 @@ on:
       python-version-file:
         required: true
         type: string
+      pyproject-toml-file:
+        required: false
+        type: string
+        default: "pyproject.toml"
     outputs:
       package-version:
         description: "The extracted package version"
@@ -25,7 +29,7 @@ jobs:
       - name: Extract package version
         id: extract-version
         run: |
-          VERSION=$(grep -m 1 'version = '  ${{ inputs.python-version-file }} | sed -e 's/version = "\(.*\)"/\1/')
+          VERSION=$(grep -m 1 'version = '  ${{ inputs.pyproject-toml-file }} | sed -e 's/version = "\(.*\)"/\1/')
           echo "package_version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Install uv
