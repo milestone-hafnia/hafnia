@@ -4,7 +4,7 @@ from typing import Dict, Optional
 import click
 from rich import print as rprint
 
-from cli.config import Config
+from hafnia_cli.config import Config
 
 
 @click.group(name="dataset-recipe")

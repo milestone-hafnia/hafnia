@@ -3,7 +3,6 @@ from typing import Dict, Optional
 
 import click
 
-from cli.config import Config
 from hafnia import utils
 from hafnia.platform.dataset_recipe import (
     get_dataset_recipe_by_id,
@@ -11,6 +10,7 @@ from hafnia.platform.dataset_recipe import (
     get_or_create_dataset_recipe_by_dataset_name,
 )
 from hafnia.platform.trainer_package import create_trainer_package
+from hafnia_cli.config import Config
 
 
 @click.group(name="experiment")

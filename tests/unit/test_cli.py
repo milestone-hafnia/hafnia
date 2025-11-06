@@ -4,9 +4,9 @@ from typing import Dict
 import pytest
 from click.testing import CliRunner
 
-import cli.__main__ as cli
-import cli.consts as consts
-from cli.config import Config, ConfigFileSchema, ConfigSchema
+import hafnia_cli.__main__ as cli
+import hafnia_cli.consts as consts
+from hafnia_cli.config import Config, ConfigFileSchema, ConfigSchema
 
 
 @pytest.fixture
@@ -99,13 +99,13 @@ class TestProfile:
     ) -> None:
         """Test list of profiles functionality."""
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: empty_config)
+            mp.setattr("hafnia_cli.__main__.Config", lambda *args, **kwargs: empty_config)
             result = cli_runner.invoke(cli.main, ["profile", "ls"])
             assert result.exit_code != 0
             assert consts.ERROR_CONFIGURE in result.output
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
+            mp.setattr("hafnia_cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
             result = cli_runner.invoke(cli.main, ["profile", "ls"])
             assert result.exit_code == 0
             assert "default" in result.output
@@ -115,13 +115,13 @@ class TestProfile:
 
     def test_switch_profile(self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config) -> None:
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: empty_config)
+            mp.setattr("hafnia_cli.__main__.Config", lambda *args, **kwargs: empty_config)
             result = cli_runner.invoke(cli.main, ["profile", "use", "default"])
             assert result.exit_code != 0
             assert f"Error: {consts.ERROR_CONFIGURE}" in result.output
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
+            mp.setattr("hafnia_cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
             result = cli_runner.invoke(cli.main, ["profile", "active"])
             assert result.exit_code == 0
             assert f"{consts.PROFILE_TABLE_HEADER} default" in result.output
@@ -140,13 +140,13 @@ class TestProfile:
 
     def test_remove_profile(self, cli_runner: CliRunner, empty_config: Config, config_with_profiles: Config) -> None:
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: empty_config)
+            mp.setattr("hafnia_cli.__main__.Config", lambda *args, **kwargs: empty_config)
             result = cli_runner.invoke(cli.main, ["profile", "rm", "default"])
             assert result.exit_code != 0
             assert consts.ERROR_CONFIGURE in result.output
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
+            mp.setattr("hafnia_cli.__main__.Config", lambda *args, **kwargs: config_with_profiles)
             result = cli_runner.invoke(cli.main, ["profile", "rm", "staging"])
             assert result.exit_code == 0
             assert f"{consts.PROFILE_REMOVED_SUCCESS} staging" in result.output

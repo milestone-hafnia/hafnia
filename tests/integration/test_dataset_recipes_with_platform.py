@@ -1,7 +1,6 @@
 import pytest
 import urllib3
 
-from cli.config import Config
 from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
@@ -12,6 +11,7 @@ from hafnia.platform.dataset_recipe import (
     get_dataset_recipe_by_id,
 )
 from hafnia.utils import is_hafnia_configured
+from hafnia_cli.config import Config
 
 
 def test_dataset_recipe_on_platform():
