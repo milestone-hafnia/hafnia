@@ -3,9 +3,9 @@ from typing import Optional
 
 import click
 
-from cli import consts
-from cli.config import Config
 from hafnia import utils
+from hafnia_cli import consts
+from hafnia_cli.config import Config
 
 
 @click.group()

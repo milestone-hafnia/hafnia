@@ -2,7 +2,7 @@
 import click
 
 import hafnia
-from cli import (
+from hafnia_cli import (
     consts,
     dataset_cmds,
     dataset_recipe_cmds,
@@ -11,7 +11,7 @@ from cli import (
     runc_cmds,
     trainer_package_cmds,
 )
-from cli.config import Config, ConfigSchema
+from hafnia_cli.config import Config, ConfigSchema
 
 
 @click.group()

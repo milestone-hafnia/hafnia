@@ -3,8 +3,8 @@ from typing import Optional
 
 import click
 
-import cli.consts as consts
-from cli.config import Config
+import hafnia_cli.consts as consts
+from hafnia_cli.config import Config
 
 
 @click.group(name="trainer")

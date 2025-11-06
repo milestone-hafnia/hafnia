@@ -11,7 +11,6 @@ import polars as pl
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from cli.config import Config
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import (
     DatasetVariant,
@@ -33,6 +32,7 @@ from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.http import post
 from hafnia.log import user_logger
 from hafnia.platform.datasets import get_dataset_id
+from hafnia_cli.config import Config
 
 
 def generate_bucket_name(dataset_name: str, deployment_stage: DeploymentStage) -> str:

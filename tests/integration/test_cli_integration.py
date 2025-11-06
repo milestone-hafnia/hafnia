@@ -13,7 +13,7 @@ def test_cli_integration_test():
     Run actual CLI commands against Hafnia platform to ensure end-to-end functionality
     using simple smoke tests
     """
-    from cli.__main__ import main as hafnia_cli
+    from hafnia_cli.__main__ import main as hafnia_cli
 
     if not is_hafnia_configured():
         pytest.skip("Hafnia platform not configured. Skipping CLI integration test.")
