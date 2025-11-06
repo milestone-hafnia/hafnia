@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, field_validator
 
-import cli.consts as consts
-import cli.keychain as keychain
+import hafnia_cli.consts as consts
+import hafnia_cli.keychain as keychain
 from hafnia.log import sys_logger, user_logger
 
 PLATFORM_API_MAPPING = {

@@ -7,8 +7,8 @@ from typing import Optional
 
 import click
 
-from cli.config import Config
 from hafnia.log import sys_logger, user_logger
+from hafnia_cli.config import Config
 
 
 @click.group(name="runc")

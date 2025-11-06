@@ -2,8 +2,8 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-import cli.consts as consts
-from cli.config import Config, ConfigSchema
+import hafnia_cli.consts as consts
+from hafnia_cli.config import Config, ConfigSchema
 
 
 @click.group()

@@ -207,7 +207,7 @@ def is_hafnia_configured() -> bool:
     """
     Check if Hafnia is configured by verifying if the API key is set.
     """
-    from cli.config import Config
+    from hafnia_cli.config import Config
 
     return Config().is_configured()
 
