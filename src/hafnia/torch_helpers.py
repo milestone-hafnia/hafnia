@@ -1,6 +1,8 @@
 from typing import Dict, List, Optional, Tuple, Type, Union
 
+import cv2
 import numpy as np
+import polars as pl
 import torch
 import torchvision
 from flatten_dict import flatten, unflatten
@@ -9,8 +11,8 @@ from torchvision import tv_tensors
 from torchvision import utils as tv_utils
 from torchvision.transforms import v2
 
-from hafnia.dataset.dataset_names import PrimitiveField
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+from hafnia.dataset.dataset_names import PrimitiveField, SampleField
+from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample, has_primitive
 from hafnia.dataset.primitives import (
     PRIMITIVE_COLUMN_NAMES,
     class_color_by_name,
@@ -18,6 +20,7 @@ from hafnia.dataset.primitives import (
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.segmentation import Segmentation
 from hafnia.log import user_logger
@@ -50,6 +53,16 @@ class TorchvisionDataset(torch.utils.data.Dataset):
     ):
         self.dataset = dataset
 
+        self.max_points_in_polygon = 0
+
+        if has_primitive(self.dataset, Polygon):
+            self.max_points_in_polygon = (
+                self.dataset.samples[SampleField.POLYGONS]
+                .list.eval(pl.element().struct.field("points").list.len())
+                .explode()
+                .max()
+            )
+
         self.transforms = transforms
         self.keep_metadata = keep_metadata
 
@@ -74,7 +87,7 @@ class TorchvisionDataset(torch.utils.data.Dataset):
 
         bbox_tasks: Dict[str, List[Bbox]] = get_primitives_per_task_name_for_primitive(sample, Bbox)
         for task_name, bboxes in bbox_tasks.items():
-            bboxes_list = [bbox.to_coco(image_height=h, image_width=w) for bbox in bboxes]
+            bboxes_list = [bbox.to_coco_ints(image_height=h, image_width=w) for bbox in bboxes]
             bboxes_tensor = torch.as_tensor(bboxes_list).reshape(-1, 4)
             target_flat[f"{Bbox.column_name()}.{task_name}"] = {
                 PrimitiveField.CLASS_IDX: [bbox.class_idx for bbox in bboxes],
@@ -91,6 +104,22 @@ class TorchvisionDataset(torch.utils.data.Dataset):
                 "mask": tv_tensors.Mask(bitmasks_np),
             }
 
+        polygon_tasks: Dict[str, List[Polygon]] = get_primitives_per_task_name_for_primitive(sample, Polygon)
+        for task_name, polygons in polygon_tasks.items():
+            polygon_tensors = [
+                torch.tensor(pg.to_pixel_coordinates(image_shape=(h, w), as_int=False)) for pg in polygons
+            ]
+            n_polygons = len(polygons)
+            polygons_matrix = torch.full((n_polygons, self.max_points_in_polygon, 2), fill_value=torch.nan)
+
+            for i, polygon_tensor in enumerate(polygon_tensors):
+                polygons_matrix[i, : polygon_tensor.shape[0], :] = polygon_tensor
+
+            target_flat[f"{Polygon.column_name()}.{task_name}"] = {
+                PrimitiveField.CLASS_IDX: [polygon.class_idx for polygon in polygons],
+                PrimitiveField.CLASS_NAME: [polygon.class_name for polygon in polygons],
+                "polygon": tv_tensors.KeyPoints(polygons_matrix, canvas_size=(h, w)),
+            }
         if self.transforms:
             image, target_flat = self.transforms(image, target_flat)
 
@@ -181,6 +210,18 @@ def draw_image_and_targets(
                 colors=colors,
             )
 
+    if Polygon.column_name() in targets:
+        primitive_annotations = targets[Polygon.column_name()]
+        np_image = visualize_image.permute(1, 2, 0).numpy()
+        for task_name, task_annotations in primitive_annotations.items():
+            task_annotations["polygon"]
+            colors = [class_color_by_name(class_name) for class_name in task_annotations[PrimitiveField.CLASS_NAME]]
+            for color, polygon in zip(colors, task_annotations["polygon"], strict=True):
+                single_polygon = np.array(polygon[~torch.isnan(polygon[:, 0]), :][None, :, :]).astype(int)
+
+                np_image = cv2.polylines(np_image, [single_polygon], isClosed=False, color=color, thickness=2)
+        visualize_image = torch.from_numpy(np_image).permute(2, 0, 1)
+
     # Important that classification is drawn last as it will change image dimensions
     if Classification.column_name() in targets:
         primitive_annotations = targets[Classification.column_name()]
@@ -219,7 +260,7 @@ class TorchVisionCollateFn:
         images, targets = tuple(zip(*batch, strict=False))
         if "image" not in self.skip_stacking_list:
             images = torch.stack(images)
-
+        height, width = images.shape[-2:]
         keys_min = set(targets[0])
         keys_max = set(targets[0])
         for target in targets:
@@ -250,6 +291,8 @@ class TorchVisionCollateFn:
                 item_values = tv_tensors.Image(item_values)
             elif isinstance(first_element, tv_tensors.BoundingBoxes):
                 item_values = tv_tensors.BoundingBoxes(item_values)
+            elif isinstance(first_element, tv_tensors.KeyPoints):
+                item_values = tv_tensors.KeyPoints(item_values, canvas_size=(height, width))
             targets_modified[key_name] = item_values
 
         return images, targets_modified

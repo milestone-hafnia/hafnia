@@ -430,7 +430,8 @@ class Sample(BaseModel):
     def draw_annotations(self, image: Optional[np.ndarray] = None) -> np.ndarray:
         from hafnia.visualizations import image_visualizations
 
-        image = image or self.read_image()
+        if image is None:
+            image = self.read_image()
         annotations = self.get_annotations()
         annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations)
         return annotations_visualized
@@ -1145,4 +1146,25 @@ def _dataset_corrections(samples: pl.DataFrame, dataset_info: DatasetInfo) -> Tu
         if SampleField.SAMPLE_INDEX in samples.columns and samples[SampleField.SAMPLE_INDEX].dtype != pl.UInt64:
             samples = samples.cast({SampleField.SAMPLE_INDEX: pl.UInt64})
 
+    if format_version_of_dataset <= Version("0.2.0"):
+        if SampleField.BITMASKS in samples.columns and samples[SampleField.BITMASKS].dtype == pl.List(pl.Struct):
+            struct_schema = samples.schema[SampleField.BITMASKS].inner
+            struct_names = [f.name for f in struct_schema.fields]
+            if "rleString" in struct_names:
+                struct_names[struct_names.index("rleString")] = "rle_string"
+                samples = samples.with_columns(
+                    pl.col(SampleField.BITMASKS).list.eval(pl.element().struct.rename_fields(struct_names))
+                )
     return samples, dataset_info
+
+
+def has_primitive(dataset: Union[HafniaDataset, pl.DataFrame], PrimitiveType: Type[Primitive]) -> bool:
+    col_name = PrimitiveType.column_name()
+    table = dataset.samples if isinstance(dataset, HafniaDataset) else dataset
+    if col_name not in table.columns:
+        return False
+
+    if table[col_name].dtype == pl.Null:
+        return False
+
+    return True

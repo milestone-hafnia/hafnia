@@ -318,7 +318,7 @@ def add_sample_index(samples: pl.DataFrame) -> pl.DataFrame:
     if SampleField.SAMPLE_INDEX in samples.columns:
         samples = samples.drop(SampleField.SAMPLE_INDEX)
     samples = samples.select(
-        pl.int_range(0, pl.count(), dtype=pl.UInt64).alias(SampleField.SAMPLE_INDEX),
+        pl.int_range(0, pl.len(), dtype=pl.UInt64).alias(SampleField.SAMPLE_INDEX),
         pl.all(),
     )
     return samples

@@ -168,10 +168,10 @@ $defs:
         default: null
         description: Object ID of the instance represented by the bitmask
         title: Object Id
-      rleString:
+      rle_string:
         description: Run-length encoding (RLE) string for the bitmask region of size
           (height, width) at (top, left).
-        title: Rlestring
+        title: Rle String
         type: string
       task_name:
         default: ''
@@ -192,7 +192,7 @@ $defs:
     - left
     - height
     - width
-    - rleString
+    - rle_string
     title: Bitmask
     type: object
   Classification:
@@ -263,6 +263,13 @@ $defs:
     type: object
   Polygon:
     properties:
+      area:
+        anyOf:
+        - type: number
+        - type: 'null'
+        default: null
+        description: Area of the polygon in pixels
+        title: Area
       class_idx:
         anyOf:
         - type: integer

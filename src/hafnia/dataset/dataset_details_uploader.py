@@ -11,7 +11,6 @@ import polars as pl
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import (
     DatasetVariant,
     DeploymentStage,
@@ -19,7 +18,7 @@ from hafnia.dataset.dataset_names import (
     SampleField,
     SplitName,
 )
-from hafnia.dataset.hafnia_dataset import Attribution, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset import Attribution, HafniaDataset, Sample, TaskInfo, has_primitive
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.primitives import (
     Bbox,
@@ -41,7 +40,7 @@ def generate_bucket_name(dataset_name: str, deployment_stage: DeploymentStage) -
     return f"mdi-{deployment_stage.value}-{dataset_name}"
 
 
-class DbDataset(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
+class DatasetDetails(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
     name: str
     data_captured_start: Optional[datetime] = None
@@ -148,14 +147,6 @@ class DbDistributionCategory(BaseModel, validate_assignment=True):  # type: igno
 
 class DbAnnotationType(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     name: str
-
-
-class AnnotationType(Enum):
-    ImageClassification = "Image Classification"
-    ObjectDetection = "Object Detection"
-    SegmentationMask = "Segmentation Mask"
-    ImageCaptioning = "Image Captioning"
-    InstanceSegmentation = "Instance Segmentation"
 
 
 class DbResolution(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
@@ -289,7 +280,7 @@ def get_folder_size(path: Path) -> int:
     return sum([path.stat().st_size for path in path.rglob("*")])
 
 
-def upload_to_hafnia_dataset_detail_page(dataset_update: DbDataset, upload_gallery_images: bool) -> dict:
+def upload_to_hafnia_dataset_detail_page(dataset_update: DatasetDetails, upload_gallery_images: bool) -> dict:
     if not upload_gallery_images:
         dataset_update.imgs = None
 
@@ -320,18 +311,6 @@ def get_resolutions(dataset: HafniaDataset, max_resolutions_selected: int = 8) -
         unique_resolutions = unique_resolutions.gather_every(skip_size)
     resolutions = [DbResolution(height=res["height"], width=res["width"]) for res in unique_resolutions.to_dicts()]
     return resolutions
-
-
-def has_primitive(dataset: Union[HafniaDataset, pl.DataFrame], PrimitiveType: Type[Primitive]) -> bool:
-    col_name = PrimitiveType.column_name()
-    table = dataset.samples if isinstance(dataset, HafniaDataset) else dataset
-    if col_name not in table.columns:
-        return False
-
-    if table[col_name].dtype == pl.Null:
-        return False
-
-    return True
 
 
 def calculate_distribution_values(
@@ -378,15 +357,15 @@ def s3_based_fields(bucket_name: str, variant_type: DatasetVariant, session: bot
     return last_modified, size
 
 
-def dataset_info_from_dataset(
+def dataset_details_from_hafnia_dataset(
     dataset: HafniaDataset,
     deployment_stage: DeploymentStage,
     path_sample: Optional[Path],
     path_hidden: Optional[Path],
     path_gallery_images: Optional[Path] = None,
     gallery_image_names: Optional[List[str]] = None,
-    distribution_task_names: Optional[List[TaskInfo]] = None,
-) -> DbDataset:
+    distribution_task_names: Optional[List[str]] = None,
+) -> DatasetDetails:
     dataset_variants = []
     dataset_reports = []
     dataset_meta_info = dataset.info.meta or {}
@@ -448,177 +427,20 @@ def dataset_info_from_dataset(
             )
 
             object_reports: List[DbAnnotatedObjectReport] = []
-            primitive_columns = [primitive.column_name() for primitive in primitives.PRIMITIVE_TYPES]
-            if has_primitive(dataset_split, PrimitiveType=Bbox):
-                df_per_instance = table_transformations.create_primitive_table(
-                    dataset_split, PrimitiveType=Bbox, keep_sample_data=True
-                )
-                if df_per_instance is None:
-                    raise ValueError(f"Expected {Bbox.__name__} primitive column to be present in the dataset split.")
-                # Calculate area of bounding boxes
-                df_per_instance = df_per_instance.with_columns(
-                    (pl.col("height") * pl.col("width")).alias("area"),
-                ).with_columns(
-                    (pl.col("height") * pl.col("image.height")).alias("height_px"),
-                    (pl.col("width") * pl.col("image.width")).alias("width_px"),
-                    (pl.col("area") * (pl.col("image.height") * pl.col("image.width"))).alias("area_px"),
-                )
-
-                annotation_type = DbAnnotationType(name=AnnotationType.ObjectDetection.value)
-                for (class_name, task_name), class_group in df_per_instance.group_by(
-                    PrimitiveField.CLASS_NAME, PrimitiveField.TASK_NAME
-                ):
-                    if class_name is None:
-                        continue
-                    object_reports.append(
-                        DbAnnotatedObjectReport(
-                            obj=DbAnnotatedObject(
-                                name=class_name,
-                                entity_type=EntityTypeChoices.OBJECT.value,
-                                annotation_type=annotation_type,
-                                task_name=task_name,
-                            ),
-                            unique_obj_ids=class_group[PrimitiveField.OBJECT_ID].n_unique(),
-                            obj_instances=len(class_group),
-                            annotation_type=[annotation_type],
-                            images_with_obj=class_group[SampleField.SAMPLE_INDEX].n_unique(),
-                            area_avg_ratio=class_group["area"].mean(),
-                            area_min_ratio=class_group["area"].min(),
-                            area_max_ratio=class_group["area"].max(),
-                            height_avg_ratio=class_group["height"].mean(),
-                            height_min_ratio=class_group["height"].min(),
-                            height_max_ratio=class_group["height"].max(),
-                            width_avg_ratio=class_group["width"].mean(),
-                            width_min_ratio=class_group["width"].min(),
-                            width_max_ratio=class_group["width"].max(),
-                            area_avg_px=class_group["area_px"].mean(),
-                            area_min_px=int(class_group["area_px"].min()),
-                            area_max_px=int(class_group["area_px"].max()),
-                            height_avg_px=class_group["height_px"].mean(),
-                            height_min_px=int(class_group["height_px"].min()),
-                            height_max_px=int(class_group["height_px"].max()),
-                            width_avg_px=class_group["width_px"].mean(),
-                            width_min_px=int(class_group["width_px"].min()),
-                            width_max_px=int(class_group["width_px"].max()),
-                            average_count_per_image=len(class_group) / class_group[SampleField.SAMPLE_INDEX].n_unique(),
-                        )
-                    )
-
-            if has_primitive(dataset_split, PrimitiveType=Classification):
-                annotation_type = DbAnnotationType(name=AnnotationType.ImageClassification.value)
-                col_name = Classification.column_name()
-                classification_tasks = [task.name for task in dataset.info.tasks if task.primitive == Classification]
-                has_classification_data = dataset_split[col_name].dtype != pl.List(pl.Null)
-                if has_classification_data:
-                    classification_df = dataset_split.select(col_name).explode(col_name).unnest(col_name)
-
-                    # Include only classification tasks that are defined in the dataset info
-                    classification_df = classification_df.filter(
-                        pl.col(PrimitiveField.TASK_NAME).is_in(classification_tasks)
-                    )
-
-                    for (
-                        task_name,
-                        class_name,
-                    ), class_group in classification_df.group_by(PrimitiveField.TASK_NAME, PrimitiveField.CLASS_NAME):
-                        if class_name is None:
-                            continue
-                        if task_name == Classification.default_task_name():
-                            display_name = class_name  # Prefix class name with task name
-                        else:
-                            display_name = f"{task_name}.{class_name}"
-                        object_reports.append(
-                            DbAnnotatedObjectReport(
-                                obj=DbAnnotatedObject(
-                                    name=display_name,
-                                    entity_type=EntityTypeChoices.EVENT.value,
-                                    annotation_type=annotation_type,
-                                    task_name=task_name,
-                                ),
-                                unique_obj_ids=len(
-                                    class_group
-                                ),  # Unique object IDs are not applicable for classification
-                                obj_instances=len(class_group),
-                                annotation_type=[annotation_type],
-                            )
-                        )
-
-            if has_primitive(dataset_split, PrimitiveType=Segmentation):
-                raise NotImplementedError("Not Implemented yet")
-
-            if has_primitive(dataset_split, PrimitiveType=Bitmask):
-                col_name = Bitmask.column_name()
-                drop_columns = [col for col in primitive_columns if col != col_name]
-                drop_columns.append(PrimitiveField.META)
-
-                df_per_instance = table_transformations.create_primitive_table(
-                    dataset_split, PrimitiveType=Bitmask, keep_sample_data=True
-                )
-                if df_per_instance is None:
-                    raise ValueError(
-                        f"Expected {Bitmask.__name__} primitive column to be present in the dataset split."
-                    )
-                df_per_instance = df_per_instance.rename({"height": "height_px", "width": "width_px"})
-                df_per_instance = df_per_instance.with_columns(
-                    (pl.col("image.height") * pl.col("image.width") * pl.col("area")).alias("area_px"),
-                    (pl.col("height_px") / pl.col("image.height")).alias("height"),
-                    (pl.col("width_px") / pl.col("image.width")).alias("width"),
-                )
-
-                annotation_type = DbAnnotationType(name=AnnotationType.InstanceSegmentation)
-                for (class_name, task_name), class_group in df_per_instance.group_by(
-                    PrimitiveField.CLASS_NAME, PrimitiveField.TASK_NAME
-                ):
-                    if class_name is None:
-                        continue
-                    object_reports.append(
-                        DbAnnotatedObjectReport(
-                            obj=DbAnnotatedObject(
-                                name=class_name,
-                                entity_type=EntityTypeChoices.OBJECT.value,
-                                annotation_type=annotation_type,
-                                task_name=task_name,
-                            ),
-                            unique_obj_ids=class_group[PrimitiveField.OBJECT_ID].n_unique(),
-                            obj_instances=len(class_group),
-                            annotation_type=[annotation_type],
-                            average_count_per_image=len(class_group) / class_group[SampleField.SAMPLE_INDEX].n_unique(),
-                            images_with_obj=class_group[SampleField.SAMPLE_INDEX].n_unique(),
-                            area_avg_ratio=class_group["area"].mean(),
-                            area_min_ratio=class_group["area"].min(),
-                            area_max_ratio=class_group["area"].max(),
-                            height_avg_ratio=class_group["height"].mean(),
-                            height_min_ratio=class_group["height"].min(),
-                            height_max_ratio=class_group["height"].max(),
-                            width_avg_ratio=class_group["width"].mean(),
-                            width_min_ratio=class_group["width"].min(),
-                            width_max_ratio=class_group["width"].max(),
-                            area_avg_px=class_group["area_px"].mean(),
-                            area_min_px=int(class_group["area_px"].min()),
-                            area_max_px=int(class_group["area_px"].max()),
-                            height_avg_px=class_group["height_px"].mean(),
-                            height_min_px=int(class_group["height_px"].min()),
-                            height_max_px=int(class_group["height_px"].max()),
-                            width_avg_px=class_group["width_px"].mean(),
-                            width_min_px=int(class_group["width_px"].min()),
-                            width_max_px=int(class_group["width_px"].max()),
-                        )
-                    )
-
-            if has_primitive(dataset_split, PrimitiveType=Polygon):
-                raise NotImplementedError("Not Implemented yet")
+            for PrimitiveType in [Classification, Bbox, Bitmask, Polygon, Segmentation]:
+                object_reports.extend(create_reports_from_primitive(dataset_split, PrimitiveType=PrimitiveType))  # type: ignore[type-abstract]
 
             # Sort object reports by name to more easily compare between versions
             object_reports = sorted(object_reports, key=lambda x: x.obj.name)  # Sort object reports by name
             report.annotated_object_reports = object_reports
 
-            if report.distribution_values is None:
-                report.distribution_values = []
+        if report.distribution_values is None:
+            report.distribution_values = []
 
-            dataset_reports.append(report)
+        dataset_reports.append(report)
     dataset_name = dataset.info.dataset_name
     bucket_sample = generate_bucket_name(dataset_name, deployment_stage=deployment_stage)
-    dataset_info = DbDataset(
+    dataset_info = DatasetDetails(
         name=dataset_name,
         version=dataset.info.version,
         s3_bucket_name=bucket_sample,
@@ -639,6 +461,101 @@ def dataset_info_from_dataset(
     return dataset_info
 
 
+def create_reports_from_primitive(
+    dataset_split: pl.DataFrame, PrimitiveType: Type[Primitive]
+) -> List[DbAnnotatedObjectReport]:
+    if not has_primitive(dataset_split, PrimitiveType=PrimitiveType):
+        return []
+
+    if PrimitiveType == Segmentation:
+        raise NotImplementedError("Not Implemented yet")
+
+    df_per_instance = table_transformations.create_primitive_table(
+        dataset_split, PrimitiveType=PrimitiveType, keep_sample_data=True
+    )
+    if df_per_instance is None:
+        raise ValueError(f"Expected {PrimitiveType.__name__} primitive column to be present in the dataset split.")
+
+    entity_type = EntityTypeChoices.OBJECT.value
+    if PrimitiveType == Classification:
+        entity_type = EntityTypeChoices.EVENT.value
+
+    if PrimitiveType == Bbox:
+        df_per_instance = df_per_instance.with_columns(area=pl.col("height") * pl.col("width"))
+
+    if PrimitiveType == Bitmask:
+        # width and height are in pixel format for Bitmask convert to ratio
+        df_per_instance = df_per_instance.with_columns(
+            width=pl.col("width") / pl.col("image.width"),
+            height=pl.col("height") / pl.col("image.height"),
+        )
+
+    has_height_field = "height" in df_per_instance.columns and df_per_instance["height"].dtype != pl.Null
+    if has_height_field:
+        df_per_instance = df_per_instance.with_columns(
+            height_px=pl.col("height") * pl.col("image.height"),
+        )
+
+    has_width_field = "width" in df_per_instance.columns and df_per_instance["width"].dtype != pl.Null
+    if has_width_field:
+        df_per_instance = df_per_instance.with_columns(
+            width_px=pl.col("width") * pl.col("image.width"),
+        )
+
+    has_area_field = "area" in df_per_instance.columns and df_per_instance["area"].dtype != pl.Null
+    if has_area_field:
+        df_per_instance = df_per_instance.with_columns(
+            area_px=pl.col("image.height") * pl.col("image.width") * pl.col("area")
+        )
+    object_reports: List[DbAnnotatedObjectReport] = []
+    annotation_type = DbAnnotationType(name=PrimitiveType.__name__)
+    for (class_name, task_name), class_group in df_per_instance.group_by(
+        PrimitiveField.CLASS_NAME, PrimitiveField.TASK_NAME
+    ):
+        if class_name is None:
+            continue
+
+        object_report = DbAnnotatedObjectReport(
+            obj=DbAnnotatedObject(
+                name=class_name,
+                entity_type=entity_type,
+                annotation_type=annotation_type,
+                task_name=task_name,
+            ),
+            unique_obj_ids=class_group[PrimitiveField.OBJECT_ID].n_unique(),
+            obj_instances=len(class_group),
+            annotation_type=[annotation_type],
+            average_count_per_image=len(class_group) / class_group[SampleField.SAMPLE_INDEX].n_unique(),
+            images_with_obj=class_group[SampleField.SAMPLE_INDEX].n_unique(),
+        )
+        if has_height_field:
+            object_report.height_avg_ratio = class_group["height"].mean()
+            object_report.height_min_ratio = class_group["height"].min()
+            object_report.height_max_ratio = class_group["height"].max()
+            object_report.height_avg_px = class_group["height_px"].mean()
+            object_report.height_min_px = int(class_group["height_px"].min())
+            object_report.height_max_px = int(class_group["height_px"].max())
+
+        if has_width_field:
+            object_report.width_avg_ratio = class_group["width"].mean()
+            object_report.width_min_ratio = class_group["width"].min()
+            object_report.width_max_ratio = class_group["width"].max()
+            object_report.width_avg_px = class_group["width_px"].mean()
+            object_report.width_min_px = int(class_group["width_px"].min())
+            object_report.width_max_px = int(class_group["width_px"].max())
+
+        if has_area_field:
+            object_report.area_avg_ratio = class_group["area"].mean()
+            object_report.area_min_ratio = class_group["area"].min()
+            object_report.area_max_ratio = class_group["area"].max()
+            object_report.area_avg_px = class_group["area_px"].mean()
+            object_report.area_min_px = int(class_group["area_px"].min())
+            object_report.area_max_px = int(class_group["area_px"].max())
+
+        object_reports.append(object_report)
+    return object_reports
+
+
 def create_gallery_images(
     dataset: HafniaDataset,
     path_gallery_images: Optional[Path],
@@ -657,7 +574,12 @@ def create_gallery_images(
 
         missing_gallery_samples = set(gallery_image_names) - set(gallery_samples[COL_IMAGE_NAME])
         if len(missing_gallery_samples):
-            raise ValueError(f"Gallery images not found in dataset: {missing_gallery_samples}")
+            potential_samples = samples[COL_IMAGE_NAME].sort().to_list()
+            formatted_samples = ", ".join([f'"{s}"' for s in potential_samples[:9]])
+            raise ValueError(
+                f"Gallery images not found in dataset: {missing_gallery_samples}. "
+                f"Consider adding this to dataset definition: \ngallery_image_names=[{formatted_samples}]"
+            )
         gallery_images = []
         for gallery_sample in gallery_samples.iter_rows(named=True):
             sample = Sample(**gallery_sample)

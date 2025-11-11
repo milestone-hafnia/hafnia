@@ -27,7 +27,7 @@ class Primitive(BaseModel, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def calculate_area(self) -> float:
+    def calculate_area(self, image_height: int, image_width: int) -> float:
         # Calculate the area of the primitive
         pass
 

@@ -33,7 +33,7 @@ class Classification(Primitive):
     def column_name() -> str:
         return "classifications"
 
-    def calculate_area(self) -> float:
+    def calculate_area(self, image_height: int, image_width: int) -> float:
         return 1.0
 
     def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:

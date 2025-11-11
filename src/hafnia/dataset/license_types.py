@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from hafnia.dataset.hafnia_dataset import License
 
@@ -46,7 +46,7 @@ LICENSE_TYPES: List[License] = [
 ]
 
 
-def get_license_by_url(url: str) -> Optional[License]:
+def get_license_by_url(url: str) -> License:
     for license in LICENSE_TYPES:
         # To handle http urls
         license_url = (license.url or "").replace("http://", "https://")
@@ -56,7 +56,7 @@ def get_license_by_url(url: str) -> Optional[License]:
     raise ValueError(f"License with URL '{url}' not found.")
 
 
-def get_license_by_short_name(short_name: str) -> Optional[License]:
+def get_license_by_short_name(short_name: str) -> License:
     for license in LICENSE_TYPES:
         if license.name_short == short_name:
             return license

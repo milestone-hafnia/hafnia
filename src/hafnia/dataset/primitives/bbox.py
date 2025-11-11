@@ -49,7 +49,7 @@ class Bbox(Primitive):
     def column_name() -> str:
         return "bboxes"
 
-    def calculate_area(self) -> float:
+    def calculate_area(self, image_height: int, image_width: int) -> float:
         return self.height * self.width
 
     @staticmethod
@@ -73,7 +73,7 @@ class Bbox(Primitive):
         """
         return (self.top_left_x, self.top_left_y, self.width, self.height)
 
-    def to_coco(self, image_height: int, image_width: int) -> Tuple[int, int, int, int]:
+    def to_coco_ints(self, image_height: int, image_width: int) -> Tuple[int, int, int, int]:
         xmin = round_int_clip_value(self.top_left_x * image_width, max_value=image_width)
         bbox_width = round_int_clip_value(self.width * image_width, max_value=image_width)
 
