@@ -9,6 +9,7 @@ from rich.progress import track
 from rich.table import Table
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, SplitName
+from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.operations.table_transformations import create_primitive_table
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.log import user_logger
@@ -188,7 +189,6 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
     Performs various checks on the dataset to ensure its integrity and consistency.
     Raises errors if any issues are found.
     """
-    from hafnia.dataset.hafnia_dataset import Sample
 
     user_logger.info("Checking Hafnia dataset...")
     assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0

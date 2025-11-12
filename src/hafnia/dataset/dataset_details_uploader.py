@@ -18,7 +18,8 @@ from hafnia.dataset.dataset_names import (
     SampleField,
     SplitName,
 )
-from hafnia.dataset.hafnia_dataset import Attribution, HafniaDataset, Sample, TaskInfo, has_primitive
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import Attribution, Sample, TaskInfo
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.primitives import (
     Bbox,
@@ -464,7 +465,7 @@ def dataset_details_from_hafnia_dataset(
 def create_reports_from_primitive(
     dataset_split: pl.DataFrame, PrimitiveType: Type[Primitive]
 ) -> List[DbAnnotatedObjectReport]:
-    if not has_primitive(dataset_split, PrimitiveType=PrimitiveType):
+    if not table_transformations.has_primitive(dataset_split, PrimitiveType=PrimitiveType):
         return []
 
     if PrimitiveType == Segmentation:

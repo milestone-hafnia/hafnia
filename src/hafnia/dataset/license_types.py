@@ -1,6 +1,6 @@
 from typing import List
 
-from hafnia.dataset.hafnia_dataset import License
+from hafnia.dataset.hafnia_dataset_types import License
 
 LICENSE_TYPES: List[License] = [
     License(

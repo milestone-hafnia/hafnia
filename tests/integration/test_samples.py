@@ -10,7 +10,8 @@ from torchvision.transforms import v2
 import hafnia
 from hafnia import torch_helpers
 from hafnia.dataset.dataset_names import SampleField
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification

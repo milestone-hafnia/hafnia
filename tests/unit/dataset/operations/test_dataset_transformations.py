@@ -4,7 +4,8 @@ from typing import Callable
 import pytest
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, StorageFormat
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import Sample, TaskInfo
 from hafnia.dataset.operations.dataset_transformations import (
     expand_class_mapping,
     get_task_info_from_task_name_and_primitive,

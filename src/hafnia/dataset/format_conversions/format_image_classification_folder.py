@@ -9,6 +9,7 @@ from rich.progress import track
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.format_conversions.format_helpers import SplitNameAndPath, get_splits_from_folder
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Classification
 from hafnia.utils import is_image_file
 
@@ -69,7 +70,7 @@ def from_image_classification_split_folder(
     n_samples: Optional[int] = None,
     class_names: Optional[List[str]] = None,
 ) -> "HafniaDataset":
-    from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
     if class_names is None:
         class_names = class_names_from_folder(path_folder)

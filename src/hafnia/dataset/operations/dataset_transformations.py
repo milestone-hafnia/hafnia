@@ -48,6 +48,7 @@ from hafnia.dataset.dataset_names import (
     SampleField,
     StorageFormat,
 )
+from hafnia.dataset.hafnia_dataset_types import Sample, TaskInfo
 from hafnia.dataset.operations.table_transformations import update_class_indices
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
@@ -55,7 +56,7 @@ from hafnia.log import user_logger
 from hafnia.utils import remove_duplicates_preserve_order
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
-    from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample, TaskInfo
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 
 ### Image transformations ###
@@ -76,8 +77,6 @@ def transform_images(
     path_output: Path,
     description: str = "Transform images",
 ) -> "HafniaDataset":
-    from hafnia.dataset.hafnia_dataset import Sample
-
     new_paths = []
     path_image_folder = path_output / "data"
     path_image_folder.mkdir(parents=True, exist_ok=True)
@@ -107,7 +106,7 @@ def convert_to_image_storage_format(
     Convert a video-based dataset ("storage_format" == "video", FieldName.STORAGE_FORMAT == StorageFormat.VIDEO)
     to an image-based dataset by extracting frames.
     """
-    from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
     path_images = (path_output_folder / "data").absolute()
     path_images.mkdir(parents=True, exist_ok=True)
