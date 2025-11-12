@@ -15,7 +15,7 @@ from hafnia import utils
 from hafnia.dataset.dataset_helpers import save_pil_image_with_hash_name
 from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.format_conversions.format_image_classification_folder import (
-    from_image_classification_folder,
+    from_image_classification_split_folder,
 )
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 from hafnia.dataset.primitives import Classification
@@ -72,12 +72,12 @@ def caltech_101_as_hafnia_dataset(
     path_image_classification_folder = _download_and_extract_caltech_dataset(
         dataset_name, force_redownload=force_redownload
     )
-    hafnia_dataset = from_image_classification_folder(
+    hafnia_dataset = from_image_classification_split_folder(
         path_image_classification_folder,
         split=SplitName.TRAIN,
         n_samples=n_samples,
+        dataset_name=dataset_name,
     )
-    hafnia_dataset.info.dataset_name = dataset_name
     hafnia_dataset.info.version = "1.1.0"
     hafnia_dataset.info.reference_bibtex = textwrap.dedent("""\
         @article{FeiFei2004LearningGV,
@@ -102,12 +102,12 @@ def caltech_256_as_hafnia_dataset(
     path_image_classification_folder = _download_and_extract_caltech_dataset(
         dataset_name, force_redownload=force_redownload
     )
-    hafnia_dataset = from_image_classification_folder(
+    hafnia_dataset = from_image_classification_split_folder(
         path_image_classification_folder,
         split=SplitName.TRAIN,
         n_samples=n_samples,
+        dataset_name=dataset_name,
     )
-    hafnia_dataset.info.dataset_name = dataset_name
     hafnia_dataset.info.version = "1.1.0"
     hafnia_dataset.info.reference_bibtex = textwrap.dedent("""\
         @misc{griffin_2023_5sv1j-ytw97,

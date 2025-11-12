@@ -3,23 +3,18 @@ import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import polars as pl
 from pycocotools import mask as coco_utils
 from rich.progress import track
 
-from hafnia.dataset import license_types
 from hafnia.dataset.dataset_names import SampleField, SplitName
-from hafnia.dataset.format_conversions import format_coco
-from hafnia.dataset.hafnia_dataset import (
-    Attribution,
-    DatasetInfo,
-    HafniaDataset,
-    License,
-    Sample,
-    TaskInfo,
-)
+from hafnia.dataset.format_conversions import format_coco, format_helpers
+
+if TYPE_CHECKING:
+    from hafnia.dataset.hafnia_dataset import HafniaDataset, License, Sample, TaskInfo
+
 from hafnia.dataset.primitives import Bbox, Bitmask
 from hafnia.log import user_logger
 
@@ -53,21 +48,14 @@ class CocoSplitPaths:
         )
 
 
-def get_split_definitions_for_coco_dataset_formats(
+def get_split_paths_for_coco_dataset_formats(
     path_coco_dataset: Path,
     coco_format_type: str,
 ) -> List[CocoSplitPaths]:
     if coco_format_type == "roboflow":
         splits = []
-        for path_sub_folder in path_coco_dataset.iterdir():
-            if not path_sub_folder.is_dir():
-                continue
-            folder_split_name = path_sub_folder.name
-            split_name = SplitName.map_split_name(folder_split_name, strict=False)
-            if split_name == SplitName.UNDEFINED:
-                user_logger.warning(f"Skipping sub-folder with name '{folder_split_name}'")
-                continue
-            splits.append(CocoSplitPaths.roboflow_split_paths(path_coco_dataset, split_name))
+        for split_def in format_helpers.get_splits_from_folder(path_coco_dataset):
+            splits.append(CocoSplitPaths.roboflow_split_paths(path_coco_dataset, split_def.name))
         return splits
 
     raise ValueError(f"The specified '{coco_format_type=}' is not supported.")
@@ -77,14 +65,16 @@ def from_coco_format(
     path_coco_dataset: Path,
     coco_format_type: str = "roboflow",
     max_samples: Optional[int] = None,
+    dataset_name: str = "coco-2017",
 ):
-    split_definitions = get_split_definitions_for_coco_dataset_formats(
+    split_definitions = get_split_paths_for_coco_dataset_formats(
         path_coco_dataset=path_coco_dataset, coco_format_type=coco_format_type
     )
 
     hafnia_dataset = from_coco_dataset_by_split_definitions(
         split_definitions=split_definitions,
         max_samples=max_samples,
+        dataset_name=dataset_name,
     )
 
     return hafnia_dataset
@@ -93,8 +83,10 @@ def from_coco_format(
 def from_coco_dataset_by_split_definitions(
     split_definitions: List[CocoSplitPaths],
     max_samples: Optional[int],
-    dataset_name: str = "coco-2017",
-) -> HafniaDataset:
+    dataset_name: str,
+) -> "HafniaDataset":
+    from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset
+
     if max_samples is None:
         max_samples_per_split = None
     else:
@@ -139,7 +131,10 @@ def coco_format_folder_with_split_to_hafnia_samples(
     path_images: Path,
     split_name: str,
     max_samples_per_split: Optional[int],
-) -> Tuple[List[Sample], List[TaskInfo]]:
+) -> Tuple[List["Sample"], List["TaskInfo"]]:
+    from hafnia.dataset import license_types
+    from hafnia.dataset.hafnia_dataset import TaskInfo
+
     if not path_label_file.exists():
         raise FileNotFoundError(f"Expected label file not found: {path_label_file}")
     user_logger.info("Loading coco label file as json")
@@ -227,9 +222,11 @@ def fiftyone_coco_to_hafnia_sample(
     image_annotations: List[Dict],
     id_to_category: Dict,
     class_names: List[str],
-    id_to_license_mapping: Dict[int, License],
+    id_to_license_mapping: Dict[int, "License"],
     split_name: str,
-) -> Sample:
+) -> "Sample":
+    from hafnia.dataset.hafnia_dataset import Attribution, Sample
+
     image_dict = image_dict.copy()  # Create a copy to avoid modifying the original dictionary.
     file_name_relative = image_dict.pop("file_name")
     file_name = path_images / file_name_relative
@@ -297,7 +294,7 @@ def fiftyone_coco_to_hafnia_sample(
     )
 
 
-def to_coco_format(dataset: HafniaDataset, path_exported_coco_dataset: Path):
+def to_coco_format(dataset: "HafniaDataset", path_output: Path) -> List[CocoSplitPaths]:
     samples_modified_all = dataset.samples.with_row_index("id").unnest(SampleField.ATTRIBUTION)
     license_table = (
         samples_modified_all["licenses"]
@@ -321,8 +318,9 @@ def to_coco_format(dataset: HafniaDataset, path_exported_coco_dataset: Path):
 
     split_names = samples_modified_all[SampleField.SPLIT].unique().to_list()
 
+    list_split_paths = []
     for split_name in split_names:
-        split_paths = format_coco.CocoSplitPaths.roboflow_split_paths(path_exported_coco_dataset, split_name)
+        split_paths = format_coco.CocoSplitPaths.roboflow_split_paths(path_output, split_name)
         samples_in_split = samples_modified_all.filter(pl.col(SampleField.SPLIT) == split_name)
         images_table, annotation_table = _convert_bbox_bitmask_to_coco_format(
             samples_modified=samples_in_split,
@@ -353,11 +351,15 @@ def to_coco_format(dataset: HafniaDataset, path_exported_coco_dataset: Path):
         split_paths.path_instances_json.parent.mkdir(parents=True, exist_ok=True)
         split_paths.path_instances_json.write_text(json.dumps(split_labels))
 
+        list_split_paths.append(split_paths)
+
+    return list_split_paths
+
 
 def _convert_bbox_bitmask_to_coco_format(
     samples_modified: pl.DataFrame,
     license_mapping: Dict[str, int],
-    task_info: TaskInfo,
+    task_info: "TaskInfo",
     category_mapping: Dict[str, int],
 ) -> Tuple[pl.DataFrame, pl.DataFrame]:
     if task_info.primitive not in [Bbox, Bitmask]:

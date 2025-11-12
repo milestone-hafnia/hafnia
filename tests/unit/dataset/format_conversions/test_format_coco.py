@@ -15,20 +15,17 @@ from tests import helper_testing
 
 def test_from_coco_format_visualized(compare_to_expected_image: Callable) -> None:
     path_coco_dataset = helper_testing.get_path_test_dataset_formats() / "format_coco_roboflow"
-    max_samples = None
-    coco_format_type = "roboflow"
-
     hafnia_dataset = format_coco.from_coco_format(
         path_coco_dataset=path_coco_dataset,
-        max_samples=max_samples,
-        coco_format_type=coco_format_type,
+        max_samples=None,
+        coco_format_type="roboflow",
     )
 
-    samples = hafnia_dataset.samples.filter(pl.col(SampleField.FILE_PATH).str.contains("000000000632.jpg"))
-    assert len(samples) == 1
+    sample_name = "000000000632.jpg"
+    samples = hafnia_dataset.samples.filter(pl.col(SampleField.FILE_PATH).str.contains(sample_name))
+    assert len(samples) == 1, f"Expected to find one sample with name {sample_name}"
     sample_dict = samples.row(0, named=True)
     sample = Sample(**sample_dict)
-    # sample.bitmasks = None
 
     sample_visualized = sample.draw_annotations()
     compare_to_expected_image(sample_visualized)
@@ -59,14 +56,28 @@ def test_to_coco_format_visualized(compare_to_expected_image: Callable, tmp_path
     sample_dict = samples.row(0, named=True)
     sample = Sample(**sample_dict)
 
-    # sample.bitmasks = None
-    # sample.bboxes = None
     sample_visualized = sample.draw_annotations()
     compare_to_expected_image(sample_visualized)
 
 
+@pytest.mark.parametrize(("bitmask_type"), ["polygon", "rle_as_ints", "rle_compressed_str", "rle_compressed_bytes"])
+def test_convert_segmentation_to_rle_list(bitmask_type: str, compare_to_expected_image: Callable) -> None:
+    segmentations_types = get_rle_bitmask_encoding_examples()
+    seg_obj, sizes = segmentations_types[bitmask_type]
+
+    rle_list = format_coco.convert_segmentation_to_rle_list(seg_obj, height=sizes[0], width=sizes[1])
+    assert isinstance(rle_list, list)
+    for rle in rle_list:
+        assert "counts" in rle
+        assert "size" in rle
+
+    mask = coco_utils.decode(rle_list).squeeze() > 0
+
+    compare_to_expected_image(mask)
+
+
 @lru_cache()
-def get_segmentation_coco() -> Dict[str, Any]:
+def get_rle_bitmask_encoding_examples() -> Dict[str, Any]:
     path_coco_dataset = helper_testing.get_path_test_dataset_formats() / "format_coco_roboflow"
     image_name = "000000000632.jpg"
     hafnia_dataset = format_coco.from_coco_format(path_coco_dataset=path_coco_dataset, coco_format_type="roboflow")
@@ -111,19 +122,3 @@ def get_segmentation_coco() -> Dict[str, Any]:
         "polygon": (polygon_segments, sizes),
     }
     return rle_types
-
-
-@pytest.mark.parametrize(("bitmask_type"), ["polygon", "rle_as_ints", "rle_compressed_str", "rle_compressed_bytes"])
-def test_convert_segmentation_to_rle_list(bitmask_type: str, compare_to_expected_image: Callable) -> None:
-    segmentations_types = get_segmentation_coco()
-    seg_obj, sizes = segmentations_types[bitmask_type]
-
-    rle_list = format_coco.convert_segmentation_to_rle_list(seg_obj, height=sizes[0], width=sizes[1])
-    assert isinstance(rle_list, list)
-    for rle in rle_list:
-        assert "counts" in rle
-        assert "size" in rle
-
-    mask = coco_utils.decode(rle_list).squeeze() > 0
-
-    compare_to_expected_image(mask)

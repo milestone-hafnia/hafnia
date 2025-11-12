@@ -1,4 +1,5 @@
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
@@ -6,7 +7,8 @@ from PIL import Image
 from rich.progress import track
 
 from hafnia.dataset import primitives
-from hafnia.dataset.dataset_names import SplitName
+from hafnia.dataset.dataset_names import SampleField, SplitName
+from hafnia.dataset.format_conversions import format_helpers
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -20,23 +22,81 @@ def get_image_size(path: Path) -> tuple[int, int]:
         return img.size  # (width, height)
 
 
+@dataclass
+class YoloSplitPaths:
+    split: str
+    path_root: Path
+    path_images_txt: Path
+    path_class_names: Path
+
+    def check_paths(self):
+        if not self.path_root.exists():
+            raise FileNotFoundError(f"YOLO dataset root path not found at '{self.path_root.resolve()}'")
+        if not self.path_images_txt.exists():
+            raise FileNotFoundError(f"File with images not found at '{self.path_images_txt.resolve()}'")
+        if not self.path_class_names.exists():
+            raise FileNotFoundError(f"File with class names not found at '{self.path_class_names.resolve()}'")
+
+
 def from_yolo_format(
-    path_yolo_dataset: Path,
-    split_name: str = SplitName.UNDEFINED,
+    path_dataset: Path,
     dataset_name: str = "yolo-dataset",
     filename_class_names: str = FILENAME_YOLO_CLASS_NAMES,
     filename_images_txt: str = FILENAME_YOLO_IMAGES_TXT,
+) -> "HafniaDataset":
+    per_split_paths: List[YoloSplitPaths] = get_split_definitions_for_coco_dataset_formats(
+        path_dataset=path_dataset,
+        filename_class_names=filename_class_names,
+        filename_images_txt=filename_images_txt,
+    )
+
+    hafnia_dataset = from_yolo_format_by_split_paths(splits=per_split_paths, dataset_name=dataset_name)
+    return hafnia_dataset
+
+
+def from_yolo_format_by_split_paths(splits: List[YoloSplitPaths], dataset_name: str) -> "HafniaDataset":
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
+
+    dataset_splits = []
+    for split_paths in splits:
+        dataset_split = dataset_split_from_yolo_format(split_paths=split_paths, dataset_name=dataset_name)
+        dataset_splits.append(dataset_split)
+
+    hafnia_dataset = HafniaDataset.from_merger(dataset_splits)
+    return hafnia_dataset
+
+
+def get_split_definitions_for_coco_dataset_formats(
+    path_dataset: Path,
+    filename_class_names: str = FILENAME_YOLO_CLASS_NAMES,
+    filename_images_txt: str = FILENAME_YOLO_IMAGES_TXT,
+) -> List[YoloSplitPaths]:
+    splits = []
+
+    for split_def in format_helpers.get_splits_from_folder(path_dataset):
+        split_path = YoloSplitPaths(
+            split=split_def.name,
+            path_root=split_def.path,
+            path_images_txt=split_def.path / filename_images_txt,
+            path_class_names=path_dataset / filename_class_names,
+        )
+        splits.append(split_path)
+
+    return splits
+
+
+def dataset_split_from_yolo_format(
+    split_paths: YoloSplitPaths,
+    dataset_name: str,
 ) -> "HafniaDataset":
     """
     Imports a YOLO (Darknet) formatted dataset as a HafniaDataset.
     """
     from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 
-    path_class_names = path_yolo_dataset / filename_class_names
-
-    if split_name not in SplitName.all_split_names():
-        raise ValueError(f"Invalid split name: {split_name}. Must be one of {SplitName.all_split_names()}")
-
+    path_class_names = split_paths.path_class_names
+    if split_paths.split not in SplitName.all_split_names():
+        raise ValueError(f"Invalid split name: {split_paths.split}. Must be one of {SplitName.all_split_names()}")
     if not path_class_names.exists():
         raise FileNotFoundError(f"File with class names not found at '{path_class_names.resolve()}'.")
 
@@ -49,8 +109,7 @@ def from_yolo_format(
     if len(class_names) == 0:
         raise ValueError(f"File with class names not found at '{path_class_names.resolve()}' has no class names")
 
-    path_images_txt = path_yolo_dataset / filename_images_txt
-
+    path_images_txt = split_paths.path_images_txt
     if not path_images_txt.exists():
         raise FileNotFoundError(f"File with images not found at '{path_images_txt.resolve()}'")
 
@@ -62,7 +121,7 @@ def from_yolo_format(
 
     samples: List[Sample] = []
     for image_path_raw in track(image_paths_raw):
-        path_image = path_yolo_dataset / image_path_raw
+        path_image = split_paths.path_root / image_path_raw
         if not path_image.exists():
             raise FileNotFoundError(f"File with image not found at '{path_image.resolve()}'")
         width, height = get_image_size(path_image)
@@ -98,7 +157,7 @@ def from_yolo_format(
             file_path=path_image.absolute().as_posix(),
             height=height,
             width=width,
-            split=split_name,
+            split=split_paths.split,
             bboxes=boxes,
         )
         samples.append(sample)
@@ -111,8 +170,39 @@ def from_yolo_format(
 
 def to_yolo_format(
     dataset: "HafniaDataset",
-    path_export_yolo_dataset: Path,
+    path_output: Path,
     task_name: Optional[str] = None,
+    filename_images_txt: str = FILENAME_YOLO_IMAGES_TXT,
+    filename_class_names: str = FILENAME_YOLO_CLASS_NAMES,
+) -> List[YoloSplitPaths]:
+    """Exports a HafniaDataset as YOLO (Darknet) format."""
+
+    split_names = dataset.samples[SampleField.SPLIT].unique().to_list()
+
+    per_split_paths: List[YoloSplitPaths] = []
+    for split_name in split_names:
+        dataset_split = dataset.create_split_dataset(split_name)
+
+        yolo_split_paths = YoloSplitPaths(
+            split=split_name,
+            path_root=path_output / split_name,
+            path_images_txt=path_output / split_name / filename_images_txt,
+            path_class_names=path_output / filename_class_names,
+        )
+
+        to_yolo_split_format(
+            dataset=dataset_split,
+            split_paths=yolo_split_paths,
+            task_name=task_name,
+        )
+        per_split_paths.append(yolo_split_paths)
+    return per_split_paths
+
+
+def to_yolo_split_format(
+    dataset: "HafniaDataset",
+    split_paths: YoloSplitPaths,
+    task_name: Optional[str],
 ):
     """Exports a HafniaDataset as YOLO (Darknet) format."""
     from hafnia.dataset.hafnia_dataset import Sample
@@ -124,11 +214,11 @@ def to_yolo_format(
         raise ValueError(
             f"Hafnia dataset task '{bbox_task.name}' has no class names defined. This is required for YOLO export."
         )
-    path_export_yolo_dataset.mkdir(parents=True, exist_ok=True)
-    path_class_names = path_export_yolo_dataset / FILENAME_YOLO_CLASS_NAMES
-    path_class_names.write_text("\n".join(class_names))
+    split_paths.path_root.mkdir(parents=True, exist_ok=True)
+    split_paths.path_class_names.parent.mkdir(parents=True, exist_ok=True)
+    split_paths.path_class_names.write_text("\n".join(class_names))
 
-    path_data_folder = path_export_yolo_dataset / "data"
+    path_data_folder = split_paths.path_root / "data"
     path_data_folder.mkdir(parents=True, exist_ok=True)
     image_paths: List[str] = []
     for sample_dict in dataset:
@@ -138,14 +228,14 @@ def to_yolo_format(
         path_image_src = Path(sample.file_path)
         path_image_dst = path_data_folder / path_image_src.name
         shutil.copy2(path_image_src, path_image_dst)
-        image_paths.append(path_image_dst.relative_to(path_export_yolo_dataset).as_posix())
+        image_paths.append(path_image_dst.relative_to(split_paths.path_root).as_posix())
         path_label = path_image_dst.with_suffix(".txt")
         bboxes = sample.bboxes or []
         bbox_strings = [bbox_to_yolo_format(bbox) for bbox in bboxes]
         path_label.write_text("\n".join(bbox_strings))
 
-    path_images_txt = path_export_yolo_dataset / FILENAME_YOLO_IMAGES_TXT
-    path_images_txt.write_text("\n".join(image_paths))
+    split_paths.path_images_txt.parent.mkdir(parents=True, exist_ok=True)
+    split_paths.path_images_txt.write_text("\n".join(image_paths))
 
 
 def bbox_to_yolo_format(bbox: primitives.Bbox) -> str:

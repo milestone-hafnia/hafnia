@@ -35,6 +35,7 @@ from hafnia.dataset.dataset_names import (
     StorageFormat,
 )
 from hafnia.dataset.format_conversions import (
+    format_coco,
     format_image_classification_folder,
     format_yolo,
 )
@@ -528,8 +529,10 @@ class HafniaDataset:
     convert_to_image_storage_format = dataset_transformations.convert_to_image_storage_format
 
     # Import / export functions
-    from_yolo_format = format_yolo.from_yolo_format
     to_yolo_format = format_yolo.to_yolo_format
+    from_yolo_format = format_yolo.from_yolo_format
+    to_coco_format = format_coco.to_coco_format
+    from_coco_format = format_coco.from_coco_format
     to_image_classification_folder = format_image_classification_folder.to_image_classification_folder
     from_image_classification_folder = format_image_classification_folder.from_image_classification_folder
 
