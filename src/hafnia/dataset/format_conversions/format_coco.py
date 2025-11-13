@@ -18,17 +18,14 @@ if TYPE_CHECKING:
 from hafnia.dataset.primitives import Bbox, Bitmask
 from hafnia.log import user_logger
 
+COCO_KEY_FILE_NAME = "file_name"
+
 
 @dataclass
 class CocoSplitPaths:
     split: str
     path_images: Path
     path_instances_json: Path
-    path_captions_json: Optional[Path] = None
-    path_classification_json: Optional[Path] = None
-    path_panoptic_json: Optional[Path] = None
-    path_person_keypoints_json: Optional[Path] = None
-    path_stuff_json: Optional[Path] = None
 
     @staticmethod
     def roboflow_split_paths(path_dataset_root: Path, split_name: str) -> "CocoSplitPaths":
@@ -228,7 +225,7 @@ def fiftyone_coco_to_hafnia_sample(
     from hafnia.dataset.hafnia_dataset import Attribution, Sample
 
     image_dict = image_dict.copy()  # Create a copy to avoid modifying the original dictionary.
-    file_name_relative = image_dict.pop("file_name")
+    file_name_relative = image_dict.pop(COCO_KEY_FILE_NAME)
     file_name = path_images / file_name_relative
     if not file_name.exists():
         raise FileNotFoundError(f"Expected image file not found: {file_name}. Please check the dataset structure.")
@@ -241,22 +238,28 @@ def fiftyone_coco_to_hafnia_sample(
         category_data = id_to_category[obj_instance["category_id"]]
         class_name = category_data["name"]  # Get the name of the category.
         class_idx = class_names.index(class_name)
-        bbox = obj_instance["bbox"]
-        if isinstance(bbox[0], float):  # Polygon coordinates are often floats.
-            bbox_ints = [int(coord) for coord in bbox]
+        bbox_list = obj_instance["bbox"]
+        if isinstance(bbox_list[0], float):  # Polygon coordinates are often floats.
+            bbox_ints = [int(coord) for coord in bbox_list]
         else:
-            bbox_ints = bbox
+            bbox_ints = bbox_list
         rle_list = convert_segmentation_to_rle_list(obj_instance["segmentation"], height=img_height, width=img_width)
         rle = coco_utils.merge(rle_list)
         rle_string = rle["counts"]
         if isinstance(rle_string, bytes):
             rle_string = rle_string.decode("utf-8")
 
+        if "area" in obj_instance and obj_instance["area"] is not None:
+            area_px = obj_instance["area"]
+        else:
+            area_px = coco_utils.area(rle).item()
+        area = float(area_px) / (img_height * img_width)
         bitmask = Bitmask(
             top=bbox_ints[1],
             left=bbox_ints[0],
             height=bbox_ints[3],
             width=bbox_ints[2],
+            area=area,
             rle_string=rle_string,
             class_name=class_name,
             class_idx=class_idx,
@@ -265,11 +268,12 @@ def fiftyone_coco_to_hafnia_sample(
         )
         bitmasks.append(bitmask)
 
-        bbox = Bbox.from_coco(bbox=bbox, height=img_height, width=img_width)
+        bbox = Bbox.from_coco(bbox=bbox_list, height=img_height, width=img_width)
         bbox.class_name = class_name
         bbox.class_idx = class_idx
         bbox.object_id = str(obj_instance["id"])  # Use the ID from the instance if available.
         bbox.meta = {"iscrowd": obj_instance["iscrowd"]}
+        bbox.area = bbox.calculate_area(image_height=img_height, image_width=img_width)
         bboxes.append(bbox)
 
     license_data: License = id_to_license_mapping[image_dict["license"]]
@@ -313,7 +317,9 @@ def to_coco_format(dataset: "HafniaDataset", path_output: Path) -> List[CocoSpli
         raise ValueError("No 'Bitmask' or 'Bbox' primitive found in dataset tasks for COCO conversion")
     task_info = tasks_info[0]
 
-    categories_list_dict = [{"id": i, "name": c} for i, c in enumerate(task_info.class_names or [])]
+    categories_list_dict = [
+        {"id": i, "name": c, "supercategory": "NotDefined"} for i, c in enumerate(task_info.class_names or [])
+    ]
     category_mapping = {cat["name"]: cat["id"] for cat in categories_list_dict}
 
     split_names = samples_modified_all[SampleField.SPLIT].unique().to_list()
@@ -330,7 +336,7 @@ def to_coco_format(dataset: "HafniaDataset", path_output: Path) -> List[CocoSpli
         )
 
         split_paths.path_images.mkdir(parents=True, exist_ok=True)
-        src_paths = images_table["file_name"].to_list()
+        src_paths = images_table[COCO_KEY_FILE_NAME].to_list()
         new_relative_image_path = []
         for src_path in src_paths:
             dst_path = split_paths.path_images / Path(src_path).name
@@ -340,7 +346,9 @@ def to_coco_format(dataset: "HafniaDataset", path_output: Path) -> List[CocoSpli
 
             shutil.copy2(src_path, dst_path)
 
-        images_table_files_moved = images_table.with_columns(pl.Series(new_relative_image_path).alias("file_name"))
+        images_table_files_moved = images_table.with_columns(
+            pl.Series(new_relative_image_path).alias(COCO_KEY_FILE_NAME)
+        )
         split_labels = {
             "info": dataset.info.model_dump(mode="json"),
             "images": list(images_table_files_moved.iter_rows(named=True)),
@@ -372,7 +380,7 @@ def _convert_bbox_bitmask_to_coco_format(
         pl.col("id"),
         pl.col(SampleField.WIDTH).alias("width"),
         pl.col(SampleField.HEIGHT).alias("height"),
-        pl.col(SampleField.FILE_PATH).alias("file_name"),
+        pl.col(SampleField.FILE_PATH).alias(COCO_KEY_FILE_NAME),
         pl.col("name").replace_strict(license_mapping, return_dtype=pl.Int64).alias("license"),
         pl.col("source_url").alias("flickr_url"),
         pl.col("source_url").alias("coco_url"),
@@ -393,6 +401,7 @@ def _convert_bbox_bitmask_to_coco_format(
 
     iscrowd_list = [0 if row is None else row.get("iscrowd", 0) for row in annotation_table_full["meta"]]
     annotation_table_full = annotation_table_full.with_columns(pl.Series(iscrowd_list).alias("iscrowd"))
+
     if task_info.primitive == Bitmask:
         annotation_table = annotation_table_full.select(
             pl.col("id"),
@@ -405,7 +414,7 @@ def _convert_bbox_bitmask_to_coco_format(
                     pl.col("image_width"),
                 ),
             ),
-            area=pl.col("area"),
+            area=pl.col("area") * pl.col("image_height") * pl.col("image_width"),
             bbox=pl.concat_arr(
                 pl.col("left"),  # bbox x coordinate
                 pl.col("top"),  # bbox y coordinate

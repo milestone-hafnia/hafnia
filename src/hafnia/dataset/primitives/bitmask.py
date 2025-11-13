@@ -26,7 +26,7 @@ class Bitmask(Primitive):
         description="Run-length encoding (RLE) string for the bitmask region of size (height, width) at (top, left)."
     )
     area: Optional[float] = Field(
-        default=None, description="Area of the bitmask in pixels is calculated from the RLE string"
+        default=None, description="Area of the bitmask as a fraction of the image area (0.0 to 1.0)"
     )
     class_name: Optional[str] = Field(default=None, description="Class name of the object represented by the bitmask")
     class_idx: Optional[int] = Field(default=None, description="Class index of the object represented by the bitmask")

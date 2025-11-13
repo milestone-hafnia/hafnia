@@ -10,6 +10,7 @@ from pycocotools import mask as coco_utils
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.format_conversions import format_coco
 from hafnia.dataset.hafnia_dataset import Sample
+from hafnia.dataset.primitives import Bbox, Bitmask
 from tests import helper_testing
 
 
@@ -50,6 +51,17 @@ def test_to_coco_format_visualized(compare_to_expected_image: Callable, tmp_path
         max_samples=max_samples,
         coco_format_type=coco_format_type,
     )
+
+    # Still exists after conversion and are normalized
+    bbox_table = hafnia_dataset_reloaded.create_primitive_table(Bbox)
+    assert bbox_table["area"].dtype != pl.Null, "Expected area column to have no null values"
+    assert bbox_table["area"].min() > 0, "Expected area values to be greater than 0"
+    assert bbox_table["area"].max() < 1.0, "Expected area values to be normalized (<1.0)"
+
+    bitmask_table = hafnia_dataset_reloaded.create_primitive_table(Bitmask)
+    assert bitmask_table["area"].dtype != pl.Null, "Expected area column to have no null values"
+    assert bitmask_table["area"].min() > 0, "Expected area values to be greater than 0"
+    assert bitmask_table["area"].max() < 1.0, "Expected area values to be normalized (<1.0)"
 
     samples = hafnia_dataset_reloaded.samples.filter(pl.col(SampleField.FILE_PATH).str.contains("000000000632.jpg"))
     assert len(samples) == 1

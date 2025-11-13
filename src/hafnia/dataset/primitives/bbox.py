@@ -30,6 +30,9 @@ class Bbox(Primitive):
     top_left_y: float = Field(
         description="Normalized y-coordinate of top-left corner (0.0=top edge, 1.0=bottom edge) as a fraction of image height"
     )
+    area: Optional[float] = Field(
+        default=None, description="Area of the bounding box as a fraction of the image area (0.0 to 1.0)"
+    )
     class_name: Optional[str] = Field(default=None, description="Class name, e.g. 'car'")
     class_idx: Optional[int] = Field(default=None, description="Class index, e.g. 0 for 'car' if it is the first class")
     object_id: Optional[str] = Field(default=None, description="Unique identifier for the object, e.g. '12345123'")
@@ -50,6 +53,7 @@ class Bbox(Primitive):
         return "bboxes"
 
     def calculate_area(self, image_height: int, image_width: int) -> float:
+        """Calculates the area of the bounding box as a fraction of the image area."""
         return self.height * self.width
 
     @staticmethod
