@@ -20,42 +20,19 @@ from hafnia.log import user_logger
 
 COCO_KEY_FILE_NAME = "file_name"
 
+HAFNIA_TO_ROBOFLOW_SPLIT_NAME = {
+    SplitName.TRAIN: "train",
+    SplitName.VAL: "valid",
+    SplitName.TEST: "test",
+}
+ROBOFLOW_ANNOTATION_FILE_NAME = "_annotations.coco.json"
+
 
 @dataclass
 class CocoSplitPaths:
     split: str
     path_images: Path
     path_instances_json: Path
-
-    @staticmethod
-    def roboflow_split_paths(path_dataset_root: Path, split_name: str) -> "CocoSplitPaths":
-        if split_name not in SplitName.valid_splits():
-            raise ValueError(f"Invalid split name '{split_name}' for Roboflow COCO dataset.")
-        hafnia_to_roboflow_split_name = {
-            SplitName.TRAIN: "train",
-            SplitName.VAL: "valid",
-            SplitName.TEST: "test",
-        }
-        roboflow_split_name = hafnia_to_roboflow_split_name[split_name]
-        path_split_folder = path_dataset_root / roboflow_split_name
-        return CocoSplitPaths(
-            split=SplitName.map_split_name(path_split_folder.name, strict=False),
-            path_instances_json=path_split_folder / "_annotations.coco.json",
-            path_images=path_split_folder,
-        )
-
-
-def get_split_paths_for_coco_dataset_formats(
-    path_coco_dataset: Path,
-    coco_format_type: str,
-) -> List[CocoSplitPaths]:
-    if coco_format_type == "roboflow":
-        splits = []
-        for split_def in format_helpers.get_splits_from_folder(path_coco_dataset):
-            splits.append(CocoSplitPaths.roboflow_split_paths(path_coco_dataset, split_def.name))
-        return splits
-
-    raise ValueError(f"The specified '{coco_format_type=}' is not supported.")
 
 
 def from_coco_format(
@@ -77,6 +54,25 @@ def from_coco_format(
     return hafnia_dataset
 
 
+def get_split_paths_for_coco_dataset_formats(
+    path_coco_dataset: Path,
+    coco_format_type: str,
+) -> List[CocoSplitPaths]:
+    splits = []
+    if coco_format_type == "roboflow":
+        for split_def in format_helpers.get_splits_from_folder(path_coco_dataset):
+            splits.append(
+                CocoSplitPaths(
+                    split=split_def.name,
+                    path_images=split_def.path,
+                    path_instances_json=split_def.path / ROBOFLOW_ANNOTATION_FILE_NAME,
+                )
+            )
+        return splits
+
+    raise ValueError(f"The specified '{coco_format_type=}' is not supported.")
+
+
 def from_coco_dataset_by_split_definitions(
     split_definitions: List[CocoSplitPaths],
     max_samples: Optional[int],
@@ -89,7 +85,7 @@ def from_coco_dataset_by_split_definitions(
     else:
         max_samples_per_split = max_samples // len(split_definitions)
     samples = []
-    tasks = None
+    tasks: List[TaskInfo] = []
     for split_definition in split_definitions:
         if split_definition.path_instances_json is None or not split_definition.path_instances_json.exists():
             raise FileNotFoundError(
@@ -108,10 +104,23 @@ def from_coco_dataset_by_split_definitions(
             path_images=split_definition.path_images,
             split_name=split_definition.split,
         )
-        if tasks is None:
-            tasks = tasks_in_split
-        if tasks != tasks_in_split:
-            raise ValueError("Inconsistent tasks across splits in the COCO dataset.")
+
+        for task_in_split in tasks_in_split:
+            matching_tasks = [task for task in tasks if task.name == task_in_split.name]
+
+            add_missing_task = len(matching_tasks) == 0
+            if add_missing_task:
+                tasks.append(task_in_split)
+                continue
+
+            if len(matching_tasks) != 1:
+                raise ValueError("Duplicate task names found across splits in the COCO dataset.")
+            match_task = matching_tasks[0]
+            if task_in_split != match_task:
+                raise ValueError(
+                    f"Inconsistent task found across splits in the COCO dataset for task name '{task_in_split.name}'. "
+                )
+
         samples.extend(samples_in_split)
 
     dataset_info = DatasetInfo(
@@ -302,6 +311,7 @@ def to_coco_format(
     dataset: "HafniaDataset",
     path_output: Path,
     task_name: Optional[str] = None,
+    coco_format_type: str = "roboflow",
 ) -> List[CocoSplitPaths]:
     samples_modified_all = dataset.samples.with_row_index("id").unnest(SampleField.ATTRIBUTION)
     license_table = (
@@ -341,7 +351,15 @@ def to_coco_format(
 
     list_split_paths = []
     for split_name in split_names:
-        split_paths = format_coco.CocoSplitPaths.roboflow_split_paths(path_output, split_name)
+        if coco_format_type == "roboflow":
+            path_split = path_output / HAFNIA_TO_ROBOFLOW_SPLIT_NAME[split_name]
+            split_paths = format_coco.CocoSplitPaths(
+                split=split_name,
+                path_images=path_split,
+                path_instances_json=path_split / ROBOFLOW_ANNOTATION_FILE_NAME,
+            )
+        else:
+            raise ValueError(f"The specified '{coco_format_type=}' is not supported.")
         samples_in_split = samples_modified_all.filter(pl.col(SampleField.SPLIT) == split_name)
         images_table, annotation_table = _convert_bbox_bitmask_to_coco_format(
             samples_modified=samples_in_split,

@@ -45,7 +45,7 @@ def from_image_classification_folder_by_split_paths(
 
     if n_samples is not None:
         n_samples = n_samples // len(list_split_paths)  # Divide samples evenly across splits
-    datasets_per_split: List["HafniaDataset"] = []
+    datasets_per_split = []
     for split in list_split_paths:
         dataset_split = from_image_classification_split_folder(
             path_folder=split.path,

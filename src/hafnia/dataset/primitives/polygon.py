@@ -95,10 +95,11 @@ class Polygon(Primitive):
             rles = coco_utils.frPyObjects([points], img_height, img_width)
             rle = coco_utils.merge(rles)
             mask = coco_utils.decode(rle).astype(bool)
-        else:
-            mask = np.zeros((img_height, img_width), dtype=np.uint8)
-            points = np.array(self.to_pixel_coordinates(image_shape=(img_height, img_width)))
-            mask = cv2.fillPoly(mask, [points], color=255).astype(bool)
+            return mask
+
+        mask = np.zeros((img_height, img_width), dtype=np.uint8)
+        points = np.array(self.to_pixel_coordinates(image_shape=(img_height, img_width)))
+        mask = cv2.fillPoly(mask, [points], color=255).astype(bool)
         return mask
 
     def to_bitmask(self, img_height: int, img_width: int) -> Bitmask:
