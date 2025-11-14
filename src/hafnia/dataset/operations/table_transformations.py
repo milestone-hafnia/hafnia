@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple, Type
+from typing import List, Optional, Tuple, Type
 
 import polars as pl
 from rich.progress import track
@@ -10,14 +10,12 @@ from hafnia.dataset.dataset_names import (
     PrimitiveField,
     SampleField,
 )
+from hafnia.dataset.hafnia_dataset_types import TaskInfo
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
-
-if TYPE_CHECKING:
-    from hafnia.dataset.hafnia_dataset import TaskInfo
 
 
 def create_primitive_table(
@@ -29,12 +27,10 @@ def create_primitive_table(
     """
     Returns a DataFrame with objects of the specified primitive type.
     """
-    column_name = PrimitiveType.column_name()
-    has_primitive_column = (column_name in samples_table.columns) and (
-        samples_table[column_name].dtype == pl.List(pl.Struct)
-    )
-    if not has_primitive_column:
+    if not has_primitive(samples_table, PrimitiveType):
         return None
+
+    column_name = PrimitiveType.column_name()
 
     # Remove frames without objects
     remove_no_object_frames = samples_table.filter(pl.col(column_name).list.len() > 0)
@@ -58,6 +54,17 @@ def create_primitive_table(
     if task_name is not None:
         objects_df = objects_df.filter(pl.col(PrimitiveField.TASK_NAME) == task_name)
     return objects_df
+
+
+def has_primitive(samples: pl.DataFrame, PrimitiveType: Type[Primitive]) -> bool:
+    col_name = PrimitiveType.column_name()
+    if col_name not in samples.columns:
+        return False
+
+    if samples[col_name].dtype != pl.List(pl.Struct):
+        return False
+
+    return True
 
 
 def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFrame:

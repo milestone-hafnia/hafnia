@@ -9,7 +9,7 @@ from pycocotools import mask as coco_utils
 
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.format_conversions import format_coco
-from hafnia.dataset.hafnia_dataset import Sample
+from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import Bbox, Bitmask
 from tests import helper_testing
 

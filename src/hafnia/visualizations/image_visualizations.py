@@ -7,7 +7,7 @@ import numpy as np
 import numpy.typing as npt
 from PIL import Image
 
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
@@ -175,6 +175,8 @@ def save_dataset_sample_set_visualizations(
     draw_settings: Optional[Dict[Type[Primitive], Dict]] = None,
     anonymize_settings: Optional[Dict[Type[Primitive], Dict]] = None,
 ) -> List[Path]:
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
+
     dataset = HafniaDataset.from_path(path_dataset)
     shutil.rmtree(path_output_folder, ignore_errors=True)
     path_output_folder.mkdir(parents=True)

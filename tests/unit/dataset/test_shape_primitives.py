@@ -6,7 +6,7 @@ import yaml
 
 from hafnia.dataset.dataset_details_uploader import DatasetImageMetadata
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
-from hafnia.dataset.hafnia_dataset import Sample
+from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask

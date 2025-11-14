@@ -1,5 +1,5 @@
 from hafnia.dataset.dataset_names import SampleField
-from hafnia.dataset.hafnia_dataset import Sample
+from hafnia.dataset.hafnia_dataset_types import Sample
 
 
 def test_sample_fields():

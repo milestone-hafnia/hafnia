@@ -9,6 +9,7 @@ from rich.progress import track
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_helpers
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -92,7 +93,7 @@ def dataset_split_from_yolo_format(
     """
     Imports a YOLO (Darknet) formatted dataset as a HafniaDataset.
     """
-    from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
     path_class_names = split_paths.path_class_names
     if split_paths.split not in SplitName.all_split_names():
@@ -205,7 +206,6 @@ def to_yolo_split_format(
     task_name: Optional[str],
 ):
     """Exports a HafniaDataset as YOLO (Darknet) format."""
-    from hafnia.dataset.hafnia_dataset import Sample
 
     bbox_task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitives.Bbox)
 

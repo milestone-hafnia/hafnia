@@ -6,7 +6,8 @@ from PIL import Image
 from rich import print as rprint
 
 from hafnia.dataset.dataset_names import SplitName
-from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification

@@ -17,7 +17,8 @@ from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.format_conversions.format_image_classification_folder import (
     from_image_classification_split_folder,
 )
-from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Classification
 
 

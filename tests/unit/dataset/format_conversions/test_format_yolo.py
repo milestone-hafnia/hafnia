@@ -6,7 +6,8 @@ import polars as pl
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.format_conversions import format_yolo
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import Sample
 from tests.helper_testing import get_micro_hafnia_dataset, get_path_test_dataset_formats
 
 

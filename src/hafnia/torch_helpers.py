@@ -12,7 +12,8 @@ from torchvision import utils as tv_utils
 from torchvision.transforms import v2
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample, has_primitive
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import (
     PRIMITIVE_COLUMN_NAMES,
     class_color_by_name,
@@ -55,7 +56,7 @@ class TorchvisionDataset(torch.utils.data.Dataset):
 
         self.max_points_in_polygon = 0
 
-        if has_primitive(self.dataset, Polygon):
+        if self.dataset.has_primitive(Polygon):
             self.max_points_in_polygon = (
                 self.dataset.samples[SampleField.POLYGONS]
                 .list.eval(pl.element().struct.field("points").list.len())
