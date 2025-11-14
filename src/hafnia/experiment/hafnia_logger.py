@@ -125,9 +125,15 @@ class HafniaLogger:
                 mlflow.set_experiment(experiment_name)
                 user_logger.info(f"MLflow experiment set to: {experiment_name}")
 
-            # Start MLflow run
+            # Start MLflow run with tags
             run_name = os.getenv("MLFLOW_RUN_NAME", "undefined")
-            mlflow.start_run(run_name=run_name)
+            created_by = os.getenv("MLFLOW_CREATED_BY")
+            tags = {}
+            if experiment_name:
+                tags["organization_id"] = experiment_name
+            if created_by:
+                tags["created_by"] = created_by
+            mlflow.start_run(run_name=run_name, tags=tags)
             self._mlflow_initialized = True
             user_logger.info("MLflow run started successfully")
 
