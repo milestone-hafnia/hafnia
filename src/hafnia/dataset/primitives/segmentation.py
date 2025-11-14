@@ -30,7 +30,7 @@ class Segmentation(Primitive):
     def column_name() -> str:
         return "segmentations"
 
-    def calculate_area(self) -> float:
+    def calculate_area(self, image_height: int, image_width: int) -> float:
         raise NotImplementedError()
 
     def draw(self, image: np.ndarray, inplace: bool = False) -> np.ndarray:

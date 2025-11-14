@@ -40,6 +40,14 @@ $defs:
     type: object
   Bbox:
     properties:
+      area:
+        anyOf:
+        - type: number
+        - type: 'null'
+        default: null
+        description: Area of the bounding box as a fraction of the image area (0.0
+          to 1.0)
+        title: Area
       class_idx:
         anyOf:
         - type: integer
@@ -119,7 +127,7 @@ $defs:
         - type: number
         - type: 'null'
         default: null
-        description: Area of the bitmask in pixels is calculated from the RLE string
+        description: Area of the bitmask as a fraction of the image area (0.0 to 1.0)
         title: Area
       class_idx:
         anyOf:
@@ -168,10 +176,10 @@ $defs:
         default: null
         description: Object ID of the instance represented by the bitmask
         title: Object Id
-      rleString:
+      rle_string:
         description: Run-length encoding (RLE) string for the bitmask region of size
           (height, width) at (top, left).
-        title: Rlestring
+        title: Rle String
         type: string
       task_name:
         default: ''
@@ -192,7 +200,7 @@ $defs:
     - left
     - height
     - width
-    - rleString
+    - rle_string
     title: Bitmask
     type: object
   Classification:
@@ -263,6 +271,13 @@ $defs:
     type: object
   Polygon:
     properties:
+      area:
+        anyOf:
+        - type: number
+        - type: 'null'
+        default: null
+        description: Area of the polygon in pixels
+        title: Area
       class_idx:
         anyOf:
         - type: integer

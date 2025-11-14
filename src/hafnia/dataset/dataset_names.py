@@ -93,6 +93,32 @@ class SplitName:
     def all_split_names() -> List[str]:
         return [*SplitName.valid_splits(), SplitName.UNDEFINED]
 
+    @staticmethod
+    def map_split_name(potential_split_name: str, strict: bool = True) -> str:
+        normalized = potential_split_name.strip().lower()
+
+        if normalized in SPLIT_NAME_MAPPINGS:
+            return SPLIT_NAME_MAPPINGS[normalized]
+
+        if strict:
+            raise ValueError(f"Unrecognized split name: {potential_split_name}")
+        else:
+            return SplitName.UNDEFINED
+
+
+SPLIT_NAME_MAPPINGS = {
+    # Train variations
+    "train": SplitName.TRAIN,
+    "training": SplitName.TRAIN,
+    # Validation variations
+    "validation": SplitName.VAL,
+    "val": SplitName.VAL,
+    "valid": SplitName.VAL,
+    # Test variations
+    "test": SplitName.TEST,
+    "testing": SplitName.TEST,
+}
+
 
 class DatasetVariant(Enum):
     DUMP = "dump"

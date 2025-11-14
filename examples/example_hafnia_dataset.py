@@ -87,14 +87,18 @@ dataset.write(path_dataset)
 dataset_again = HafniaDataset.from_path(path_dataset)
 
 ## Dataset importers and exporters ##
-dataset_coco = HafniaDataset.from_name("coco-2017").select_samples(n_samples=5, seed=42)
+dataset_od = HafniaDataset.from_name("coco-2017").select_samples(n_samples=5, seed=42)
+
+# Export/import dataset to YOLO format
 path_yolo_format = Path(".data/tmp/yolo_dataset")
+dataset_od.to_yolo_format(path_output=path_yolo_format)  # Export to YOLO format
+dataset_od_imported = HafniaDataset.from_yolo_format(path_yolo_format)  # Import dataset from YOLO format
 
-# Export dataset to YOLO format
-dataset_coco.to_yolo_format(path_export_yolo_dataset=path_yolo_format)
 
-# Import dataset from YOLO format
-dataset_coco_imported = HafniaDataset.from_yolo_format(path_yolo_format)
+# Export/import dataset to YOLO format
+path_coco_format = Path(".data/tmp/coco_dataset")
+dataset_od.to_coco_format(path_output=path_coco_format)  # Export to COCO format
+dataset_od_imported = HafniaDataset.from_coco_format(path_coco_format)  # Import dataset from COCO format
 
 ## Custom dataset operations and statistics ##
 # Want custom dataset transformations or statistics? Use the polars table (dataset.samples) directly

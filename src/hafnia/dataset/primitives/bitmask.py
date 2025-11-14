@@ -22,11 +22,11 @@ class Bitmask(Primitive):
     left: int = Field(description="Bitmask left coordinate in pixels")
     height: int = Field(description="Bitmask height of the bounding box in pixels")
     width: int = Field(description="Bitmask width of the bounding box in pixels")
-    rleString: str = Field(
+    rle_string: str = Field(
         description="Run-length encoding (RLE) string for the bitmask region of size (height, width) at (top, left)."
     )
     area: Optional[float] = Field(
-        default=None, description="Area of the bitmask in pixels is calculated from the RLE string"
+        default=None, description="Area of the bitmask as a fraction of the image area (0.0 to 1.0)"
     )
     class_name: Optional[str] = Field(default=None, description="Class name of the object represented by the bitmask")
     class_idx: Optional[int] = Field(default=None, description="Class index of the object represented by the bitmask")
@@ -47,8 +47,9 @@ class Bitmask(Primitive):
     def column_name() -> str:
         return "bitmasks"
 
-    def calculate_area(self) -> float:
-        raise NotImplementedError()
+    def calculate_area(self, image_height: int, image_width: int) -> float:
+        area_px = coco_mask.area(self.to_coco_rle(img_height=image_height, img_width=image_width))
+        return area_px / (image_height * image_width)
 
     @staticmethod
     def from_mask(
@@ -79,60 +80,34 @@ class Bitmask(Primitive):
             height=h,
             width=w,
             area=area,
-            rleString=rle_string,
+            rle_string=rle_string,
             class_name=class_name,
             class_idx=class_idx,
             object_id=object_id,
         )
 
-    def squeeze_mask(self):
-        """
-        A mask may have large redundant areas of zeros. This function squeezes the mask to remove those areas.
-        """
-        region_mask = self.to_region_mask()
-        shift_left, last_left = np.flatnonzero(region_mask.sum(axis=0))[[0, -1]]
-        shift_top, last_top = np.flatnonzero(region_mask.sum(axis=1))[[0, -1]]
-        new_top = self.top + shift_top
-        new_left = self.left + shift_left
-        new_region_mask = region_mask[shift_top : last_top + 1, shift_left : last_left + 1]
-
-        bitmask_squeezed = Bitmask.from_mask(
-            mask=new_region_mask,
-            top=new_top,
-            left=new_left,
-            class_name=self.class_name,
-            class_idx=self.class_idx,
-            object_id=self.object_id,
-        )
-        return bitmask_squeezed
-
     def anonymize_by_blurring(self, image: np.ndarray, inplace: bool = False, max_resolution: int = 20) -> np.ndarray:
-        mask_tight = self.squeeze_mask()
-
-        mask_region = mask_tight.to_region_mask()
-        region_image = image[
-            mask_tight.top : mask_tight.top + mask_tight.height, mask_tight.left : mask_tight.left + mask_tight.width
-        ]
+        mask = self.to_mask(img_height=image.shape[0], img_width=image.shape[1])
+        region_mask = mask[self.top : self.top + self.height, self.left : self.left + self.width]
+        region_image = image[self.top : self.top + self.height, self.left : self.left + self.width]
         region_image_blurred = anonymize_by_resizing(blur_region=region_image, max_resolution=max_resolution)
-        image_mixed = np.where(mask_region[:, :, None], region_image_blurred, region_image)
-        image[
-            mask_tight.top : mask_tight.top + mask_tight.height, mask_tight.left : mask_tight.left + mask_tight.width
-        ] = image_mixed
+        image_mixed = np.where(region_mask[:, :, None], region_image_blurred, region_image)
+        image[self.top : self.top + self.height, self.left : self.left + self.width] = image_mixed
         return image
 
-    def to_region_mask(self) -> np.ndarray:
-        """Returns a binary mask from the RLE string. The masks is only the region of the object and not the full image."""
-        rle = {"counts": self.rleString.encode(), "size": [self.height, self.width]}
-        mask = coco_mask.decode(rle) > 0
-        return mask
+    def to_coco_rle(self, img_height: int, img_width: int, as_bytes: bool = True) -> Dict[str, Any]:
+        """Returns the COCO RLE dictionary from the RLE string."""
+
+        rle_string = self.rle_string
+        if as_bytes:
+            rle_string = rle_string.encode()  # type: ignore[assignment]
+        rle = {"counts": rle_string, "size": [img_height, img_width]}
+        return rle
 
     def to_mask(self, img_height: int, img_width: int) -> np.ndarray:
         """Creates a full image mask from the RLE string."""
-
-        region_mask = self.to_region_mask()
-        bitmask_np = np.zeros((img_height, img_width), dtype=bool)
-        bitmask_np[self.top : self.top + self.height, self.left : self.left + self.width] = region_mask
-        return bitmask_np
+        mask = coco_mask.decode(self.to_coco_rle(img_height=img_height, img_width=img_width)) > 0
+        return mask
 
     def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
         if not inplace:

@@ -2,6 +2,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
+from more_itertools import collapse
+from pycocotools import mask as coco_utils
 from pydantic import Field
 
 from hafnia.dataset.primitives.bitmask import Bitmask
@@ -13,6 +15,7 @@ from hafnia.dataset.primitives.utils import class_color_by_name, get_class_name
 class Polygon(Primitive):
     # Names should match names in FieldName
     points: List[Point] = Field(description="List of points defining the polygon")
+    area: Optional[float] = Field(default=None, description="Area of the polygon in pixels")
     class_name: Optional[str] = Field(default=None, description="Class name of the polygon")
     class_idx: Optional[int] = Field(default=None, description="Class index of the polygon")
     object_id: Optional[str] = Field(default=None, description="Object ID of the polygon")
@@ -44,7 +47,7 @@ class Polygon(Primitive):
     def column_name() -> str:
         return "polygons"
 
-    def calculate_area(self) -> float:
+    def calculate_area(self, image_height: int, image_width: int) -> float:
         raise NotImplementedError()
 
     def to_pixel_coordinates(
@@ -81,10 +84,48 @@ class Polygon(Primitive):
         points = np.array(self.to_pixel_coordinates(image_shape=image.shape[:2]))
         mask = np.zeros(image.shape[:2], dtype=np.uint8)
         mask = cv2.fillPoly(mask, [points], color=255).astype(bool)
-        bitmask = Bitmask.from_mask(mask=mask, top=0, left=0).squeeze_mask()
+        bitmask = Bitmask.from_mask(mask=mask, top=0, left=0)
         image = bitmask.anonymize_by_blurring(image=image, inplace=inplace, max_resolution=max_resolution)
 
         return image
+
+    def to_mask(self, img_height: int, img_width: int, use_coco_utils=False) -> np.ndarray:
+        if use_coco_utils:
+            points = list(collapse(self.to_pixel_coordinates(image_shape=(img_height, img_width))))
+            rles = coco_utils.frPyObjects([points], img_height, img_width)
+            rle = coco_utils.merge(rles)
+            mask = coco_utils.decode(rle).astype(bool)
+            return mask
+
+        mask = np.zeros((img_height, img_width), dtype=np.uint8)
+        points = np.array(self.to_pixel_coordinates(image_shape=(img_height, img_width)))
+        mask = cv2.fillPoly(mask, [points], color=255).astype(bool)
+        return mask
+
+    def to_bitmask(self, img_height: int, img_width: int) -> Bitmask:
+        points = list(collapse(self.to_pixel_coordinates(image_shape=(img_height, img_width))))
+        rles = coco_utils.frPyObjects([points], img_height, img_width)
+        rle = coco_utils.merge(rles)
+        top, left, height, width = coco_utils.toBbox(rle)
+
+        rle_string = rle["counts"]
+        if isinstance(rle_string, bytes):
+            rle_string = rle_string.decode("utf-8")
+
+        return Bitmask(
+            rle_string=rle_string,
+            top=int(top),
+            left=int(left),
+            width=int(width),
+            height=int(height),
+            class_name=self.class_name,
+            class_idx=self.class_idx,
+            object_id=self.object_id,
+            confidence=self.confidence,
+            ground_truth=self.ground_truth,
+            task_name=self.task_name,
+            meta=self.meta,
+        )
 
     def mask(
         self, image: np.ndarray, inplace: bool = False, color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None

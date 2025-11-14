@@ -30,7 +30,7 @@ DATASETS_EXPECTED = [
     ("cifar10", {"train": 171, "validation": 4, "test": 25}),
     ("cifar100", {"train": 428, "validation": 13, "test": 59}),
     # ("easyportrait", {"train": 32, "test": 20, "validation": 10}),
-    ("coco-2017", {"train": 192, "validation": 4, "test": 4}),
+    ("coco-2017", {"train": 189, "validation": 2, "test": 9}),
     # ("sama-coco", {"train": 99, "validation": 1, "test": 1}),
     # ("open-images-v7", {"train": 91, "validation": 3, "test": 9}),
 ]
@@ -185,7 +185,12 @@ def test_dataset_dataloader(loaded_dataset):
             if len(bitmasks) > 0:
                 assert isinstance(bitmasks[0], tv_tensors.Mask)
         elif task.primitive == Polygon:
-            raise NotImplementedError("Polygon handling not implemented in this test")
+            assert isinstance(class_idx, list)
+            polygon_name = f"{task_name}.polygon"
+            assert polygon_name in targets, f"Expected {polygon_name} in targets"
+            polygons = targets[polygon_name]
+            assert isinstance(polygons, tv_tensors.KeyPoints)
+
         elif task.primitive == Segmentation:
             raise NotImplementedError("Segmentation handling not implemented in this test")
         else:

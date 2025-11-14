@@ -31,7 +31,6 @@ that the signatures match.
 
 import json
 import re
-import shutil
 import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, Union
@@ -110,7 +109,7 @@ def convert_to_image_storage_format(
     """
     from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
-    path_images = path_output_folder / "data"
+    path_images = (path_output_folder / "data").absolute()
     path_images.mkdir(parents=True, exist_ok=True)
 
     # Only video format dataset samples are processed
@@ -147,7 +146,7 @@ def convert_to_image_storage_format(
                 }
             )
             if reextract_frames:
-                shutil.rmtree(path_image, ignore_errors=True)
+                path_image.unlink(missing_ok=True)
             if path_image.exists():
                 continue
 

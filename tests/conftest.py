@@ -24,8 +24,14 @@ def compare_to_expected_image(request, cache) -> Callable:
         test_script_name = node.nodeid.split("::")[0].replace(".py", "").split("/")[-1]
         path_expected_images = get_path_expected_images() / test_script_name
         path_expected_images.mkdir(exist_ok=True, parents=True)
-
         path_expected_image = path_expected_images / f"{test_name}.png"
+
+        if actual_image.dtype == bool:
+            actual_image = (actual_image.astype(np.uint8)) * 255
+
+        if actual_image.ndim == 2:
+            actual_image = cv2.cvtColor(actual_image, cv2.COLOR_GRAY2RGB)
+
         if force_update:
             Image.fromarray(actual_image).save(path_expected_image)
             pytest.fail("Expected image has been updated with 'force_update=True'. Rerun the test to pass")

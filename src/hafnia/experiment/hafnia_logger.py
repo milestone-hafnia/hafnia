@@ -133,7 +133,7 @@ class HafniaLogger:
                 tags["organization_id"] = experiment_name
             if created_by:
                 tags["created_by"] = created_by
-            mlflow.start_run(run_name=run_name, tags=tags)
+            mlflow.start_run(run_name=run_name, tags=tags, log_system_metrics=True)
             self._mlflow_initialized = True
             user_logger.info("MLflow run started successfully")
 

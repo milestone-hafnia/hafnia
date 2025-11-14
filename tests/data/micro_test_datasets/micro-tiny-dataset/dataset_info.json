@@ -53,6 +53,22 @@
                 "Polar"
             ],
             "name": "Geographical Context"
+        },
+        {
+            "primitive": "Polygon",
+            "class_names": [
+                "Annotator Marking Polygon.Mask",
+                "Vehicle Polygon"
+            ],
+            "name": "polygon_detection"
+        },
+        {
+            "primitive": "Bitmask",
+            "class_names": [
+                "Annotator Marking Bitmask.Mask",
+                "Vehicle Bitmask"
+            ],
+            "name": "mask_detection"
         }
     ],
     "reference_bibtex": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Hafnia Dataset: Tiny Dataset},\n    url = https://mdi.milestonesys.com/datasets/070b3bd5-0266-4446-a318-052c993558ef,\n    note = {Part of the Hafnia project},\n    version = {0.0.1},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}",
@@ -72,5 +88,5 @@
         "annotation_dataset_id": "9a0faaba-46d7-484a-91e8-b34b7c9ef236"
     },
     "format_version": "0.2.0",
-    "updated_at": "2025-11-04T13:26:03.774458"
+    "updated_at": "2025-11-11T12:34:31.606465"
 }

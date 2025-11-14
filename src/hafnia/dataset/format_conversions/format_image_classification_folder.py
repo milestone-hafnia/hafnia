@@ -8,6 +8,7 @@ from PIL import Image
 from rich.progress import track
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
+from hafnia.dataset.format_conversions.format_helpers import SplitNameAndPath, get_splits_from_folder
 from hafnia.dataset.primitives import Classification
 from hafnia.utils import is_image_file
 
@@ -15,19 +16,68 @@ if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 
+DEFAULT_DATASET_NAME = "ImageClassificationDataset"
+
+
 def from_image_classification_folder(
     path_folder: Path,
-    split: str,
     n_samples: Optional[int] = None,
+    dataset_name: str = DEFAULT_DATASET_NAME,
+) -> "HafniaDataset":
+    list_split_name_and_path = get_splits_from_folder(path_folder)
+
+    dataset = from_image_classification_folder_by_split_paths(
+        n_samples=n_samples,
+        dataset_name=dataset_name,
+        list_split_paths=list_split_name_and_path,
+    )
+    return dataset
+
+
+def from_image_classification_folder_by_split_paths(
+    list_split_paths: List[SplitNameAndPath],
+    dataset_name: str = DEFAULT_DATASET_NAME,
+    n_samples: Optional[int] = None,
+) -> "HafniaDataset":
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
+
+    class_names = sorted(more_itertools.collapse([class_names_from_folder(split.path) for split in list_split_paths]))
+
+    if n_samples is not None:
+        n_samples = n_samples // len(list_split_paths)  # Divide samples evenly across splits
+    datasets_per_split = []
+    for split in list_split_paths:
+        dataset_split = from_image_classification_split_folder(
+            path_folder=split.path,
+            split=split.name,
+            n_samples=n_samples,
+            class_names=class_names,
+            dataset_name=dataset_name,
+        )
+
+        datasets_per_split.append(dataset_split)
+
+    dataset = HafniaDataset.from_merger(datasets=datasets_per_split)
+    dataset.info.dataset_name = dataset_name
+    return dataset
+
+
+def from_image_classification_split_folder(
+    path_folder: Path,
+    split: str,
+    dataset_name: str,
+    n_samples: Optional[int] = None,
+    class_names: Optional[List[str]] = None,
 ) -> "HafniaDataset":
     from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 
-    class_folder_paths = [path for path in path_folder.iterdir() if path.is_dir()]
-    class_names = sorted([folder.name for folder in class_folder_paths])  # Sort for determinism
+    if class_names is None:
+        class_names = class_names_from_folder(path_folder)
 
     # Gather all image paths per class
     path_images_per_class: List[List[Path]] = []
-    for path_class_folder in class_folder_paths:
+    for class_name in class_names:
+        path_class_folder = path_folder / class_name
         per_class_images = []
         for path_image in list(path_class_folder.rglob("*.*")):
             if is_image_file(path_image):
@@ -58,7 +108,7 @@ def from_image_classification_folder(
         samples.append(sample)
 
     dataset_info = DatasetInfo(
-        dataset_name="ImageClassificationFromDirectoryTree",
+        dataset_name=dataset_name,
         tasks=[TaskInfo(primitive=Classification, class_names=class_names)],
     )
 
@@ -69,6 +119,29 @@ def from_image_classification_folder(
 def to_image_classification_folder(
     dataset: "HafniaDataset",
     path_output: Path,
+    task_name: Optional[str] = None,
+    clean_folder: bool = False,
+) -> List[Path]:
+    task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=Classification)
+
+    split_names = dataset.samples[SampleField.SPLIT].unique().to_list()
+    split_paths = []
+    for split_name in split_names:
+        dataset_split = dataset.create_split_dataset(split_name)
+        split_path = to_image_classification_split_folder(
+            dataset=dataset_split,
+            path_output_split=path_output / split_name,
+            task_name=task.name,
+            clean_folder=clean_folder,
+        )
+        split_paths.append(split_path)
+
+    return split_paths
+
+
+def to_image_classification_split_folder(
+    dataset: "HafniaDataset",
+    path_output_split: Path,
     task_name: Optional[str] = None,
     clean_folder: bool = False,
 ) -> Path:
@@ -90,8 +163,8 @@ def to_image_classification_folder(
         raise ValueError(f"Some samples have multiple classifications for task '{task.name}'.")
 
     if clean_folder:
-        shutil.rmtree(path_output, ignore_errors=True)
-    path_output.mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(path_output_split, ignore_errors=True)
+    path_output_split.mkdir(parents=True, exist_ok=True)
 
     description = "Export Hafnia Dataset to directory tree"
     for sample_dict in track(samples.iter_rows(named=True), total=len(samples), description=description):
@@ -100,11 +173,17 @@ def to_image_classification_folder(
             raise ValueError("Each sample should have exactly one classification.")
         classification = classifications[0]
         class_name = classification[PrimitiveField.CLASS_NAME].replace("/", "_")  # Avoid issues with subfolders
-        path_class_folder = path_output / class_name
+        path_class_folder = path_output_split / class_name
         path_class_folder.mkdir(parents=True, exist_ok=True)
 
         path_image_org = Path(sample_dict[SampleField.FILE_PATH])
         path_image_new = path_class_folder / path_image_org.name
         shutil.copy2(path_image_org, path_image_new)
 
-    return path_output
+    return path_output_split
+
+
+def class_names_from_folder(path_folder: Path) -> List[str]:
+    class_folder_paths = [path for path in path_folder.iterdir() if path.is_dir()]
+    class_names = sorted([folder.name for folder in class_folder_paths])  # Sort for determinism
+    return class_names

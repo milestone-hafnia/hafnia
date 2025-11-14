@@ -5,8 +5,7 @@ import pytest
 from packaging.version import Version
 
 import hafnia
-from hafnia.dataset.dataset_names import DeploymentStage, SampleField
-from hafnia.dataset.dataset_upload_helper import dataset_info_from_dataset
+from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
 
 # from data_management import utils
@@ -14,7 +13,6 @@ from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.primitives.classification import Classification
 from tests.helper_testing import (
     get_hafnia_functions_from_module,
-    get_path_micro_hafnia_dataset,
 )
 
 
@@ -90,21 +88,6 @@ def test_hafnia_dataset_has_all_dataset_stats_functions(function_name: str):
         f"Function '{function_name}' is missing in HafniaDataset.\n"
         f"Please add '{function_name} = {module_stem}.{function_name}' to HafniaDataset class."
     )
-
-
-def test_dataset_info_from_dataset():
-    dataset_name = "micro-tiny-dataset"
-    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
-    dataset = HafniaDataset.from_path(path_dataset)
-    dataset_info = dataset_info_from_dataset(
-        dataset=dataset,
-        deployment_stage=DeploymentStage.STAGING,
-        path_sample=path_dataset,
-        path_hidden=None,
-    )
-
-    # Check if dataset info can be serialized to JSON
-    dataset_info_json = dataset_info.model_dump_json()  # noqa: F841
 
 
 def test_task_info_validation_exceptions():

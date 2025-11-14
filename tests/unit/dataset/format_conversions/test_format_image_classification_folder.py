@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.format_conversions.format_image_classification_folder import (
     from_image_classification_folder,
     to_image_classification_folder,
@@ -18,17 +19,14 @@ def test_import_export_image_classification_from_directory(tmp_path: Path) -> No
         to_image_classification_folder(dataset, path_output=path_exported)
 
     task = dataset.info.get_task_by_task_name_and_primitive(task_name="Time of Day", primitive=None)
-    path_dataset_exported = to_image_classification_folder(
+    exported_paths = to_image_classification_folder(
         dataset, path_output=path_exported, task_name=task.name, clean_folder=True
     )
 
-    actual_class_names = [p.name for p in path_dataset_exported.iterdir()]
-    assert len(actual_class_names) == 3
-    expected_class_names = [n.replace("/", "_") for n in task.class_names or []]
-    assert set(actual_class_names).issubset(set(expected_class_names))
+    split_names = [p.name for p in exported_paths]
+    assert set(split_names) == {SplitName.TRAIN, SplitName.VAL}
     hafnia_dataset_imported = from_image_classification_folder(
-        path_folder=path_dataset_exported,
-        split="train",
+        path_folder=path_exported,
         n_samples=None,
     )
 
@@ -37,8 +35,7 @@ def test_import_export_image_classification_from_directory(tmp_path: Path) -> No
     assert len(hafnia_dataset_imported.samples) == len(dataset.samples)
 
     hafnia_dataset_imported = from_image_classification_folder(
-        path_folder=path_dataset_exported,
-        split="train",
+        path_folder=path_exported,
         n_samples=2,
     )
 

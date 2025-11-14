@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import yaml
 
+from hafnia.dataset.dataset_details_uploader import DatasetImageMetadata
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
-from hafnia.dataset.dataset_upload_helper import DatasetImageMetadata
 from hafnia.dataset.hafnia_dataset import Sample
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.dataset.primitives.bbox import Bbox
