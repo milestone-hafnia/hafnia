@@ -298,7 +298,11 @@ def fiftyone_coco_to_hafnia_sample(
     )
 
 
-def to_coco_format(dataset: "HafniaDataset", path_output: Path) -> List[CocoSplitPaths]:
+def to_coco_format(
+    dataset: "HafniaDataset",
+    path_output: Path,
+    task_name: Optional[str] = None,
+) -> List[CocoSplitPaths]:
     samples_modified_all = dataset.samples.with_row_index("id").unnest(SampleField.ATTRIBUTION)
     license_table = (
         samples_modified_all["licenses"]
@@ -310,12 +314,23 @@ def to_coco_format(dataset: "HafniaDataset", path_output: Path) -> List[CocoSpli
     )
     license_mapping = {lic["name"]: lic["id"] for lic in license_table.iter_rows(named=True)}
 
-    tasks_info = dataset.info.get_tasks_by_primitive(Bitmask)
-    if len(tasks_info) == 0:
-        tasks_info = dataset.info.get_tasks_by_primitive(Bbox)
-    if len(tasks_info) == 0:
-        raise ValueError("No 'Bitmask' or 'Bbox' primitive found in dataset tasks for COCO conversion")
-    task_info = tasks_info[0]
+    if task_name is not None:
+        task_info = dataset.info.get_task_by_name(task_name)
+    else:
+        # Auto derive the task to be used for COCO conversion as only one Bitmask/Bbox task can be present.
+        # Will first search for Bitmask (because COCO supports segmentation), then Bbox afterwards.
+        tasks_info = dataset.info.get_tasks_by_primitive(Bitmask)
+        if len(tasks_info) == 0:
+            tasks_info = dataset.info.get_tasks_by_primitive(Bbox)
+        if len(tasks_info) == 0:
+            raise ValueError("No 'Bitmask' or 'Bbox' primitive found in dataset tasks for COCO conversion")
+        if len(tasks_info) > 1:
+            task_names = [task.name for task in tasks_info]
+            raise ValueError(
+                f"Found multiple tasks {task_names} for 'Bitmask'/'Bbox' primitive in dataset."
+                " Please specify 'task_name'."
+            )
+        task_info = tasks_info[0]
 
     categories_list_dict = [
         {"id": i, "name": c, "supercategory": "NotDefined"} for i, c in enumerate(task_info.class_names or [])

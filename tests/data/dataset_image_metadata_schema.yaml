@@ -40,6 +40,14 @@ $defs:
     type: object
   Bbox:
     properties:
+      area:
+        anyOf:
+        - type: number
+        - type: 'null'
+        default: null
+        description: Area of the bounding box as a fraction of the image area (0.0
+          to 1.0)
+        title: Area
       class_idx:
         anyOf:
         - type: integer
@@ -119,7 +127,7 @@ $defs:
         - type: number
         - type: 'null'
         default: null
-        description: Area of the bitmask in pixels is calculated from the RLE string
+        description: Area of the bitmask as a fraction of the image area (0.0 to 1.0)
         title: Area
       class_idx:
         anyOf:
