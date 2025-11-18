@@ -9,12 +9,14 @@ import polars as pl
 from pycocotools import mask as coco_utils
 from rich.progress import track
 
+from hafnia.dataset import license_types
 from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_coco, format_helpers
 
-if TYPE_CHECKING:
-    from hafnia.dataset.hafnia_dataset import HafniaDataset, License, Sample, TaskInfo
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
+from hafnia.dataset.hafnia_dataset_types import Attribution, DatasetInfo, License, Sample, TaskInfo
 from hafnia.dataset.primitives import Bbox, Bitmask
 from hafnia.log import user_logger
 
@@ -78,7 +80,7 @@ def from_coco_dataset_by_split_definitions(
     max_samples: Optional[int],
     dataset_name: str,
 ) -> "HafniaDataset":
-    from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
     if max_samples is None:
         max_samples_per_split = None
@@ -137,10 +139,7 @@ def coco_format_folder_with_split_to_hafnia_samples(
     path_images: Path,
     split_name: str,
     max_samples_per_split: Optional[int],
-) -> Tuple[List["Sample"], List["TaskInfo"]]:
-    from hafnia.dataset import license_types
-    from hafnia.dataset.hafnia_dataset import TaskInfo
-
+) -> Tuple[List[Sample], List[TaskInfo]]:
     if not path_label_file.exists():
         raise FileNotFoundError(f"Expected label file not found: {path_label_file}")
     user_logger.info("Loading coco label file as json")
@@ -228,11 +227,9 @@ def fiftyone_coco_to_hafnia_sample(
     image_annotations: List[Dict],
     id_to_category: Dict,
     class_names: List[str],
-    id_to_license_mapping: Dict[int, "License"],
+    id_to_license_mapping: Dict[int, License],
     split_name: str,
-) -> "Sample":
-    from hafnia.dataset.hafnia_dataset import Attribution, Sample
-
+) -> Sample:
     image_dict = image_dict.copy()  # Create a copy to avoid modifying the original dictionary.
     file_name_relative = image_dict.pop(COCO_KEY_FILE_NAME)
     file_name = path_images / file_name_relative
@@ -400,7 +397,7 @@ def to_coco_format(
 def _convert_bbox_bitmask_to_coco_format(
     samples_modified: pl.DataFrame,
     license_mapping: Dict[str, int],
-    task_info: "TaskInfo",
+    task_info: TaskInfo,
     category_mapping: Dict[str, int],
 ) -> Tuple[pl.DataFrame, pl.DataFrame]:
     if task_info.primitive not in [Bbox, Bitmask]:

@@ -6,9 +6,10 @@ from packaging.version import Version
 
 import hafnia
 from hafnia.dataset.dataset_names import SampleField
-from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 # from data_management import utils
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.primitives.classification import Classification
 from tests.helper_testing import (

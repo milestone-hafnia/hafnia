@@ -1,7 +1,7 @@
 from inspect import getmembers, isfunction, signature
 from pathlib import Path
 from types import FunctionType
-from typing import Any, Callable, Dict, List, Tuple, Union, get_origin
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, Union, get_origin
 
 import cv2
 import numpy as np
@@ -10,10 +10,13 @@ import polars as pl
 import hafnia
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, SampleField, SplitName, StorageFormat
-from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
-from hafnia.dataset.hafnia_dataset import DatasetInfo, HafniaDataset, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Bbox
 from hafnia.visualizations import image_visualizations
+
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
+    from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 MICRO_DATASETS = {
     "micro-tiny-dataset": "tiny-dataset",
@@ -43,6 +46,8 @@ def get_path_micro_hafnia_dataset_no_check() -> Path:
 
 def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path:
     import pytest
+
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
     if dataset_name not in MICRO_DATASETS:
         raise ValueError(f"Dataset name '{dataset_name}' is not recognized. Available options: {list(MICRO_DATASETS)}")
@@ -87,7 +92,9 @@ def get_sample_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Sa
     return sample
 
 
-def get_micro_hafnia_dataset(dataset_name: str, force_update: bool = False) -> HafniaDataset:
+def get_micro_hafnia_dataset(dataset_name: str, force_update: bool = False) -> "HafniaDataset":
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
+
     path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=force_update)
     hafnia_dataset = HafniaDataset.from_path(path_dataset)
     return hafnia_dataset
@@ -113,6 +120,7 @@ def annotation_as_string(annotation: Union[type, str]) -> str:
         replace_dict = {
             "typing.": "",
             "hafnia.dataset.primitives.primitive.": "",
+            "hafnia.dataset.hafnia_dataset_types.": "",
         }
 
         for key, value in replace_dict.items():
@@ -146,7 +154,9 @@ def get_hafnia_functions_from_module(python_module) -> Dict[str, FunctionType]:
     return functions
 
 
-def get_dummy_recipe() -> DatasetRecipe:
+def get_dummy_recipe() -> "DatasetRecipe":
+    from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
+
     dataset_recipe = (
         DatasetRecipe.from_merger(
             recipes=[
@@ -208,7 +218,9 @@ def dict_as_list_of_tuples(mapping: Dict[str, str]) -> List[Tuple[str, str]]:
 
 def simulate_hafnia_video_dataset(
     path_dataset: Path, n_frames: int = 10, fps: int = 1, add_bboxes: bool = True
-) -> HafniaDataset:
+) -> "HafniaDataset":
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
+
     video_path = path_dataset / "video.mp4"
 
     def simulate_frame(frame_number: int):
