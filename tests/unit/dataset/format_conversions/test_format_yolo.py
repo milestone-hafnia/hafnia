@@ -45,16 +45,21 @@ def test_format_yolo_import_export_tiny_dataset(tmp_path: Path, compare_to_expec
     compare_to_expected_image(sample_visualized)
 
 
-@pytest.mark.parametrize(("micro_dataset_name"), helper_testing.MICRO_DATASETS)
+@pytest.mark.parametrize("micro_dataset_name", helper_testing.MICRO_DATASETS)
 def test_to_and_from_yolo_format(micro_dataset_name: str, tmp_path: Path) -> None:
     dataset = helper_testing.get_micro_hafnia_dataset(dataset_name=micro_dataset_name)
+    n_expected_samples = len(dataset.samples)
     path_output = tmp_path / micro_dataset_name
 
     # To YOLO format
     dataset.to_yolo_format(path_output=path_output)
 
     # From YOLO format
-    dataset = HafniaDataset.from_yolo_format(path_dataset=path_output, dataset_name=micro_dataset_name)
+    dataset_reloaded = HafniaDataset.from_yolo_format(path_dataset=path_output, dataset_name=micro_dataset_name)
+
+    assert len(dataset_reloaded.samples) == n_expected_samples, (
+        "The number of samples before and after COCO format conversion should be the same"
+    )
 
 
 def test_format_yolo_import_export(tmp_path: Path) -> None:

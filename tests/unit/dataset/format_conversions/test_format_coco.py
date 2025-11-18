@@ -73,16 +73,20 @@ def test_to_coco_format_visualized(compare_to_expected_image: Callable, tmp_path
     compare_to_expected_image(sample_visualized)
 
 
-@pytest.mark.parametrize(("micro_dataset_name"), helper_testing.MICRO_DATASETS)
+@pytest.mark.parametrize("micro_dataset_name", helper_testing.MICRO_DATASETS)
 def test_to_and_from_coco_format(micro_dataset_name: str, tmp_path: Path) -> None:
     dataset = helper_testing.get_micro_hafnia_dataset(dataset_name=micro_dataset_name)
+    n_expected_samples = len(dataset.samples)
     path_output = tmp_path / micro_dataset_name
 
     # To COCO format
     dataset.to_coco_format(path_output=path_output)
 
     # From COCO format
-    dataset = HafniaDataset.from_coco_format(path_dataset=path_output, dataset_name=micro_dataset_name)
+    dataset_reloaded = HafniaDataset.from_coco_format(path_dataset=path_output, dataset_name=micro_dataset_name)
+    assert len(dataset_reloaded.samples) == n_expected_samples, (
+        "The number of samples before and after COCO format conversion should be the same"
+    )
 
 
 @pytest.mark.parametrize(("bitmask_type"), ["polygon", "rle_as_ints", "rle_compressed_str", "rle_compressed_bytes"])

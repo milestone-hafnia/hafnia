@@ -233,7 +233,7 @@ def progress_bar(sequence: Iterable, total: Optional[int] = None, description: s
 
     ```python
     items = list(range(1000))
-    for item in progress_bar(items, "Processing..."):
+    for item in progress_bar(items, description="Processing..."):
         time.sleep(0.02)
     ```
     Working... ━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  245/1000 ETA: 0:00:16 | Elapsed: 0:00:05
