@@ -11,7 +11,7 @@ from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_helpers
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 FILENAME_YOLO_CLASS_NAMES = "obj.names"

@@ -14,7 +14,7 @@ from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Bbox
 from hafnia.visualizations import image_visualizations
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
@@ -120,6 +120,7 @@ def annotation_as_string(annotation: Union[type, str]) -> str:
         replace_dict = {
             "typing.": "",
             "hafnia.dataset.primitives.primitive.": "",
+            "hafnia.dataset.hafnia_dataset_types.": "",
         }
 
         for key, value in replace_dict.items():

@@ -13,7 +13,7 @@ from hafnia.dataset import license_types
 from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_coco, format_helpers
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 from hafnia.dataset.hafnia_dataset_types import Attribution, DatasetInfo, License, Sample, TaskInfo

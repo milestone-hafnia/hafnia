@@ -13,7 +13,7 @@ from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Classification
 from hafnia.utils import is_image_file
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 

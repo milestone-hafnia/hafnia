@@ -280,7 +280,7 @@ def unnest_classification_tasks(table: pl.DataFrame, strict: bool = True) -> pl.
     return table_out
 
 
-def update_class_indices(samples: pl.DataFrame, task: "TaskInfo") -> pl.DataFrame:
+def update_class_indices(samples: pl.DataFrame, task: TaskInfo) -> pl.DataFrame:
     if task.class_names is None or len(task.class_names) == 0:
         raise ValueError(f"Task '{task.name}' does not have defined class names to update class indices.")
 

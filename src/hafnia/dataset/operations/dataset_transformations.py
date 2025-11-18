@@ -64,7 +64,7 @@ class AnonymizeByPixelation:
     def __init__(self, resize_factor: float = 0.10):
         self.resize_factor = resize_factor
 
-    def __call__(self, frame: np.ndarray, sample: "Sample") -> np.ndarray:
+    def __call__(self, frame: np.ndarray, sample: Sample) -> np.ndarray:
         org_size = frame.shape[:2]
         frame = cv2.resize(frame, (0, 0), fx=self.resize_factor, fy=self.resize_factor)
         frame = cv2.resize(frame, org_size[::-1], interpolation=cv2.INTER_NEAREST)
@@ -73,7 +73,7 @@ class AnonymizeByPixelation:
 
 def transform_images(
     dataset: "HafniaDataset",
-    transform: Callable[[np.ndarray, "Sample"], np.ndarray],
+    transform: Callable[[np.ndarray, Sample], np.ndarray],
     path_output: Path,
     description: str = "Transform images",
 ) -> "HafniaDataset":
@@ -100,7 +100,7 @@ def convert_to_image_storage_format(
     path_output_folder: Path,
     reextract_frames: bool,
     image_format: str = "png",
-    transform: Optional[Callable[[np.ndarray, "Sample"], np.ndarray]] = None,
+    transform: Optional[Callable[[np.ndarray, Sample], np.ndarray]] = None,
 ) -> "HafniaDataset":
     """
     Convert a video-based dataset ("storage_format" == "video", FieldName.STORAGE_FORMAT == StorageFormat.VIDEO)
@@ -166,10 +166,10 @@ def convert_to_image_storage_format(
 
 
 def get_task_info_from_task_name_and_primitive(
-    tasks: List["TaskInfo"],
+    tasks: List[TaskInfo],
     task_name: Optional[str] = None,
     primitive: Union[None, str, Type[Primitive]] = None,
-) -> "TaskInfo":
+) -> TaskInfo:
     if len(tasks) == 0:
         raise ValueError("Dataset has no tasks defined.")
 
@@ -421,7 +421,7 @@ def _validate_inputs_select_samples_by_class_name(
     name: Union[List[str], str],
     task_name: Optional[str] = None,
     primitive: Optional[Type[Primitive]] = None,
-) -> Tuple["TaskInfo", List[str]]:
+) -> Tuple[TaskInfo, List[str]]:
     if isinstance(name, str):
         name = [name]
     names = list(name)
