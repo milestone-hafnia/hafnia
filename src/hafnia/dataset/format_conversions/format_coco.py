@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import polars as pl
 from pycocotools import mask as coco_utils
-from rich.progress import track
 
 from hafnia.dataset import license_types
 from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_coco, format_helpers
+from hafnia.utils import progress_bar
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -169,7 +169,9 @@ def coco_format_folder_with_split_to_hafnia_samples(
         img_id_to_annotations[img_id].append(annotation)
 
     samples = []
-    for img_id, image_dict in track(id_to_image.items(), description=f"Convert coco to hafnia sample '{split_name}'"):
+    for img_id, image_dict in progress_bar(
+        id_to_image.items(), description=f"Convert coco to hafnia sample '{split_name}'"
+    ):
         image_annotations = img_id_to_annotations.get(img_id, [])
 
         sample = fiftyone_coco_to_hafnia_sample(

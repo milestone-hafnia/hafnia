@@ -13,6 +13,7 @@ import pathspec
 import rich
 import seedir
 from rich import print as rprint
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
 from hafnia.log import sys_logger, user_logger
 
@@ -222,3 +223,32 @@ def remove_duplicates_preserve_order(seq: Iterable) -> List:
 def is_image_file(file_path: Path) -> bool:
     image_extensions = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".gif")
     return file_path.suffix.lower() in image_extensions
+
+
+def progress_bar(sequence: Iterable, total: Optional[int] = None, description: str = "Working...") -> Iterable:
+    """
+    Progress bar that extends the functionality of rich.progress.track with a custom layout.
+    Example usage:
+
+    ```python
+    items = list(range(1000))
+    for item in progress_bar(items, "Processing..."):
+        time.sleep(0.02)
+    ```
+    Working... ━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  245/1000 ETA: 0:00:16 | Elapsed: 0:00:05
+    """
+    progress_bar = Progress(
+        TextColumn("{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("ETA:"),
+        TimeRemainingColumn(),
+        TextColumn("| Elapsed:"),
+        TimeElapsedColumn(),
+    )
+    total = total or len(sequence)
+    with progress_bar as progress:
+        task = progress.add_task(description, total=total)
+        for item in sequence:
+            yield item
+            progress.update(task, advance=1)

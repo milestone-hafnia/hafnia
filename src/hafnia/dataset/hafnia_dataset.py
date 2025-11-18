@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import polars as pl
 from packaging.version import Version
-from rich.progress import track
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import (
@@ -38,6 +37,7 @@ from hafnia.dataset.operations import (
 )
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
+from hafnia.utils import progress_bar
 
 
 @dataclass
@@ -571,7 +571,7 @@ class HafniaDataset:
         hafnia_dataset = self.copy()  # To avoid inplace modifications
         new_paths = []
         org_paths = hafnia_dataset.samples[SampleField.FILE_PATH].to_list()
-        for org_path in track(org_paths, description="- Copy images"):
+        for org_path in progress_bar(org_paths, description="- Copy images"):
             new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
                 path_source=Path(org_path),
                 path_dataset_root=path_folder,

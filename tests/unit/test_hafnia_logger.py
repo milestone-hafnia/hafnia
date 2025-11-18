@@ -13,7 +13,7 @@ def logger(tmpdir: Path) -> HafniaLogger:
     """Create a logger instance for testing."""
     if "HAFNIA_LOCAL_SCRIPT" not in os.environ:
         os.environ["HAFNIA_LOCAL_SCRIPT"] = "true"
-    return HafniaLogger(Path(tmpdir))
+    return HafniaLogger(project_name="test_project", log_dir=Path(tmpdir))
 
 
 def test_basic_scalar_logging(logger: HafniaLogger) -> None:
@@ -50,7 +50,7 @@ def test_metric_logging(logger: HafniaLogger) -> None:
 
 def test_config_logging(logger: HafniaLogger):
     """Test configuration logging."""
-    config = {"learning_rate": 0.001, "batch_size": 32, "model_type": "resnet50"}
+    config = {"learning_rate": 0.001, "batch_size": 32, "model_type": "resnet50", "project_name": "test_project"}
     logger.log_configuration(config)
     config_file = logger._path_artifacts() / "configuration.json"
 

@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
 from PIL import Image
-from rich.progress import track
 
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_helpers
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
+from hafnia.utils import progress_bar
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -121,7 +121,7 @@ def dataset_split_from_yolo_format(
     image_paths_raw = [line.strip() for line in images_txt_text.splitlines()]
 
     samples: List[Sample] = []
-    for image_path_raw in track(image_paths_raw):
+    for image_path_raw in progress_bar(image_paths_raw, description=f"Import YOLO '{split_paths.split}' split"):
         path_image = split_paths.path_root / image_path_raw
         if not path_image.exists():
             raise FileNotFoundError(f"File with image not found at '{path_image.resolve()}'")

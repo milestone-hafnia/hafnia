@@ -39,7 +39,6 @@ import cv2
 import more_itertools
 import numpy as np
 import polars as pl
-from rich.progress import track
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import (
@@ -53,7 +52,7 @@ from hafnia.dataset.operations.table_transformations import update_class_indices
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
-from hafnia.utils import remove_duplicates_preserve_order
+from hafnia.utils import progress_bar, remove_duplicates_preserve_order
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -81,7 +80,7 @@ def transform_images(
     path_image_folder = path_output / "data"
     path_image_folder.mkdir(parents=True, exist_ok=True)
 
-    for sample_dict in track(dataset, description=description):
+    for sample_dict in progress_bar(dataset, description=description):
         sample = Sample(**sample_dict)
         image = sample.read_image()
         image_transformed = transform(image, sample)
@@ -126,7 +125,7 @@ def convert_to_image_storage_format(
         video = cv2.VideoCapture(str(path_video))
 
         video_samples = video_samples.sort(SampleField.COLLECTION_INDEX)
-        for sample_dict in track(
+        for sample_dict in progress_bar(
             video_samples.iter_rows(named=True),
             total=video_samples.height,
             description=f"Extracting frames from '{Path(path_video).name}'",

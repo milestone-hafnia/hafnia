@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 import polars as pl
 import rich
 from rich import print as rprint
-from rich.progress import track
 from rich.table import Table
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, SplitName
@@ -13,6 +12,7 @@ from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.operations.table_transformations import create_primitive_table
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.log import user_logger
+from hafnia.utils import progress_bar
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -226,7 +226,7 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
                 f"classes: {class_names}. "
             )
 
-    for sample_dict in track(dataset, description="Checking samples in dataset"):
+    for sample_dict in progress_bar(dataset, description="Checking samples in dataset"):
         sample = Sample(**sample_dict)  # noqa: F841
 
 

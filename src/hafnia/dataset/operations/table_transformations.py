@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
 import polars as pl
-from rich.progress import track
 
 from hafnia.dataset.dataset_names import (
     FILENAME_ANNOTATIONS_JSONL,
@@ -16,6 +15,7 @@ from hafnia.dataset.primitives import PRIMITIVE_TYPES
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
+from hafnia.utils import progress_bar
 
 
 def create_primitive_table(
@@ -222,7 +222,7 @@ def read_samples_from_path(path: Path) -> pl.DataFrame:
 def check_image_paths(table: pl.DataFrame) -> bool:
     missing_files = []
     org_paths = table[SampleField.FILE_PATH].to_list()
-    for org_path in track(org_paths, description="Check image paths"):
+    for org_path in progress_bar(org_paths, description="Check image paths"):
         org_path = Path(org_path)
         if not org_path.exists():
             missing_files.append(org_path)
