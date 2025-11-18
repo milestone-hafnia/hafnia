@@ -228,7 +228,8 @@ def is_image_file(file_path: Path) -> bool:
 
 def progress_bar(sequence: Iterable, total: Optional[int] = None, description: str = "Working...") -> Iterable:
     """
-    Progress bar that extends the functionality of rich.progress.track with a custom layout.
+    Progress bar showing number of iterations being processed with ETA and elapsed time.
+
     Example usage:
 
     ```python
@@ -236,7 +237,7 @@ def progress_bar(sequence: Iterable, total: Optional[int] = None, description: s
     for item in progress_bar(items, description="Processing..."):
         time.sleep(0.02)
     ```
-    Working... ━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  245/1000 ETA: 0:00:16 | Elapsed: 0:00:05
+    Processing... ━━━━━━━━━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  245/1000 ETA: 0:00:16 | Elapsed: 0:00:05
     """
     progress_bar = Progress(
         TextColumn("{task.description}"),

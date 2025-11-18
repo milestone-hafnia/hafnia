@@ -335,8 +335,8 @@ def to_coco_format(
     if task_name is not None:
         task_info = dataset.info.get_task_by_name(task_name)
     else:
-        # Auto derive the task to be used for COCO conversion as only one Bitmask/Bbox task can be present.
-        # Will first search for Bitmask (because COCO supports segmentation), then Bbox afterwards.
+        # Auto derive the task to be used for COCO conversion as only one Bitmask/Bbox task can be present
+        # in the coco format. Will first search for Bitmask (because COCO supports segmentation), then Bbox afterwards.
         tasks_info = dataset.info.get_tasks_by_primitive(Bitmask)
         if len(tasks_info) == 0:
             tasks_info = dataset.info.get_tasks_by_primitive(Bbox)
