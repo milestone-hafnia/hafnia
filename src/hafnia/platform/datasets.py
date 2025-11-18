@@ -191,7 +191,7 @@ def execute_s5cmd_commands(
 
         error_lines = []
         lines = []
-        for line in progress_bar(process.stdout, total=len(commands), description=description):
+        for line in progress_bar(process.stdout, total=len(commands), description=description):  # type: ignore[arg-type]
             if "ERROR" in line or "error" in line:
                 error_lines.append(line.strip())
             lines.append(line.strip())

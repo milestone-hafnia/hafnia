@@ -2,6 +2,7 @@ import hashlib
 import os
 import time
 import zipfile
+from collections.abc import Sized
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -246,7 +247,9 @@ def progress_bar(sequence: Iterable, total: Optional[int] = None, description: s
         TextColumn("| Elapsed:"),
         TimeElapsedColumn(),
     )
-    total = total or len(sequence)
+
+    if total is None:
+        total = len(sequence) if isinstance(sequence, Sized) else None
     with progress_bar as progress:
         task = progress.add_task(description, total=total)
         for item in sequence:

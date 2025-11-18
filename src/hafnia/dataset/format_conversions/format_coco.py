@@ -416,21 +416,21 @@ def _convert_bbox_bitmask_to_coco_format(
         raise ValueError(f"Unsupported primitive '{task_info.primitive}' for COCO conversion")
 
     task_sample_field = task_info.primitive.column_name()
-    select_image_table_columns = (
+    select_image_table_columns = [
         pl.col("id"),
         pl.col(SampleField.WIDTH).alias("width"),
         pl.col(SampleField.HEIGHT).alias("height"),
         pl.col(SampleField.FILE_PATH).alias(COCO_KEY_FILE_NAME),
-    )
+    ]
 
     if license_mapping is not None:
         samples_modified = samples_modified.with_columns(pl.col("licenses").list.first().struct.unnest())
-        select_image_table_columns = select_image_table_columns + (
+        select_image_table_columns = select_image_table_columns + [
             pl.col("name").replace_strict(license_mapping, return_dtype=pl.Int64).alias("license"),
             pl.col("source_url").alias("flickr_url"),
             pl.col("source_url").alias("coco_url"),
             pl.col("date_captured"),
-        )
+        ]
 
     images_table = samples_modified.select(select_image_table_columns)
 
