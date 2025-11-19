@@ -6,7 +6,6 @@ import textwrap
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from rich.progress import track
 from torchvision import datasets as tv_datasets
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import download_and_extract_archive, extract_archive
@@ -217,7 +216,9 @@ def torchvision_basic_image_classification_dataset_as_hafnia_dataset(
         class_index_to_name = {v: k for k, v in class_name_to_index.items()}
         description = f"Convert '{torchvision_dataset_name}' ({split_name} split) to Hafnia Dataset "
         samples_in_split = []
-        for image, class_idx in track(torchvision_dataset, total=n_samples_per_split, description=description):
+        for image, class_idx in utils.progress_bar(
+            torchvision_dataset, total=n_samples_per_split, description=description
+        ):
             (width, height) = image.size
             path_image = save_pil_image_with_hash_name(image, path_hafnia_conversions)
             sample = Sample(

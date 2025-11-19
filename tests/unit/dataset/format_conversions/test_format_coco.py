@@ -9,6 +9,7 @@ from pycocotools import mask as coco_utils
 
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.format_conversions import format_coco
+from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import Bbox, Bitmask
 from tests import helper_testing
@@ -17,7 +18,7 @@ from tests import helper_testing
 def test_from_coco_format_visualized(compare_to_expected_image: Callable) -> None:
     path_coco_dataset = helper_testing.get_path_test_dataset_formats() / "format_coco_roboflow"
     hafnia_dataset = format_coco.from_coco_format(
-        path_coco_dataset=path_coco_dataset,
+        path_dataset=path_coco_dataset,
         max_samples=None,
         coco_format_type="roboflow",
     )
@@ -38,7 +39,7 @@ def test_to_coco_format_visualized(compare_to_expected_image: Callable, tmp_path
     coco_format_type = "roboflow"
 
     hafnia_dataset = format_coco.from_coco_format(
-        path_coco_dataset=path_coco_dataset,
+        path_dataset=path_coco_dataset,
         max_samples=max_samples,
         coco_format_type=coco_format_type,
     )
@@ -47,7 +48,7 @@ def test_to_coco_format_visualized(compare_to_expected_image: Callable, tmp_path
     format_coco.to_coco_format(hafnia_dataset, path_exported_coco_dataset)
 
     hafnia_dataset_reloaded = format_coco.from_coco_format(
-        path_coco_dataset=path_exported_coco_dataset,
+        path_dataset=path_exported_coco_dataset,
         max_samples=max_samples,
         coco_format_type=coco_format_type,
     )
@@ -72,6 +73,22 @@ def test_to_coco_format_visualized(compare_to_expected_image: Callable, tmp_path
     compare_to_expected_image(sample_visualized)
 
 
+@pytest.mark.parametrize("micro_dataset_name", helper_testing.MICRO_DATASETS)
+def test_to_and_from_coco_format(micro_dataset_name: str, tmp_path: Path) -> None:
+    dataset = helper_testing.get_micro_hafnia_dataset(dataset_name=micro_dataset_name)
+    n_expected_samples = len(dataset.samples)
+    path_output = tmp_path / micro_dataset_name
+
+    # To COCO format
+    dataset.to_coco_format(path_output=path_output)
+
+    # From COCO format
+    dataset_reloaded = HafniaDataset.from_coco_format(path_dataset=path_output, dataset_name=micro_dataset_name)
+    assert len(dataset_reloaded.samples) == n_expected_samples, (
+        "The number of samples before and after COCO format conversion should be the same"
+    )
+
+
 @pytest.mark.parametrize(("bitmask_type"), ["polygon", "rle_as_ints", "rle_compressed_str", "rle_compressed_bytes"])
 def test_convert_segmentation_to_rle_list(bitmask_type: str, compare_to_expected_image: Callable) -> None:
     segmentations_types = get_rle_bitmask_encoding_examples()
@@ -92,7 +109,7 @@ def test_convert_segmentation_to_rle_list(bitmask_type: str, compare_to_expected
 def get_rle_bitmask_encoding_examples() -> Dict[str, Any]:
     path_coco_dataset = helper_testing.get_path_test_dataset_formats() / "format_coco_roboflow"
     image_name = "000000000632.jpg"
-    hafnia_dataset = format_coco.from_coco_format(path_coco_dataset=path_coco_dataset, coco_format_type="roboflow")
+    hafnia_dataset = format_coco.from_coco_format(path_dataset=path_coco_dataset, coco_format_type="roboflow")
     samples = hafnia_dataset.samples.filter(pl.col(SampleField.FILE_PATH).str.contains(image_name))
     assert len(samples) == 1
 

@@ -5,13 +5,12 @@ from typing import TYPE_CHECKING, List, Optional
 import more_itertools
 import polars as pl
 from PIL import Image
-from rich.progress import track
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.format_conversions.format_helpers import SplitNameAndPath, get_splits_from_folder
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Classification
-from hafnia.utils import is_image_file
+from hafnia.utils import is_image_file, progress_bar
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -92,7 +91,9 @@ def from_image_classification_split_folder(
         path_images = path_images[:n_samples]
 
     samples = []
-    for path_image_org in track(path_images, description="Convert 'image classification' dataset to Hafnia Dataset"):
+    for path_image_org in progress_bar(
+        path_images, description="Convert 'image classification' dataset to Hafnia Dataset"
+    ):
         class_name = path_image_org.parent.name
 
         read_image = Image.open(path_image_org)
@@ -168,7 +169,7 @@ def to_image_classification_split_folder(
     path_output_split.mkdir(parents=True, exist_ok=True)
 
     description = "Export Hafnia Dataset to directory tree"
-    for sample_dict in track(samples.iter_rows(named=True), total=len(samples), description=description):
+    for sample_dict in progress_bar(samples.iter_rows(named=True), total=len(samples), description=description):
         classifications = sample_dict[task.primitive.column_name()]
         if len(classifications) != 1:
             raise ValueError("Each sample should have exactly one classification.")

@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import polars as pl
 from pycocotools import mask as coco_utils
-from rich.progress import track
 
 from hafnia.dataset import license_types
 from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_coco, format_helpers
+from hafnia.utils import progress_bar
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -38,13 +38,13 @@ class CocoSplitPaths:
 
 
 def from_coco_format(
-    path_coco_dataset: Path,
+    path_dataset: Path,
     coco_format_type: str = "roboflow",
     max_samples: Optional[int] = None,
     dataset_name: str = "coco-2017",
 ):
     split_definitions = get_split_paths_for_coco_dataset_formats(
-        path_coco_dataset=path_coco_dataset, coco_format_type=coco_format_type
+        path_dataset=path_dataset, coco_format_type=coco_format_type
     )
 
     hafnia_dataset = from_coco_dataset_by_split_definitions(
@@ -57,12 +57,12 @@ def from_coco_format(
 
 
 def get_split_paths_for_coco_dataset_formats(
-    path_coco_dataset: Path,
+    path_dataset: Path,
     coco_format_type: str,
 ) -> List[CocoSplitPaths]:
     splits = []
     if coco_format_type == "roboflow":
-        for split_def in format_helpers.get_splits_from_folder(path_coco_dataset):
+        for split_def in format_helpers.get_splits_from_folder(path_dataset):
             splits.append(
                 CocoSplitPaths(
                     split=split_def.name,
@@ -169,7 +169,9 @@ def coco_format_folder_with_split_to_hafnia_samples(
         img_id_to_annotations[img_id].append(annotation)
 
     samples = []
-    for img_id, image_dict in track(id_to_image.items(), description=f"Convert coco to hafnia sample '{split_name}'"):
+    for img_id, image_dict in progress_bar(
+        id_to_image.items(), description=f"Convert coco to hafnia sample '{split_name}'"
+    ):
         image_annotations = img_id_to_annotations.get(img_id, [])
 
         sample = fiftyone_coco_to_hafnia_sample(
@@ -282,15 +284,18 @@ def fiftyone_coco_to_hafnia_sample(
         bbox.area = bbox.calculate_area(image_height=img_height, image_width=img_width)
         bboxes.append(bbox)
 
-    license_data: License = id_to_license_mapping[image_dict["license"]]
+    if "license" in image_dict:
+        license_data: License = id_to_license_mapping[image_dict["license"]]
 
-    capture_date = datetime.fromisoformat(image_dict["date_captured"])
-    source_url = image_dict["flickr_url"] if "flickr_url" in image_dict else image_dict.get("coco_url")
-    attribution = Attribution(
-        date_captured=capture_date,
-        licenses=[license_data],
-        source_url=source_url,
-    )
+        capture_date = datetime.fromisoformat(image_dict["date_captured"])
+        source_url = image_dict["flickr_url"] if "flickr_url" in image_dict else image_dict.get("coco_url")
+        attribution = Attribution(
+            date_captured=capture_date,
+            licenses=[license_data],
+            source_url=source_url,
+        )
+    else:
+        attribution = None
 
     return Sample(
         file_path=str(file_name),
@@ -310,22 +315,28 @@ def to_coco_format(
     task_name: Optional[str] = None,
     coco_format_type: str = "roboflow",
 ) -> List[CocoSplitPaths]:
-    samples_modified_all = dataset.samples.with_row_index("id").unnest(SampleField.ATTRIBUTION)
-    license_table = (
-        samples_modified_all["licenses"]
-        .explode()
-        .struct.unnest()
-        .unique()
-        .with_row_index("id")
-        .select(["id", "name", "url"])
-    )
-    license_mapping = {lic["name"]: lic["id"] for lic in license_table.iter_rows(named=True)}
+    samples_modified_all = dataset.samples.with_row_index("id")
+
+    if SampleField.ATTRIBUTION in samples_modified_all.columns:
+        samples_modified_all = samples_modified_all.unnest(SampleField.ATTRIBUTION)
+        license_table = (
+            samples_modified_all["licenses"]
+            .explode()
+            .struct.unnest()
+            .unique()
+            .with_row_index("id")
+            .select(["id", "name", "url"])
+        )
+        license_mapping = {lic["name"]: lic["id"] for lic in license_table.iter_rows(named=True)}
+    else:
+        license_mapping = None
+        license_table = None
 
     if task_name is not None:
         task_info = dataset.info.get_task_by_name(task_name)
     else:
-        # Auto derive the task to be used for COCO conversion as only one Bitmask/Bbox task can be present.
-        # Will first search for Bitmask (because COCO supports segmentation), then Bbox afterwards.
+        # Auto derive the task to be used for COCO conversion as only one Bitmask/Bbox task can be present
+        # in the coco format. Will first search for Bitmask (because COCO supports segmentation), then Bbox afterwards.
         tasks_info = dataset.info.get_tasks_by_primitive(Bitmask)
         if len(tasks_info) == 0:
             tasks_info = dataset.info.get_tasks_by_primitive(Bbox)
@@ -382,10 +393,11 @@ def to_coco_format(
         split_labels = {
             "info": dataset.info.model_dump(mode="json"),
             "images": list(images_table_files_moved.iter_rows(named=True)),
-            "licenses": list(license_table.iter_rows(named=True)),
             "categories": categories_list_dict,
             "annotations": list(annotation_table.iter_rows(named=True)),
         }
+        if license_table is not None:
+            split_labels["licenses"] = list(license_table.iter_rows(named=True))
         split_paths.path_instances_json.parent.mkdir(parents=True, exist_ok=True)
         split_paths.path_instances_json.write_text(json.dumps(split_labels))
 
@@ -396,7 +408,7 @@ def to_coco_format(
 
 def _convert_bbox_bitmask_to_coco_format(
     samples_modified: pl.DataFrame,
-    license_mapping: Dict[str, int],
+    license_mapping: Optional[Dict[str, int]],
     task_info: TaskInfo,
     category_mapping: Dict[str, int],
 ) -> Tuple[pl.DataFrame, pl.DataFrame]:
@@ -404,18 +416,23 @@ def _convert_bbox_bitmask_to_coco_format(
         raise ValueError(f"Unsupported primitive '{task_info.primitive}' for COCO conversion")
 
     task_sample_field = task_info.primitive.column_name()
-    images_table = samples_modified.with_columns(
-        pl.col("licenses").list.first().struct.unnest(),
-    ).select(
+    select_image_table_columns = [
         pl.col("id"),
         pl.col(SampleField.WIDTH).alias("width"),
         pl.col(SampleField.HEIGHT).alias("height"),
         pl.col(SampleField.FILE_PATH).alias(COCO_KEY_FILE_NAME),
-        pl.col("name").replace_strict(license_mapping, return_dtype=pl.Int64).alias("license"),
-        pl.col("source_url").alias("flickr_url"),
-        pl.col("source_url").alias("coco_url"),
-        pl.col("date_captured"),
-    )
+    ]
+
+    if license_mapping is not None:
+        samples_modified = samples_modified.with_columns(pl.col("licenses").list.first().struct.unnest())
+        select_image_table_columns = select_image_table_columns + [
+            pl.col("name").replace_strict(license_mapping, return_dtype=pl.Int64).alias("license"),
+            pl.col("source_url").alias("flickr_url"),
+            pl.col("source_url").alias("coco_url"),
+            pl.col("date_captured"),
+        ]
+
+    images_table = samples_modified.select(select_image_table_columns)
 
     annotation_table_full = (
         samples_modified.select(

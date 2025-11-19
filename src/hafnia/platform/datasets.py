@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional
 
 import rich
 from rich import print as rprint
-from rich.progress import track
 
 from hafnia import http, utils
 from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED
@@ -21,7 +20,7 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
 from hafnia.platform.download import get_resource_credentials
-from hafnia.utils import timed
+from hafnia.utils import progress_bar, timed
 from hafnia_cli.config import Config
 
 
@@ -192,7 +191,7 @@ def execute_s5cmd_commands(
 
         error_lines = []
         lines = []
-        for line in track(process.stdout, total=len(commands), description=description):
+        for line in progress_bar(process.stdout, total=len(commands), description=description):  # type: ignore[arg-type]
             if "ERROR" in line or "error" in line:
                 error_lines.append(line.strip())
             lines.append(line.strip())

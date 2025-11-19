@@ -2,12 +2,14 @@ from pathlib import Path
 from typing import Callable
 
 import polars as pl
+import pytest
 
 from hafnia.dataset import primitives
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.format_conversions import format_yolo
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
+from tests import helper_testing
 from tests.helper_testing import get_micro_hafnia_dataset, get_path_test_dataset_formats
 
 
@@ -41,6 +43,23 @@ def test_format_yolo_import_export_tiny_dataset(tmp_path: Path, compare_to_expec
     sample = Sample(**samples.row(0, named=True))
     sample_visualized = sample.draw_annotations()
     compare_to_expected_image(sample_visualized)
+
+
+@pytest.mark.parametrize("micro_dataset_name", helper_testing.MICRO_DATASETS)
+def test_to_and_from_yolo_format(micro_dataset_name: str, tmp_path: Path) -> None:
+    dataset = helper_testing.get_micro_hafnia_dataset(dataset_name=micro_dataset_name)
+    n_expected_samples = len(dataset.samples)
+    path_output = tmp_path / micro_dataset_name
+
+    # To YOLO format
+    dataset.to_yolo_format(path_output=path_output)
+
+    # From YOLO format
+    dataset_reloaded = HafniaDataset.from_yolo_format(path_dataset=path_output, dataset_name=micro_dataset_name)
+
+    assert len(dataset_reloaded.samples) == n_expected_samples, (
+        "The number of samples before and after COCO format conversion should be the same"
+    )
 
 
 def test_format_yolo_import_export(tmp_path: Path) -> None:

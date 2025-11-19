@@ -15,7 +15,7 @@
             "name": "debug (list profiles)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
             "args": [
                 "profile",
                 "ls"
@@ -25,7 +25,7 @@
             "name": "cmd: hafnia runc launch-local",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
             "args": [
                 "runc",
                 "launch-local",
@@ -38,7 +38,7 @@
             "name": "cmd: hafnia runc build-local",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
             "args": [
                 "runc",
                 "build-local",
@@ -51,7 +51,7 @@
             "name": "cmd: 'hafnia dataset [X]'",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
             "args": [
                 "dataset",
                 //"ls",
@@ -64,7 +64,7 @@
             "name": "cmd: 'hafnia experiment [X]'",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
             "args": [
                 "experiment",
                 "create",
@@ -82,7 +82,7 @@
             "name": "cmd: 'hafnia train-recipe [X]'",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/cli/__main__.py",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
             "args": [
                 "trainer",
                 "ls"
