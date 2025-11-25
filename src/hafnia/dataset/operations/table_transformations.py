@@ -45,7 +45,8 @@ def create_primitive_table(
         remove_no_object_frames = remove_no_object_frames.drop(drop_columns_names)
         # Rename columns "height", "width" and "meta" for sample to avoid conflicts with object fields names
         remove_no_object_frames = remove_no_object_frames.rename(
-            {"height": "image.height", "width": "image.width", "meta": "image.meta"}
+            {"height": "image.height", "width": "image.width", "meta": "image.meta"},
+            strict=False,
         )
         objects_df = remove_no_object_frames.explode(column_name).unnest(column_name)
     else:
