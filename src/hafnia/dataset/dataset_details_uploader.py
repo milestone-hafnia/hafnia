@@ -435,10 +435,10 @@ def dataset_details_from_hafnia_dataset(
             object_reports = sorted(object_reports, key=lambda x: x.obj.name)  # Sort object reports by name
             report.annotated_object_reports = object_reports
 
-        if report.distribution_values is None:
-            report.distribution_values = []
+            if report.distribution_values is None:
+                report.distribution_values = []
 
-        dataset_reports.append(report)
+            dataset_reports.append(report)
     dataset_name = dataset.info.dataset_name
     bucket_sample = generate_bucket_name(dataset_name, deployment_stage=deployment_stage)
     dataset_info = DatasetDetails(

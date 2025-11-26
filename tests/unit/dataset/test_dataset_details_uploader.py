@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -27,3 +28,32 @@ def test_dataset_details_from_hafnia_dataset(dataset_name: str, tmp_path: Path):
     )
     # Check if dataset info can be serialized to JSON
     dataset_info_json = dataset_info.model_dump_json()  # noqa: F841
+
+    # Basic checks on dataset info fields
+    assert isinstance(dataset_info.latest_update, datetime)
+    assert isinstance(dataset_info.version, str) and len(dataset_info.version) > 0
+    assert isinstance(dataset_info.dataset_format_version, str) and len(dataset_info.dataset_format_version) > 0
+    assert isinstance(dataset_info.s3_bucket_name, str) and len(dataset_info.s3_bucket_name) > 0
+
+    # Check dataset variants
+    assert dataset_info.dataset_variants is not None
+    assert len(dataset_info.dataset_variants) > 0
+
+    # Check split annotations reports
+    assert dataset_info.split_annotations_reports is not None
+    assert len(dataset_info.split_annotations_reports) == 4
+    full_split_annotations_report = [r for r in dataset_info.split_annotations_reports if r.split == "full"]
+    assert len(full_split_annotations_report) == 1, "There should be exactly one 'full' split annotations report"
+    full_report = full_split_annotations_report[0]
+
+    # Check annotated object reports
+    assert full_report.annotated_object_reports is not None
+    assert len(full_report.annotated_object_reports) > 0
+    expected_primitives = {t.primitive.__name__ for t in dataset.info.tasks}
+    actual_primitives = {r.obj.annotation_type.name for r in full_report.annotated_object_reports}
+    assert expected_primitives == actual_primitives
+
+    # Check distribution values
+    assert full_report.distribution_values is not None
+    actual_dist_names = {d.distribution_category.distribution_type.name for d in full_report.distribution_values}
+    assert actual_dist_names == set(distribution_task_names)
