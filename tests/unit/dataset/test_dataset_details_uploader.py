@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from hafnia.dataset.dataset_details_uploader import dataset_details_from_hafnia_dataset
-from hafnia.dataset.dataset_names import DeploymentStage, SampleField
+from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.primitives.classification import Classification
 from tests import helper_testing
@@ -19,9 +19,6 @@ def test_dataset_details_from_hafnia_dataset(dataset_name: str, tmp_path: Path):
     gallery_image_names = [dataset.samples[SampleField.FILE_PATH].str.split("/").list.last().sort()[0]]
     dataset_info = dataset_details_from_hafnia_dataset(
         dataset=dataset,
-        deployment_stage=DeploymentStage.STAGING,
-        path_sample=path_dataset,
-        path_hidden=None,
         path_gallery_images=tmp_path / "gallery_images",
         gallery_image_names=gallery_image_names,
         distribution_task_names=distribution_task_names,
@@ -30,10 +27,9 @@ def test_dataset_details_from_hafnia_dataset(dataset_name: str, tmp_path: Path):
     dataset_info_json = dataset_info.model_dump_json()  # noqa: F841
 
     # Basic checks on dataset info fields
-    assert isinstance(dataset_info.latest_update, datetime)
+    assert isinstance(dataset_info.dataset_updated_at, datetime)
     assert isinstance(dataset_info.version, str) and len(dataset_info.version) > 0
     assert isinstance(dataset_info.dataset_format_version, str) and len(dataset_info.dataset_format_version) > 0
-    assert isinstance(dataset_info.s3_bucket_name, str) and len(dataset_info.s3_bucket_name) > 0
 
     # Check dataset variants
     assert dataset_info.dataset_variants is not None
@@ -41,9 +37,9 @@ def test_dataset_details_from_hafnia_dataset(dataset_name: str, tmp_path: Path):
 
     # Check split annotations reports
     assert dataset_info.split_annotations_reports is not None
-    assert len(dataset_info.split_annotations_reports) == 4
+    assert len(dataset_info.split_annotations_reports) == 8
     full_split_annotations_report = [r for r in dataset_info.split_annotations_reports if r.split == "full"]
-    assert len(full_split_annotations_report) == 1, "There should be exactly one 'full' split annotations report"
+    assert len(full_split_annotations_report) == 2, "There should be exactly two 'full' split annotations report"
     full_report = full_split_annotations_report[0]
 
     # Check annotated object reports

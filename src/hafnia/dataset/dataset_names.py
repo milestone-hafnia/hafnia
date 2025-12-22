@@ -15,6 +15,8 @@ DATASET_FILENAMES_REQUIRED = [
     FILENAME_ANNOTATIONS_PARQUET,
 ]
 
+IS_OLD_BACKEND = True  # Set to True to use old Hafnia backend behavior - TODO: Remove in future versions
+
 
 class DeploymentStage(Enum):
     STAGING = "staging"

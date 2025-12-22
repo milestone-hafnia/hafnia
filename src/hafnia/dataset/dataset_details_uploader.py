@@ -4,7 +4,7 @@ import base64
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import boto3
 import polars as pl
@@ -44,11 +44,13 @@ def generate_bucket_name(dataset_name: str, deployment_stage: DeploymentStage) -
 class DatasetDetails(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
     name: str
+    title: Optional[str] = None
+    overview: Optional[str] = None
     data_captured_start: Optional[datetime] = None
     data_captured_end: Optional[datetime] = None
     data_received_start: Optional[datetime] = None
     data_received_end: Optional[datetime] = None
-    latest_update: Optional[datetime] = None
+    dataset_updated_at: Optional[datetime] = None
     license_citation: Optional[str] = None
     version: Optional[str] = None
     s3_bucket_name: Optional[str] = None
@@ -281,13 +283,33 @@ def get_folder_size(path: Path) -> int:
     return sum([path.stat().st_size for path in path.rglob("*")])
 
 
-def upload_to_hafnia_dataset_detail_page(dataset_update: DatasetDetails, upload_gallery_images: bool) -> dict:
+def upload_dataset_details_to_platform(
+    dataset: HafniaDataset,
+    path_gallery_images: Optional[Path] = None,
+    gallery_image_names: Optional[List[str]] = None,
+    distribution_task_names: Optional[List[str]] = None,
+    upload_gallery_images: bool = True,
+) -> dict:
+    dataset_details = dataset_details_from_hafnia_dataset(
+        dataset=dataset,
+        path_gallery_images=path_gallery_images,
+        gallery_image_names=gallery_image_names,
+        distribution_task_names=distribution_task_names,
+    )
+    response = upload_to_hafnia_dataset_detail_page(
+        dataset_details=dataset_details,
+        upload_gallery_images=upload_gallery_images,
+    )
+    return response
+
+
+def upload_to_hafnia_dataset_detail_page(dataset_details: DatasetDetails, upload_gallery_images: bool) -> dict:
     if not upload_gallery_images:
-        dataset_update.imgs = None
+        dataset_details.imgs = None
 
     cfg = Config()
-    dataset_details = dataset_update.model_dump_json()
-    data = upload_dataset_details(cfg=cfg, data=dataset_details, dataset_name=dataset_update.name)
+    dataset_details_json = dataset_details.model_dump_json()
+    data = upload_dataset_details(cfg=cfg, data=dataset_details_json, dataset_name=dataset_details.name)
     return data
 
 
@@ -360,9 +382,6 @@ def s3_based_fields(bucket_name: str, variant_type: DatasetVariant, session: bot
 
 def dataset_details_from_hafnia_dataset(
     dataset: HafniaDataset,
-    deployment_stage: DeploymentStage,
-    path_sample: Optional[Path],
-    path_hidden: Optional[Path],
     path_gallery_images: Optional[Path] = None,
     gallery_image_names: Optional[List[str]] = None,
     distribution_task_names: Optional[List[str]] = None,
@@ -371,33 +390,24 @@ def dataset_details_from_hafnia_dataset(
     dataset_reports = []
     dataset_meta_info = dataset.info.meta or {}
 
-    path_and_variant: List[Tuple[Path, DatasetVariant]] = []
-    if path_sample is not None:
-        path_and_variant.append((path_sample, DatasetVariant.SAMPLE))
-
-    if path_hidden is not None:
-        path_and_variant.append((path_hidden, DatasetVariant.HIDDEN))
-
-    if len(path_and_variant) == 0:
-        raise ValueError("At least one path must be provided for sample or hidden dataset.")
-
+    path_and_variant = [DatasetVariant.SAMPLE, DatasetVariant.HIDDEN]
     gallery_images = create_gallery_images(
         dataset=dataset,
         path_gallery_images=path_gallery_images,
         gallery_image_names=gallery_image_names,
     )
 
-    for path_dataset, variant_type in path_and_variant:
+    for variant_type in path_and_variant:
         if variant_type == DatasetVariant.SAMPLE:
             dataset_variant = dataset.create_sample_dataset()
         else:
             dataset_variant = dataset
 
-        size_bytes = get_folder_size(path_dataset)
+        files_paths = dataset_variant.samples[SampleField.FILE_PATH].to_list()
+        size_bytes = sum([Path(file_path).stat().st_size for file_path in files_paths])
         dataset_variants.append(
             DbDatasetVariant(
                 variant_type=VARIANT_TYPE_MAPPING[variant_type],  # type: ignore[index]
-                # upload_date: Optional[datetime] = None
                 size_bytes=size_bytes,
                 data_type=DataTypeChoices.images,
                 number_of_data_items=len(dataset_variant),
@@ -405,7 +415,6 @@ def dataset_details_from_hafnia_dataset(
                 duration=dataset_meta_info.get("duration", None),
                 duration_average=dataset_meta_info.get("duration_average", None),
                 frame_rate=dataset_meta_info.get("frame_rate", None),
-                # bit_rate: Optional[float] = None
                 n_cameras=dataset_meta_info.get("n_cameras", None),
             )
         )
@@ -440,14 +449,14 @@ def dataset_details_from_hafnia_dataset(
 
             dataset_reports.append(report)
     dataset_name = dataset.info.dataset_name
-    bucket_sample = generate_bucket_name(dataset_name, deployment_stage=deployment_stage)
     dataset_info = DatasetDetails(
         name=dataset_name,
+        title=dataset.info.dataset_title,
+        overview=dataset.info.description,
         version=dataset.info.version,
-        s3_bucket_name=bucket_sample,
         dataset_variants=dataset_variants,
         split_annotations_reports=dataset_reports,
-        latest_update=dataset.info.updated_at,
+        dataset_updated_at=dataset.info.updated_at,
         dataset_format_version=dataset.info.format_version,
         license_citation=dataset.info.reference_bibtex,
         data_captured_start=dataset_meta_info.get("data_captured_start", None),

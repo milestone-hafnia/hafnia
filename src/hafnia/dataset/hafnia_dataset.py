@@ -12,7 +12,6 @@ from packaging.version import Version
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import (
-    DATASET_FILENAMES_REQUIRED,
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
     FILENAME_DATASET_INFO,
@@ -434,7 +433,7 @@ class HafniaDataset:
         aws_credentials: AwsCredentials,
         force_redownload: bool = False,
     ) -> HafniaDataset:
-        from hafnia.platform.datasets import fast_copy_files_s3
+        from hafnia.platform.s5cmd_utils import fast_copy_files
 
         remote_src_paths = dataset.samples[SampleField.REMOTE_PATH].unique().to_list()
         update_rows = []
@@ -470,7 +469,7 @@ class HafniaDataset:
             return dataset
 
         environment_vars = aws_credentials.aws_credentials()
-        fast_copy_files_s3(
+        fast_copy_files(
             src_paths=remote_src_paths,
             dst_paths=local_dst_paths,
             append_envs=environment_vars,
@@ -563,7 +562,7 @@ class HafniaDataset:
             keep_sample_data=keep_sample_data,
         )
 
-    def write(self, path_folder: Path, add_version: bool = False, drop_null_cols: bool = True) -> None:
+    def write(self, path_folder: Path, drop_null_cols: bool = True) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         path_folder = path_folder.absolute()
         if not path_folder.exists():
@@ -578,18 +577,9 @@ class HafniaDataset:
             )
             new_paths.append(str(new_path))
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
-        hafnia_dataset.write_annotations(
-            path_folder=path_folder,
-            drop_null_cols=drop_null_cols,
-            add_version=add_version,
-        )
+        hafnia_dataset.write_annotations(path_folder=path_folder, drop_null_cols=drop_null_cols)
 
-    def write_annotations(
-        dataset: HafniaDataset,
-        path_folder: Path,
-        drop_null_cols: bool = True,
-        add_version: bool = False,
-    ) -> None:
+    def write_annotations(dataset: HafniaDataset, path_folder: Path, drop_null_cols: bool = True) -> None:
         """
         Writes only the annotations files (JSONL and Parquet) to the specified folder.
         """
@@ -604,18 +594,14 @@ class HafniaDataset:
             samples = samples.drop(pl.selectors.by_dtype(pl.Null))
 
         # Store only relative paths in the annotations files
-        absolute_paths = samples[SampleField.FILE_PATH].to_list()
-        relative_paths = [str(Path(path).relative_to(path_folder)) for path in absolute_paths]
-        samples = samples.with_columns(pl.Series(relative_paths).alias(SampleField.FILE_PATH))
-
+        if SampleField.FILE_PATH in samples.columns:  # We drop column for remote datasets
+            absolute_paths = samples[SampleField.FILE_PATH].to_list()
+            relative_paths = [str(Path(path).relative_to(path_folder)) for path in absolute_paths]
+            samples = samples.with_columns(pl.Series(relative_paths).alias(SampleField.FILE_PATH))
+        else:
+            samples = samples.with_columns(pl.lit("").alias(SampleField.FILE_PATH))
         samples.write_ndjson(path_folder / FILENAME_ANNOTATIONS_JSONL)  # Json for readability
         samples.write_parquet(path_folder / FILENAME_ANNOTATIONS_PARQUET)  # Parquet for speed
-
-        if add_version:
-            path_version = path_folder / "versions" / f"{dataset.info.version}"
-            path_version.mkdir(parents=True, exist_ok=True)
-            for filename in DATASET_FILENAMES_REQUIRED:
-                shutil.copy2(path_folder / filename, path_version / filename)
 
     def __eq__(self, value) -> bool:
         if not isinstance(value, HafniaDataset):

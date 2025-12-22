@@ -86,7 +86,7 @@ def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Pat
 
 
 def relative_path_from_hash(hash: str, suffix: str) -> Path:
-    path_file = Path("data") / hash[:3] / f"{hash}{suffix}"
+    path_file = Path("data") / f"{hash}{suffix}"
     return path_file
 
 

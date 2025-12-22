@@ -103,6 +103,8 @@ class TaskInfo(BaseModel):
 class DatasetInfo(BaseModel):
     dataset_name: str = Field(description="Name of the dataset, e.g. 'coco'")
     version: Optional[str] = Field(default=None, description="Version of the dataset")
+    dataset_title: Optional[str] = Field(default=None, description="Optional, human-readable title of the dataset")
+    description: Optional[str] = Field(default=None, description="Optional, description of the dataset")
     tasks: List[TaskInfo] = Field(default=None, description="List of tasks in the dataset")
     reference_bibtex: Optional[str] = Field(
         default=None,

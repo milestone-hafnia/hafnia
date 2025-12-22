@@ -1,27 +1,79 @@
-import os
+import collections
 import shutil
-import subprocess
-import sys
-import tempfile
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import rich
+from packaging.version import Version
 from rich import print as rprint
 
 from hafnia import http, utils
-from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED
+from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED, IS_OLD_BACKEND, ResourceCredentials
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
     get_dataset_path_from_recipe,
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.http import fetch
-from hafnia.log import sys_logger, user_logger
+from hafnia.log import user_logger
+from hafnia.platform import s5cmd_utils
 from hafnia.platform.download import get_resource_credentials
-from hafnia.utils import progress_bar, timed
+from hafnia.utils import timed
 from hafnia_cli.config import Config
+
+
+def get_dataset_by_name(dataset_name: str, cfg: Optional[Config] = None) -> Optional[Dict[str, Any]]:
+    """Get dataset details by name from the Hafnia platform."""
+    cfg = cfg or Config()
+    endpoint_dataset = cfg.get_platform_endpoint("datasets")
+    header = {"Authorization": cfg.api_key}
+    full_url = f"{endpoint_dataset}?name__iexact={dataset_name}"
+    datasets: List[Dict[str, Any]] = http.fetch(full_url, headers=header)  # type: ignore[assignment]
+    if len(datasets) == 0:
+        return None
+
+    if len(datasets) > 1:
+        raise ValueError(f"Multiple datasets found with the name '{dataset_name}'.")
+
+    return datasets[0]
+
+
+def get_dataset_by_id(dataset_id: str, cfg: Optional[Config] = None) -> Optional[Dict[str, Any]]:
+    """Get dataset details by ID from the Hafnia platform."""
+    cfg = cfg or Config()
+    endpoint_dataset = cfg.get_platform_endpoint("datasets")
+    header = {"Authorization": cfg.api_key}
+    full_url = f"{endpoint_dataset}/{dataset_id}"
+    dataset: Dict[str, Any] = http.fetch(full_url, headers=header)  # type: ignore[assignment]
+    if not dataset:
+        return None
+
+    return dataset
+
+
+def get_or_create_dataset(dataset_name: str = "", cfg: Optional[Config] = None) -> Dict[str, Any]:
+    """Create a new dataset on the Hafnia platform."""
+    cfg = cfg or Config()
+    dataset = get_dataset_by_name(dataset_name, cfg)
+
+    if dataset is not None:
+        user_logger.info(f"Dataset '{dataset_name}' already exists on the Hafnia platform.")
+        return dataset
+
+    endpoint_dataset = cfg.get_platform_endpoint("datasets")
+    header = {"Authorization": cfg.api_key}
+    payload = {
+        "name": dataset_name,
+        "description": "No description provided.",
+    }
+
+    dataset = http.post(endpoint_dataset, headers=header, data=payload)  # type: ignore[assignment]
+
+    # TODO: Handle issue when dataset creation fails because name is taken by another user from a different organization
+    if not dataset:
+        raise ValueError("Failed to create dataset on the Hafnia platform. ")
+
+    return dataset
 
 
 @timed("Fetching dataset list.")
@@ -72,9 +124,20 @@ def download_or_get_dataset_path(
     shutil.rmtree(path_dataset, ignore_errors=True)
 
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
-    dataset_id = get_dataset_id(dataset_name=dataset_name, endpoint=endpoint_dataset, api_key=api_key)
-    if dataset_id is None:
-        sys_logger.error(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
+    dataset_res = get_dataset_by_name(dataset_name, cfg)  # Check if dataset exists
+    if dataset_res is None:
+        raise ValueError(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
+
+    if IS_OLD_BACKEND:
+        dataset_id = dataset_res.get("id")  # type: ignore[union-attr]
+        if dataset_id is None:
+            raise ValueError(f"Dataset ID for '{dataset_name}' not found on the Hafnia platform.")
+        dataset_res = get_dataset_by_id(dataset_id, cfg)
+        if dataset_res is None:
+            raise ValueError(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
+        version = dataset_res["version"]
+    else:
+        version = dataset_res.get("version")
 
     if utils.is_hafnia_cloud_job():
         credentials_endpoint_suffix = "temporary-credentials-hidden"  # Access to hidden datasets
@@ -86,6 +149,7 @@ def download_or_get_dataset_path(
         endpoint=access_dataset_endpoint,
         api_key=api_key,
         path_dataset=path_dataset,
+        version=version,
         download_files=download_files,
     )
     return path_dataset
@@ -95,22 +159,17 @@ def download_dataset_from_access_endpoint(
     endpoint: str,
     api_key: str,
     path_dataset: Path,
+    version: Optional[str],
     download_files: bool = True,
 ) -> None:
-    resource_credentials = get_resource_credentials(endpoint, api_key)
-
-    local_dataset_paths = [(path_dataset / filename).as_posix() for filename in DATASET_FILENAMES_REQUIRED]
-    s3_uri = resource_credentials.s3_uri()
-    s3_dataset_files = [f"{s3_uri}/{filename}" for filename in DATASET_FILENAMES_REQUIRED]
-
-    envs = resource_credentials.aws_credentials()
     try:
-        fast_copy_files_s3(
-            src_paths=s3_dataset_files,
-            dst_paths=local_dataset_paths,
-            append_envs=envs,
-            description="Downloading annotations",
+        resource_credentials = get_resource_credentials(endpoint, api_key)
+        download_annotation_dataset_from_version(
+            version=version,
+            credentials=resource_credentials,
+            path_dataset=path_dataset,
         )
+
     except ValueError as e:
         user_logger.error(f"Failed to download annotations: {e}")
         return
@@ -124,87 +183,6 @@ def download_dataset_from_access_endpoint(
         user_logger.error(f"Failed to download images: {e}")
         return
     dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
-
-
-def fast_copy_files_s3(
-    src_paths: List[str],
-    dst_paths: List[str],
-    append_envs: Optional[Dict[str, str]] = None,
-    description: str = "Copying files",
-) -> List[str]:
-    if len(src_paths) != len(dst_paths):
-        raise ValueError("Source and destination paths must have the same length.")
-    cmds = [f"cp {src} {dst}" for src, dst in zip(src_paths, dst_paths)]
-    lines = execute_s5cmd_commands(cmds, append_envs=append_envs, description=description)
-    return lines
-
-
-def find_s5cmd() -> Optional[str]:
-    """Locate the s5cmd executable across different installation methods.
-
-    Searches for s5cmd in:
-    1. System PATH (via shutil.which)
-    2. Python bin directory (Unix-like systems)
-    3. Python executable directory (direct installs)
-
-    Returns:
-        str: Absolute path to s5cmd executable if found, None otherwise.
-    """
-    result = shutil.which("s5cmd")
-    if result:
-        return result
-    python_dir = Path(sys.executable).parent
-    locations = (python_dir / "Scripts" / "s5cmd.exe", python_dir / "bin" / "s5cmd", python_dir / "s5cmd")
-    for loc in locations:
-        if loc.exists():
-            return str(loc)
-    return None
-
-
-def execute_s5cmd_commands(
-    commands: List[str],
-    append_envs: Optional[Dict[str, str]] = None,
-    description: str = "Executing s5cmd commands",
-) -> List[str]:
-    append_envs = append_envs or {}
-    # In Windows default "Temp" directory can not be deleted that is why we need to create a
-    # temporary directory.
-    with tempfile.TemporaryDirectory() as temp_dir:
-        tmp_file_path = Path(temp_dir, f"{uuid.uuid4().hex}.txt")
-        tmp_file_path.write_text("\n".join(commands))
-
-        s5cmd_bin = find_s5cmd()
-        if s5cmd_bin is None:
-            raise ValueError("Can not find s5cmd executable.")
-        run_cmds = [s5cmd_bin, "run", str(tmp_file_path)]
-        sys_logger.debug(run_cmds)
-        envs = os.environ.copy()
-        envs.update(append_envs)
-
-        process = subprocess.Popen(
-            run_cmds,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            env=envs,
-        )
-
-        error_lines = []
-        lines = []
-        for line in progress_bar(process.stdout, total=len(commands), description=description):  # type: ignore[arg-type]
-            if "ERROR" in line or "error" in line:
-                error_lines.append(line.strip())
-            lines.append(line.strip())
-
-        if len(error_lines) > 0:
-            show_n_lines = min(5, len(error_lines))
-            str_error_lines = "\n".join(error_lines[:show_n_lines])
-            user_logger.error(
-                f"Detected {len(error_lines)} errors occurred while executing a total of {len(commands)} "
-                f" commands with s5cmd. The first {show_n_lines} is printed below:\n{str_error_lines}"
-            )
-            raise RuntimeError("Errors occurred during s5cmd execution.")
-    return lines
 
 
 TABLE_FIELDS = {
@@ -241,3 +219,53 @@ def extend_dataset_details(datasets: List[Dict[str, Any]]) -> List[Dict[str, Any
             dataset[f"{variant_type}.samples"] = variant["number_of_data_items"]
             dataset[f"{variant_type}.size"] = utils.size_human_readable(variant["size_bytes"])
     return datasets
+
+
+def download_annotation_dataset_from_version(
+    version: Optional[str],
+    credentials: ResourceCredentials,
+    path_dataset: Path,
+) -> list[str]:
+    path_dataset.mkdir(parents=True, exist_ok=True)
+    envs = credentials.aws_credentials()
+    if IS_OLD_BACKEND:
+        # bucket_prefix_sample_version = f"{credentials.s3_uri()}/versions/{version}"
+        bucket_prefix_sample_version = credentials.s3_uri()
+        s3_files = [f"{bucket_prefix_sample_version}/{filename}" for filename in DATASET_FILENAMES_REQUIRED]
+    else:
+        bucket_prefix_sample_versions = f"{credentials.s3_uri()}/versions"
+        all_s3_annotation_files = s5cmd_utils.list_bucket(bucket_prefix=bucket_prefix_sample_versions, append_envs=envs)
+
+        s3_files = _annotation_files_from_version(version=version, all_annotation_files=all_s3_annotation_files)
+
+    local_paths = [(path_dataset / filename.split("/")[-1]).as_posix() for filename in s3_files]
+    s5cmd_utils.fast_copy_files(
+        src_paths=s3_files,
+        dst_paths=local_paths,
+        append_envs=envs,
+        description="Downloading annotation files",
+    )
+    return local_paths
+
+
+def _annotation_files_from_version(version: Optional[str], all_annotation_files: list[str]) -> list[str]:
+    version_files = collections.defaultdict(list)
+    for metadata_file in all_annotation_files:
+        version_str, filename = metadata_file.split("/")[-2:]
+        if filename not in DATASET_FILENAMES_REQUIRED:
+            continue
+        version_files[version_str].append(metadata_file)
+    available_versions = {v for v, files in version_files.items() if len(files) == len(DATASET_FILENAMES_REQUIRED)}
+
+    if len(available_versions) == 0:
+        raise ValueError("No versions was found in the dataset.")
+
+    if version is None:
+        latest_version = max(Version(ver) for ver in available_versions)
+        version = str(latest_version)
+        user_logger.info(f"No version selected. Using latest version: {version}")
+
+    if version not in available_versions:
+        raise ValueError(f"Selected version '{version}' not found in available versions: {available_versions}")
+
+    return version_files[version]
