@@ -25,8 +25,8 @@ def delete_hafnia_dataset_files(
     dataset_name = dataset.info.dataset_name
     if resource_credentials is None:
         raise ValueError(
-            "resource_credentials must be provided to delete dataset files. "
-            "When BYOD has been introduced - this can be obtained will be automatically returned for the dataset."
+            "'resource_credentials' must be provided to delete dataset files. "
+            "When BYOD has been introduced - this is automatically returned for the dataset."
         )
 
     envs = resource_credentials.aws_credentials()
@@ -145,6 +145,7 @@ def sync_hafnia_dataset_to_s3(
 
 def sync_hafnia_dataset_to_platform(
     dataset: HafniaDataset,
+    sample_dataset: Optional[HafniaDataset] = None,
     interactive: bool = False,
     allow_version_overwrite: bool = False,
     resource_credentials: Optional[ResourceCredentials] = None,
@@ -160,7 +161,10 @@ def sync_hafnia_dataset_to_platform(
 
     for dataset_variant_type in [DatasetVariant.SAMPLE, DatasetVariant.HIDDEN]:
         if dataset_variant_type == DatasetVariant.SAMPLE:
-            dataset_variant = dataset.create_sample_dataset()
+            if sample_dataset is None:
+                dataset_variant = dataset.create_sample_dataset()
+            else:
+                dataset_variant = sample_dataset
         else:
             dataset_variant = dataset
 

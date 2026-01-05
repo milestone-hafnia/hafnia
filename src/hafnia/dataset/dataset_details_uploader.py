@@ -13,7 +13,6 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from hafnia.dataset.dataset_names import (
     DatasetVariant,
-    DeploymentStage,
     PrimitiveField,
     SampleField,
     SplitName,
@@ -32,13 +31,8 @@ from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.http import post
 from hafnia.log import user_logger
 from hafnia.platform.datasets import get_dataset_id
+from hafnia.utils import get_path_dataset_gallery_images
 from hafnia_cli.config import Config
-
-
-def generate_bucket_name(dataset_name: str, deployment_stage: DeploymentStage) -> str:
-    # TODO: When moving to versioning we do NOT need 'staging' and 'production' specific buckets
-    # and the new name convention should be: f"hafnia-dataset-{dataset_name}"
-    return f"mdi-{deployment_stage.value}-{dataset_name}"
 
 
 class DatasetDetails(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
@@ -308,7 +302,8 @@ def upload_to_hafnia_dataset_detail_page(dataset_details: DatasetDetails, upload
         dataset_details.imgs = None
 
     cfg = Config()
-    dataset_details_json = dataset_details.model_dump_json()
+
+    dataset_details_json = dataset_details.model_dump_json(exclude_none=True)
     data = upload_dataset_details(cfg=cfg, data=dataset_details_json, dataset_name=dataset_details.name)
     return data
 
@@ -574,7 +569,7 @@ def create_gallery_images(
     gallery_images = None
     if (gallery_image_names is not None) and (len(gallery_image_names) > 0):
         if path_gallery_images is None:
-            raise ValueError("Path to gallery images must be provided.")
+            path_gallery_images = get_path_dataset_gallery_images(dataset.info.dataset_name)
         path_gallery_images.mkdir(parents=True, exist_ok=True)
         COL_IMAGE_NAME = "image_name"
         samples = dataset.samples.with_columns(

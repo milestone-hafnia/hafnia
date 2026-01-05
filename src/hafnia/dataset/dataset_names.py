@@ -161,6 +161,14 @@ class AwsCredentials(BaseModel):
             region=session.region_name,
         )
 
+    def to_resource_credentials(aws_credentials: "AwsCredentials", s3_arn: str) -> "ResourceCredentials":
+        """
+        Converts AwsCredentials to ResourceCredentials by adding the S3 ARN.
+        """
+        payload = aws_credentials.model_dump()
+        payload["s3_arn"] = s3_arn
+        return ResourceCredentials(**payload)
+
 
 ARN_PREFIX = "arn:aws:s3:::"
 

@@ -65,6 +65,10 @@ def timed(label: str):
     return decorator
 
 
+def get_path_dataset_gallery_images(dataset_name: str) -> Path:
+    return PATH_DATASETS / dataset_name / "gallery_images"
+
+
 def get_path_hafnia_cache() -> Path:
     return Path.home() / "hafnia"
 
