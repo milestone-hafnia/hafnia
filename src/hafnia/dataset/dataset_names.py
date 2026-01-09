@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 import boto3
+from botocore.exceptions import UnauthorizedSSOTokenError
 from pydantic import BaseModel, field_validator
 
 FILENAME_RECIPE_JSON = "recipe.json"
@@ -15,14 +16,13 @@ DATASET_FILENAMES_REQUIRED = [
     FILENAME_ANNOTATIONS_PARQUET,
 ]
 
-IS_OLD_BACKEND = True  # Set to True to use old Hafnia backend behavior - TODO: Remove in future versions
-
 
 class DeploymentStage(Enum):
     STAGING = "staging"
     PRODUCTION = "production"
 
 
+ARN_PREFIX = "arn:aws:s3:::"
 TAG_IS_SAMPLE = "sample"
 
 OPS_REMOVE_CLASS = "__REMOVE__"
@@ -153,7 +153,15 @@ class AwsCredentials(BaseModel):
         """
         Creates AwsCredentials from a Boto3 session.
         """
-        frozen_credentials = session.get_credentials().get_frozen_credentials()
+        try:
+            profile_name = session.profile_name
+            frozen_credentials = session.get_credentials().get_frozen_credentials()
+        except UnauthorizedSSOTokenError as e:
+            raise RuntimeError(
+                f"Failed to get AWS credentials from the session for profile '{profile_name}'.\n"
+                f"Ensure the profile exists in your AWS config in '~/.aws/config' and that you are logged in via AWS SSO.\n"
+                f"\tUse 'aws sso login --profile {profile_name}' to log in."
+            ) from e
         return AwsCredentials(
             access_key=frozen_credentials.access_key,
             secret_key=frozen_credentials.secret_key,
@@ -161,16 +169,13 @@ class AwsCredentials(BaseModel):
             region=session.region_name,
         )
 
-    def to_resource_credentials(aws_credentials: "AwsCredentials", s3_arn: str) -> "ResourceCredentials":
+    def to_resource_credentials(aws_credentials: "AwsCredentials", bucket_name: str) -> "ResourceCredentials":
         """
         Converts AwsCredentials to ResourceCredentials by adding the S3 ARN.
         """
         payload = aws_credentials.model_dump()
-        payload["s3_arn"] = s3_arn
+        payload["s3_arn"] = f"{ARN_PREFIX}{bucket_name}"
         return ResourceCredentials(**payload)
-
-
-ARN_PREFIX = "arn:aws:s3:::"
 
 
 class ResourceCredentials(AwsCredentials):

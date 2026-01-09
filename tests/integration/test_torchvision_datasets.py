@@ -1,14 +1,10 @@
-import os
 from pathlib import Path
 
 import pytest
 
 from hafnia.dataset.format_conversions.torchvision_datasets import torchvision_to_hafnia_converters
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-
-
-def is_github_actions_pipeline() -> bool:
-    return os.getenv("GITHUB_ACTIONS") == "true"
+from tests.helper_testing import is_github_actions_pipeline
 
 
 @pytest.mark.parametrize("dataset_name", torchvision_to_hafnia_converters())

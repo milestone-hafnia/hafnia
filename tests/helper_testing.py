@@ -1,3 +1,4 @@
+import os
 from inspect import getmembers, isfunction, signature
 from pathlib import Path
 from types import FunctionType
@@ -299,3 +300,7 @@ def simulate_hafnia_video_dataset(
     )
     dataset = HafniaDataset.from_samples_list(samples_list=samples_list, info=dataset_info)
     return dataset
+
+
+def is_github_actions_pipeline() -> bool:
+    return os.getenv("GITHUB_ACTIONS") == "true"

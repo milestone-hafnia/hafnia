@@ -138,43 +138,58 @@ path_tmp.mkdir(parents=True, exist_ok=True)
 Image.fromarray(image_with_annotations).save(path_tmp / "sample_with_annotations.png")
 
 
-## Bring-your-own-data: Create a new dataset from samples
+## Create a hafnia dataset from scratch ##
+path_yolo_dataset = Path("tests/data/dataset_formats/format_yolo/train")
+path_class_names = path_yolo_dataset.parent / "obj.names"
+class_names = [line.strip() for line in path_class_names.read_text().splitlines() if line.strip()]
+path_images_file = path_yolo_dataset / "images.txt"
+image_files = [line.strip() for line in path_images_file.read_text().splitlines() if line.strip()]
+
 fake_samples = []
-for i_fake_sample in range(5):
-    bboxes = [Bbox(top_left_x=0.1, top_left_y=0.20, width=0.1, height=0.2, class_name="car")]
-    classifications = [Classification(class_name="vehicle", class_idx=0)]
-    sample = Sample(
-        file_path=f"path/to/image_{i_fake_sample:05}.jpg",
-        height=480,
-        width=640,
-        split="train",
-        tags=["sample"],
-        bboxes=bboxes,
-        classifications=classifications,
-    )
+for image_file in image_files:
+    path_image = path_yolo_dataset / image_file
+    path_bboxes = path_yolo_dataset / image_file.replace(".jpg", ".txt")
+    bboxes: List[Bbox] = []
+    for bboxes_line in path_bboxes.read_text().splitlines():
+        str_parts = bboxes_line.strip().split()
+        class_idx = int(str_parts[0])
+        x_center, y_center, bbox_width, bbox_height = (float(value) for value in str_parts[1:5])
+        bbox = Bbox(
+            top_left_x=x_center - bbox_width / 2,
+            top_left_y=y_center - bbox_height / 2,
+            width=bbox_width,
+            height=bbox_height,
+            class_idx=class_idx,
+            class_name=class_names[class_idx],
+        )
+        bboxes.append(bbox)
+    image = Image.open(path_image)
+    height, width = image.size[1], image.size[0]
+    sample = Sample(file_path=str(path_image), height=height, width=width, split="train", bboxes=bboxes)
     fake_samples.append(sample)
 
 
 fake_dataset_info = DatasetInfo(
-    dataset_name="fake-dataset",
+    dataset_name="custom-dataset",
     version="0.0.1",
-    tasks=[
-        TaskInfo(primitive=Bbox, class_names=["car", "truck", "bus"]),
-        TaskInfo(primitive=Classification, class_names=["vehicle", "pedestrian", "cyclist"]),
-    ],
+    tasks=[TaskInfo(primitive=Bbox, class_names=class_names)],
 )
-fake_dataset = HafniaDataset.from_samples_list(samples_list=fake_samples, info=fake_dataset_info)
+custom_dataset = HafniaDataset.from_samples_list(samples_list=fake_samples, info=fake_dataset_info)
 
-# Coming soon! Upload your dataset to the Hafnia Platform
-# fake_dataset.upload_to_hafnia()
+sample = Sample(**custom_dataset[0])
 
-# Coming soon! Create your own dataset details page in Hafnia
-# fake_dataset.upload_dataset_details()
+# To visualize and verify dataset is formatted correctly store image with annotations
+image_with_annotations = sample.draw_annotations()
+Image.fromarray(image_with_annotations).save(path_tmp / "custom_dataset_sample.png")  # Save visualization to TM
+
+# To upload the dataset to Hafnia platform
+# custom_dataset.upload_to_platform(interactive=True, allow_version_overwrite=False)
+
 
 ## Storing predictions: A hafnia dataset can also be used for storing predictions per sample
 # set 'ground_truth=False' and add 'confidence'.
 bboxes_predictions = [
-    Bbox(top_left_x=10, top_left_y=20, width=100, height=200, class_name="car", ground_truth=False, confidence=0.9)
+    Bbox(top_left_x=0.1, top_left_y=0.2, width=0.3, height=0.4, class_name="car", ground_truth=False, confidence=0.9)
 ]
 
 classifications_predictions = [Classification(class_name="vehicle", class_idx=0, ground_truth=False, confidence=0.95)]

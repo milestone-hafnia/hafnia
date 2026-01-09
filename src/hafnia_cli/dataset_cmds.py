@@ -50,3 +50,21 @@ def cmd_dataset_download(cfg: Config, dataset_name: str, destination: Optional[c
     except Exception:
         raise click.ClickException(consts.ERROR_GET_RESOURCE)
     return path_dataset
+
+
+@dataset.command("delete")
+@click.argument("dataset_name")
+@click.option(
+    "--interactive/--no-interactive",
+    default=True,
+    help="Whether to ask for confirmation before deleting the dataset.",
+)
+@click.pass_obj
+def cmd_dataset_delete(cfg: Config, dataset_name: str, interactive: bool) -> None:
+    """Delete dataset from Hafnia platform"""
+    from hafnia.platform import datasets
+
+    datasets.delete_dataset_completely_by_name(
+        dataset_name=dataset_name,
+        interactive=interactive,
+    )

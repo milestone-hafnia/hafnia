@@ -8,13 +8,13 @@ from packaging.version import Version
 from rich import print as rprint
 
 from hafnia import http, utils
-from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED, IS_OLD_BACKEND, ResourceCredentials
+from hafnia.dataset.dataset_names import DATASET_FILENAMES_REQUIRED, ResourceCredentials
 from hafnia.dataset.dataset_recipe.dataset_recipe import (
     DatasetRecipe,
     get_dataset_path_from_recipe,
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.http import fetch
+from hafnia.http import fetch, post
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
 from hafnia.platform.download import get_resource_credentials
@@ -22,6 +22,7 @@ from hafnia.utils import timed
 from hafnia_cli.config import Config
 
 
+@timed("Fetching dataset by name.")
 def get_dataset_by_name(dataset_name: str, cfg: Optional[Config] = None) -> Optional[Dict[str, Any]]:
     """Get dataset details by name from the Hafnia platform."""
     cfg = cfg or Config()
@@ -38,6 +39,7 @@ def get_dataset_by_name(dataset_name: str, cfg: Optional[Config] = None) -> Opti
     return datasets[0]
 
 
+@timed("Fetching dataset by ID.")
 def get_dataset_by_id(dataset_id: str, cfg: Optional[Config] = None) -> Optional[Dict[str, Any]]:
     """Get dataset details by ID from the Hafnia platform."""
     cfg = cfg or Config()
@@ -62,9 +64,11 @@ def get_or_create_dataset(dataset_name: str = "", cfg: Optional[Config] = None) 
 
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
     header = {"Authorization": cfg.api_key}
+    dataset_title = dataset_name.replace("-", " ").title()  # convert dataset-name to title "Dataset Name"
     payload = {
+        "title": dataset_title,
         "name": dataset_name,
-        "description": "No description provided.",
+        "overview": "No description provided.",
     }
 
     dataset = http.post(endpoint_dataset, headers=header, data=payload)  # type: ignore[assignment]
@@ -102,6 +106,80 @@ def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> str:
         raise ValueError("Dataset information is missing or invalid") from e
 
 
+@timed("Get upload access credentials")
+def get_upload_credentials(dataset_name: str, cfg: Optional[Config] = None) -> Optional[ResourceCredentials]:
+    """Get dataset details by name from the Hafnia platform."""
+    cfg = cfg or Config()
+    dataset_response = get_dataset_by_name(dataset_name=dataset_name, cfg=cfg)
+    if dataset_response is None:
+        return None
+
+    return get_upload_credentials_by_id(dataset_response["id"], cfg=cfg)
+
+
+@timed("Get upload access credentials by ID")
+def get_upload_credentials_by_id(dataset_id: str, cfg: Optional[Config] = None) -> Optional[ResourceCredentials]:
+    """Get dataset details by ID from the Hafnia platform."""
+    cfg = cfg or Config()
+
+    endpoint_dataset = cfg.get_platform_endpoint("datasets")
+    header = {"Authorization": cfg.api_key}
+    full_url = f"{endpoint_dataset}/{dataset_id}/temporary-credentials-upload"
+    credentials_response: Dict = http.fetch(full_url, headers=header)  # type: ignore[assignment]
+
+    return ResourceCredentials.fix_naming(credentials_response)
+
+
+@timed("Delete dataset by id")
+def delete_dataset_by_id(dataset_id: str, cfg: Optional[Config] = None) -> Dict:
+    cfg = cfg or Config()
+    endpoint_dataset = cfg.get_platform_endpoint("datasets")
+    header = {"Authorization": cfg.api_key}
+    full_url = f"{endpoint_dataset}/{dataset_id}"
+    return http.delete(full_url, headers=header)  # type: ignore
+
+
+@timed("Delete dataset by name")
+def delete_dataset_by_name(dataset_name: str, cfg: Optional[Config] = None) -> Dict:
+    cfg = cfg or Config()
+    dataset_response = get_dataset_by_name(dataset_name=dataset_name, cfg=cfg)
+    if dataset_response is None:
+        raise ValueError(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
+
+    dataset_id = dataset_response["id"]  # type: ignore[union-attr]
+    response = delete_dataset_by_id(dataset_id=dataset_id, cfg=cfg)
+    user_logger.info(f"Dataset '{dataset_name}' has been deleted from the Hafnia platform.")
+    return response
+
+
+def delete_dataset_completely_by_name(dataset_name: str, interactive: bool = True) -> None:
+    from hafnia.dataset.operations.dataset_s3_storage import delete_hafnia_dataset_files_on_platform
+
+    cfg = Config()
+
+    is_deleted = delete_hafnia_dataset_files_on_platform(
+        dataset_name=dataset_name,
+        interactive=interactive,
+        cfg=cfg,
+    )
+    if not is_deleted:
+        return
+    delete_dataset_by_name(dataset_name, cfg=cfg)
+
+
+@timed("Import dataset details to platform")
+def upload_dataset_details(cfg: Config, data: dict, dataset_name: str) -> dict:
+    dataset_endpoint = cfg.get_platform_endpoint("datasets")
+    dataset_id = get_dataset_id(dataset_name, dataset_endpoint, cfg.api_key)
+
+    import_endpoint = f"{dataset_endpoint}/{dataset_id}/import"
+    headers = {"Authorization": cfg.api_key}
+
+    user_logger.info("Exporting dataset details to platform. This may take up to 30 seconds...")
+    response = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
+    return response  # type: ignore[return-value]
+
+
 def download_or_get_dataset_path(
     dataset_name: str,
     cfg: Optional[Config] = None,
@@ -128,16 +206,7 @@ def download_or_get_dataset_path(
     if dataset_res is None:
         raise ValueError(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
 
-    if IS_OLD_BACKEND:
-        dataset_id = dataset_res.get("id")  # type: ignore[union-attr]
-        if dataset_id is None:
-            raise ValueError(f"Dataset ID for '{dataset_name}' not found on the Hafnia platform.")
-        dataset_res = get_dataset_by_id(dataset_id, cfg)
-        if dataset_res is None:
-            raise ValueError(f"Dataset '{dataset_name}' not found on the Hafnia platform.")
-        version = dataset_res["version"]
-    else:
-        version = dataset_res.get("version")
+    dataset_id = dataset_res.get("id")  # type: ignore[union-attr]
 
     if utils.is_hafnia_cloud_job():
         credentials_endpoint_suffix = "temporary-credentials-hidden"  # Access to hidden datasets
@@ -149,7 +218,6 @@ def download_or_get_dataset_path(
         endpoint=access_dataset_endpoint,
         api_key=api_key,
         path_dataset=path_dataset,
-        version=version,
         download_files=download_files,
     )
     return path_dataset
@@ -159,7 +227,7 @@ def download_dataset_from_access_endpoint(
     endpoint: str,
     api_key: str,
     path_dataset: Path,
-    version: Optional[str],
+    version: Optional[str] = None,
     download_files: bool = True,
 ) -> None:
     try:
@@ -227,16 +295,11 @@ def download_annotation_dataset_from_version(
     path_dataset: Path,
 ) -> list[str]:
     path_dataset.mkdir(parents=True, exist_ok=True)
-    envs = credentials.aws_credentials()
-    if IS_OLD_BACKEND:
-        # bucket_prefix_sample_version = f"{credentials.s3_uri()}/versions/{version}"
-        bucket_prefix_sample_version = credentials.s3_uri()
-        s3_files = [f"{bucket_prefix_sample_version}/{filename}" for filename in DATASET_FILENAMES_REQUIRED]
-    else:
-        bucket_prefix_sample_versions = f"{credentials.s3_uri()}/versions"
-        all_s3_annotation_files = s5cmd_utils.list_bucket(bucket_prefix=bucket_prefix_sample_versions, append_envs=envs)
 
-        s3_files = _annotation_files_from_version(version=version, all_annotation_files=all_s3_annotation_files)
+    envs = credentials.aws_credentials()
+    bucket_prefix_sample_versions = f"{credentials.s3_uri()}/versions"
+    all_s3_annotation_files = s5cmd_utils.list_bucket(bucket_prefix=bucket_prefix_sample_versions, append_envs=envs)
+    s3_files = _annotation_files_from_version(version=version, all_annotation_files=all_s3_annotation_files)
 
     local_paths = [(path_dataset / filename.split("/")[-1]).as_posix() for filename in s3_files]
     s5cmd_utils.fast_copy_files(

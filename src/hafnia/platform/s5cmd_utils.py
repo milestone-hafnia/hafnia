@@ -95,16 +95,27 @@ def execute_commands(
     return lines
 
 
-def delete_bucket_content(bucket_prefix: str, append_envs: Optional[Dict[str, str]] = None):
+def delete_bucket_content(bucket_prefix: str, remove_bucket: bool = True, append_envs: Optional[Dict[str, str]] = None):
+    # Remove all files in the bucket
     returns = execute_command(["rm", f"{bucket_prefix}/*"], append_envs=append_envs)
-    bucket_is_already_deleted = "no object found" in returns.stderr.strip()
-    if bucket_is_already_deleted:
-        user_logger.info(f"No action was taken. S3 bucket '{bucket_prefix}' is already empty.")
-        return
+
     if returns.returncode != 0:
-        user_logger.error("Error during s5cmd rm command:")
-        user_logger.error(returns.stdout.decode())
-        raise RuntimeError(f"Failed to delete all files in S3 bucket '{bucket_prefix}'.")
+        bucket_is_already_deleted = "no object found" in returns.stderr.strip()
+        if bucket_is_already_deleted:
+            user_logger.info(f"No action was taken. S3 bucket '{bucket_prefix}' is already empty.")
+        else:
+            user_logger.error("Error during s5cmd rm command:")
+            user_logger.error(returns.stdout.decode())
+            raise RuntimeError(f"Failed to delete all files in S3 bucket '{bucket_prefix}'.")
+
+    if remove_bucket:
+        # Remove the bucket itself
+        returns = execute_command(["rb", bucket_prefix], append_envs=append_envs)
+        if returns.returncode != 0:
+            user_logger.error("Error during s5cmd rb command:")
+            user_logger.error(returns.stdout.decode())
+            raise RuntimeError(f"Failed to delete S3 bucket '{bucket_prefix}'.")
+    user_logger.info(f"S3 bucket '{bucket_prefix}' has been deleted.")
 
 
 def list_bucket(bucket_prefix: str, append_envs: Optional[Dict[str, str]] = None) -> List[str]:

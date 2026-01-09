@@ -14,27 +14,35 @@ from hafnia.dataset.dataset_names import (
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
+from hafnia.platform.datasets import get_upload_credentials
 from hafnia.utils import progress_bar
+from hafnia_cli.config import Config
 
 
-def delete_hafnia_dataset_files(
-    dataset: HafniaDataset,
+def delete_hafnia_dataset_files_on_platform(
+    dataset_name: str,
     interactive: bool = True,
-    resource_credentials: Optional[ResourceCredentials] = None,
+    cfg: Optional[Config] = None,
 ):
-    dataset_name = dataset.info.dataset_name
-    if resource_credentials is None:
-        raise ValueError(
-            "'resource_credentials' must be provided to delete dataset files. "
-            "When BYOD has been introduced - this is automatically returned for the dataset."
-        )
+    cfg = cfg or Config()
+    resource_credentials = get_upload_credentials(dataset_name, cfg=cfg)
 
+    return delete_hafnia_dataset_files_from_resource_credentials(
+        interactive=interactive,
+        resource_credentials=resource_credentials,
+    )
+
+
+def delete_hafnia_dataset_files_from_resource_credentials(
+    resource_credentials: ResourceCredentials,
+    interactive: bool = True,
+) -> bool:
     envs = resource_credentials.aws_credentials()
     bucket_name = resource_credentials.bucket_name()
     if interactive:
         confirmation = (
             input(
-                f"WARNING THIS WILL delete all files for '{dataset_name}' stored in 's3://{bucket_name}'.\n"
+                f"WARNING THIS WILL delete all files stored in 's3://{bucket_name}'.\n"
                 "Meaning that all previous versions of the dataset will be deleted. \n"
                 "Normally this is not needed, but if you have changed the dataset structure or want to start from fresh, "
                 "you can delete all files in the S3 bucket. "
@@ -45,21 +53,10 @@ def delete_hafnia_dataset_files(
         )
         if confirmation != "yes":
             user_logger.info("Delete operation cancelled by the user.")
-            return
-    user_logger.info(f"Deleting all files for dataset '{dataset_name}' in S3 bucket '{bucket_name}'...")
-    s5cmd_utils.delete_bucket_content(bucket_prefix=f"s3://{bucket_name}", append_envs=envs)
-    user_logger.info(f"S3 bucket '{bucket_name}' has been deleted.")
-
-
-def s3_prefix_from_hash(hash: str, suffix: str) -> str:
-    """
-    Generate a relative S3 path from a hash value.
-    E.g. for hash "dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4" and suffix ".png",
-    the returned path will be "data/df/e8/dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4.png".
-
-    """
-    s3_prefix = f"data/{hash[:2]}/{hash[2:4]}/{hash}{suffix}"
-    return s3_prefix
+            return False
+    user_logger.info(f"Deleting all files in S3 bucket '{bucket_name}'...")
+    s5cmd_utils.delete_bucket_content(bucket_prefix=f"s3://{bucket_name}", remove_bucket=True, append_envs=envs)
+    return True
 
 
 def sync_hafnia_dataset_to_s3(
@@ -117,15 +114,14 @@ def sync_hafnia_dataset_to_s3(
             f"- Total files to upload: {len(data_files_missing) + len(metadata_files_local)}"
         )
         if will_overwrite_metadata_files:
-            msg = (
-                f"Metadata files for dataset version: {dataset.info.version} already exists and "
-                "will be overwritten. Consider updating the dataset version."
-            )
+            msg = f"Metadata files for dataset version '{dataset.info.version}' already exist"
             if allow_version_overwrite:
-                user_logger.warning(f"- WARNING: {msg}")
+                user_logger.warning(
+                    f"- WARNING: {msg}. Version will be overwritten as 'allow_version_overwrite=True' is set."
+                )
             else:
                 raise ValueError(
-                    f"Upload cancelled. {msg}. \nTo overwriting existing metadata files, "
+                    f"Upload cancelled. {msg}. \nTo overwrite existing metadata files, "
                     "you will need to set 'allow_version_overwrite=True' explicitly."
                 )
 
@@ -143,19 +139,32 @@ def sync_hafnia_dataset_to_s3(
     user_logger.info(f"- Synced dataset in {time.time() - t0:.2f} seconds.")
 
 
-def sync_hafnia_dataset_to_platform(
+def sync_dataset_files_to_platform(
     dataset: HafniaDataset,
     sample_dataset: Optional[HafniaDataset] = None,
-    interactive: bool = False,
+    interactive: bool = True,
     allow_version_overwrite: bool = False,
-    resource_credentials: Optional[ResourceCredentials] = None,
+    cfg: Optional[Config] = None,
 ) -> None:
-    if resource_credentials is None:
-        raise ValueError(
-            "resource_credentials must be provided to sync dataset files. "
-            "TODO: When BYOD has been introduced - this will be automatically returned for the dataset."
-        )
+    cfg = cfg or Config()
+    resource_credentials = get_upload_credentials(dataset.info.dataset_name, cfg=cfg)
 
+    sync_dataset_files_to_platform_from_resource_credentials(
+        dataset=dataset,
+        sample_dataset=sample_dataset,
+        interactive=interactive,
+        allow_version_overwrite=allow_version_overwrite,
+        resource_credentials=resource_credentials,
+    )
+
+
+def sync_dataset_files_to_platform_from_resource_credentials(
+    dataset: HafniaDataset,
+    sample_dataset: Optional[HafniaDataset],
+    interactive: bool,
+    allow_version_overwrite: bool,
+    resource_credentials: ResourceCredentials,
+):
     envs = resource_credentials.aws_credentials()
     bucket_name = resource_credentials.bucket_name()
 
@@ -175,3 +184,14 @@ def sync_hafnia_dataset_to_platform(
             allow_version_overwrite=allow_version_overwrite,
             envs=envs,
         )
+
+
+def s3_prefix_from_hash(hash: str, suffix: str) -> str:
+    """
+    Generate a relative S3 path from a hash value.
+    E.g. for hash "dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4" and suffix ".png",
+    the returned path will be "data/df/e8/dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4.png".
+
+    """
+    s3_prefix = f"data/{hash[:2]}/{hash[2:4]}/{hash}{suffix}"
+    return s3_prefix

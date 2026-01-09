@@ -28,9 +28,7 @@ from hafnia.dataset.primitives import (
     Segmentation,
 )
 from hafnia.dataset.primitives.primitive import Primitive
-from hafnia.http import post
-from hafnia.log import user_logger
-from hafnia.platform.datasets import get_dataset_id
+from hafnia.platform.datasets import upload_dataset_details
 from hafnia.utils import get_path_dataset_gallery_images
 from hafnia_cli.config import Config
 
@@ -282,42 +280,27 @@ def upload_dataset_details_to_platform(
     path_gallery_images: Optional[Path] = None,
     gallery_image_names: Optional[List[str]] = None,
     distribution_task_names: Optional[List[str]] = None,
-    upload_gallery_images: bool = True,
+    update_platform: bool = True,
+    cfg: Optional[Config] = None,
 ) -> dict:
+    cfg = cfg or Config()
     dataset_details = dataset_details_from_hafnia_dataset(
         dataset=dataset,
         path_gallery_images=path_gallery_images,
         gallery_image_names=gallery_image_names,
         distribution_task_names=distribution_task_names,
     )
-    response = upload_to_hafnia_dataset_detail_page(
-        dataset_details=dataset_details,
-        upload_gallery_images=upload_gallery_images,
-    )
-    return response
 
+    if update_platform:
+        dataset_details_exclude_none = dataset_details.model_dump(exclude_none=True, mode="json")
+        upload_dataset_details(
+            cfg=cfg,
+            data=dataset_details_exclude_none,
+            dataset_name=dataset_details.name,
+        )
 
-def upload_to_hafnia_dataset_detail_page(dataset_details: DatasetDetails, upload_gallery_images: bool) -> dict:
-    if not upload_gallery_images:
-        dataset_details.imgs = None
-
-    cfg = Config()
-
-    dataset_details_json = dataset_details.model_dump_json(exclude_none=True)
-    data = upload_dataset_details(cfg=cfg, data=dataset_details_json, dataset_name=dataset_details.name)
-    return data
-
-
-def upload_dataset_details(cfg: Config, data: str, dataset_name: str) -> dict:
-    dataset_endpoint = cfg.get_platform_endpoint("datasets")
-    dataset_id = get_dataset_id(dataset_name, dataset_endpoint, cfg.api_key)
-
-    import_endpoint = f"{dataset_endpoint}/{dataset_id}/import"
-    headers = {"Authorization": cfg.api_key}
-
-    user_logger.info("Exporting dataset details to platform. This may take up to 30 seconds...")
-    response = post(endpoint=import_endpoint, headers=headers, data=data)  # type: ignore[assignment]
-    return response  # type: ignore[return-value]
+    dataset_details_dict = dataset_details.model_dump(exclude_none=False, mode="json")
+    return dataset_details_dict
 
 
 def get_resolutions(dataset: HafniaDataset, max_resolutions_selected: int = 8) -> List[DbResolution]:

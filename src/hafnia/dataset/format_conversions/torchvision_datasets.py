@@ -40,7 +40,7 @@ def mnist_as_hafnia_dataset(force_redownload=False, n_samples: Optional[int] = N
 
     dataset_info = DatasetInfo(
         dataset_name="mnist",
-        version="1.1.0",
+        version="1.0.0",
         tasks=tasks,
         reference_bibtex=textwrap.dedent("""\
             @article{lecun2010mnist,
@@ -150,7 +150,7 @@ def cifar_as_hafnia_dataset(
 
     dataset_info = DatasetInfo(
         dataset_name=dataset_name,
-        version="1.1.0",
+        version="1.0.0",
         tasks=tasks,
         reference_bibtex=textwrap.dedent("""\
         @@TECHREPORT{Krizhevsky09learningmultiple,
@@ -268,7 +268,10 @@ def _download_and_extract_caltech_dataset(dataset_name: str, force_redownload: b
             path_output_extracted = path_tmp_output / "caltech-101"
             for gzip_file in os.listdir(path_output_extracted):
                 if gzip_file.endswith(".gz"):
-                    extract_archive(os.path.join(path_output_extracted, gzip_file), path_output_extracted)
+                    extract_archive(
+                        from_path=os.path.join(path_output_extracted, gzip_file),
+                        to_path=path_output_extracted,
+                    )
             path_org = path_output_extracted / "101_ObjectCategories"
 
         elif dataset_name == "caltech-256":

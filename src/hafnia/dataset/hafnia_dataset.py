@@ -37,6 +37,7 @@ from hafnia.dataset.operations import (
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
+from hafnia_cli.config import Config
 
 
 @dataclass
@@ -602,6 +603,44 @@ class HafniaDataset:
             samples = samples.with_columns(pl.lit("").alias(SampleField.FILE_PATH))
         samples.write_ndjson(path_folder / FILENAME_ANNOTATIONS_JSONL)  # Json for readability
         samples.write_parquet(path_folder / FILENAME_ANNOTATIONS_PARQUET)  # Parquet for speed
+
+    def delete_on_platform(dataset: HafniaDataset, interactive: bool = True) -> None:
+        from hafnia.platform.datasets import delete_dataset_completely_by_name
+
+        delete_dataset_completely_by_name(dataset_name=dataset.info.dataset_name, interactive=interactive)
+
+    def upload_to_platform(
+        dataset: HafniaDataset,
+        dataset_sample: Optional[HafniaDataset] = None,
+        allow_version_overwrite: bool = False,
+        interactive: bool = True,
+        gallery_images: Optional[Any] = None,
+        distribution_task_names: Optional[List[str]] = None,
+        cfg: Optional[Config] = None,
+    ) -> dict:
+        from hafnia.dataset.dataset_details_uploader import upload_dataset_details_to_platform
+        from hafnia.dataset.operations.dataset_s3_storage import sync_dataset_files_to_platform
+        from hafnia.platform.datasets import get_or_create_dataset
+
+        cfg = cfg or Config()
+        get_or_create_dataset(dataset.info.dataset_name, cfg=cfg)
+
+        sync_dataset_files_to_platform(
+            dataset=dataset,
+            sample_dataset=dataset_sample,
+            interactive=interactive,
+            allow_version_overwrite=allow_version_overwrite,
+            cfg=cfg,
+        )
+
+        response = upload_dataset_details_to_platform(
+            dataset=dataset,
+            distribution_task_names=distribution_task_names,
+            gallery_image_names=gallery_images,
+            cfg=cfg,
+        )
+
+        return response
 
     def __eq__(self, value) -> bool:
         if not isinstance(value, HafniaDataset):
