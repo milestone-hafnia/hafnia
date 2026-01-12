@@ -24,7 +24,8 @@ def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Union[
     try:
         response = http.request("GET", endpoint, fields=params, headers=headers)
         if response.status != 200:
-            raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}")
+            error_details = response.data.decode("utf-8")
+            raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}: {error_details}")
 
         return json.loads(response.data.decode("utf-8"))
     finally:

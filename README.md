@@ -180,7 +180,7 @@ DatasetInfo(
 ```
 
 You can iterate and access samples in the dataset using the `HafniaDataset` object.
-Each sample contain image and annotations information. 
+Each sample contain image and annotations information.
 
 ```python
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
