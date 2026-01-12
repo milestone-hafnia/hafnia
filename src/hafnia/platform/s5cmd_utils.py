@@ -95,7 +95,11 @@ def execute_commands(
     return lines
 
 
-def delete_bucket_content(bucket_prefix: str, remove_bucket: bool = True, append_envs: Optional[Dict[str, str]] = None):
+def delete_bucket_content(
+    bucket_prefix: str,
+    remove_bucket: bool = True,
+    append_envs: Optional[Dict[str, str]] = None,
+) -> None:
     # Remove all files in the bucket
     returns = execute_command(["rm", f"{bucket_prefix}/*"], append_envs=append_envs)
 
@@ -105,7 +109,7 @@ def delete_bucket_content(bucket_prefix: str, remove_bucket: bool = True, append
             user_logger.info(f"No action was taken. S3 bucket '{bucket_prefix}' is already empty.")
         else:
             user_logger.error("Error during s5cmd rm command:")
-            user_logger.error(returns.stdout.decode())
+            user_logger.error(returns.stdout)
             raise RuntimeError(f"Failed to delete all files in S3 bucket '{bucket_prefix}'.")
 
     if remove_bucket:
@@ -113,7 +117,7 @@ def delete_bucket_content(bucket_prefix: str, remove_bucket: bool = True, append
         returns = execute_command(["rb", bucket_prefix], append_envs=append_envs)
         if returns.returncode != 0:
             user_logger.error("Error during s5cmd rb command:")
-            user_logger.error(returns.stdout.decode())
+            user_logger.error(returns.stdout)
             raise RuntimeError(f"Failed to delete S3 bucket '{bucket_prefix}'.")
     user_logger.info(f"S3 bucket '{bucket_prefix}' has been deleted.")
 

@@ -605,6 +605,17 @@ class HafniaDataset:
         samples.write_parquet(path_folder / FILENAME_ANNOTATIONS_PARQUET)  # Parquet for speed
 
     def delete_on_platform(dataset: HafniaDataset, interactive: bool = True) -> None:
+        """
+        Delete this dataset from the Hafnia platform.
+        This is a thin wrapper around `hafnia.platform.datasets.delete_dataset_completely_by_name`.
+
+        Args:
+            dataset (HafniaDataset): The :class:`HafniaDataset` instance to delete from the platform. The
+                dataset name is taken from `dataset.info.dataset_name`.
+            interactive (bool): If ``True``, perform the deletion in interactive mode (for example,
+                prompting the user for confirmation where supported). If ``False``,
+                run non-interactively, suitable for automated scripts or CI usage. Defaults to True.
+        """
         from hafnia.platform.datasets import delete_dataset_completely_by_name
 
         delete_dataset_completely_by_name(dataset_name=dataset.info.dataset_name, interactive=interactive)
@@ -618,6 +629,45 @@ class HafniaDataset:
         distribution_task_names: Optional[List[str]] = None,
         cfg: Optional[Config] = None,
     ) -> dict:
+        """
+        Upload the dataset and dataset details to the Hafnia platform.
+        This method ensures the dataset exists on the platform, synchronizes the
+        dataset files to remote storage, and uploads dataset details and optional gallery images
+        distributions.
+        Args:
+            dataset: The full :class:`HafniaDataset` instance that should be uploaded
+                to the platform.
+            dataset_sample: Optional sample :class:`HafniaDataset` used as a smaller
+                preview or subset of the main dataset on the platform. If provided,
+                it is uploaded alongside the full dataset for demonstration or
+                inspection purposes. Use only this if the sample dataset uses different
+                image files than the main dataset. Otherwise it is sufficient to just provide
+                the main dataset and the platform will create a sample automatically.
+            allow_version_overwrite: If ``True``, allows an existing dataset version
+                with the same name to be overwritten on the platform. If ``False``,
+                an error or confirmation may be required when a version conflict is
+                detected.
+            interactive: If ``True``, the upload process may prompt the user for
+                confirmation or additional input (for example when overwriting
+                existing versions). If ``False``, the upload is performed without
+                interactive prompts.
+            gallery_images: Optional collection of image identifiers or file names
+                that should be marked or displayed as gallery images for the dataset
+                on the platform. These are forwarded as ``gallery_image_names`` to
+                the platform API.
+            distribution_task_names: Optional list of task names associated with the
+                dataset that should be considered when configuring how the dataset is
+                distributed or exposed on the platform.
+            cfg: Optional :class:`hafnia_cli.config.Config` instance providing
+                configuration for platform access and storage. If not supplied, a
+                default configuration is created.
+        Returns:
+            dict: The response returned by the platform after uploading the dataset
+            details. The exact contents depend on the platform API but typically
+            include information about the created or updated dataset (such as
+            identifiers and status).
+        """
+
         from hafnia.dataset.dataset_details_uploader import upload_dataset_details_to_platform
         from hafnia.dataset.operations.dataset_s3_storage import sync_dataset_files_to_platform
         from hafnia.platform.datasets import get_or_create_dataset

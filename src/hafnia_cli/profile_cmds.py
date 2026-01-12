@@ -94,9 +94,6 @@ def cmd_profile_active(cfg: Config) -> None:
 def profile_show(cfg: Config) -> None:
     masked_key = f"{cfg.api_key[:11]}...{cfg.api_key[-4:]}" if len(cfg.api_key) > 20 else "****"
     console = Console()
-    # console.print(f"cfg.platform_url: {cfg.platform_url}")
-    # console.print(f"{len(cfg.config_path.as_posix())=}")
-    # console.print(f"cfg.platform_url (masked): {cfg.platform_url[:22]}...{cfg.platform_url[-4:]}")
     table = Table(title=f"{consts.PROFILE_TABLE_HEADER} {cfg.active_profile}", show_header=False)
     table.add_column("Property", style="cyan")
     table.add_column("Value")

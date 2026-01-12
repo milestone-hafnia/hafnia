@@ -154,13 +154,12 @@ class AwsCredentials(BaseModel):
         Creates AwsCredentials from a Boto3 session.
         """
         try:
-            profile_name = session.profile_name
             frozen_credentials = session.get_credentials().get_frozen_credentials()
         except UnauthorizedSSOTokenError as e:
             raise RuntimeError(
-                f"Failed to get AWS credentials from the session for profile '{profile_name}'.\n"
+                f"Failed to get AWS credentials from the session for profile '{session.profile_name}'.\n"
                 f"Ensure the profile exists in your AWS config in '~/.aws/config' and that you are logged in via AWS SSO.\n"
-                f"\tUse 'aws sso login --profile {profile_name}' to log in."
+                f"\tUse 'aws sso login --profile {session.profile_name}' to log in."
             ) from e
         return AwsCredentials(
             access_key=frozen_credentials.access_key,
@@ -169,11 +168,11 @@ class AwsCredentials(BaseModel):
             region=session.region_name,
         )
 
-    def to_resource_credentials(aws_credentials: "AwsCredentials", bucket_name: str) -> "ResourceCredentials":
+    def to_resource_credentials(self, bucket_name: str) -> "ResourceCredentials":
         """
         Converts AwsCredentials to ResourceCredentials by adding the S3 ARN.
         """
-        payload = aws_credentials.model_dump()
+        payload = self.model_dump()
         payload["s3_arn"] = f"{ARN_PREFIX}{bucket_name}"
         return ResourceCredentials(**payload)
 

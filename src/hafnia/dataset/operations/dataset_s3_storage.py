@@ -23,9 +23,12 @@ def delete_hafnia_dataset_files_on_platform(
     dataset_name: str,
     interactive: bool = True,
     cfg: Optional[Config] = None,
-):
+) -> bool:
     cfg = cfg or Config()
     resource_credentials = get_upload_credentials(dataset_name, cfg=cfg)
+
+    if resource_credentials is None:
+        raise RuntimeError("Failed to get upload credentials from the platform.")
 
     return delete_hafnia_dataset_files_from_resource_credentials(
         interactive=interactive,
@@ -149,6 +152,9 @@ def sync_dataset_files_to_platform(
     cfg = cfg or Config()
     resource_credentials = get_upload_credentials(dataset.info.dataset_name, cfg=cfg)
 
+    if resource_credentials is None:
+        raise RuntimeError("Failed to get upload credentials from the platform.")
+
     sync_dataset_files_to_platform_from_resource_credentials(
         dataset=dataset,
         sample_dataset=sample_dataset,
@@ -188,10 +194,18 @@ def sync_dataset_files_to_platform_from_resource_credentials(
 
 def s3_prefix_from_hash(hash: str, suffix: str) -> str:
     """
-    Generate a relative S3 path from a hash value.
-    E.g. for hash "dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4" and suffix ".png",
-    the returned path will be "data/df/e8/dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4.png".
+    Generate a relative S3 path from a hash value for objects stored in S3.
 
+    This function deliberately uses a hierarchical directory layout based on the
+    hash prefix to avoid putting too many objects in a single S3 prefix, which
+    can run into AWS S3 rate limits and performance issues. For example, for
+    hash "dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4" and suffix ".png", the returned
+    path will be:
+
+        "data/df/e8/dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4.png"
+
+    Note: This intentionally differs from when images are stored to disk locally, where
+    a flat path of the form ``data/<hash><suffix>`` is used.
     """
     s3_prefix = f"data/{hash[:2]}/{hash[2:4]}/{hash}{suffix}"
     return s3_prefix

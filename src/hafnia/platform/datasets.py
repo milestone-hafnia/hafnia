@@ -321,7 +321,7 @@ def _annotation_files_from_version(version: Optional[str], all_annotation_files:
     available_versions = {v for v, files in version_files.items() if len(files) == len(DATASET_FILENAMES_REQUIRED)}
 
     if len(available_versions) == 0:
-        raise ValueError("No versions was found in the dataset.")
+        raise ValueError("No versions were found in the dataset.")
 
     if version is None:
         latest_version = max(Version(ver) for ver in available_versions)

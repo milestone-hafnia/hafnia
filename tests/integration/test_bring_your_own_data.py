@@ -27,7 +27,7 @@ def test_bring_your_own_data():
     user_dataset.upload_to_platform(interactive=False, allow_version_overwrite=False)
 
     # Check that dataset is now available on the platform
-    dataset_response = get_dataset_by_name(user_dataset_name)
+    get_dataset_by_name(user_dataset_name)
 
     # Check that the sample dataset can be downloaded
     user_dataset_reloaded = HafniaDataset.from_name(user_dataset_name)
