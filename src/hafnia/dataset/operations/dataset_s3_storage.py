@@ -100,7 +100,7 @@ def sync_hafnia_dataset_to_s3(
         metadata_files_s3 = []
         for filename in path_temp.iterdir():
             metadata_files_s3.append(f"{bucket_prefix}/versions/{dataset.info.version}/{filename.name}")
-            metadata_files_local.append(str(filename))
+            metadata_files_local.append(filename.as_posix())
 
         overwrite_metadata_files = files_in_s3.intersection(set(metadata_files_s3))
         will_overwrite_metadata_files = len(overwrite_metadata_files) > 0
