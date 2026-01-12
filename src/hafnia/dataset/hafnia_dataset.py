@@ -12,7 +12,6 @@ from packaging.version import Version
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import (
-    DATASET_FILENAMES_REQUIRED,
     FILENAME_ANNOTATIONS_JSONL,
     FILENAME_ANNOTATIONS_PARQUET,
     FILENAME_DATASET_INFO,
@@ -38,6 +37,7 @@ from hafnia.dataset.operations import (
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
+from hafnia_cli.config import Config
 
 
 @dataclass
@@ -434,7 +434,7 @@ class HafniaDataset:
         aws_credentials: AwsCredentials,
         force_redownload: bool = False,
     ) -> HafniaDataset:
-        from hafnia.platform.datasets import fast_copy_files_s3
+        from hafnia.platform.s5cmd_utils import fast_copy_files
 
         remote_src_paths = dataset.samples[SampleField.REMOTE_PATH].unique().to_list()
         update_rows = []
@@ -470,7 +470,7 @@ class HafniaDataset:
             return dataset
 
         environment_vars = aws_credentials.aws_credentials()
-        fast_copy_files_s3(
+        fast_copy_files(
             src_paths=remote_src_paths,
             dst_paths=local_dst_paths,
             append_envs=environment_vars,
@@ -563,7 +563,7 @@ class HafniaDataset:
             keep_sample_data=keep_sample_data,
         )
 
-    def write(self, path_folder: Path, add_version: bool = False, drop_null_cols: bool = True) -> None:
+    def write(self, path_folder: Path, drop_null_cols: bool = True) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         path_folder = path_folder.absolute()
         if not path_folder.exists():
@@ -578,18 +578,9 @@ class HafniaDataset:
             )
             new_paths.append(str(new_path))
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
-        hafnia_dataset.write_annotations(
-            path_folder=path_folder,
-            drop_null_cols=drop_null_cols,
-            add_version=add_version,
-        )
+        hafnia_dataset.write_annotations(path_folder=path_folder, drop_null_cols=drop_null_cols)
 
-    def write_annotations(
-        dataset: HafniaDataset,
-        path_folder: Path,
-        drop_null_cols: bool = True,
-        add_version: bool = False,
-    ) -> None:
+    def write_annotations(dataset: HafniaDataset, path_folder: Path, drop_null_cols: bool = True) -> None:
         """
         Writes only the annotations files (JSONL and Parquet) to the specified folder.
         """
@@ -604,18 +595,102 @@ class HafniaDataset:
             samples = samples.drop(pl.selectors.by_dtype(pl.Null))
 
         # Store only relative paths in the annotations files
-        absolute_paths = samples[SampleField.FILE_PATH].to_list()
-        relative_paths = [str(Path(path).relative_to(path_folder)) for path in absolute_paths]
-        samples = samples.with_columns(pl.Series(relative_paths).alias(SampleField.FILE_PATH))
-
+        if SampleField.FILE_PATH in samples.columns:  # We drop column for remote datasets
+            absolute_paths = samples[SampleField.FILE_PATH].to_list()
+            relative_paths = [str(Path(path).relative_to(path_folder)) for path in absolute_paths]
+            samples = samples.with_columns(pl.Series(relative_paths).alias(SampleField.FILE_PATH))
+        else:
+            samples = samples.with_columns(pl.lit("").alias(SampleField.FILE_PATH))
         samples.write_ndjson(path_folder / FILENAME_ANNOTATIONS_JSONL)  # Json for readability
         samples.write_parquet(path_folder / FILENAME_ANNOTATIONS_PARQUET)  # Parquet for speed
 
-        if add_version:
-            path_version = path_folder / "versions" / f"{dataset.info.version}"
-            path_version.mkdir(parents=True, exist_ok=True)
-            for filename in DATASET_FILENAMES_REQUIRED:
-                shutil.copy2(path_folder / filename, path_version / filename)
+    def delete_on_platform(dataset: HafniaDataset, interactive: bool = True) -> None:
+        """
+        Delete this dataset from the Hafnia platform.
+        This is a thin wrapper around `hafnia.platform.datasets.delete_dataset_completely_by_name`.
+
+        Args:
+            dataset (HafniaDataset): The :class:`HafniaDataset` instance to delete from the platform. The
+                dataset name is taken from `dataset.info.dataset_name`.
+            interactive (bool): If ``True``, perform the deletion in interactive mode (for example,
+                prompting the user for confirmation where supported). If ``False``,
+                run non-interactively, suitable for automated scripts or CI usage. Defaults to True.
+        """
+        from hafnia.platform.datasets import delete_dataset_completely_by_name
+
+        delete_dataset_completely_by_name(dataset_name=dataset.info.dataset_name, interactive=interactive)
+
+    def upload_to_platform(
+        dataset: HafniaDataset,
+        dataset_sample: Optional[HafniaDataset] = None,
+        allow_version_overwrite: bool = False,
+        interactive: bool = True,
+        gallery_images: Optional[Any] = None,
+        distribution_task_names: Optional[List[str]] = None,
+        cfg: Optional[Config] = None,
+    ) -> dict:
+        """
+        Upload the dataset and dataset details to the Hafnia platform.
+        This method ensures the dataset exists on the platform, synchronizes the
+        dataset files to remote storage, and uploads dataset details and optional gallery images
+        distributions.
+        Args:
+            dataset: The full :class:`HafniaDataset` instance that should be uploaded
+                to the platform.
+            dataset_sample: Optional sample :class:`HafniaDataset` used as a smaller
+                preview or subset of the main dataset on the platform. If provided,
+                it is uploaded alongside the full dataset for demonstration or
+                inspection purposes. Use only this if the sample dataset uses different
+                image files than the main dataset. Otherwise it is sufficient to just provide
+                the main dataset and the platform will create a sample automatically.
+            allow_version_overwrite: If ``True``, allows an existing dataset version
+                with the same name to be overwritten on the platform. If ``False``,
+                an error or confirmation may be required when a version conflict is
+                detected.
+            interactive: If ``True``, the upload process may prompt the user for
+                confirmation or additional input (for example when overwriting
+                existing versions). If ``False``, the upload is performed without
+                interactive prompts.
+            gallery_images: Optional collection of image identifiers or file names
+                that should be marked or displayed as gallery images for the dataset
+                on the platform. These are forwarded as ``gallery_image_names`` to
+                the platform API.
+            distribution_task_names: Optional list of task names associated with the
+                dataset that should be considered when configuring how the dataset is
+                distributed or exposed on the platform.
+            cfg: Optional :class:`hafnia_cli.config.Config` instance providing
+                configuration for platform access and storage. If not supplied, a
+                default configuration is created.
+        Returns:
+            dict: The response returned by the platform after uploading the dataset
+            details. The exact contents depend on the platform API but typically
+            include information about the created or updated dataset (such as
+            identifiers and status).
+        """
+
+        from hafnia.dataset.dataset_details_uploader import upload_dataset_details_to_platform
+        from hafnia.dataset.operations.dataset_s3_storage import sync_dataset_files_to_platform
+        from hafnia.platform.datasets import get_or_create_dataset
+
+        cfg = cfg or Config()
+        get_or_create_dataset(dataset.info.dataset_name, cfg=cfg)
+
+        sync_dataset_files_to_platform(
+            dataset=dataset,
+            sample_dataset=dataset_sample,
+            interactive=interactive,
+            allow_version_overwrite=allow_version_overwrite,
+            cfg=cfg,
+        )
+
+        response = upload_dataset_details_to_platform(
+            dataset=dataset,
+            distribution_task_names=distribution_task_names,
+            gallery_image_names=gallery_images,
+            cfg=cfg,
+        )
+
+        return response
 
     def __eq__(self, value) -> bool:
         if not isinstance(value, HafniaDataset):

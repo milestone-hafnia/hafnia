@@ -57,20 +57,6 @@ def save_pil_image_with_hash_name(image: Image.Image, path_folder: Path, allow_s
 def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Path) -> Path:
     """
     Copies a file to a dataset root directory with a hash-based name and sub-directory structure.
-
-    E.g. for an "image.png" with hash "dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4", the image will be copied to
-    'path_dataset_root / "data" / "dfe" / "dfe8f3b1c2a4f5b6c7d8e9f0a1b2c3d4.png"'
-    Notice that the hash is used for both the filename and the subfolder name.
-
-    Placing image/video files into multiple sub-folders (instead of one large folder) is seemingly
-    unnecessary, but it is actually a requirement when the dataset is later downloaded from S3.
-
-    The reason is that AWS has a rate limit of 3500 ops/sec per prefix (sub-folder) in S3 - meaning we can "only"
-    download 3500 files per second from a single folder (prefix) in S3.
-
-    For even a single user, we found that this limit was being reached when files are stored in single folder (prefix)
-    in S3. To support multiple users and concurrent experiments, we are required to separate files into
-    multiple sub-folders (prefixes) in S3 to not hit the rate limit.
     """
 
     if not path_source.exists():
@@ -86,7 +72,7 @@ def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Pat
 
 
 def relative_path_from_hash(hash: str, suffix: str) -> Path:
-    path_file = Path("data") / hash[:3] / f"{hash}{suffix}"
+    path_file = Path("data") / f"{hash}{suffix}"
     return path_file
 
 

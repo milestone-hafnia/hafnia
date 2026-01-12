@@ -51,7 +51,7 @@ class TaskInfo(BaseModel):
         return self.class_names.index(class_name)
 
     # The 'primitive'-field of type 'Type[Primitive]' is not supported by pydantic out-of-the-box as
-    # the 'Primitive' class is an abstract base class and for the actual primtives such as Bbox, Bitmask, Classification.
+    # the 'Primitive' class is an abstract base class and for the actual primitives such as Bbox, Bitmask, Classification.
     # Below magic functions ('ensure_primitive' and 'serialize_primitive') ensures that the 'primitive' field can
     # correctly validate and serialize sub-classes (Bbox, Classification, ...).
     @field_validator("primitive", mode="plain")
@@ -103,6 +103,8 @@ class TaskInfo(BaseModel):
 class DatasetInfo(BaseModel):
     dataset_name: str = Field(description="Name of the dataset, e.g. 'coco'")
     version: Optional[str] = Field(default=None, description="Version of the dataset")
+    dataset_title: Optional[str] = Field(default=None, description="Optional, human-readable title of the dataset")
+    description: Optional[str] = Field(default=None, description="Optional, description of the dataset")
     tasks: List[TaskInfo] = Field(default=None, description="List of tasks in the dataset")
     reference_bibtex: Optional[str] = Field(
         default=None,

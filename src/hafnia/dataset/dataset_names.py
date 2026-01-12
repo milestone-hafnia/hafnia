@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 import boto3
+from botocore.exceptions import UnauthorizedSSOTokenError
 from pydantic import BaseModel, field_validator
 
 FILENAME_RECIPE_JSON = "recipe.json"
@@ -21,6 +22,7 @@ class DeploymentStage(Enum):
     PRODUCTION = "production"
 
 
+ARN_PREFIX = "arn:aws:s3:::"
 TAG_IS_SAMPLE = "sample"
 
 OPS_REMOVE_CLASS = "__REMOVE__"
@@ -151,7 +153,14 @@ class AwsCredentials(BaseModel):
         """
         Creates AwsCredentials from a Boto3 session.
         """
-        frozen_credentials = session.get_credentials().get_frozen_credentials()
+        try:
+            frozen_credentials = session.get_credentials().get_frozen_credentials()
+        except UnauthorizedSSOTokenError as e:
+            raise RuntimeError(
+                f"Failed to get AWS credentials from the session for profile '{session.profile_name}'.\n"
+                f"Ensure the profile exists in your AWS config in '~/.aws/config' and that you are logged in via AWS SSO.\n"
+                f"\tUse 'aws sso login --profile {session.profile_name}' to log in."
+            ) from e
         return AwsCredentials(
             access_key=frozen_credentials.access_key,
             secret_key=frozen_credentials.secret_key,
@@ -159,8 +168,13 @@ class AwsCredentials(BaseModel):
             region=session.region_name,
         )
 
-
-ARN_PREFIX = "arn:aws:s3:::"
+    def to_resource_credentials(self, bucket_name: str) -> "ResourceCredentials":
+        """
+        Converts AwsCredentials to ResourceCredentials by adding the S3 ARN.
+        """
+        payload = self.model_dump()
+        payload["s3_arn"] = f"{ARN_PREFIX}{bucket_name}"
+        return ResourceCredentials(**payload)
 
 
 class ResourceCredentials(AwsCredentials):
