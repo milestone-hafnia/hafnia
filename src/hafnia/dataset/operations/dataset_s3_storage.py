@@ -39,6 +39,7 @@ def delete_hafnia_dataset_files_on_platform(
 def delete_hafnia_dataset_files_from_resource_credentials(
     resource_credentials: ResourceCredentials,
     interactive: bool = True,
+    remove_bucket: bool = True,
 ) -> bool:
     envs = resource_credentials.aws_credentials()
     bucket_name = resource_credentials.bucket_name()
@@ -58,7 +59,11 @@ def delete_hafnia_dataset_files_from_resource_credentials(
             user_logger.info("Delete operation cancelled by the user.")
             return False
     user_logger.info(f"Deleting all files in S3 bucket '{bucket_name}'...")
-    s5cmd_utils.delete_bucket_content(bucket_prefix=f"s3://{bucket_name}", remove_bucket=True, append_envs=envs)
+    s5cmd_utils.delete_bucket_content(
+        bucket_prefix=f"s3://{bucket_name}",
+        remove_bucket=remove_bucket,
+        append_envs=envs,
+    )
     return True
 
 

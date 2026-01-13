@@ -78,7 +78,7 @@ def caltech_101_as_hafnia_dataset(
         n_samples=n_samples,
         dataset_name=dataset_name,
     )
-    hafnia_dataset.info.version = "1.1.0"
+    hafnia_dataset.info.version = "1.0.0"
     hafnia_dataset.info.reference_bibtex = textwrap.dedent("""\
         @article{FeiFei2004LearningGV,
             title={Learning Generative Visual Models from Few Training Examples: An Incremental Bayesian
@@ -108,7 +108,7 @@ def caltech_256_as_hafnia_dataset(
         n_samples=n_samples,
         dataset_name=dataset_name,
     )
-    hafnia_dataset.info.version = "1.1.0"
+    hafnia_dataset.info.version = "1.0.0"
     hafnia_dataset.info.reference_bibtex = textwrap.dedent("""\
         @misc{griffin_2023_5sv1j-ytw97,
             author       = {Griffin, Gregory and
