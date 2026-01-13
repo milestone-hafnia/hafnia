@@ -26,7 +26,11 @@ def find_s5cmd() -> Optional[str]:
     if result:
         return result
     python_dir = Path(sys.executable).parent
-    locations = (python_dir / "Scripts" / "s5cmd.exe", python_dir / "bin" / "s5cmd", python_dir / "s5cmd")
+    locations = (
+        python_dir / "Scripts" / "s5cmd.exe",
+        python_dir / "bin" / "s5cmd",
+        python_dir / "s5cmd",
+    )
     for loc in locations:
         if loc.exists():
             return str(loc)
@@ -104,12 +108,17 @@ def delete_bucket_content(
     returns = execute_command(["rm", f"{bucket_prefix}/*"], append_envs=append_envs)
 
     if returns.returncode != 0:
-        bucket_is_already_deleted = "no object found" in returns.stderr.strip()
-        if bucket_is_already_deleted:
+        bucket_content_is_already_deleted = "no object found" in returns.stderr.strip()
+        bucket_is_already_deleted = "NoSuchBucket" in returns.stderr.strip()
+        if bucket_content_is_already_deleted:
             user_logger.info(f"No action was taken. S3 bucket '{bucket_prefix}' is already empty.")
+        elif bucket_is_already_deleted:
+            user_logger.info(f"No action was taken. S3 bucket '{bucket_prefix}' does not exist.")
+            return
         else:
             user_logger.error("Error during s5cmd rm command:")
             user_logger.error(returns.stdout)
+            user_logger.error(returns.stderr)
             raise RuntimeError(f"Failed to delete all files in S3 bucket '{bucket_prefix}'.")
 
     if remove_bucket:
@@ -118,6 +127,7 @@ def delete_bucket_content(
         if returns.returncode != 0:
             user_logger.error("Error during s5cmd rb command:")
             user_logger.error(returns.stdout)
+            user_logger.error(returns.stderr)
             raise RuntimeError(f"Failed to delete S3 bucket '{bucket_prefix}'.")
     user_logger.info(f"S3 bucket '{bucket_prefix}' has been deleted.")
 
