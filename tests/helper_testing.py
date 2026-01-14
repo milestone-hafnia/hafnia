@@ -10,18 +10,28 @@ import polars as pl
 
 import hafnia
 from hafnia.dataset import primitives
-from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, SampleField, SplitName, StorageFormat
-from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
+from hafnia.dataset.dataset_names import (
+    SampleField,
+    SplitName,
+    StorageFormat,
+)
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, DatasetMetadataFilePaths, Sample, TaskInfo
 from hafnia.dataset.primitives import Bbox
 from hafnia.visualizations import image_visualizations
+from tests.helper_testing_datasets import DATASET_SPEC_COCO_2017_TINY, DATASET_SPEC_MNIST, DATASET_SPEC_TINY_DATASET
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
+
+# Micro datasets are used for testing on datasets that mimic real datasets.
+# They are stored and version controlled together with the source code to not have external dependencies
+# when running unit tests. The datasets are very small making them fast to load and run tests on.
+# Micro datasets are derived from other datasets and should be updated regularly to ensure compatibility
 MICRO_DATASETS = {
-    "micro-tiny-dataset": "tiny-dataset",
-    "micro-coco-2017": "coco-2017-tiny",
+    "micro-tiny-dataset": DATASET_SPEC_TINY_DATASET,
+    "micro-coco-2017": DATASET_SPEC_COCO_2017_TINY,
 }
 
 
@@ -54,13 +64,14 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
         raise ValueError(f"Dataset name '{dataset_name}' is not recognized. Available options: {list(MICRO_DATASETS)}")
 
     path_test_dataset = get_path_micro_hafnia_dataset_no_check() / dataset_name
-    path_test_dataset_annotations = path_test_dataset / FILENAME_ANNOTATIONS_JSONL
-    if path_test_dataset_annotations.exists() and not force_update:
+    dataset_metadata_files = DatasetMetadataFilePaths.from_path(path_test_dataset)
+    has_dataset = dataset_metadata_files.exists()
+    if has_dataset and not force_update:
         return path_test_dataset
 
-    hafnia_dataset_name = MICRO_DATASETS[dataset_name]
-    hafnia_dataset = HafniaDataset.from_name(hafnia_dataset_name, force_redownload=True)
-    if hafnia_dataset_name == "tiny-dataset":
+    dataset_info = MICRO_DATASETS[dataset_name]
+    hafnia_dataset = HafniaDataset.from_name(dataset_info.name, version=dataset_info.version, force_redownload=True)
+    if dataset_info.name == "tiny-dataset":
         select_samples = [0, 2, 6]
         hafnia_dataset.samples = hafnia_dataset.samples.filter(pl.col(SampleField.SAMPLE_INDEX).is_in(select_samples))
     else:
@@ -71,10 +82,10 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
     if format_version_mismatch:
         raise ValueError(
             f"You are trying to update the micro test dataset '{dataset_name}' (located in '{path_test_dataset}'), "
-            f"with 'force_update=True'. This will re-download '{hafnia_dataset_name}'. "
+            f"with 'force_update=True'. This will re-download '{dataset_info.name}'. "
             f"However, the format version for the re-downloaded dataset ('{hafnia_dataset.info.format_version}'), "
             f"is still not matching the current format version ('{hafnia.__dataset_format_version__}'). "
-            f"You will need to recreate '{hafnia_dataset_name}' using the 'data-management' repo to update the "
+            f"You will need to recreate '{dataset_info.name}' using the 'data-management' repo to update the "
             f"dataset format version."
         )
 
@@ -161,13 +172,13 @@ def get_dummy_recipe() -> "DatasetRecipe":
     dataset_recipe = (
         DatasetRecipe.from_merger(
             recipes=[
-                DatasetRecipe.from_name(name="mnist", force_redownload=False)
+                DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False)
                 .select_samples(n_samples=20, shuffle=True, seed=42)
                 .shuffle(seed=123),
-                DatasetRecipe.from_name(name="mnist", force_redownload=False)
+                DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False)
                 .select_samples(n_samples=30, shuffle=True, seed=42)
                 .splits_by_ratios(split_ratios={"train": 0.8, "val": 0.1, "test": 0.1}, seed=42),
-                DatasetRecipe.from_name(name="mnist", force_redownload=False),
+                DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
             ]
         )
         .class_mapper(get_strict_class_mapping_mnist())

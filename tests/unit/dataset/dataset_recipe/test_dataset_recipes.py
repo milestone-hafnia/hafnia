@@ -21,6 +21,7 @@ from tests.helper_testing import (
     get_dummy_recipe,
     get_strict_class_mapping_mnist,
 )
+from tests.helper_testing_datasets import DATASET_SPEC_MNIST
 
 
 def check_signature(cls):
@@ -159,7 +160,7 @@ class IntegrationTestUseCase:
     "recipe_use_case",
     [
         IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_name(name="mnist", force_redownload=False),
+            recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
             short_name="mnist",
         ),
         IntegrationTestUseCase(
@@ -169,7 +170,7 @@ class IntegrationTestUseCase:
         IntegrationTestUseCase(
             recipe=DatasetRecipe.from_merger(
                 recipes=[
-                    DatasetRecipe.from_name(name="mnist", force_redownload=False),
+                    DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
                     DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
                 ]
             ),
@@ -178,22 +179,30 @@ class IntegrationTestUseCase:
         IntegrationTestUseCase(
             recipe=DatasetRecipe.from_merge(
                 recipe0=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
-                recipe1=DatasetRecipe.from_name(name="mnist", force_redownload=False),
+                recipe1=DatasetRecipe.from_name(
+                    name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False
+                ),
             ),
             short_name="Merger('.data-datasets-mnist',mnist)",
         ),
         IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_name(name="mnist", force_redownload=False)
+            recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False)
             .select_samples(n_samples=20, shuffle=True, seed=42)
             .shuffle(seed=123),
             short_name="Recipe(mnist,SelectSamples,Shuffle)",
         ),
         IntegrationTestUseCase(
-            recipe=("mnist", ("mnist", ["mnist", SelectSamples(n_samples=10), Shuffle()])),
+            recipe=(
+                f"mnist:{DATASET_SPEC_MNIST.version}",
+                (
+                    f"mnist:{DATASET_SPEC_MNIST.version}",
+                    [f"mnist:{DATASET_SPEC_MNIST.version}", SelectSamples(n_samples=10), Shuffle()],
+                ),
+            ),
             short_name="Merger(mnist,Merger(mnist,Recipe(mnist,SelectSamples,Shuffle)))",
         ),
         IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_name(name="mnist")
+            recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version)
             .select_samples(n_samples=30)
             .splits_by_ratios(split_ratios={"train": 0.8, "test": 0.2})
             .split_into_multiple_splits(split_name="test", split_ratios={"val": 0.5, "test": 0.5})
@@ -201,7 +210,7 @@ class IntegrationTestUseCase:
             short_name="Recipe(mnist,SelectSamples,SplitsByRatios,SplitIntoMultipleSplits,DefineSampleSetBySize)",
         ),
         IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_name(name="mnist")
+            recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version)
             .class_mapper(
                 get_strict_class_mapping_mnist(),
             )

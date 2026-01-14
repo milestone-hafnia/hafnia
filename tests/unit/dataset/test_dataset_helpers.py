@@ -82,3 +82,21 @@ def test_save_image_with_hash_name(tmp_path: Path):
     assert path_image1.exists()
     assert path_image0.suffix in [".png"]
     assert path_image1.suffix in [".png"]
+
+
+def test_version_from_string():
+    valid_version_str = "1.0.0"
+    invalid_version_str = "invalid_version"
+
+    version = dataset_helpers.version_from_string(valid_version_str)
+    assert str(version) == valid_version_str
+
+    version_none = dataset_helpers.version_from_string(invalid_version_str, raise_error=False)
+    assert version_none is None
+
+    with pytest.raises(ValueError):
+        dataset_helpers.version_from_string(invalid_version_str, raise_error=True)
+
+    assert dataset_helpers.is_valid_version_string(valid_version_str) is True
+    assert dataset_helpers.is_valid_version_string(invalid_version_str) is False
+    assert dataset_helpers.is_valid_version_string("latest") is False

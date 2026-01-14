@@ -3,8 +3,8 @@ from typing import Optional
 
 import click
 
+import hafnia.dataset.hafnia_dataset
 from hafnia import utils
-from hafnia_cli import consts
 from hafnia_cli.config import Config
 
 
@@ -27,6 +27,13 @@ def cmd_list_datasets(cfg: Config) -> None:
 @dataset.command("download")
 @click.argument("dataset_name")
 @click.option(
+    "--version",
+    "-v",
+    default="latest",
+    required=False,
+    help="Dataset version to download e.g. '0.0.1' or '1.0.1'. Defaults to the latest version.",
+)
+@click.option(
     "--destination",
     "-d",
     default=None,
@@ -35,20 +42,18 @@ def cmd_list_datasets(cfg: Config) -> None:
 )
 @click.option("--force", "-f", is_flag=True, default=False, help="Flag to enable force redownload")
 @click.pass_obj
-def cmd_dataset_download(cfg: Config, dataset_name: str, destination: Optional[click.Path], force: bool) -> Path:
+def cmd_dataset_download(
+    cfg: Config, dataset_name: str, version: Optional[str], destination: Optional[click.Path], force: bool
+) -> Path:
     """Download dataset from Hafnia platform"""
 
-    from hafnia.platform import datasets
-
-    try:
-        path_dataset = datasets.download_or_get_dataset_path(
-            dataset_name=dataset_name,
-            cfg=cfg,
-            path_datasets_folder=destination,
-            force_redownload=force,
-        )
-    except Exception:
-        raise click.ClickException(consts.ERROR_GET_RESOURCE)
+    path_dataset = hafnia.dataset.hafnia_dataset.download_or_get_dataset_path(
+        dataset_name=dataset_name,
+        version=version,
+        cfg=cfg,
+        path_datasets_folder=destination,
+        force_redownload=force,
+    )
     return path_dataset
 
 

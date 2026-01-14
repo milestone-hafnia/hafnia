@@ -3,11 +3,33 @@ import math
 import random
 import shutil
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import xxhash
+from packaging.version import InvalidVersion, Version
 from PIL import Image
+
+
+def is_valid_version_string(version: Optional[str], allow_none: bool = False, allow_latest: bool = False) -> bool:
+    if allow_none and version is None:
+        return True
+    if allow_latest and version == "latest":
+        return True
+    return version_from_string(version, raise_error=False) is not None
+
+
+def version_from_string(version: Optional[str], raise_error: bool = True) -> Optional[Version]:
+    if version is None:
+        if raise_error:
+            raise ValueError("Version is 'None'. A valid version string is required e.g '1.0.0'")
+        return None
+    try:
+        return Version(version)
+    except InvalidVersion as e:
+        if raise_error:
+            raise ValueError(f"Invalid version string: {version}") from e
+        return None
 
 
 def create_split_name_list_from_ratios(split_ratios: Dict[str, float], n_items: int, seed: int = 42) -> List[str]:

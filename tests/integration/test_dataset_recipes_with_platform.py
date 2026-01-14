@@ -12,6 +12,7 @@ from hafnia.platform.dataset_recipe import (
 )
 from hafnia.utils import is_hafnia_configured
 from hafnia_cli.config import Config
+from tests.helper_testing_datasets import DATASET_SPEC_COCO_2017_TINY, DATASET_SPEC_MIDWEST
 
 
 def test_dataset_recipe_on_platform():
@@ -43,12 +44,14 @@ def test_dataset_recipe_on_platform():
     # Recreate as recipe
     dataset_recipe = DatasetRecipe.from_merger(
         recipes=[
-            DatasetRecipe.from_name(name="midwest-vehicle-detection-tiny").class_mapper(
-                class_mapping=mapping_midwest, task_name="bboxes"
-            ),
-            DatasetRecipe.from_name(name="coco-2017-tiny").class_mapper(
-                class_mapping=mappings_coco, method="remove_undefined", task_name="bboxes"
-            ),
+            DatasetRecipe.from_name(
+                name="midwest-vehicle-detection-tiny",
+                version=DATASET_SPEC_MIDWEST.version,
+            ).class_mapper(class_mapping=mapping_midwest, task_name="bboxes"),
+            DatasetRecipe.from_name(
+                name="coco-2017-tiny",
+                version=DATASET_SPEC_COCO_2017_TINY.version,
+            ).class_mapper(class_mapping=mappings_coco, method="remove_undefined", task_name="bboxes"),
         ]
     )
 

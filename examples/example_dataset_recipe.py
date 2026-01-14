@@ -5,12 +5,11 @@ from rich import print as rprint
 from hafnia import utils
 from hafnia.dataset.dataset_names import OPS_REMOVE_CLASS
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
-from hafnia.dataset.dataset_recipe.recipe_transforms import (
-    SelectSamples,
-    Shuffle,
-    SplitsByRatios,
-)
 from hafnia.dataset.hafnia_dataset import HafniaDataset
+
+COCO_VERSION = "1.0.0"
+MIDWEST_VERSION = "1.0.0"
+MNIST_VERSION = "1.0.0"
 
 ### Introducing DatasetRecipe ###
 # A DatasetRecipe is a recipe for the dataset you want to create.
@@ -19,10 +18,10 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 # The 'DatasetRecipe' interface is similar to the 'HafniaDataset' interface.
 # To demonstrate, we will first create a dataset with the regular 'HafniaDataset' interface.
 # This line will get the "mnist" dataset, shuffle it, and select 20 samples.
-dataset = HafniaDataset.from_name(name="mnist").shuffle().select_samples(n_samples=20)
+dataset = HafniaDataset.from_name(name="mnist", version=MNIST_VERSION).shuffle().select_samples(n_samples=20)
 
 # Now the same dataset is created using the 'DatasetRecipe' interface.
-dataset_recipe = DatasetRecipe.from_name(name="mnist").shuffle().select_samples(n_samples=20)
+dataset_recipe = DatasetRecipe.from_name(name="mnist", version=MNIST_VERSION).shuffle().select_samples(n_samples=20)
 dataset = dataset_recipe.build()
 # Note that the interface is similar, but to actually create the dataset you need to call `build()` on the recipe.
 
@@ -65,8 +64,8 @@ if utils.is_hafnia_configured():  # First ensure you are connected to the hafnia
 # Example: 'DatasetRecipe' by merging multiple dataset recipes
 dataset_recipe = DatasetRecipe.from_merger(
     recipes=[
-        DatasetRecipe.from_name(name="mnist"),
-        DatasetRecipe.from_name(name="mnist"),
+        DatasetRecipe.from_name(name="mnist", version=MNIST_VERSION),
+        DatasetRecipe.from_name(name="mnist", version=MNIST_VERSION),
     ]
 )
 
@@ -75,14 +74,14 @@ dataset_recipe = DatasetRecipe.from_merger(
     recipes=[
         DatasetRecipe.from_merger(
             recipes=[
-                DatasetRecipe.from_name(name="mnist"),
-                DatasetRecipe.from_name(name="mnist"),
+                DatasetRecipe.from_name(name="mnist", version=MNIST_VERSION),
+                DatasetRecipe.from_name(name="mnist", version=MNIST_VERSION),
             ]
         ),
         DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
         .select_samples(n_samples=30)
         .splits_by_ratios(split_ratios={"train": 0.8, "val": 0.1, "test": 0.1}),
-        DatasetRecipe.from_name(name="mnist").select_samples(n_samples=20).shuffle(),
+        DatasetRecipe.from_name(name="mnist", version=MNIST_VERSION).select_samples(n_samples=20).shuffle(),
     ]
 )
 
@@ -99,14 +98,14 @@ print(dataset_recipe.as_json_str())  # as a JSON string
 # 1) The first step is to use the regular 'HafniaDataset' interface to investigate and understand the datasets
 
 # 1a) Explore 'coco-2017'
-coco = HafniaDataset.from_name("coco-2017")
+coco = HafniaDataset.from_name("coco-2017", version=COCO_VERSION)
 coco.print_stats()  # Print dataset statistics
 coco_class_names = coco.info.get_task_by_primitive("Bbox").class_names  # Get the class names for the bbox task
 # You will notice coco has 80 classes including 'person' and various vehicle classes such as 'car', 'bus', 'truck', etc.
 # but also many unrelated classes such as 'toaster', 'hair drier', etc.
 
 # 1b) Explore 'midwest-vehicle-detection'
-midwest = HafniaDataset.from_name("midwest-vehicle-detection")
+midwest = HafniaDataset.from_name("midwest-vehicle-detection", version=MIDWEST_VERSION)
 midwest.print_stats()  # Print dataset statistics
 midwest_class_names = midwest.info.get_task_by_primitive("Bbox").class_names
 # You will also notice midwest has similar classes, but they are named differently, e.g. 'Persons',
@@ -144,10 +143,10 @@ merged_dataset.print_stats()
 # 3) Once you have verified operations using the 'HafniaDataset' interface, you can convert
 # the operations to a single 'DatasetRecipe'
 merged_recipe = DatasetRecipe.from_merge(
-    recipe0=DatasetRecipe.from_name("coco-2017").class_mapper(
+    recipe0=DatasetRecipe.from_name("coco-2017", version=COCO_VERSION).class_mapper(
         class_mapping=mappings_coco, method="remove_undefined", task_name="object_detection"
     ),
-    recipe1=DatasetRecipe.from_name("midwest-vehicle-detection").class_mapper(
+    recipe1=DatasetRecipe.from_name("midwest-vehicle-detection", version=MIDWEST_VERSION).class_mapper(
         class_mapping=mapping_midwest, task_name="object_detection"
     ),
 ).select_samples_by_class_name(name=["Person", "Vehicle"], task_name="object_detection")
@@ -176,74 +175,3 @@ if utils.is_hafnia_configured():
 # 6) Monitor and manage your experiments
 # 6a) View experiments using the web platform https://staging02.mdi.milestonesys.com/training-aas/experiments
 # 6b) Or use the CLI: 'hafnia experiment ls'
-### DatasetRecipe Implicit Form ###
-# Below we demonstrate the difference between implicit and explicit forms of dataset recipes.
-# Example: Get dataset by name with implicit and explicit forms
-recipe_implicit_form = "mnist"
-recipe_explicit_form = DatasetRecipe.from_name(name="mnist")
-
-# The implicit form can now be loaded and built as a dataset
-dataset_implicit = DatasetRecipe.from_implicit_form(recipe_implicit_form).build()
-# Or directly as a dataset
-dataset_implicit = HafniaDataset.from_recipe(recipe_implicit_form)
-
-
-# Example: Get dataset from path with implicit and explicit forms:
-recipe_implicit_form = Path(".data/datasets/mnist")
-recipe_explicit_form = DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
-
-# Example: Merge datasets with implicit and explicit forms
-recipe_implicit_form = ("mnist", "mnist")
-recipe_explicit_form = DatasetRecipe.from_merger(
-    recipes=[
-        DatasetRecipe.from_name(name="mnist"),
-        DatasetRecipe.from_name(name="mnist"),
-    ]
-)
-
-# Example: Define a dataset with transformations using implicit and explicit forms
-recipe_implicit_form = ["mnist", SelectSamples(n_samples=20), Shuffle()]
-recipe_explicit_form = DatasetRecipe.from_name(name="mnist").select_samples(n_samples=20).shuffle()
-
-
-# Example: Complex nested example with implicit vs explicit forms
-# Implicit form of a complex dataset recipe
-split_ratio = {"train": 0.8, "val": 0.1, "test": 0.1}
-recipe_implicit_complex = (
-    ("mnist", "mnist"),
-    [Path(".data/datasets/mnist"), SelectSamples(n_samples=30), SplitsByRatios(split_ratios=split_ratio)],
-    ["mnist", SelectSamples(n_samples=20), Shuffle()],
-)
-
-# Explicit form of the same complex dataset recipe
-recipe_explicit_complex = DatasetRecipe.from_merger(
-    recipes=[
-        DatasetRecipe.from_merger(
-            recipes=[
-                DatasetRecipe.from_name(name="mnist"),
-                DatasetRecipe.from_name(name="mnist"),
-            ]
-        ),
-        DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"))
-        .select_samples(n_samples=30)
-        .splits_by_ratios(split_ratios=split_ratio),
-        DatasetRecipe.from_name(name="mnist").select_samples(n_samples=20).shuffle(),
-    ]
-)
-
-# The implicit form uses the following rules:
-#    str: Will get a dataset by name -> In explicit form it becomes 'DatasetRecipe.from_name'
-#    Path: Will get a dataset from path -> In explicit form it becomes 'DatasetRecipe.from_path'
-#    tuple: Will merge datasets specified in the tuple -> In explicit form it becomes 'DatasetRecipe.from_merger'
-#    list: Will define a dataset followed by a list of transformations -> In explicit form it becomes chained method calls
-# Generally, we recommend using the explicit form over the implicit form when multiple datasets and transformations are involved.
-
-
-# To convert from implicit to explicit recipe form, you can use the `from_implicit_form` method.
-explicit_recipe_from_implicit = DatasetRecipe.from_implicit_form(recipe_implicit_complex)
-rprint("Converted explicit recipe:")
-rprint(explicit_recipe_from_implicit)
-
-# Verify that the conversion produces the same result
-assert explicit_recipe_from_implicit == recipe_explicit_complex
-rprint("Conversion successful - recipes are equivalent!")

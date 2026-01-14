@@ -1,5 +1,6 @@
 import collections
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, Union
@@ -7,12 +8,20 @@ from typing import Any, Dict, List, Optional, Type, Union
 import cv2
 import more_itertools
 import numpy as np
-from packaging.version import Version
+import polars as pl
+from packaging.version import InvalidVersion, Version
 from PIL import Image
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 import hafnia
-from hafnia.dataset.dataset_names import SampleField, StorageFormat
+from hafnia.dataset.dataset_helpers import version_from_string
+from hafnia.dataset.dataset_names import (
+    FILENAME_ANNOTATIONS_JSONL,
+    FILENAME_ANNOTATIONS_PARQUET,
+    FILENAME_DATASET_INFO,
+    SampleField,
+    StorageFormat,
+)
 from hafnia.dataset.primitives import (
     PRIMITIVE_TYPES,
     Bbox,
@@ -102,7 +111,7 @@ class TaskInfo(BaseModel):
 
 class DatasetInfo(BaseModel):
     dataset_name: str = Field(description="Name of the dataset, e.g. 'coco'")
-    version: Optional[str] = Field(default=None, description="Version of the dataset")
+    version: str = Field(default="0.0.0", description="Version of the dataset")
     dataset_title: Optional[str] = Field(default=None, description="Optional, human-readable title of the dataset")
     description: Optional[str] = Field(default=None, description="Optional, description of the dataset")
     tasks: List[TaskInfo] = Field(default=None, description="List of tasks in the dataset")
@@ -238,7 +247,7 @@ class DatasetInfo(BaseModel):
         meta.update(info1.meta or {})
         return DatasetInfo(
             dataset_name=info0.dataset_name + "+" + info1.dataset_name,
-            version=None,
+            version="0.0.0",
             tasks=list(unique_tasks),
             meta=meta,
             format_version=dataset_format_version,
@@ -477,3 +486,124 @@ class Sample(BaseModel):
         annotations = self.get_annotations()
         annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations)
         return annotations_visualized
+
+
+@dataclass
+class DatasetMetadataFilePaths:
+    dataset_info: str  # Use 'str' to also support s3 paths
+    annotations_jsonl: Optional[str]
+    annotations_parquet: Optional[str]
+
+    def as_list(self) -> List[str]:
+        files = [self.dataset_info]
+        if self.annotations_jsonl is not None:
+            files.append(self.annotations_jsonl)
+        if self.annotations_parquet is not None:
+            files.append(self.annotations_parquet)
+        return files
+
+    def read_samples(self) -> pl.DataFrame:
+        if self.annotations_parquet is not None:
+            if not Path(self.annotations_parquet).exists():
+                raise FileNotFoundError(f"Parquet annotations file '{self.annotations_parquet}' does not exist.")
+            user_logger.info(f"Reading dataset annotations from Parquet file: {self.annotations_parquet}")
+            return pl.read_parquet(self.annotations_parquet)
+
+        if self.annotations_jsonl is not None:
+            if not Path(self.annotations_jsonl).exists():
+                raise FileNotFoundError(f"JSONL annotations file '{self.annotations_jsonl}' does not exist.")
+            user_logger.info(f"Reading dataset annotations from JSONL file: {self.annotations_jsonl}")
+            return pl.read_ndjson(self.annotations_jsonl)
+
+    @staticmethod
+    def from_path(path_dataset: Path) -> "DatasetMetadataFilePaths":
+        path_dataset = path_dataset.absolute()
+        metadata_files = DatasetMetadataFilePaths(
+            dataset_info=str(path_dataset / FILENAME_DATASET_INFO),
+            annotations_jsonl=str(path_dataset / FILENAME_ANNOTATIONS_JSONL),
+            annotations_parquet=str(path_dataset / FILENAME_ANNOTATIONS_PARQUET),
+        )
+
+        return metadata_files
+
+    @staticmethod
+    def available_versions_from_files_list(files: list[str]) -> Dict[Version, "DatasetMetadataFilePaths"]:
+        versions_and_files: Dict[Version, Dict[str, str]] = collections.defaultdict(dict)
+        for metadata_file in files:
+            version_str, filename = metadata_file.split("/")[-2:]
+            versions_and_files[version_str][filename] = metadata_file
+
+        available_versions: Dict[Version, DatasetMetadataFilePaths] = {}
+        for version_str, version_files in versions_and_files.items():
+            try:
+                version = Version(version_str)
+            except InvalidVersion:
+                continue
+
+            if FILENAME_DATASET_INFO not in version_files:
+                continue
+            dataset_metadata_file = DatasetMetadataFilePaths(
+                dataset_info=version_files[FILENAME_DATASET_INFO],
+                annotations_jsonl=version_files.get(FILENAME_ANNOTATIONS_JSONL, None),
+                annotations_parquet=version_files.get(FILENAME_ANNOTATIONS_PARQUET, None),
+            )
+
+            available_versions[version] = dataset_metadata_file
+
+        return available_versions
+
+    def check_version(self, version: str, raise_error: bool = True) -> bool:
+        """
+        Check if the dataset metadata files match the given version.
+        If raise_error is True, raises ValueError if the version does not match.
+        """
+        valid_version = version_from_string(version, raise_error=raise_error)
+        if valid_version is None:
+            return False
+
+        path_dataset_info = Path(self.dataset_info)
+        if not path_dataset_info.exists():
+            raise FileNotFoundError(f"Dataset info file missing '{self.dataset_info}' in dataset folder.")
+
+        dataset_info = json.loads(path_dataset_info.read_text())
+        dataset_version = dataset_info.get("version", None)
+        if dataset_version != version:
+            if raise_error:
+                raise ValueError(
+                    f"Dataset version mismatch. Expected version '{version}' but found "
+                    f"version '{dataset_version}' in dataset info."
+                )
+            return False
+
+        return True
+
+    def exists(self, version: Optional[str] = None, raise_error: bool = True) -> bool:
+        """
+        Check if all metadata files exist.
+        Add version to check if it matches the version in dataset info.
+        If raise_error is True, raises FileNotFoundError if any file is missing.
+        """
+        path_dataset_info = Path(self.dataset_info)
+        if not path_dataset_info.exists():
+            if raise_error:
+                raise FileNotFoundError(f"Dataset info file missing '{self.dataset_info}' in dataset folder.")
+            return False
+
+        if version is not None and self.check_version(version, raise_error=raise_error) is False:
+            return False
+
+        has_jsonl_file = self.annotations_jsonl is not None and Path(self.annotations_jsonl).exists()
+        if has_jsonl_file:
+            return True
+
+        has_parquet_file = self.annotations_parquet is not None and Path(self.annotations_parquet).exists()
+        if has_parquet_file:
+            return True
+
+        if raise_error:
+            raise FileNotFoundError(
+                f"Missing annotation file. Expected either '{FILENAME_ANNOTATIONS_JSONL}' or "
+                f"'{FILENAME_ANNOTATIONS_PARQUET}' in dataset folder."
+            )
+
+        return False

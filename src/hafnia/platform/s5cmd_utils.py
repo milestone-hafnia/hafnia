@@ -7,6 +7,10 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import boto3
+from botocore.exceptions import UnauthorizedSSOTokenError
+from pydantic import BaseModel, field_validator
+
 from hafnia.log import sys_logger, user_logger
 from hafnia.utils import progress_bar
 
@@ -155,3 +159,108 @@ def fast_copy_files(
     cmds = [f"cp {src} {dst}" for src, dst in zip(src_paths, dst_paths)]
     lines = execute_commands(cmds, append_envs=append_envs, description=description)
     return lines
+
+
+ARN_PREFIX = "arn:aws:s3:::"
+
+
+class AwsCredentials(BaseModel):
+    access_key: str
+    secret_key: str
+    session_token: str
+    region: Optional[str]
+
+    def aws_credentials(self) -> Dict[str, str]:
+        """
+        Returns the AWS credentials as a dictionary.
+        """
+        environment_vars = {
+            "AWS_ACCESS_KEY_ID": self.access_key,
+            "AWS_SECRET_ACCESS_KEY": self.secret_key,
+            "AWS_SESSION_TOKEN": self.session_token,
+        }
+        if self.region:
+            environment_vars["AWS_REGION"] = self.region
+
+        return environment_vars
+
+    @staticmethod
+    def from_session(session: boto3.Session) -> "AwsCredentials":
+        """
+        Creates AwsCredentials from a Boto3 session.
+        """
+        try:
+            frozen_credentials = session.get_credentials().get_frozen_credentials()
+        except UnauthorizedSSOTokenError as e:
+            raise RuntimeError(
+                f"Failed to get AWS credentials from the session for profile '{session.profile_name}'.\n"
+                f"Ensure the profile exists in your AWS config in '~/.aws/config' and that you are logged in via AWS SSO.\n"
+                f"\tUse 'aws sso login --profile {session.profile_name}' to log in."
+            ) from e
+        return AwsCredentials(
+            access_key=frozen_credentials.access_key,
+            secret_key=frozen_credentials.secret_key,
+            session_token=frozen_credentials.token,
+            region=session.region_name,
+        )
+
+    def to_resource_credentials(self, bucket_name: str) -> "ResourceCredentials":
+        """
+        Converts AwsCredentials to ResourceCredentials by adding the S3 ARN.
+        """
+        payload = self.model_dump()
+        payload["s3_arn"] = f"{ARN_PREFIX}{bucket_name}"
+        return ResourceCredentials(**payload)
+
+
+class ResourceCredentials(AwsCredentials):
+    s3_arn: str
+
+    @staticmethod
+    def fix_naming(payload: Dict[str, str]) -> "ResourceCredentials":
+        """
+        The endpoint returns a payload with a key called 's3_path', but it
+        is actually an ARN path (starts with arn:aws:s3::). This method renames it to 's3_arn' for consistency.
+        """
+        if "s3_path" in payload and payload["s3_path"].startswith(ARN_PREFIX):
+            payload["s3_arn"] = payload.pop("s3_path")
+
+        if "region" not in payload:
+            payload["region"] = "eu-west-1"
+        return ResourceCredentials(**payload)
+
+    @field_validator("s3_arn")
+    @classmethod
+    def validate_s3_arn(cls, value: str) -> str:
+        """Validate s3_arn to ensure it starts with 'arn:aws:s3:::'"""
+        if not value.startswith("arn:aws:s3:::"):
+            raise ValueError(f"Invalid S3 ARN: {value}. It should start with 'arn:aws:s3:::'")
+        return value
+
+    def s3_path(self) -> str:
+        """
+        Extracts the S3 path from the ARN.
+        Example: arn:aws:s3:::my-bucket/my-prefix -> my-bucket/my-prefix
+        """
+        return self.s3_arn[len(ARN_PREFIX) :]
+
+    def s3_uri(self) -> str:
+        """
+        Converts the S3 ARN to a URI format.
+        Example: arn:aws:s3:::my-bucket/my-prefix -> s3://my-bucket/my-prefix
+        """
+        return f"s3://{self.s3_path()}"
+
+    def bucket_name(self) -> str:
+        """
+        Extracts the bucket name from the S3 ARN.
+        Example: arn:aws:s3:::my-bucket/my-prefix -> my-bucket
+        """
+        return self.s3_path().split("/")[0]
+
+    def object_key(self) -> str:
+        """
+        Extracts the object key from the S3 ARN.
+        Example: arn:aws:s3:::my-bucket/my-prefix -> my-prefix
+        """
+        return "/".join(self.s3_path().split("/")[1:])

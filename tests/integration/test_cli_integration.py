@@ -5,6 +5,7 @@ from hafnia import utils
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.utils import is_hafnia_configured
 from tests import helper_testing
+from tests.helper_testing_datasets import DATASET_SPEC_MNIST
 
 
 @pytest.mark.slow
@@ -41,8 +42,10 @@ def test_cli_integration_test():
         hafnia_cli(args=[CMD_DATASET], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET, "--help"], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET, "ls"], standalone_mode=False)
-    hafnia_cli(args=[CMD_DATASET, "download", "mnist", "--force"], standalone_mode=False)
-    hafnia_cli(args=[CMD_DATASET, "download", "mnist"], standalone_mode=False)
+    hafnia_cli(
+        args=[CMD_DATASET, "download", "mnist", "-v", DATASET_SPEC_MNIST.version, "--force"], standalone_mode=False
+    )
+    hafnia_cli(args=[CMD_DATASET, "download", "mnist", "-v", DATASET_SPEC_MNIST.version], standalone_mode=False)
 
     # Dataset recipe commands
     CMD_DATASET_RECIPE = "dataset-recipe"
@@ -57,7 +60,7 @@ def test_cli_integration_test():
     dataset_recipe_name = "smoke_test_recipe"
     path_recipe = utils.PATH_DATASET_RECIPES / f"{dataset_recipe_name}.json"
     path_recipe_str = str(path_recipe.absolute())
-    dataset_recipe = DatasetRecipe.from_name("mnist").shuffle().select_samples(10)
+    dataset_recipe = DatasetRecipe.from_name("mnist", version=DATASET_SPEC_MNIST.version).shuffle().select_samples(10)
     dataset_recipe.as_json_file(path_recipe)
     assert path_recipe.exists()
 
