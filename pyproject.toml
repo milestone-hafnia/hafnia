@@ -28,7 +28,7 @@ dependencies = [
     "xxhash>=3.5.0",
     "mlflow>=3.4.0",
     "sagemaker-mlflow>=0.1.0",
-    "mcp>=1.16.0",
+    "mcp>=1.23.0",
 ]
 
 [dependency-groups]
