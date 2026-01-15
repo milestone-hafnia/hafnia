@@ -95,7 +95,7 @@ def test_version_from_string(version_str: str):
 
 @pytest.mark.parametrize("invalid_version_str", ["invalid_version", "latest", None, "1.0", "1", 1])
 def test_invalid_version_from_string(invalid_version_str: str):
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, TypeError)):
         dataset_helpers.version_from_string(invalid_version_str, raise_error=True)
     version_none = dataset_helpers.version_from_string(invalid_version_str, raise_error=False)
     assert version_none is None

@@ -26,11 +26,12 @@ def version_from_string(version: Optional[str], raise_error: bool = True) -> Opt
         if raise_error:
             raise ValueError("Version is 'None'. A valid version string is required e.g '1.0.0'")
         return None
+
     try:
         version_casted = Version(version)
-    except InvalidVersion as e:
+    except (InvalidVersion, TypeError) as e:
         if raise_error:
-            raise ValueError(f"Invalid version string: {version}") from e
+            raise ValueError(f"Invalid version string/type: {version}") from e
         return None
 
     # Check if version is semantic versioning (MAJOR.MINOR.PATCH)
