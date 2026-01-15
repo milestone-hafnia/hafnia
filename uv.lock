@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -1133,7 +1133,7 @@ requires-dist = [
     { name = "emoji", specifier = ">=2.14.1" },
     { name = "flatten-dict", specifier = ">=0.4.2" },
     { name = "keyring", specifier = ">=25.6.0" },
-    { name = "mcp", specifier = ">=1.16.0" },
+    { name = "mcp", specifier = ">=1.23.0" },
     { name = "mlflow", specifier = ">=3.4.0" },
     { name = "more-itertools", specifier = ">=10.7.0" },
     { name = "opencv-python-headless", specifier = ">=4.11.0.86" },
