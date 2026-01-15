@@ -9,6 +9,7 @@ from torchvision.transforms import v2
 
 import hafnia
 from hafnia import torch_helpers
+from hafnia.dataset.dataset_helpers import is_valid_version_string
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.hafnia_dataset import HafniaDataset
@@ -210,21 +211,23 @@ def test_from_name_versioning_failures():
 
 def test_from_name_and_version_str():
     # Test with name and version
-    recipe = DatasetRecipe.from_name_and_version_str(f"mnist:{DATASET_SPEC_MNIST.version}")
+    recipe = DatasetRecipe.from_name_and_version_string(f"mnist:{DATASET_SPEC_MNIST.version}")
     assert isinstance(recipe, DatasetRecipe)
     assert recipe.creation.name == "mnist"
     assert recipe.creation.version == DATASET_SPEC_MNIST.version
 
     # Test with name only and allow_missing_version=True
-    recipe = DatasetRecipe.from_name_and_version_str("mnist", allow_missing_version=True)
+    recipe = DatasetRecipe.from_name_and_version_string("mnist", resolve_missing_version=True)
     assert isinstance(recipe, DatasetRecipe)
     assert recipe.creation.name == "mnist"
-    assert recipe.creation.version != "latest", "Version should be resolved to a specific version"
+    assert is_valid_version_string(recipe.creation.version), (
+        "No version was defined. The latest version is being used. Resulting e.g. '1.0.0'"
+    )
 
     # Test with name only and allow_missing_version=False
     with pytest.raises(ValueError):
-        DatasetRecipe.from_name_and_version_str("mnist", allow_missing_version=False)
+        DatasetRecipe.from_name_and_version_string("mnist", resolve_missing_version=False)
 
     # Test with invalid type
     with pytest.raises(TypeError):
-        DatasetRecipe.from_name_and_version_str(123)
+        DatasetRecipe.from_name_and_version_string(123)

@@ -72,4 +72,5 @@ def cmd_dataset_delete(cfg: Config, dataset_name: str, interactive: bool) -> Non
     datasets.delete_dataset_completely_by_name(
         dataset_name=dataset_name,
         interactive=interactive,
+        cfg=cfg,
     )

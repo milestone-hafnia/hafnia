@@ -9,11 +9,12 @@ import cv2
 import more_itertools
 import numpy as np
 import polars as pl
-from packaging.version import InvalidVersion, Version
+from packaging.version import Version
 from PIL import Image
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
 import hafnia
+from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_helpers import version_from_string
 from hafnia.dataset.dataset_names import (
     FILENAME_ANNOTATIONS_JSONL,
@@ -153,31 +154,21 @@ class DatasetInfo(BaseModel):
     @field_validator("format_version")
     @classmethod
     def _validate_format_version(cls, format_version: str) -> str:
-        try:
-            Version(format_version)
-        except Exception as e:
-            raise ValueError(f"Invalid format_version '{format_version}'. Must be a valid version string.") from e
+        version_casted: Version = dataset_helpers.version_from_string(format_version, raise_error=True)
 
-        if Version(format_version) > Version(hafnia.__dataset_format_version__):
+        if version_casted > Version(hafnia.__dataset_format_version__):
             user_logger.warning(
                 f"The loaded dataset format version '{format_version}' is newer than the format version "
                 f"'{hafnia.__dataset_format_version__}' used in your version of Hafnia. Please consider "
                 f"updating Hafnia package."
             )
-        return format_version
+        return str(version_casted)
 
     @field_validator("version")
     @classmethod
     def _validate_version(cls, dataset_version: Optional[str]) -> Optional[str]:
-        if dataset_version is None:
-            return None
-
-        try:
-            Version(dataset_version)
-        except Exception as e:
-            raise ValueError(f"Invalid dataset_version '{dataset_version}'. Must be a valid version string.") from e
-
-        return dataset_version
+        version_casted: Version = dataset_helpers.version_from_string(dataset_version, raise_error=True)
+        return str(version_casted)
 
     def check_for_duplicate_task_names(self) -> List[TaskInfo]:
         return self._validate_check_for_duplicate_tasks(self.tasks)
@@ -515,6 +506,10 @@ class DatasetMetadataFilePaths:
             user_logger.info(f"Reading dataset annotations from JSONL file: {self.annotations_jsonl}")
             return pl.read_ndjson(self.annotations_jsonl)
 
+        raise ValueError(
+            "No annotations file available to read samples from. Dataset is missing both JSONL and Parquet files."
+        )
+
     @staticmethod
     def from_path(path_dataset: Path) -> "DatasetMetadataFilePaths":
         path_dataset = path_dataset.absolute()
@@ -535,9 +530,8 @@ class DatasetMetadataFilePaths:
 
         available_versions: Dict[Version, DatasetMetadataFilePaths] = {}
         for version_str, version_files in versions_and_files.items():
-            try:
-                version = Version(version_str)
-            except InvalidVersion:
+            version_casted: Version = dataset_helpers.version_from_string(version_str, raise_error=False)
+            if version_casted is None:
                 continue
 
             if FILENAME_DATASET_INFO not in version_files:
@@ -548,7 +542,7 @@ class DatasetMetadataFilePaths:
                 annotations_parquet=version_files.get(FILENAME_ANNOTATIONS_PARQUET, None),
             )
 
-            available_versions[version] = dataset_metadata_file
+            available_versions[version_casted] = dataset_metadata_file
 
         return available_versions
 

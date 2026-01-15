@@ -11,7 +11,7 @@ from pydantic import (
 )
 
 from hafnia import utils
-from hafnia.dataset.dataset_helpers import is_valid_version_string
+from hafnia.dataset.dataset_helpers import dataset_name_and_version_from_string
 from hafnia.dataset.dataset_recipe import recipe_transforms
 from hafnia.dataset.dataset_recipe.recipe_types import (
     RecipeCreation,
@@ -154,29 +154,17 @@ class DatasetRecipe(Serializable):
         return DatasetRecipe.from_recipe_id(recipe_id)
 
     @staticmethod
-    def from_name_and_version_str(string: Optional[str], allow_missing_version: bool = False) -> "DatasetRecipe":
+    def from_name_and_version_string(string: str, resolve_missing_version: bool = False) -> "DatasetRecipe":
         """
-        Converts a string in the format 'name' or 'name:version' to a DatasetRecipe.
+        Validates and converts a dataset name and version string (name:version) to a DatasetRecipe.from_name recipe.
+        If version is missing and 'resolve_missing_version' is True, it will default to 'latest'.
+        If resolve_missing_version is False, it will raise an error if version is missing.
         """
 
-        if not isinstance(string, str):
-            raise TypeError(f"'{type(string)}' for '{string}' is an unsupported type. Expected 'str' e.g 'mnist:1.0.0'")
-
-        parts = string.split(":")
-        if len(parts) == 1:
-            dataset_name = parts[0]
-            if allow_missing_version:
-                version = "latest"  # Default to 'latest' if version is missing
-                user_logger.info(f"Version is missing in dataset name: {string}. Defaulting to version='latest'.")
-            else:
-                raise ValueError(f"Version is missing in dataset name: {string}. Use 'name:version'")
-        elif len(parts) == 2:
-            dataset_name, version = parts
-        else:
-            raise ValueError(f"Invalid dataset name format: {string}. Use 'name' or 'name:version' ")
-
-        if not is_valid_version_string(version, allow_none=True, allow_latest=True):
-            raise ValueError(f"Invalid version string: {version}.")
+        dataset_name, version = dataset_name_and_version_from_string(
+            string=string,
+            resolve_missing_version=resolve_missing_version,
+        )
 
         return DatasetRecipe.from_name(name=dataset_name, version=version)
 
@@ -235,7 +223,7 @@ class DatasetRecipe(Serializable):
             return recipe
 
         if isinstance(recipe, str):  # str-type is convert to DatasetFromName
-            return DatasetRecipe.from_name_and_version_str(string=recipe, allow_missing_version=True)
+            return DatasetRecipe.from_name_and_version_string(string=recipe, resolve_missing_version=True)
 
         if isinstance(recipe, Path):  # Path-type is convert to DatasetFromPath
             return DatasetRecipe.from_path(path_folder=recipe)

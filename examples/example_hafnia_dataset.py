@@ -26,6 +26,10 @@ COCO_VERSION = "1.0.0"
 # Load sample dataset
 dataset = HafniaDataset.from_name("mnist", version=MNIST_VERSION)
 
+# Use 'from_name' without version-argument to get available versions:
+# dataset = HafniaDataset.from_name("mnist")
+# >>> ValueError: Version must be specified. Available versions: ['1.0.0', '0.0.1']
+
 # Dataset information is stored in 'dataset.info'
 rprint(dataset.info)
 

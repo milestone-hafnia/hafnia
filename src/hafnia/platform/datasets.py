@@ -166,10 +166,14 @@ def delete_dataset_by_name(dataset_name: str, cfg: Optional[Config] = None) -> D
     return response
 
 
-def delete_dataset_completely_by_name(dataset_name: str, interactive: bool = True) -> None:
+def delete_dataset_completely_by_name(
+    dataset_name: str,
+    interactive: bool = True,
+    cfg: Optional[Config] = None,
+) -> None:
     from hafnia.dataset.operations.dataset_s3_storage import delete_hafnia_dataset_files_on_platform
 
-    cfg = Config()
+    cfg = cfg or Config()
 
     is_deleted = delete_hafnia_dataset_files_on_platform(
         dataset_name=dataset_name,

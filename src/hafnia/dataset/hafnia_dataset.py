@@ -114,7 +114,12 @@ class HafniaDataset:
         """
         Load a dataset by its name. The dataset must be registered in the Hafnia platform.
         """
-
+        if ":" in name:
+            name, version = dataset_helpers.dataset_name_and_version_from_string(name)
+            raise ValueError(
+                "The 'from_name' does not support the 'name:version' format. Please provide the version separately.\n"
+                f"E.g., HafniaDataset.from_name(name='{name}', version='{version}')"
+            )
         dataset_path = download_or_get_dataset_path(
             dataset_name=name,
             version=version,
@@ -793,7 +798,7 @@ def select_version_from_available_versions(
         raise ValueError(f"Version must be specified. Available versions: {str_versions}")
     elif version == "latest":
         version_casted = max(available_versions)
-        user_logger.info(f"'latest' version '{version_casted}' has been selected ")
+        user_logger.info(f"'latest' version '{version_casted}' has been selected")
     else:
         version_casted = version_from_string(version)
 
