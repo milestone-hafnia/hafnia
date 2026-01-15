@@ -12,7 +12,8 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 if __name__ == "__main__":
     torch.manual_seed(1)
     # Load Hugging Face dataset
-    dataset = HafniaDataset.from_name("midwest-vehicle-detection")
+    MIDWEST_VERSION = "1.0.0"
+    dataset = HafniaDataset.from_name("midwest-vehicle-detection", version=MIDWEST_VERSION)
 
     # Define transforms
     train_transforms = v2.Compose(

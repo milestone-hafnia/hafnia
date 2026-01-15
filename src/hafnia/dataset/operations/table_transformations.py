@@ -4,8 +4,6 @@ from typing import List, Optional, Tuple, Type
 import polars as pl
 
 from hafnia.dataset.dataset_names import (
-    FILENAME_ANNOTATIONS_JSONL,
-    FILENAME_ANNOTATIONS_PARQUET,
     PrimitiveField,
     SampleField,
 )
@@ -202,22 +200,6 @@ def split_primitive_columns_by_task_name(
         )
         samples_table = samples_table.drop(col_name)
     return samples_table
-
-
-def read_samples_from_path(path: Path) -> pl.DataFrame:
-    path_annotations = path / FILENAME_ANNOTATIONS_PARQUET
-    if path_annotations.exists():
-        user_logger.info(f"Reading dataset annotations from Parquet file: {path_annotations}")
-        return pl.read_parquet(path_annotations)
-
-    path_annotations_jsonl = path / FILENAME_ANNOTATIONS_JSONL
-    if path_annotations_jsonl.exists():
-        user_logger.info(f"Reading dataset annotations from JSONL file: {path_annotations_jsonl}")
-        return pl.read_ndjson(path_annotations_jsonl)
-
-    raise FileNotFoundError(
-        f"Unable to read annotations. No json file '{path_annotations.name}' or Parquet file '{{path_annotations.name}} in in '{path}'."
-    )
 
 
 def check_image_paths(table: pl.DataFrame) -> bool:

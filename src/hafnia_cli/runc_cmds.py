@@ -38,7 +38,7 @@ def runc():
 @click.pass_obj
 def launch_local(cfg: Config, exec_cmd: str, dataset: str, image_name: str) -> None:
     """Launch a job within the image."""
-    from hafnia.platform.datasets import download_or_get_dataset_path
+    from hafnia.dataset.hafnia_dataset import download_or_get_dataset_path
 
     is_local_dataset = "/" in dataset
     if is_local_dataset:
@@ -48,7 +48,12 @@ def launch_local(cfg: Config, exec_cmd: str, dataset: str, image_name: str) -> N
             raise click.ClickException(f"Dataset path does not exist: {path_dataset}")
     else:
         click.echo(f"Using Hafnia dataset: {dataset}")
-        path_dataset = download_or_get_dataset_path(dataset_name=dataset, cfg=cfg, force_redownload=False)
+        path_dataset = download_or_get_dataset_path(
+            dataset_name=dataset,
+            version="latest",
+            cfg=cfg,
+            force_redownload=False,
+        )
 
     if image_name is None:
         # Load image name from state.json

@@ -11,14 +11,19 @@ from pydantic import (
 )
 
 from hafnia import utils
+from hafnia.dataset.dataset_helpers import dataset_name_and_version_from_string
 from hafnia.dataset.dataset_recipe import recipe_transforms
 from hafnia.dataset.dataset_recipe.recipe_types import (
     RecipeCreation,
     RecipeTransform,
     Serializable,
 )
-from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset import (
+    HafniaDataset,
+    available_dataset_versions_from_name,
+)
 from hafnia.dataset.primitives.primitive import Primitive
+from hafnia.log import user_logger
 
 
 class DatasetRecipe(Serializable):
@@ -41,8 +46,31 @@ class DatasetRecipe(Serializable):
 
     ### Creation Methods (using the 'from_X' )###
     @staticmethod
-    def from_name(name: str, force_redownload: bool = False, download_files: bool = True) -> DatasetRecipe:
-        creation = FromName(name=name, force_redownload=force_redownload, download_files=download_files)
+    def from_name(
+        name: str,
+        version: Optional[str] = None,
+        force_redownload: bool = False,
+        download_files: bool = True,
+    ) -> DatasetRecipe:
+        if version == "latest":
+            user_logger.info(
+                f"The dataset '{name}' in a dataset recipe uses 'latest' as version. For dataset recipes the "
+                "version is pinned to a specific version. Consider specifying a specific version to ensure "
+                "reproducibility of your experiments. "
+            )
+            available_versions = available_dataset_versions_from_name(name)
+            version = str(max(available_versions))
+        if version is None:
+            available_versions = available_dataset_versions_from_name(name)
+            str_versions = ", ".join([str(v) for v in available_versions])
+            raise ValueError(
+                f"Version must be specified when creating a DatasetRecipe from name. "
+                f"Available versions are: {str_versions}"
+            )
+
+        creation = FromName(
+            name=name, version=version, force_redownload=force_redownload, download_files=download_files
+        )
         return DatasetRecipe(creation=creation)
 
     @staticmethod
@@ -126,6 +154,21 @@ class DatasetRecipe(Serializable):
         return DatasetRecipe.from_recipe_id(recipe_id)
 
     @staticmethod
+    def from_name_and_version_string(string: str, resolve_missing_version: bool = False) -> "DatasetRecipe":
+        """
+        Validates and converts a dataset name and version string (name:version) to a DatasetRecipe.from_name recipe.
+        If version is missing and 'resolve_missing_version' is True, it will default to 'latest'.
+        If resolve_missing_version is False, it will raise an error if version is missing.
+        """
+
+        dataset_name, version = dataset_name_and_version_from_string(
+            string=string,
+            resolve_missing_version=resolve_missing_version,
+        )
+
+        return DatasetRecipe.from_name(name=dataset_name, version=version)
+
+    @staticmethod
     def from_implicit_form(recipe: Any) -> DatasetRecipe:
         """
         Recursively convert from implicit recipe to explicit form.
@@ -180,7 +223,7 @@ class DatasetRecipe(Serializable):
             return recipe
 
         if isinstance(recipe, str):  # str-type is convert to DatasetFromName
-            return DatasetRecipe.from_name(name=recipe)
+            return DatasetRecipe.from_name_and_version_string(string=recipe, resolve_missing_version=True)
 
         if isinstance(recipe, Path):  # Path-type is convert to DatasetFromPath
             return DatasetRecipe.from_path(path_folder=recipe)
@@ -409,6 +452,7 @@ class FromPath(RecipeCreation):
 
 class FromName(RecipeCreation):
     name: str
+    version: Optional[str] = None
     force_redownload: bool = False
     download_files: bool = True
 

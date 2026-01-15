@@ -5,9 +5,9 @@ import boto3
 from botocore.exceptions import ClientError
 from rich.progress import Progress
 
-from hafnia.dataset.dataset_names import ResourceCredentials
 from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
+from hafnia.platform.s5cmd_utils import ResourceCredentials
 
 
 def get_resource_credentials(endpoint: str, api_key: str) -> ResourceCredentials:

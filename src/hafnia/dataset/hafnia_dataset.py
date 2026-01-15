@@ -10,14 +10,12 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import polars as pl
 from packaging.version import Version
 
+from hafnia import utils
 from hafnia.dataset import dataset_helpers
+from hafnia.dataset.dataset_helpers import is_valid_version_string, version_from_string
 from hafnia.dataset.dataset_names import (
-    FILENAME_ANNOTATIONS_JSONL,
-    FILENAME_ANNOTATIONS_PARQUET,
-    FILENAME_DATASET_INFO,
     FILENAME_RECIPE_JSON,
     TAG_IS_SAMPLE,
-    AwsCredentials,
     PrimitiveField,
     SampleField,
     SplitName,
@@ -28,7 +26,7 @@ from hafnia.dataset.format_conversions import (
     format_image_classification_folder,
     format_yolo,
 )
-from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, DatasetMetadataFilePaths, Sample
 from hafnia.dataset.operations import (
     dataset_stats,
     dataset_transformations,
@@ -36,6 +34,9 @@ from hafnia.dataset.operations import (
 )
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
+from hafnia.platform import s5cmd_utils
+from hafnia.platform.datasets import get_read_credentials_by_name
+from hafnia.platform.s5cmd_utils import AwsCredentials, ResourceCredentials
 from hafnia.utils import progress_bar
 from hafnia_cli.config import Config
 
@@ -89,10 +90,11 @@ class HafniaDataset:
     @staticmethod
     def from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
         path_folder = Path(path_folder)
-        HafniaDataset.check_dataset_path(path_folder, raise_error=True)
+        metadata_file_paths = DatasetMetadataFilePaths.from_path(path_folder)
+        metadata_file_paths.exists(raise_error=True)
 
-        dataset_info = DatasetInfo.from_json_file(path_folder / FILENAME_DATASET_INFO)
-        samples = table_transformations.read_samples_from_path(path_folder)
+        dataset_info = DatasetInfo.from_json_file(Path(metadata_file_paths.dataset_info))
+        samples = metadata_file_paths.read_samples()
         samples, dataset_info = _dataset_corrections(samples, dataset_info)
 
         # Convert from relative paths to absolute paths
@@ -103,14 +105,24 @@ class HafniaDataset:
         return HafniaDataset(samples=samples, info=dataset_info)
 
     @staticmethod
-    def from_name(name: str, force_redownload: bool = False, download_files: bool = True) -> "HafniaDataset":
+    def from_name(
+        name: str,
+        version: Optional[str] = None,
+        force_redownload: bool = False,
+        download_files: bool = True,
+    ) -> "HafniaDataset":
         """
         Load a dataset by its name. The dataset must be registered in the Hafnia platform.
         """
-        from hafnia.platform.datasets import download_or_get_dataset_path
-
+        if ":" in name:
+            name, version = dataset_helpers.dataset_name_and_version_from_string(name)
+            raise ValueError(
+                "The 'from_name' does not support the 'name:version' format. Please provide the version separately.\n"
+                f"E.g., HafniaDataset.from_name(name='{name}', version='{version}')"
+            )
         dataset_path = download_or_get_dataset_path(
             dataset_name=name,
+            version=version,
             force_redownload=force_redownload,
             download_files=download_files,
         )
@@ -523,30 +535,6 @@ class HafniaDataset:
         table = dataset.samples if isinstance(dataset, HafniaDataset) else dataset
         return table_transformations.has_primitive(table, PrimitiveType)
 
-    @staticmethod
-    def check_dataset_path(path_dataset: Path, raise_error: bool = True) -> bool:
-        """
-        Checks if the dataset path exists and contains the required files.
-        Returns True if the dataset is valid, otherwise raises an error or returns False.
-        """
-        if not path_dataset.exists():
-            if raise_error:
-                raise FileNotFoundError(f"Dataset path {path_dataset} does not exist.")
-            return False
-
-        required_files = [
-            FILENAME_DATASET_INFO,
-            FILENAME_ANNOTATIONS_JSONL,
-            FILENAME_ANNOTATIONS_PARQUET,
-        ]
-        for filename in required_files:
-            if not (path_dataset / filename).exists():
-                if raise_error:
-                    raise FileNotFoundError(f"Required file {filename} not found in {path_dataset}.")
-                return False
-
-        return True
-
     def copy(self) -> "HafniaDataset":
         return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
 
@@ -584,16 +572,18 @@ class HafniaDataset:
         """
         Writes only the annotations files (JSONL and Parquet) to the specified folder.
         """
+
         user_logger.info(f"Writing dataset annotations to {path_folder}...")
-        path_folder = path_folder.absolute()
-        if not path_folder.exists():
-            path_folder.mkdir(parents=True)
-        dataset.info.write_json(path_folder / FILENAME_DATASET_INFO)
+        metadata_file_paths = DatasetMetadataFilePaths.from_path(path_folder)
+        path_dataset_info = Path(metadata_file_paths.dataset_info)
+        path_dataset_info.parent.mkdir(parents=True, exist_ok=True)
+        dataset.info.write_json(path_dataset_info)
 
         samples = dataset.samples
         if drop_null_cols:  # Drops all unused/Null columns
             samples = samples.drop(pl.selectors.by_dtype(pl.Null))
 
+        path_folder = path_folder.absolute()
         # Store only relative paths in the annotations files
         if SampleField.FILE_PATH in samples.columns:  # We drop column for remote datasets
             absolute_paths = samples[SampleField.FILE_PATH].to_list()
@@ -601,8 +591,11 @@ class HafniaDataset:
             samples = samples.with_columns(pl.Series(relative_paths).alias(SampleField.FILE_PATH))
         else:
             samples = samples.with_columns(pl.lit("").alias(SampleField.FILE_PATH))
-        samples.write_ndjson(path_folder / FILENAME_ANNOTATIONS_JSONL)  # Json for readability
-        samples.write_parquet(path_folder / FILENAME_ANNOTATIONS_PARQUET)  # Parquet for speed
+
+        if metadata_file_paths.annotations_jsonl:
+            samples.write_ndjson(Path(metadata_file_paths.annotations_jsonl))  # Json for readability
+        if metadata_file_paths.annotations_parquet:
+            samples.write_parquet(Path(metadata_file_paths.annotations_parquet))  # Parquet for speed
 
     def delete_on_platform(dataset: HafniaDataset, interactive: bool = True) -> None:
         """
@@ -707,40 +700,6 @@ class HafniaDataset:
         return True
 
 
-def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
-    dataset = HafniaDataset.from_path(path_dataset, check_for_images=True)
-    dataset.check_dataset()
-
-
-def get_or_create_dataset_path_from_recipe(
-    dataset_recipe: Any,
-    force_redownload: bool = False,
-    path_datasets: Optional[Union[Path, str]] = None,
-) -> Path:
-    from hafnia.dataset.dataset_recipe.dataset_recipe import (
-        DatasetRecipe,
-        get_dataset_path_from_recipe,
-    )
-
-    recipe: DatasetRecipe = DatasetRecipe.from_implicit_form(dataset_recipe)
-    path_dataset = get_dataset_path_from_recipe(recipe, path_datasets=path_datasets)
-
-    if force_redownload:
-        shutil.rmtree(path_dataset, ignore_errors=True)
-
-    if HafniaDataset.check_dataset_path(path_dataset, raise_error=False):
-        return path_dataset
-
-    path_dataset.mkdir(parents=True, exist_ok=True)
-    path_recipe_json = path_dataset / FILENAME_RECIPE_JSON
-    path_recipe_json.write_text(recipe.model_dump_json(indent=4))
-
-    dataset: HafniaDataset = recipe.build()
-    dataset.write(path_dataset)
-
-    return path_dataset
-
-
 def _dataset_corrections(samples: pl.DataFrame, dataset_info: DatasetInfo) -> Tuple[pl.DataFrame, DatasetInfo]:
     format_version_of_dataset = Version(dataset_info.format_version)
 
@@ -775,3 +734,138 @@ def _dataset_corrections(samples: pl.DataFrame, dataset_info: DatasetInfo) -> Tu
                     pl.col(SampleField.BITMASKS).list.eval(pl.element().struct.rename_fields(struct_names))
                 )
     return samples, dataset_info
+
+
+def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
+    dataset = HafniaDataset.from_path(path_dataset, check_for_images=True)
+    dataset.check_dataset()
+
+
+def get_or_create_dataset_path_from_recipe(
+    dataset_recipe: Any,
+    force_redownload: bool = False,
+    path_datasets: Optional[Union[Path, str]] = None,
+) -> Path:
+    from hafnia.dataset.dataset_recipe.dataset_recipe import (
+        DatasetRecipe,
+        get_dataset_path_from_recipe,
+    )
+
+    recipe: DatasetRecipe = DatasetRecipe.from_implicit_form(dataset_recipe)
+    path_dataset = get_dataset_path_from_recipe(recipe, path_datasets=path_datasets)
+
+    if force_redownload:
+        shutil.rmtree(path_dataset, ignore_errors=True)
+
+    dataset_metadata_files = DatasetMetadataFilePaths.from_path(path_dataset)
+    if dataset_metadata_files.exists(raise_error=False):
+        return path_dataset
+
+    path_dataset.mkdir(parents=True, exist_ok=True)
+    path_recipe_json = path_dataset / FILENAME_RECIPE_JSON
+    path_recipe_json.write_text(recipe.model_dump_json(indent=4))
+
+    dataset: HafniaDataset = recipe.build()
+    dataset.write(path_dataset)
+
+    return path_dataset
+
+
+def available_dataset_versions_from_name(dataset_name: str) -> Dict[Version, "DatasetMetadataFilePaths"]:
+    credentials: ResourceCredentials = get_read_credentials_by_name(dataset_name=dataset_name)
+    return available_dataset_versions(credentials=credentials)
+
+
+def available_dataset_versions(
+    credentials: ResourceCredentials,
+) -> Dict[Version, "DatasetMetadataFilePaths"]:
+    envs = credentials.aws_credentials()
+    bucket_prefix_sample_versions = f"{credentials.s3_uri()}/versions"
+    all_s3_annotation_files = s5cmd_utils.list_bucket(bucket_prefix=bucket_prefix_sample_versions, append_envs=envs)
+    available_versions = DatasetMetadataFilePaths.available_versions_from_files_list(all_s3_annotation_files)
+    return available_versions
+
+
+def select_version_from_available_versions(
+    available_versions: Dict[Version, "DatasetMetadataFilePaths"],
+    version: Optional[str],
+) -> "DatasetMetadataFilePaths":
+    if len(available_versions) == 0:
+        raise ValueError("No versions were found in the dataset.")
+
+    if version is None:
+        str_versions = [str(v) for v in available_versions]
+        raise ValueError(f"Version must be specified. Available versions: {str_versions}")
+    elif version == "latest":
+        version_casted = max(available_versions)
+        user_logger.info(f"'latest' version '{version_casted}' has been selected")
+    else:
+        version_casted = version_from_string(version)
+
+    if version_casted not in available_versions:
+        raise ValueError(f"Selected version '{version}' not found in available versions: {available_versions}")
+
+    return available_versions[version_casted]
+
+
+def download_meta_dataset_files_from_version(
+    resource_credentials: ResourceCredentials, version: Optional[str], path_dataset: Path
+) -> list[str]:
+    envs = resource_credentials.aws_credentials()
+    available_versions = available_dataset_versions(credentials=resource_credentials)
+    metadata_files = select_version_from_available_versions(available_versions=available_versions, version=version)
+
+    s3_files = metadata_files.as_list()
+    path_dataset.mkdir(parents=True, exist_ok=True)
+    local_paths = [(path_dataset / filename.split("/")[-1]).as_posix() for filename in s3_files]
+    s5cmd_utils.fast_copy_files(
+        src_paths=s3_files,
+        dst_paths=local_paths,
+        append_envs=envs,
+        description="Downloading meta dataset files",
+    )
+
+    return local_paths
+
+
+def download_or_get_dataset_path(
+    dataset_name: str,
+    version: Optional[str],
+    cfg: Optional[Config] = None,
+    path_datasets_folder: Optional[str] = None,
+    force_redownload: bool = False,
+    download_files: bool = True,
+) -> Path:
+    """Download or get the path of the dataset."""
+
+    path_datasets = path_datasets_folder or utils.PATH_DATASETS
+    path_dataset = Path(path_datasets) / dataset_name
+    if not is_valid_version_string(version, allow_none=True, allow_latest=True):
+        raise ValueError(
+            f"Invalid version string: {version}. Should be a valid version (e.g. '0.1.0'), 'latest' or None."
+        )
+
+    # Only valid versions (e.g. '0.1.0', '1.0.0') can use local cache. Using either "latest"/None will always redownload
+    if is_valid_version_string(version, allow_none=False, allow_latest=False):
+        dataset_metadata_files = DatasetMetadataFilePaths.from_path(path_dataset)
+        dataset_exists = dataset_metadata_files.exists(version=version, raise_error=False)
+        if dataset_exists and not force_redownload:
+            user_logger.info("Dataset found locally. Set 'force=True' or add `--force` flag with cli to re-download")
+            return path_dataset
+
+    cfg = cfg or Config()
+    resource_credentials = get_read_credentials_by_name(dataset_name=dataset_name, cfg=cfg)
+    if resource_credentials is None:
+        raise ValueError(f"Failed to get read credentials for dataset '{dataset_name}' from the platform.")
+
+    download_meta_dataset_files_from_version(
+        resource_credentials=resource_credentials, version=version, path_dataset=path_dataset
+    )
+
+    if not download_files:
+        return path_dataset
+
+    dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
+    dataset = dataset.download_files_aws(path_dataset, aws_credentials=resource_credentials, force_redownload=True)
+    dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
+    return path_dataset

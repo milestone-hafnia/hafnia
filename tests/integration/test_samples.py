@@ -9,7 +9,9 @@ from torchvision.transforms import v2
 
 import hafnia
 from hafnia import torch_helpers
+from hafnia.dataset.dataset_helpers import is_valid_version_string
 from hafnia.dataset.dataset_names import SampleField
+from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives.bbox import Bbox
@@ -18,34 +20,27 @@ from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.segmentation import Segmentation
 from hafnia.utils import is_hafnia_configured
+from tests.helper_testing_datasets import DATASET_SPEC_MNIST, SUPPORTED_DATASETS
 
 FORCE_REDOWNLOAD = False  # Set to True to force re-download of datasets. (Set to False before committing)
 RUN_ON_OLD_DATASETS = False  # Set to True to run tests on old datasets. (Set to False before committing)
 
-DATASETS_EXPECTED = [
-    ("midwest-vehicle-detection", {"train": 172, "validation": 21, "test": 21}),
-    ("tiny-dataset", {"train": 3, "validation": 2, "test": 3}),
-    ("mnist", {"train": 176, "test": 18, "validation": 6}),
-    ("caltech-101", {"train": 166, "validation": 21, "test": 13}),
-    ("caltech-256", {"train": 163, "validation": 17, "test": 20}),
-    ("cifar10", {"train": 171, "validation": 4, "test": 25}),
-    ("cifar100", {"train": 428, "validation": 13, "test": 59}),
-    # ("easyportrait", {"train": 32, "test": 20, "validation": 10}),
-    ("coco-2017", {"train": 189, "validation": 2, "test": 9}),
-    # ("sama-coco", {"train": 99, "validation": 1, "test": 1}),
-    # ("open-images-v7", {"train": 91, "validation": 3, "test": 9}),
-]
-DATASET_IDS = [dataset[0] for dataset in DATASETS_EXPECTED]
+
+DATASET_IDS = [dataset.name for dataset in SUPPORTED_DATASETS]
 
 
-@pytest.fixture(params=DATASETS_EXPECTED, ids=DATASET_IDS, scope="session")
+@pytest.fixture(params=SUPPORTED_DATASETS, ids=DATASET_IDS, scope="session")
 def loaded_dataset(request) -> Dict[str, Any]:
     """Fixture that loads a dataset and returns it along with metadata."""
     if not is_hafnia_configured():
         pytest.skip("Not logged in to Hafnia")
 
-    dataset_name, expected_lengths = request.param
-    dataset = HafniaDataset.from_name(dataset_name, force_redownload=FORCE_REDOWNLOAD)
+    dataset_info = request.param
+    dataset = HafniaDataset.from_name(
+        dataset_info.name,
+        version=dataset_info.version,
+        force_redownload=FORCE_REDOWNLOAD,
+    )
 
     # We skip tests for datasets that doesn't match the current format version.
     # We do this to have working tests and maintain successful CI/CD pipeline runs,
@@ -63,8 +58,7 @@ def loaded_dataset(request) -> Dict[str, Any]:
         )
     return {
         "dataset": dataset,
-        "dataset_name": dataset_name,
-        "expected_lengths": expected_lengths,
+        "dataset_info": dataset_info,
     }
 
 
@@ -97,7 +91,7 @@ def test_run_on_old_datasets():
 def test_dataset_lengths(loaded_dataset):
     """Test that the dataset has the expected number of samples."""
     dataset = loaded_dataset["dataset"]
-    expected_split_counts = loaded_dataset["expected_lengths"]
+    expected_split_counts = loaded_dataset["dataset_info"].splits
 
     actual_split_counts = dict(dataset.samples[SampleField.SPLIT].value_counts().iter_rows())
     assert actual_split_counts == expected_split_counts
@@ -196,3 +190,44 @@ def test_dataset_dataloader(loaded_dataset):
             raise NotImplementedError("Segmentation handling not implemented in this test")
         else:
             raise ValueError(f"Unsupported task primitive: {task.primitive}")
+
+
+def test_from_name_versioning_failures():
+    dataset_spec = DATASET_SPEC_MNIST
+
+    with pytest.raises(ValueError, match="Version must be specified"):
+        HafniaDataset.from_name(dataset_spec.name)
+
+    with pytest.raises(ValueError, match="Invalid version string"):
+        HafniaDataset.from_name(dataset_spec.name, version="invalid_version_string")
+
+    non_existing_version = "999.0.0"
+    assert non_existing_version != dataset_spec.version
+    with pytest.raises(ValueError, match=f"Selected version '{non_existing_version}' not found in available versions"):
+        HafniaDataset.from_name(dataset_spec.name, version=non_existing_version)
+
+    HafniaDataset.from_name(dataset_spec.name, version="latest")  # Should pass
+
+
+def test_from_name_and_version_str():
+    # Test with name and version
+    recipe = DatasetRecipe.from_name_and_version_string(f"mnist:{DATASET_SPEC_MNIST.version}")
+    assert isinstance(recipe, DatasetRecipe)
+    assert recipe.creation.name == "mnist"
+    assert recipe.creation.version == DATASET_SPEC_MNIST.version
+
+    # Test with name only and allow_missing_version=True
+    recipe = DatasetRecipe.from_name_and_version_string("mnist", resolve_missing_version=True)
+    assert isinstance(recipe, DatasetRecipe)
+    assert recipe.creation.name == "mnist"
+    assert is_valid_version_string(recipe.creation.version), (
+        "No version was defined. The latest version is being used. Resulting e.g. '1.0.0'"
+    )
+
+    # Test with name only and allow_missing_version=False
+    with pytest.raises(ValueError):
+        DatasetRecipe.from_name_and_version_string("mnist", resolve_missing_version=False)
+
+    # Test with invalid type
+    with pytest.raises(TypeError):
+        DatasetRecipe.from_name_and_version_string(123)

@@ -32,9 +32,7 @@ jobs:
         run: |
           mkdir -p ~/.hafnia
           echo "$HAFNIA_CONFIG" | jq . > ~/.hafnia/config.json
-      - name: Check hafnia configured
-        run: uv run hafnia profile active
-      - name: Check hafnia by download
+      - name: Check hafnia configuration by download
         run: uv run hafnia dataset download mnist --force
       - name: Run tests
         run: uv run pytest tests 

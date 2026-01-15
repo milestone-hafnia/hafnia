@@ -23,7 +23,7 @@ def test_dataset_info_serializing_deserializing(tmp_path: Path):
         TaskInfo(name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification),
         TaskInfo(name="Another Task", class_names=["Class C", "Class D"], primitive=Classification),
     ]
-    dataset_info = DatasetInfo(dataset_name="Sample Dataset", version="1.0", tasks=tasks)
+    dataset_info = DatasetInfo(dataset_name="Sample Dataset", version="1.0.0", tasks=tasks)
 
     path_dataset = tmp_path / "example_dataset_info.json"
     dataset_info.write_json(path_dataset)
@@ -37,7 +37,7 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
     # Create a sample dataset
     task_info = TaskInfo(name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification)
     dataset_info = DatasetInfo(
-        dataset_name="Sample Dataset", version="1.0", tasks=[task_info], primitive=Classification
+        dataset_name="Sample Dataset", version="1.0.0", tasks=[task_info], primitive=Classification
     )
 
     path_dataset = tmp_path / "test_hafnia_dataset"
@@ -109,7 +109,7 @@ def test_dataset_info_validation_exceptions():
     # Use case 1: Same primitive - different task name is allowed!
     DatasetInfo(
         dataset_name="test_dataset",
-        version="1.0",
+        version="1.0.0",
         tasks=[
             TaskInfo(primitive=Classification, class_names=["car", "person"]),
             TaskInfo(primitive=Classification, class_names=["car", "person"], name="Task2"),
@@ -120,7 +120,7 @@ def test_dataset_info_validation_exceptions():
     with pytest.raises(ValueError, match="Tasks must be unique"):
         DatasetInfo(
             dataset_name="test_dataset",
-            version="1.0",
+            version="1.0.0",
             tasks=[
                 TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
                 TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
@@ -133,7 +133,7 @@ def test_dataset_info_replace_task():
     task2 = TaskInfo(primitive=Classification, class_names=["cat", "dog"], name="Task2")
     dataset_info = DatasetInfo(
         dataset_name="test_dataset",
-        version="1.0",
+        version="1.0.0",
         tasks=[task1, task2],
     )
 
@@ -157,10 +157,10 @@ def test_dataset_info_replace_task():
 
 def test_dataset_version_validation():
     # Valid version
-    DatasetInfo(dataset_name="test_dataset", version="1.0")
+    DatasetInfo(dataset_name="test_dataset", version="1.0.0")
 
     # Invalid version
-    with pytest.raises(ValueError, match="Invalid dataset_version '.*'. Must be a valid version string"):
+    with pytest.raises(ValueError, match="Invalid version string"):
         DatasetInfo(dataset_name="test_dataset", version="invalid_version")
 
 
@@ -174,7 +174,7 @@ def test_dataset_format_version_validation():
     assert dataset_info.format_version == hafnia.__dataset_format_version__
 
     # Invalid version
-    with pytest.raises(ValueError, match="Invalid format_version '.*'. Must be a valid version string"):
+    with pytest.raises(ValueError, match="Invalid version string"):
         DatasetInfo(dataset_name="test_dataset", format_version="invalid_version")
 
 

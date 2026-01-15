@@ -3,11 +3,69 @@ import math
 import random
 import shutil
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import xxhash
+from packaging.version import InvalidVersion, Version
 from PIL import Image
+
+from hafnia.log import user_logger
+
+
+def is_valid_version_string(version: Optional[str], allow_none: bool = False, allow_latest: bool = False) -> bool:
+    if allow_none and version is None:
+        return True
+    if allow_latest and version == "latest":
+        return True
+    return version_from_string(version, raise_error=False) is not None
+
+
+def version_from_string(version: Optional[str], raise_error: bool = True) -> Optional[Version]:
+    if version is None:
+        if raise_error:
+            raise ValueError("Version is 'None'. A valid version string is required e.g '1.0.0'")
+        return None
+
+    try:
+        version_casted = Version(version)
+    except (InvalidVersion, TypeError) as e:
+        if raise_error:
+            raise ValueError(f"Invalid version string/type: {version}") from e
+        return None
+
+    # Check if version is semantic versioning (MAJOR.MINOR.PATCH)
+    if len(version_casted.release) < 3:
+        if raise_error:
+            raise ValueError(f"Version string '{version}' is not semantic versioning (MAJOR.MINOR.PATCH)")
+        return None
+    return version_casted
+
+
+def dataset_name_and_version_from_string(
+    string: str,
+    resolve_missing_version: bool = True,
+) -> Tuple[str, Optional[str]]:
+    if not isinstance(string, str):
+        raise TypeError(f"'{type(string)}' for '{string}' is an unsupported type. Expected 'str' e.g 'mnist:1.0.0'")
+
+    parts = string.split(":")
+    if len(parts) == 1:
+        dataset_name = parts[0]
+        if resolve_missing_version:
+            version = "latest"  # Default to 'latest' if version is missing. This will be resolved to a specific version later.
+            user_logger.info(f"Version is missing in dataset name: {string}. Defaulting to version='latest'.")
+        else:
+            raise ValueError(f"Version is missing in dataset name: {string}. Use 'name:version'")
+    elif len(parts) == 2:
+        dataset_name, version = parts
+    else:
+        raise ValueError(f"Invalid dataset name format: {string}. Use 'name' or 'name:version' ")
+
+    if not is_valid_version_string(version, allow_none=True, allow_latest=True):
+        raise ValueError(f"Invalid version string: {version}. Use semantic versioning e.g. '1.0.0' or 'latest'")
+
+    return dataset_name, version
 
 
 def create_split_name_list_from_ratios(split_ratios: Dict[str, float], n_items: int, seed: int = 42) -> List[str]:

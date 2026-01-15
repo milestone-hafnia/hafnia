@@ -13,6 +13,10 @@ from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
 from hafnia.dataset.primitives.polygon import Polygon
 
+MNIST_VERSION = "1.0.0"
+MIDWEST_VERSION = "1.0.0"
+COCO_VERSION = "1.0.0"
+
 # First ensure that you have the Hafnia CLI installed and configured.
 # You can install it via pip:
 #   pip install hafnia
@@ -20,7 +24,11 @@ from hafnia.dataset.primitives.polygon import Polygon
 #   hafnia configure
 
 # Load sample dataset
-dataset = HafniaDataset.from_name("mnist")
+dataset = HafniaDataset.from_name("mnist", version=MNIST_VERSION)
+
+# Use 'from_name' without version-argument to get available versions:
+# dataset = HafniaDataset.from_name("mnist")
+# >>> ValueError: Version must be specified. Available versions: ['1.0.0', '0.0.1']
 
 # Dataset information is stored in 'dataset.info'
 rprint(dataset.info)
@@ -76,7 +84,11 @@ dataset_mapped = dataset.class_mapper(class_mapping=class_mapping_strict)
 dataset_mapped.print_class_distribution()
 
 # Support Chaining Operations (load, shuffle, select samples)
-dataset = HafniaDataset.from_name("midwest-vehicle-detection").shuffle(seed=42).select_samples(n_samples=10)
+dataset = (
+    HafniaDataset.from_name("midwest-vehicle-detection", version=MIDWEST_VERSION)
+    .shuffle(seed=42)
+    .select_samples(n_samples=10)
+)
 
 
 # Write dataset to disk
@@ -88,7 +100,7 @@ dataset.write(path_dataset)
 dataset_again = HafniaDataset.from_path(path_dataset)
 
 ## Dataset importers and exporters ##
-dataset_od = HafniaDataset.from_name("coco-2017").select_samples(n_samples=5, seed=42)
+dataset_od = HafniaDataset.from_name("coco-2017", version=COCO_VERSION).select_samples(n_samples=5, seed=42)
 
 # Export/import dataset to YOLO format
 path_yolo_format = Path(".data/tmp/yolo_dataset")

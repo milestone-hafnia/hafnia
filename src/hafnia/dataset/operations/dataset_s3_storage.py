@@ -8,13 +8,13 @@ import polars as pl
 from hafnia.dataset.dataset_helpers import hash_file_xxhash
 from hafnia.dataset.dataset_names import (
     DatasetVariant,
-    ResourceCredentials,
     SampleField,
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
 from hafnia.platform.datasets import get_upload_credentials
+from hafnia.platform.s5cmd_utils import ResourceCredentials
 from hafnia.utils import progress_bar
 from hafnia_cli.config import Config
 

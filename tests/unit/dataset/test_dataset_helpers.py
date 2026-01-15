@@ -5,6 +5,7 @@ from typing import Dict
 
 import numpy as np
 import pytest
+from packaging.version import Version
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import SplitName
@@ -82,3 +83,46 @@ def test_save_image_with_hash_name(tmp_path: Path):
     assert path_image1.exists()
     assert path_image0.suffix in [".png"]
     assert path_image1.suffix in [".png"]
+
+
+@pytest.mark.parametrize("version_str", ["1.0.0", "0.0.1"])
+def test_version_from_string(version_str: str):
+    version_casted: Version = dataset_helpers.version_from_string(version_str)
+    assert isinstance(version_casted, Version)
+    assert str(version_casted) == version_str
+    assert dataset_helpers.is_valid_version_string(version_str) is True
+
+
+@pytest.mark.parametrize("invalid_version_str", ["invalid_version", "latest", None, "1.0", "1", 1])
+def test_invalid_version_from_string(invalid_version_str: str):
+    with pytest.raises((ValueError, TypeError)):
+        dataset_helpers.version_from_string(invalid_version_str, raise_error=True)
+    version_none = dataset_helpers.version_from_string(invalid_version_str, raise_error=False)
+    assert version_none is None
+    assert dataset_helpers.is_valid_version_string(invalid_version_str) is False
+
+
+def test_dataset_name_and_version_from_string():
+    name_only = "dataset_name"
+    name, version = dataset_helpers.dataset_name_and_version_from_string(name_only, resolve_missing_version=True)
+    assert name == "dataset_name"
+    assert version == "latest"
+
+    name_version = "dataset_name:1.0.0"
+    name, version = dataset_helpers.dataset_name_and_version_from_string(name_version)
+    assert name == "dataset_name"
+    assert version == "1.0.0"
+
+    name_latest = "dataset_name:latest"
+    name, version = dataset_helpers.dataset_name_and_version_from_string(name_latest)
+    assert name == "dataset_name"
+    assert version == "latest"
+
+
+@pytest.mark.parametrize(
+    "invalid_string",
+    ["dataset_name", "dataset:name:extra", "dataset_name:asdf", "dataset_name:0.1", 123, None, "", "dataset_name:"],
+)
+def test_invalid_dataset_name_and_version_from_string(invalid_string: str):
+    with pytest.raises((ValueError, TypeError)):
+        dataset_helpers.dataset_name_and_version_from_string(invalid_string, resolve_missing_version=False)

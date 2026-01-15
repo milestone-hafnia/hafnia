@@ -6,6 +6,7 @@ import pytest
 
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 from hafnia.dataset.dataset_recipe.recipe_transforms import SelectSamples, Shuffle
+from tests.helper_testing_datasets import DATASET_SPEC_MNIST
 
 
 @dataclass
@@ -20,8 +21,8 @@ class TestUseCaseImplicit2Explicit:
     [
         TestUseCaseImplicit2Explicit(
             name="str to DatasetFromName",
-            recipe_implicit="mnist",
-            recipe_explicit=DatasetRecipe.from_name(name="mnist"),
+            recipe_implicit=f"mnist:{DATASET_SPEC_MNIST.version}",
+            recipe_explicit=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version),
         ),
         TestUseCaseImplicit2Explicit(
             name="Path to DatasetFromPath",
@@ -30,28 +31,34 @@ class TestUseCaseImplicit2Explicit:
         ),
         TestUseCaseImplicit2Explicit(
             name="tuple to DatasetMerger",
-            recipe_implicit=("dataset1", "dataset2"),
+            recipe_implicit=("dataset1:0.0.1", "dataset2:0.0.1"),
             recipe_explicit=DatasetRecipe.from_merger(
                 recipes=[
-                    DatasetRecipe.from_name(name="dataset1", force_redownload=False),
-                    DatasetRecipe.from_name(name="dataset2", force_redownload=False),
+                    DatasetRecipe.from_name(name="dataset1", version="0.0.1", force_redownload=False),
+                    DatasetRecipe.from_name(name="dataset2", version="0.0.1", force_redownload=False),
                 ],
             ),
         ),
         TestUseCaseImplicit2Explicit(
             name="tuple One dataset DatasetMerger",
-            recipe_implicit=("dataset1",),
-            recipe_explicit=DatasetRecipe.from_name(name="dataset1", force_redownload=False),
+            recipe_implicit=("dataset1:0.0.1",),
+            recipe_explicit=DatasetRecipe.from_name(name="dataset1", version="0.0.1", force_redownload=False),
         ),
         TestUseCaseImplicit2Explicit(
             name="list to DatasetRecipe",
-            recipe_implicit=["dataset1", SelectSamples(n_samples=10), Shuffle()],
-            recipe_explicit=DatasetRecipe.from_name(name="dataset1").select_samples(n_samples=10).shuffle(),
+            recipe_implicit=["dataset1:0.0.1", SelectSamples(n_samples=10), Shuffle()],
+            recipe_explicit=DatasetRecipe.from_name(name="dataset1", version="0.0.1")
+            .select_samples(n_samples=10)
+            .shuffle(),
         ),
         TestUseCaseImplicit2Explicit(
             name="DatasetFromName to DatasetFromName (no change)",
-            recipe_implicit=DatasetRecipe.from_name(name="mnist", force_redownload=False),
-            recipe_explicit=DatasetRecipe.from_name(name="mnist", force_redownload=False),
+            recipe_implicit=DatasetRecipe.from_name(
+                name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False
+            ),
+            recipe_explicit=DatasetRecipe.from_name(
+                name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False
+            ),
         ),
         TestUseCaseImplicit2Explicit(
             name="DatasetFromPath to DatasetFromPath (no change)",
@@ -61,48 +68,50 @@ class TestUseCaseImplicit2Explicit:
         TestUseCaseImplicit2Explicit(
             name="DatasetMerger to DatasetMerger (no change)",
             recipe_implicit=DatasetRecipe.from_merge(
-                recipe0=DatasetRecipe.from_name(name="dataset1", force_redownload=False),
-                recipe1=DatasetRecipe.from_name(name="dataset2", force_redownload=False),
+                recipe0=DatasetRecipe.from_name(name="dataset1", version="0.0.1", force_redownload=False),
+                recipe1=DatasetRecipe.from_name(name="dataset2", version="0.0.1", force_redownload=False),
             ),
             recipe_explicit=DatasetRecipe.from_merge(
-                recipe0=DatasetRecipe.from_name(name="dataset1", force_redownload=False),
-                recipe1=DatasetRecipe.from_name(name="dataset2", force_redownload=False),
+                recipe0=DatasetRecipe.from_name(name="dataset1", version="0.0.1", force_redownload=False),
+                recipe1=DatasetRecipe.from_name(name="dataset2", version="0.0.1", force_redownload=False),
             ),
         ),
         TestUseCaseImplicit2Explicit(
             name="Transforms to Transforms (no change)",
-            recipe_implicit=DatasetRecipe.from_name(name="dataset1", force_redownload=False)
+            recipe_implicit=DatasetRecipe.from_name(name="dataset1", version="0.0.1", force_redownload=False)
             .select_samples(n_samples=10)
             .shuffle(),
-            recipe_explicit=DatasetRecipe.from_name(name="dataset1", force_redownload=False)
+            recipe_explicit=DatasetRecipe.from_name(name="dataset1", version="0.0.1", force_redownload=False)
             .select_samples(n_samples=10)
             .shuffle(),
         ),
         TestUseCaseImplicit2Explicit(
             name="Mix implicit/explicit recipes",
             recipe_implicit=(
-                DatasetRecipe.from_name(name="dataset1", force_redownload=False),
+                DatasetRecipe.from_name(name="dataset1", version="0.0.1", force_redownload=False),
                 Path("path/to/dataset"),
-                ["dataset2", SelectSamples(n_samples=5), Shuffle()],
-                DatasetRecipe.from_name(name="dataset2", force_redownload=False).select_samples(n_samples=5).shuffle(),
-                ("dataset2", DatasetRecipe.from_name(name="dataset3", force_redownload=False)),
-                "dataset4",
+                ["dataset2:0.0.1", SelectSamples(n_samples=5), Shuffle()],
+                DatasetRecipe.from_name(name="dataset2", version="0.0.1", force_redownload=False)
+                .select_samples(n_samples=5)
+                .shuffle(),
+                ("dataset2:0.0.1", DatasetRecipe.from_name(name="dataset3", version="0.0.1", force_redownload=False)),
+                "dataset4:0.0.1",
             ),
             recipe_explicit=DatasetRecipe.from_merger(
                 recipes=[
-                    DatasetRecipe.from_name(name="dataset1", force_redownload=False),
+                    DatasetRecipe.from_name(name="dataset1", version="0.0.1", force_redownload=False),
                     DatasetRecipe.from_path(path_folder=Path("path/to/dataset"), check_for_images=True),
-                    DatasetRecipe.from_name(name="dataset2").select_samples(n_samples=5).shuffle(),
-                    DatasetRecipe.from_name(name="dataset2", force_redownload=False)
+                    DatasetRecipe.from_name(name="dataset2", version="0.0.1").select_samples(n_samples=5).shuffle(),
+                    DatasetRecipe.from_name(name="dataset2", version="0.0.1", force_redownload=False)
                     .select_samples(n_samples=5)
                     .shuffle(),
                     DatasetRecipe.from_merger(
                         recipes=[
-                            DatasetRecipe.from_name(name="dataset2", force_redownload=False),
-                            DatasetRecipe.from_name(name="dataset3", force_redownload=False),
+                            DatasetRecipe.from_name(name="dataset2", version="0.0.1", force_redownload=False),
+                            DatasetRecipe.from_name(name="dataset3", version="0.0.1", force_redownload=False),
                         ],
                     ),
-                    DatasetRecipe.from_name(name="dataset4", force_redownload=False),
+                    DatasetRecipe.from_name(name="dataset4", version="0.0.1", force_redownload=False),
                 ],
             ),
         ),
