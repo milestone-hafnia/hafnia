@@ -314,7 +314,7 @@ def test_command_args_from_form_data_simple():
     class NestedModel(BaseModel):
         name: str
 
-    def some_function(param_value1: str, param2: int = 10, nested: NestedModel = NestedModel(name="default")):
+    def some_function(param_value1: str, param_value2: int = 10, nested: NestedModel = NestedModel(name="default")):
         pass
 
     update_params = {
@@ -339,13 +339,15 @@ def test_command_args_from_form_data_simple():
         some_function,
         parameter_prefix="++",
         nested_parameter_separator="__",
-        n_positional_args=0,
+        n_positional_args=1,
         kebab_case=False,
         assignment_separator="equals",
     )
 
     commands_args = cmd_builder2.command_args_from_form_data(form_dataset)
+    commands_args[0] = "'custom_value'"  # Adjust for positional argument
     cmd_string = " ".join(commands_args)
     assert cmd_string.count(" ++") == n_root_params - cmd_builder2.n_positional_args
     assert "nested__name" in cmd_string, "Nested parameter not correctly represented. Expected '__' separator."
-    assert "param_value1" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
+    assert "param_value2" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
+    assert "++nested__name='default'" in cmd_string, "Assignment separator '=' not correctly used."
