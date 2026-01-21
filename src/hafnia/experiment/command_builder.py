@@ -1,0 +1,558 @@
+"""
+The command_builder module converts Python CLI functions with type annotations into
+CLI command Builder schemas. A CommandBuilderSchema defines how to build command line
+arguments for executing training or evaluation scripts.
+This Command Builder Schema will be pass to the Hafnia platform, where
+it will dynamically create a web form for users to input parameters,
+and then construct the appropriate command line to run the script with those parameters.
+"""
+
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    get_args,
+    get_origin,
+)
+
+import docstring_parser
+import flatten_dict
+from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic.fields import FieldInfo
+from pydantic_core import PydanticUndefined
+
+
+class CommandBuilderSchema(BaseModel):
+    """
+    Defines a schema for building and validating CLI commands.
+
+    """
+
+    cmd: str = Field(
+        ...,
+        description=(
+            "The command to execute the trainer launcher 'python scripts/train.py', "
+            "'uv run scripts/train.py', 'trainer-classification'"
+        ),
+    )
+
+    json_schema: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="JSON schema representing the function parameters ",
+    )
+
+    n_positional_args: int = Field(
+        0,
+        description=(
+            "CLI format: Number of positional arguments in the command. To handle that some CLI tools "
+            "accept positional arguments before options, this specifies how many positional arguments are expected. "
+            "These will be filled in order before any named arguments. "
+            "E.g. for 'python train.py data/train --batch-size 32', n_positional_args would be 1 ('data/train')."
+        ),
+    )
+    kebab_case: bool = Field(
+        True,
+        description=(
+            "CLI format: The command line arguments will use kebab-case (e.g. --batch-size). "
+            "This handles what is commonly done in CLI tools where function argument names are converted from "
+            "'snake_case' to '--kebab-case' when used as command line arguments."
+        ),
+    )
+    parameter_prefix: str = Field(
+        "--",
+        description="CLI format: The prefix used for command line arguments. E.g. '--' for '--batch-size' ",
+    )
+
+    nested_parameter_separator: str = Field(
+        ".",
+        description=(
+            "CLI format: Separator used for nested parameters in the command line interface. "
+            "E.g. 'optimizer.lr' to set the learning rate inside an optimizer configuration."
+        ),
+    )
+
+    def to_json_file(self, path: Path) -> Path:
+        """Write the launcher schema to a JSON file.
+
+        Args:
+            path (Path): The file path to write the schema to.
+        """
+        if not path.suffix == ".json":
+            raise ValueError(f"Expected a .json file path, got: {path}")
+
+        json_str = self.model_dump_json(indent=4)
+        path.write_text(json_str)
+        return path
+
+    @staticmethod
+    def from_json_file(path: Path) -> "CommandBuilderSchema":
+        json_str = path.read_text()
+        return CommandBuilderSchema.model_validate_json(json_str)
+
+    @staticmethod
+    def from_function(
+        cli_function: Callable[..., Any],
+        ignore_params: tuple[str, ...] = (),
+        cmd: Optional[str] = None,
+        kebab_case: bool = True,
+        handle_union_types: bool = True,
+        parameter_prefix: str = "--",
+        nested_parameter_separator: str = ".",
+        n_positional_args: int = 0,
+    ) -> "CommandBuilderSchema":
+        cmd = cmd or f"python {path_of_function(cli_function).as_posix()}"
+
+        function_schema = schema_from_cli_function(
+            cli_function,
+            ignore_params=ignore_params,
+            handle_union_types=handle_union_types,
+        )
+
+        return CommandBuilderSchema(
+            cmd=cmd,
+            json_schema=function_schema,
+            kebab_case=kebab_case,
+            parameter_prefix=parameter_prefix,
+            nested_parameter_separator=nested_parameter_separator,
+            n_positional_args=n_positional_args,
+        )
+
+    def command_args_from_form_data(self, form_data: Dict[str, Any]) -> List[str]:
+        """Convert form data dictionary to command line arguments list.
+
+        Args:
+            form_data (Dict[str, Any]): The form data dictionary.
+
+        Returns:
+            List[str]: The command line arguments list.
+        """
+
+        # Flatten nested parameters ({"optimizer": {"lr": 0.01}} -> {"optimizer.lr": 0.01})
+        sep = self.nested_parameter_separator
+        form_data = flatten_dict.flatten(form_data)  # Flatten doesn't support str directly
+        form_data = {sep.join(keys): value for keys, value in form_data.items()}
+
+        if self.kebab_case:  # Convert from 'snake_case' to 'kebab-case'. E.g. 'batch_size' -> 'batch-size'
+            form_data = {snake_case_to_kebab_case(key): value for key, value in form_data.items()}
+
+        # Add prefix: E.g. 'batch-size' to '--batch-size'
+        form_data = {f"{self.parameter_prefix}{key}": value for key, value in form_data.items()}
+
+        cmd_args: List[str] = [self.cmd]
+        for position, (name, value) in enumerate(form_data.items()):
+            cmd_args.append(name)
+            if position < self.n_positional_args:
+                continue  # Positional argument, no value after the name
+
+            cmd_args.append(repr(value))
+
+        return cmd_args
+
+
+def path_of_function(cli_function: Callable[..., Any]) -> Path:
+    """Get the default path for saving the launch schema JSON file from a CLI function."""
+    path_script = Path(cli_function.__globals__["__file__"])
+    script_relative_path = Path(path_script).relative_to(Path.cwd())
+    return script_relative_path
+
+
+def simulate_form_data(function: Callable[..., Any], user_args: Dict[str, Any]) -> Dict[str, Any]:
+    pydantic_model = pydantic_model_from_cli_function(function)
+    cli_args = pydantic_model(**user_args)  # Validate args
+    return cli_args.model_dump(mode="json")
+
+
+def write_cmd_builder_schema_to_file_from_cli_function(
+    cli_function: Callable[..., Any],
+    convert_to_kebab_case: bool = True,
+    ignore_params: tuple[str, ...] = (),
+    handle_union_types: bool = True,
+    path_schema: Optional[Path] = None,
+    cmd: Optional[str] = None,
+) -> Path:
+    """
+    Magic function to create and save CommandBuilderSchema as JSON file from a CLI function.
+    If the function is invoked in e.g. 'scripts/train.py' it will create a JSON schema file
+    'scripts/train.json' next to the script file.
+
+    If the too magical 'write_command_builder_schema_from_cli_function' function is
+    not working - you can write the code manually as shown below:
+
+    ```python
+    function_schema = schema_from_cli_function(main_cli_function)
+    command_builder = CommandBuilderSchema(
+        cmd="python scripts/train.py",
+        json_schema=function_schema,
+        kebab_case=True,
+        parameter_prefix="--",
+        nested_parameter_separator=".",
+        n_positional_args=0,
+    )
+    command_builder.to_json_file(Path("scripts/train.json"))
+    ```
+    """
+
+    launch_schema = CommandBuilderSchema.from_function(
+        cli_function,
+        ignore_params=ignore_params,
+        kebab_case=convert_to_kebab_case,
+        handle_union_types=handle_union_types,
+        cmd=cmd,
+    )
+
+    path_schema = path_schema or path_of_function(cli_function).with_suffix(".json")
+    launch_schema.to_json_file(path_schema)
+    return path_schema
+
+
+def schema_from_cli_function(
+    func: Callable[..., Any],
+    ignore_params: tuple[str, ...] = (),
+    handle_union_types: bool = True,
+) -> Dict:
+    """
+    Generate a function schema from a cli function signature.
+
+    This function creates a json schema based on the parameters of the provided
+    function, preserving type annotations, default values, and descriptions from
+    Annotated types. It then returns the JSON schema representation of that model.
+
+    Args:
+        func (Callable[..., Any]): The function to generate the schema from.
+        convert_to_kebab_case (bool, optional): Whether to convert parameter names
+            from snake_case to kebab-case in the resulting schema. Defaults to True.
+        ignore_params (tuple[str, ...], optional): Parameters to ignore when generating the schema. Defaults to ().
+
+    Returns:
+        BaseModel: The Pydantic model representing the function's parameters.
+    """
+
+    pydantic_model: Type[BaseModel] = pydantic_model_from_cli_function(func, ignore_params=ignore_params)
+    function_schema = pydantic_model.model_json_schema()
+    if handle_union_types:
+        function_schema = convert_union_types_in_schema(function_schema)
+    return function_schema
+
+
+def convert_union_types_in_schema(schema: Dict) -> Dict:
+    """
+    Convert 'anyOf' parameters (typically from 'Union[...]' or 'Optional[...]') in the JSON schema
+    E.g.
+
+    Example 1:
+        The python type:
+            Optional[int]
+
+        Will be represented in the schema as:
+        {
+            "anyOf": [
+                {"type": "integer"},
+                {"type": "null"}
+            ]
+        }
+        We will improve form readability by converting it to:
+        {
+            "anyOf": [
+                {
+                    "title": "Select Integer",
+                    "type": "integer"
+                },
+                {
+                    "title": "Select None",
+                    "type": "null"
+                }
+            ],
+        }
+
+    Example 2:
+    Python type:
+        float_or_int: Annotated[float | int, "A float or int value"] = 3.14,
+    Schema before conversion:
+        {
+            "anyOf": [
+                {"type": "number"},
+                {"type": "integer"}
+            ]
+        }
+    Schema after conversion:
+        {
+            "anyOf": [
+                {
+                    "title": "Select Number",
+                    "type": "number"
+                },
+                {
+                    "title": "Select Integer",
+                    "type": "integer"
+                }
+            ],
+        },
+
+    Args:
+        schema (Dict): The JSON schema dictionary.
+
+    Returns:
+        Dict: The modified JSON schema dictionary with union types handled.
+    """
+
+    def type_to_title(type_name: str) -> str:
+        """Convert JSON schema type to a display title"""
+        if type_name == "null":
+            return "Select None"
+        return f"Select '{type_name.capitalize()}'"
+
+    def add_titles_to_anyof(obj: Any) -> Any:
+        """Recursively add titles to anyOf items"""
+        if isinstance(obj, dict):
+            converted: Dict[str, Any] = {}
+            for key, value in obj.items():
+                if key == "anyOf" and isinstance(value, list):
+                    # Add titles to each item in anyOf
+                    converted[key] = []
+                    for item in value:
+                        if isinstance(item, dict) and "type" in item:
+                            new_item = item.copy()
+                            if "title" not in new_item:
+                                new_item["title"] = type_to_title(item["type"])
+                            converted[key].append(new_item)
+                        else:
+                            converted[key].append(add_titles_to_anyof(item))
+                else:
+                    converted[key] = add_titles_to_anyof(value)
+            return converted
+        elif isinstance(obj, list):
+            return [add_titles_to_anyof(item) for item in obj]
+        else:
+            return obj
+
+    return add_titles_to_anyof(schema)
+
+
+def pydantic_model_from_cli_function(
+    func: Callable[..., Any],
+    *,
+    model_name: Optional[str] = None,
+    ignore_params: tuple[str, ...] = (),
+    forbid_varargs: bool = True,
+    forbid_positional_only: bool = True,
+    use_docstring_as_description: bool = True,
+    config: Optional[ConfigDict] = None,
+) -> type[BaseModel]:
+    """
+    Create a Pydantic BaseModel from a function signature.
+
+    Preserves Annotated[...] metadata (e.g. Field constraints), because the
+    parameter annotation is forwarded unchanged into pydantic.create_model().
+
+    Notes:
+    - Parameters must be type-annotated.
+    - Required parameters become required model fields.
+    - Defaults become model defaults.
+    """
+    sig = inspect.signature(func)
+
+    # Collect fields as: name -> (annotation, default)
+    fields: dict[str, tuple[Any, Any]] = {}
+
+    params = list(sig.parameters.values())
+
+    if len(ignore_params) > 0:
+        params_reduced_set = []
+        for param in params:
+            if param.name in ignore_params:
+                continue
+            params_reduced_set.append(param)
+        params = params_reduced_set
+
+    # Extract docstring parameter descriptions and add them to Field(...) if not already present.
+    function_docstring = (func.__doc__ or "").strip()
+    parsed_doc_string = docstring_parser.parse(function_docstring)
+    docstring_params = {p.arg_name: p.description for p in parsed_doc_string.params}
+
+    for param in params:
+        # Reject both '*args' and '**kwargs' arguments
+        if forbid_varargs and param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
+            raise TypeError(
+                f"{func.__name__}: varargs (*args/**kwargs) are not supported for model generation "
+                f"(parameter '{param.name}')"
+            )
+        # Reject positional-only parameters. E.g. for 'def func(var0, /, var1)' - 'var0' is positional-only.
+        if forbid_positional_only and param.kind is inspect.Parameter.POSITIONAL_ONLY:
+            raise TypeError(
+                f"{func.__name__}: positional-only parameters are not supported for model generation "
+                f"(parameter '{param.name}')"
+            )
+        # Ensure parameter has a type annotation 'param: int'
+        if param.annotation is inspect.Parameter.empty:
+            raise TypeError(
+                f"{func.__name__}: parameter '{param.name}' must have a type annotation ('{param.name}: [TYPE]'). "
+                f"An example of this would be '{param.name}: int' or '{param.name}: Optional[str] = None'."
+            )
+
+        base_type, field_info = as_annotated_with_field_info(param)
+
+        if base_type is bool:
+            raise TypeError(
+                f"{func.__name__}: parameter '{param.name}' has type 'bool' - "
+                f"Boolean types are not supported as they require special handling in CLI parsing."
+            )
+        default = derive_default_value(field_info, param)
+        if field_info.description is None and param.name in docstring_params:
+            field_info_attributes = field_info.asdict()["attributes"]
+            field_info_attributes["description"] = docstring_params[param.name]
+            field_info = Field(**field_info_attributes)
+        assert isinstance(field_info, FieldInfo), "Expected FieldInfo in Annotated metadata"
+        annotation = Annotated[base_type, field_info]  # type: ignore[valid-type]
+        fields[param.name] = (annotation, default)
+    name = model_name or f"{func.__name__}Args"
+
+    model_kwargs: dict[str, Any] = {}
+    if config is not None:
+        model_kwargs["__config__"] = config
+    if use_docstring_as_description and function_docstring:
+        # __doc__ influences schema "description" and model docs
+        model_kwargs["__doc__"] = inspect.getdoc(func)
+    # model = create_model(name, **model_kwargs, **fields)
+    # fields["__base__"] = BaseSettings
+    pydantic_model = create_model(name, **model_kwargs, **fields)
+
+    return pydantic_model
+
+
+def snake_case_to_kebab_case(s: str) -> str:
+    return s.replace("_", "-")
+
+
+def convert_keys_snake_to_kebab(obj: Dict) -> Dict:
+    schema = _recursively_convert_keys_snake_to_kebab(obj)
+
+    # Handle "required" list separately
+    schema["required"] = [snake_case_to_kebab_case(key) for key in schema.get("required", [])]
+    return schema
+
+
+def _recursively_convert_keys_snake_to_kebab(obj: Any) -> Any:
+    """
+    Recursively convert all snake_case keys to kebab-case in a dictionary.
+
+    Handles nested dictionaries, lists, and JSON schema structures including
+    'properties', 'definitions', '$defs', etc.
+
+    Args:
+        obj: The object to convert (dict, list, or other)
+
+    Returns:
+        The object with all snake_case keys converted to kebab-case
+    """
+    if isinstance(obj, dict):
+        converted = {}
+        for key, value in obj.items():
+            new_key = snake_case_to_kebab_case(key)
+            converted[new_key] = _recursively_convert_keys_snake_to_kebab(value)
+        return converted
+    else:
+        return obj
+
+
+def derive_default_value(field_info: FieldInfo, param: inspect.Parameter) -> Any:
+    # The default value of an argument can be defined in two ways for Annotated types:
+    # 1) After the equal sign in the function signature.
+    #   Example: "param: int = 5"
+    # 2) In the Field(...) info inside the Annotated metadata.
+    #   Example: "param: Annotated[int, Field(default=5)]"
+
+    default_from_equal_sign = param.default
+    if default_from_equal_sign is inspect.Parameter.empty:
+        default_from_equal_sign = PydanticUndefined
+    default_from_field_info = field_info.default
+    if default_from_field_info is PydanticUndefined:
+        default_from_field_info = PydanticUndefined
+
+    defined_default_from_equal_sign = default_from_equal_sign is not PydanticUndefined
+    defined_default_from_field_info = default_from_field_info is not PydanticUndefined
+
+    if not defined_default_from_equal_sign and not defined_default_from_field_info:
+        return ...  # No default defined
+
+    if defined_default_from_equal_sign and defined_default_from_field_info:
+        if default_from_field_info != default_from_equal_sign:
+            raise ValueError(
+                f"The default value for '{param.name}' have been defined in two ways!! - and they are conflicting!!"
+                f"The 'Field(default={default_from_field_info})' and ' = {default_from_equal_sign}'"
+            )
+    # After the equal sign takes precedence over Field(...) default.
+    if default_from_equal_sign is not PydanticUndefined:
+        return default_from_equal_sign
+    return default_from_equal_sign
+
+
+def is_field_info(obj: Any) -> bool:
+    return hasattr(obj, "__class__") and obj.__class__.__name__ == "FieldInfo"
+
+
+def is_cyclopts_parameter(obj: Any) -> bool:
+    # Checks if the object is an instance of cyclopts.Parameter class without importing cyclopts.
+    is_cyclopts = (
+        hasattr(obj, "__class__") and obj.__class__.__name__ == "Parameter" and "cyclopts" in obj.__class__.__module__
+    )
+    return is_cyclopts
+
+
+def is_typer(obj: Any) -> bool:
+    # Checks if the object is an instance of typer.Argument or typer.Option class without importing typer.
+    is_typer_arg = (
+        hasattr(obj, "__class__")
+        and obj.__class__.__name__ in ("ArgumentInfo", "OptionInfo")
+        and "typer" in obj.__class__.__module__
+    )
+
+    is_argument = is_typer_arg and obj.__class__.__name__ == "ArgumentInfo"
+    if is_argument:
+        raise TypeError(
+            "typer.Argument is not supported for schema generation, "
+            "as it represents a positional argument. Use typer.Option(...) instead."
+        )
+    return is_typer_arg
+
+
+def as_annotated_with_field_info(p: inspect.Parameter) -> Tuple[Type, FieldInfo]:
+    if get_origin(p.annotation) is not Annotated:
+        base_type = p.annotation
+        return base_type, Field()
+
+    args = get_args(p.annotation)
+    base_type = args[0]
+    annotations = convert_annotations_to_field_info(args[1:])
+    for ann in annotations:
+        if is_field_info(ann):
+            return base_type, ann  # Return the first FieldInfo found
+
+    return base_type, Field()
+
+
+def convert_annotations_to_field_info(annotations: Tuple[Any, ...]) -> List[Any]:
+    annotations_converted = []
+    for ann in annotations:
+        if isinstance(ann, str):
+            annotations_converted.append(Field(description=ann))
+        elif is_cyclopts_parameter(ann):
+            param_help = getattr(ann, "help", PydanticUndefined)
+            annotations_converted.append(Field(description=param_help))
+        elif is_typer(ann):
+            typer_help = getattr(ann, "help", PydanticUndefined)
+            annotations_converted.append(Field(description=typer_help))
+        else:
+            annotations_converted.append(ann)  # Keep as is
+    return annotations_converted
