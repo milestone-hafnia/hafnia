@@ -138,12 +138,20 @@ def test_bool_not_supported_failure():
 def example_advanced_cli_example() -> Callable:
     """Advanced test function to generate and print Pydantic schema from function signature."""
 
-    class ExampleNestedModel(BaseModel):
-        name: Optional[str] = PydanticField(..., description="Name of the model")
-        epochs: int = PydanticField(3, description="Number of epochs to train")
-        learning_rate: float = PydanticField(0.001, description="Learning rate for optimizer")
+    class NestedNestedModel(BaseModel):
+        optimizer_name: Optional[str] = PydanticField(..., description="Name of the optimizer")
+        learning_rate: float = PydanticField(0.01, description="Learning rate for optimizer")
 
-    EXAMPLE_NESTED_MODEL_DEFAULT = ExampleNestedModel(name="default_model", epochs=5, learning_rate=0.01)
+    class ExampleNestedModel(BaseModel):
+        model_name: Optional[str] = PydanticField(..., description="Name of the model")
+        epochs: int = PydanticField(3, description="Number of epochs to train")
+        optimizer: Optional[NestedNestedModel] = PydanticField(None, description="Nested nested model configuration")
+
+    EXAMPLE_NESTED_MODEL_DEFAULT = ExampleNestedModel(
+        model_name="default_model",
+        epochs=5,
+        optimizer=NestedNestedModel(optimizer_name="adam", learning_rate=0.01),
+    )
 
     def cli_function_example(
         test: str,  # Required parameter without annotation
@@ -246,7 +254,7 @@ def test_command_builder_from_function():
     # Check nested model properties
     assert props["nested_model"]["$ref"] == "#/$defs/ExampleNestedModel", "Nested model $ref is incorrect."
     nested_model_def = schema_dict["$defs"]["ExampleNestedModel"]
-    assert set(nested_model_def["properties"]) == {"name", "epochs", "learning_rate"}, (
+    assert set(nested_model_def["properties"]) == {"model_name", "epochs", "optimizer"}, (
         "Nested model properties are incorrect."
     )
 
@@ -255,14 +263,20 @@ def test_command_builder_from_function():
     assert nested_model_with_default["$ref"] == "#/$defs/ExampleNestedModel", (
         "Nested model with default $ref is incorrect."
     )
-    assert nested_model_with_default["default"] == {
-        "name": "default_model",
+
+    expected_defaults = {
+        "model_name": "default_model",
         "epochs": 5,
-        "learning_rate": 0.01,
-    }, "Nested model with default value is incorrect."
+        "optimizer": {"optimizer_name": "adam", "learning_rate": 0.01},
+    }
+    assert nested_model_with_default["default"] == expected_defaults, "Nested model with default value is incorrect."
 
     # Check union types
-    union_field_key = ["properties.resize", "properties.int_or_string", "$defs.ExampleNestedModel.properties.name"]
+    union_field_key = [
+        "properties.resize",
+        "properties.int_or_string",
+        "$defs.ExampleNestedModel.properties.model_name",
+    ]
     for field_key in union_field_key:
         union_prop = copy.deepcopy(schema_dict)
         nested_field_keys = field_key.split(".")
@@ -282,7 +296,7 @@ def test_command_args_from_form_data():
     update_params = {
         "test": "my_test_value",
         "required_string": "my_required_string",
-        "nested_model": {"name": "custom_model"},
+        "nested_model": {"model_name": "custom_model"},
         "string_description_from_doc": "custom description",
     }
     params = inspect.signature(cli_function_example).parameters
@@ -327,6 +341,7 @@ def test_command_args_from_form_data_simple():
         nested_parameter_separator="__",
         n_positional_args=0,
         kebab_case=False,
+        assignment_separator="equals",
     )
 
     commands_args = cmd_builder2.command_args_from_form_data(form_dataset)

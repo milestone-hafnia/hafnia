@@ -17,6 +17,7 @@ from typing import (
     Callable,
     Dict,
     List,
+    Literal,
     Optional,
     Tuple,
     Type,
@@ -80,6 +81,14 @@ class CommandBuilderSchema(BaseModel):
         ),
     )
 
+    assignment_separator: Literal["space", "equals"] = Field(
+        "space",
+        description=(
+            "CLI format: Separator between parameter names and their values in the command line. "
+            "E.g. ' ' for '--batch-size 32' or '=' for '--batch-size=32'."
+        ),
+    )
+
     def to_json_file(self, path: Path) -> Path:
         """Write the launcher schema to a JSON file.
 
@@ -107,6 +116,7 @@ class CommandBuilderSchema(BaseModel):
         handle_union_types: bool = True,
         parameter_prefix: str = "--",
         nested_parameter_separator: str = ".",
+        assignment_separator: Literal["space", "equals"] = "space",
         n_positional_args: int = 0,
     ) -> "CommandBuilderSchema":
         cmd = cmd or f"python {path_of_function(cli_function).as_posix()}"
@@ -123,6 +133,7 @@ class CommandBuilderSchema(BaseModel):
             kebab_case=kebab_case,
             parameter_prefix=parameter_prefix,
             nested_parameter_separator=nested_parameter_separator,
+            assignment_separator=assignment_separator,
             n_positional_args=n_positional_args,
         )
 
@@ -149,12 +160,21 @@ class CommandBuilderSchema(BaseModel):
 
         cmd_args: List[str] = [self.cmd]
         for position, (name, value) in enumerate(form_data.items()):
-            cmd_args.append(name)
+            # Uses 'repr' (instead of 'str') to convert values. This is is important when handling string parameter
+            # values that include space. E.g. this '--some_str Some String' would not work and
+            # should be "--some_str 'Some String'" to be parsed correctly by the CLI.
+            value_str = repr(value)
             if position < self.n_positional_args:
+                cmd_args.append(value_str)
                 continue  # Positional argument, no value after the name
 
-            cmd_args.append(repr(value))
-
+            if self.assignment_separator == "space":  # Is separated into two args
+                cmd_args.append(name)
+                cmd_args.append(value_str)
+            elif self.assignment_separator == "equals":  # Is combined into one arg
+                cmd_args.append(f"{name}={value_str}")
+            else:
+                raise ValueError(f"Unsupported assignment_separator: {self.assignment_separator}")
         return cmd_args
 
 
