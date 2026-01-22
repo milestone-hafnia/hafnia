@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from pydantic import Field as PydanticField
 
 from hafnia.experiment import command_builder
-from hafnia.experiment.command_builder import CommandBuilderSchema, write_cmd_builder_schema_to_file_from_cli_function
+from hafnia.experiment.command_builder import CommandBuilderSchema, auto_save_command_builder_schema
 
 
 def test_docstring_description_example():
@@ -123,18 +123,6 @@ def test_default_mismatch_failure():
         command_builder.schema_from_cli_function(default_value_mismatch)
 
 
-def test_bool_not_supported_failure():
-    """Test to check that bool parameters raise an error."""
-
-    def bool_parameter_example(
-        param0: bool,
-    ):
-        pass
-
-    with pytest.raises(TypeError, match="Boolean types are not supported "):
-        command_builder.schema_from_cli_function(bool_parameter_example)
-
-
 def example_advanced_cli_example() -> Callable:
     """Advanced test function to generate and print Pydantic schema from function signature."""
 
@@ -159,6 +147,7 @@ def example_advanced_cli_example() -> Callable:
         required_string: Annotated[
             str, "This description is used", PydanticField(description="This description is ignored", min_length=2)
         ],
+        bool_flag: Annotated[bool, "A boolean flag"],
         nested_model: Annotated[ExampleNestedModel, "Nested model configuration"],
         string_description_from_doc_with_default: str = "blah",  # Description is automatically taken from docstring
         string_with_default_underscore: str = "blah_underscore",  # We should not convert underscore values to kebab-case
@@ -166,6 +155,7 @@ def example_advanced_cli_example() -> Callable:
             str, PydanticField(description="SomeDescription", min_length=2)
         ] = "default_string",
         int_or_string: Annotated[int | str, "An int or string value"] = 1,
+        bool_flag_with_default: Annotated[bool, "A boolean flag with default"] = False,
         project_name1: Annotated[str, PydanticField(default="asdf", description="Project name1")] = "asdf",
         project_name2: Annotated[str, PydanticField(description="Project name2")] = "asdf",
         project_name3: Annotated[str, cyclopts.Parameter(help="Project name2")] = "asdf",
@@ -203,7 +193,7 @@ def test_command_builder_schema(tmp_path: Path):
     ## Setup example function with various parameter types and annotations
     cli_function_example = example_advanced_cli_example()
     path_schema_json = tmp_path / "command_schema.json"
-    write_cmd_builder_schema_to_file_from_cli_function(
+    auto_save_command_builder_schema(
         cli_function=cli_function_example,
         path_schema=path_schema_json,
     )
@@ -226,7 +216,7 @@ def test_command_builder_from_function():
 
     # Assert:
     no_description_params = ["test", "string_with_default_underscore"]
-    no_default_params = ["test", "string_description_from_doc", "required_string", "nested_model"]
+    no_default_params = ["test", "string_description_from_doc", "required_string", "bool_flag", "nested_model"]
     required_params = no_default_params
 
     for name, prop in schema_dict["properties"].items():
@@ -298,6 +288,7 @@ def test_command_args_from_form_data():
         "required_string": "my_required_string",
         "nested_model": {"model_name": "custom_model"},
         "string_description_from_doc": "custom description",
+        "bool_flag": True,
     }
     params = inspect.signature(cli_function_example).parameters
     n_root_params = len(params)
@@ -314,8 +305,14 @@ def test_command_args_from_form_data_simple():
     class NestedModel(BaseModel):
         name: str
 
-    def some_function(param_value1: str, param_value2: int = 10, nested: NestedModel = NestedModel(name="default")):
-        pass
+    def some_function(
+        param_value1: str,
+        param_value2: int = 10,
+        nested: NestedModel = NestedModel(name="default"),
+        bool_flag1: Annotated[bool, "A boolean flag 1"] = False,
+        bool_flag2: Annotated[bool, "A boolean flag 2"] = True,
+    ) -> None:
+        return None
 
     update_params = {
         "param_value1": "custom_value",
@@ -333,6 +330,8 @@ def test_command_args_from_form_data_simple():
     assert cmd_string.count(" --") == n_root_params - cmd_builder1.n_positional_args
     assert "nested.name" in cmd_string, "Nested parameter not correctly represented. Expected '.' separator."
     assert "param-value1" in cmd_string, "Parameter value was not converted to kebab-case."
+    assert "--bool-flag1 False" in cmd_string, "Boolean flag not correctly represented with default settings."
+    assert "--bool-flag2 True" in cmd_string, "Boolean flag with default True not correctly represented."
 
     # Use case 2: Custom settings
     cmd_builder2 = CommandBuilderSchema.from_function(
@@ -342,6 +341,7 @@ def test_command_args_from_form_data_simple():
         n_positional_args=1,
         kebab_case=False,
         assignment_separator="equals",
+        bool_handling="flag-negation",
     )
 
     commands_args = cmd_builder2.command_args_from_form_data(form_dataset)
@@ -351,3 +351,5 @@ def test_command_args_from_form_data_simple():
     assert "nested__name" in cmd_string, "Nested parameter not correctly represented. Expected '__' separator."
     assert "param_value2" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
     assert "++nested__name='default'" in cmd_string, "Assignment separator '=' not correctly used."
+    assert "++no-bool_flag1" in cmd_string, "Boolean flag not correctly represented with flag-negation handling."
+    assert "++bool_flag2" in cmd_string, "Boolean flag with default True not correctly represented with flag-negation."

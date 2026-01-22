@@ -1,10 +1,20 @@
 """
-The command_builder module converts Python CLI functions with type annotations into
-CLI command Builder schemas. A CommandBuilderSchema defines how to build command line
-arguments for executing training or evaluation scripts.
-This Command Builder Schema will be pass to the Hafnia platform, where
-it will dynamically create a web form for users to input parameters,
-and then construct the appropriate command line to run the script with those parameters.
+We have a concept in Hafnia Training-aaS called the "Command Builder" that helps the user construct
+a CLI command that will be passed to and executed on the trainer.
+
+An example of this could be `python scripts/train.py --batch-size 32`, that tells the trainer to
+launch the `scripts/train.py` python script and set the `batch_size` parameter to `32`.
+
+The "Command Builder" is a dynamic form-based interface that is specific for each training script and
+should contain available parameters that the script accepts. Each parameter is described by
+its name and type and optionally parameter title, description, and default value.
+
+The CommandBuilderSchema is a json description/configuration for creating a command builder form.
+This python module provides functionality for constructing or automatically generating such a schema from
+a CLI function (e.g. the `main` function in `scripts/train.py`), and save it as a JSON file.
+
+The convention is that if the CLI function is defined in `./scripts/train.py`, the corresponding
+CommandBuilderSchema JSON file should be saved as `./scripts/train.json`.
 """
 
 from __future__ import annotations
@@ -31,10 +41,23 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
+DEFAULT_N_POSITIONAL_ARGS: int = 0
+DEFAULT_KEBAB_CASE: bool = True
+DEFAULT_PARAMETER_PREFIX: str = "--"
+DEFAULT_NESTED_PARAMETER_SEPARATOR: str = "."
+DEFAULT_ASSIGNMENT_SEPARATOR: Literal["space", "equals"] = "space"
+DEFAULT_BOOL_HANDLING: Literal["none", "flag-negation"] = "none"
+
 
 class CommandBuilderSchema(BaseModel):
     """
-    Defines a schema for building and validating CLI commands.
+    A schema or configuration for the Command Builder Form. It is a data model that describes
+    the command to execute, which parameters are available for the command, and how the command line
+    arguments should be formatted.
+
+    The 'CommandBuilderSchema' data model can be constructed manually by providing the 'cmd' and
+    'json_schema' arguments, or it can be automatically generated from a CLI function using the
+    'from_function(...)' method.
 
     """
 
@@ -48,11 +71,11 @@ class CommandBuilderSchema(BaseModel):
 
     json_schema: Dict[str, Any] = Field(
         default_factory=dict,
-        description="JSON schema representing the function parameters ",
+        description="JSON schema representing the command parameters. ",
     )
 
     n_positional_args: int = Field(
-        0,
+        DEFAULT_N_POSITIONAL_ARGS,
         description=(
             "CLI format: Number of positional arguments in the command. To handle that some CLI tools "
             "accept positional arguments before options, this specifies how many positional arguments are expected. "
@@ -61,7 +84,7 @@ class CommandBuilderSchema(BaseModel):
         ),
     )
     kebab_case: bool = Field(
-        True,
+        DEFAULT_KEBAB_CASE,
         description=(
             "CLI format: The command line arguments will use kebab-case (e.g. --batch-size). "
             "This handles what is commonly done in CLI tools where function argument names are converted from "
@@ -69,12 +92,12 @@ class CommandBuilderSchema(BaseModel):
         ),
     )
     parameter_prefix: str = Field(
-        "--",
+        DEFAULT_PARAMETER_PREFIX,
         description="CLI format: The prefix used for command line arguments. E.g. '--' for '--batch-size' ",
     )
 
     nested_parameter_separator: str = Field(
-        ".",
+        DEFAULT_NESTED_PARAMETER_SEPARATOR,
         description=(
             "CLI format: Separator used for nested parameters in the command line interface. "
             "E.g. 'optimizer.lr' to set the learning rate inside an optimizer configuration."
@@ -82,10 +105,20 @@ class CommandBuilderSchema(BaseModel):
     )
 
     assignment_separator: Literal["space", "equals"] = Field(
-        "space",
+        DEFAULT_ASSIGNMENT_SEPARATOR,
         description=(
             "CLI format: Separator between parameter names and their values in the command line. "
             "E.g. ' ' for '--batch-size 32' or '=' for '--batch-size=32'."
+        ),
+    )
+
+    bool_handling: Literal["none", "flag-negation"] = Field(
+        DEFAULT_BOOL_HANDLING,
+        description=(
+            "CLI format: How boolean parameters are handled in the command line. "
+            "'none' means boolean flags must be explicitly set to True or False "
+            "e.g. '--flag True' or '--flag False'. "
+            "'flag-negation' uses flag negation where '--flag' sets True and '--no-flag' sets False."
         ),
     )
 
@@ -112,12 +145,13 @@ class CommandBuilderSchema(BaseModel):
         cli_function: Callable[..., Any],
         ignore_params: tuple[str, ...] = (),
         cmd: Optional[str] = None,
-        kebab_case: bool = True,
         handle_union_types: bool = True,
-        parameter_prefix: str = "--",
-        nested_parameter_separator: str = ".",
-        assignment_separator: Literal["space", "equals"] = "space",
-        n_positional_args: int = 0,
+        kebab_case: bool = DEFAULT_KEBAB_CASE,
+        parameter_prefix: str = DEFAULT_PARAMETER_PREFIX,
+        nested_parameter_separator: str = DEFAULT_NESTED_PARAMETER_SEPARATOR,
+        assignment_separator: Literal["space", "equals"] = DEFAULT_ASSIGNMENT_SEPARATOR,
+        bool_handling: Literal["none", "flag-negation"] = DEFAULT_BOOL_HANDLING,
+        n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
     ) -> "CommandBuilderSchema":
         cmd = cmd or f"python {path_of_function(cli_function).as_posix()}"
 
@@ -134,6 +168,7 @@ class CommandBuilderSchema(BaseModel):
             parameter_prefix=parameter_prefix,
             nested_parameter_separator=nested_parameter_separator,
             assignment_separator=assignment_separator,
+            bool_handling=bool_handling,
             n_positional_args=n_positional_args,
         )
 
@@ -152,30 +187,58 @@ class CommandBuilderSchema(BaseModel):
         form_data = flatten_dict.flatten(form_data)  # Flatten doesn't support str directly
         form_data = {sep.join(keys): value for keys, value in form_data.items()}
 
-        if self.kebab_case:  # Convert from 'snake_case' to 'kebab-case'. E.g. 'batch_size' -> 'batch-size'
-            form_data = {snake_case_to_kebab_case(key): value for key, value in form_data.items()}
-
-        # Add prefix: E.g. 'batch-size' to '--batch-size'
-        form_data = {f"{self.parameter_prefix}{key}": value for key, value in form_data.items()}
-
-        cmd_args: List[str] = [self.cmd]
+        cmd_args: List[str] = self.cmd.split(" ")  # Start with the base command split into args
         for position, (name, value) in enumerate(form_data.items()):
-            # Uses 'repr' (instead of 'str') to convert values. This is is important when handling string parameter
-            # values that include space. E.g. this '--some_str Some String' would not work and
-            # should be "--some_str 'Some String'" to be parsed correctly by the CLI.
-            value_str = repr(value)
-            if position < self.n_positional_args:
-                cmd_args.append(value_str)
-                continue  # Positional argument, no value after the name
-
-            if self.assignment_separator == "space":  # Is separated into two args
-                cmd_args.append(name)
-                cmd_args.append(value_str)
-            elif self.assignment_separator == "equals":  # Is combined into one arg
-                cmd_args.append(f"{name}={value_str}")
-            else:
-                raise ValueError(f"Unsupported assignment_separator: {self.assignment_separator}")
+            is_positional = position < self.n_positional_args
+            arg_parts = name_and_value_as_command_line_arguments(
+                name=name,
+                value=value,
+                is_positional=is_positional,
+                kebab_case=self.kebab_case,
+                parameter_prefix=self.parameter_prefix,
+                assignment_separator=self.assignment_separator,
+                bool_handling=self.bool_handling,
+            )
+            cmd_args.extend(arg_parts)
         return cmd_args
+
+
+def name_and_value_as_command_line_arguments(
+    name: str,
+    value: Any,
+    is_positional: bool,
+    kebab_case: bool,
+    parameter_prefix: str,
+    assignment_separator: Literal["space", "equals"],
+    bool_handling: Literal["none", "flag-negation"],
+) -> List[str]:
+    # Uses 'repr' (instead of 'str') to convert values. This is is important when handling string parameter
+    # values that include space. E.g. this '--some_str Some String' would not work and
+    # should be "--some_str 'Some String'" to be parsed correctly by the CLI.
+    value_str = repr(value)
+
+    if kebab_case:
+        name = snake_case_to_kebab_case(name)
+
+    # Handle boolean flags with flag-negation
+    is_bool_flag = isinstance(value, bool) and bool_handling == "flag-negation"
+    if is_bool_flag:
+        if value is False:
+            name = f"no-{name}"  # E.g. '--no-flag' for False
+        return [f"{parameter_prefix}{name}"]
+
+    name = f"{parameter_prefix}{name}"
+
+    if is_positional:
+        return [value_str]
+
+    if assignment_separator == "equals":  # Is combined into one arg
+        return [f"{name}={value_str}"]
+
+    if assignment_separator == "space":  # Is separated into two args
+        return [name, value_str]
+
+    raise ValueError(f"Unsupported assignment_separator: {assignment_separator}")
 
 
 def path_of_function(cli_function: Callable[..., Any]) -> Path:
@@ -186,26 +249,39 @@ def path_of_function(cli_function: Callable[..., Any]) -> Path:
 
 
 def simulate_form_data(function: Callable[..., Any], user_args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    The purpose of this module is to simulate the output of a form submission
+    from a user.
+
+    The function is mostly used for testing and validation purposes.
+    """
     pydantic_model = pydantic_model_from_cli_function(function)
     cli_args = pydantic_model(**user_args)  # Validate args
     return cli_args.model_dump(mode="json")
 
 
-def write_cmd_builder_schema_to_file_from_cli_function(
+def auto_save_command_builder_schema(
     cli_function: Callable[..., Any],
-    convert_to_kebab_case: bool = True,
     ignore_params: tuple[str, ...] = (),
     handle_union_types: bool = True,
     path_schema: Optional[Path] = None,
     cmd: Optional[str] = None,
+    kebab_case: bool = DEFAULT_KEBAB_CASE,
+    parameter_prefix: str = DEFAULT_PARAMETER_PREFIX,
+    nested_parameter_separator: str = DEFAULT_NESTED_PARAMETER_SEPARATOR,
+    assignment_separator: Literal["space", "equals"] = DEFAULT_ASSIGNMENT_SEPARATOR,
+    bool_handling: Literal["none", "flag-negation"] = DEFAULT_BOOL_HANDLING,
+    n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
 ) -> Path:
     """
     Magic function to create and save CommandBuilderSchema as JSON file from a CLI function.
     If the function is invoked in e.g. 'scripts/train.py' it will create a JSON schema file
     'scripts/train.json' next to the script file.
 
-    If the too magical 'write_command_builder_schema_from_cli_function' function is
-    not working - you can write the code manually as shown below:
+    The the auto-generated schema might not work for all CLI functions and settings. In that case,
+    you can manually create the CommandBuilderSchema using the 'CommandBuilderSchema.from_function(...)'
+    method and save it using the 'to_json_file(...)' method. Or directly create the CommandBuilderSchema
+    by providing the 'json_schema' argument as shown in the example below.
 
     ```python
     function_schema = schema_from_cli_function(main_cli_function)
@@ -215,7 +291,9 @@ def write_cmd_builder_schema_to_file_from_cli_function(
         kebab_case=True,
         parameter_prefix="--",
         nested_parameter_separator=".",
+        assignment_separator="space",
         n_positional_args=0,
+        bool_handling="flag-negation",
     )
     command_builder.to_json_file(Path("scripts/train.json"))
     ```
@@ -224,9 +302,14 @@ def write_cmd_builder_schema_to_file_from_cli_function(
     launch_schema = CommandBuilderSchema.from_function(
         cli_function,
         ignore_params=ignore_params,
-        kebab_case=convert_to_kebab_case,
         handle_union_types=handle_union_types,
         cmd=cmd,
+        kebab_case=kebab_case,
+        parameter_prefix=parameter_prefix,
+        nested_parameter_separator=nested_parameter_separator,
+        assignment_separator=assignment_separator,
+        bool_handling=bool_handling,
+        n_positional_args=n_positional_args,
     )
 
     path_schema = path_schema or path_of_function(cli_function).with_suffix(".json")
@@ -421,13 +504,8 @@ def pydantic_model_from_cli_function(
                 f"An example of this would be '{param.name}: int' or '{param.name}: Optional[str] = None'."
             )
 
-        base_type, field_info = as_annotated_with_field_info(param)
+        base_type, field_info = function_param_as_type_and_field_info(param)
 
-        if base_type is bool:
-            raise TypeError(
-                f"{func.__name__}: parameter '{param.name}' has type 'bool' - "
-                f"Boolean types are not supported as they require special handling in CLI parsing."
-            )
         default = derive_default_value(field_info, param)
         if field_info.description is None and param.name in docstring_params:
             field_info_attributes = field_info.asdict()["attributes"]
@@ -442,10 +520,8 @@ def pydantic_model_from_cli_function(
     if config is not None:
         model_kwargs["__config__"] = config
     if use_docstring_as_description and function_docstring:
-        # __doc__ influences schema "description" and model docs
         model_kwargs["__doc__"] = inspect.getdoc(func)
-    # model = create_model(name, **model_kwargs, **fields)
-    # fields["__base__"] = BaseSettings
+
     pydantic_model = create_model(name, **model_kwargs, **fields)
 
     return pydantic_model
@@ -453,37 +529,6 @@ def pydantic_model_from_cli_function(
 
 def snake_case_to_kebab_case(s: str) -> str:
     return s.replace("_", "-")
-
-
-def convert_keys_snake_to_kebab(obj: Dict) -> Dict:
-    schema = _recursively_convert_keys_snake_to_kebab(obj)
-
-    # Handle "required" list separately
-    schema["required"] = [snake_case_to_kebab_case(key) for key in schema.get("required", [])]
-    return schema
-
-
-def _recursively_convert_keys_snake_to_kebab(obj: Any) -> Any:
-    """
-    Recursively convert all snake_case keys to kebab-case in a dictionary.
-
-    Handles nested dictionaries, lists, and JSON schema structures including
-    'properties', 'definitions', '$defs', etc.
-
-    Args:
-        obj: The object to convert (dict, list, or other)
-
-    Returns:
-        The object with all snake_case keys converted to kebab-case
-    """
-    if isinstance(obj, dict):
-        converted = {}
-        for key, value in obj.items():
-            new_key = snake_case_to_kebab_case(key)
-            converted[new_key] = _recursively_convert_keys_snake_to_kebab(value)
-        return converted
-    else:
-        return obj
 
 
 def derive_default_value(field_info: FieldInfo, param: inspect.Parameter) -> Any:
@@ -515,7 +560,7 @@ def derive_default_value(field_info: FieldInfo, param: inspect.Parameter) -> Any
     # After the equal sign takes precedence over Field(...) default.
     if default_from_equal_sign is not PydanticUndefined:
         return default_from_equal_sign
-    return default_from_equal_sign
+    return default_from_field_info
 
 
 def is_field_info(obj: Any) -> bool:
@@ -523,7 +568,7 @@ def is_field_info(obj: Any) -> bool:
 
 
 def is_cyclopts_parameter(obj: Any) -> bool:
-    # Checks if the object is an instance of cyclopts.Parameter class without importing cyclopts.
+    # Checks if the object is 'cyclopts.Parameter' without adding the 'cyclopts' package as a dependency.
     is_cyclopts = (
         hasattr(obj, "__class__") and obj.__class__.__name__ == "Parameter" and "cyclopts" in obj.__class__.__module__
     )
@@ -531,7 +576,7 @@ def is_cyclopts_parameter(obj: Any) -> bool:
 
 
 def is_typer(obj: Any) -> bool:
-    # Checks if the object is an instance of typer.Argument or typer.Option class without importing typer.
+    # Checks if the object is 'typer.Argument' or 'typer.Option' without adding the 'typer' package as a dependency.
     is_typer_arg = (
         hasattr(obj, "__class__")
         and obj.__class__.__name__ in ("ArgumentInfo", "OptionInfo")
@@ -547,7 +592,9 @@ def is_typer(obj: Any) -> bool:
     return is_typer_arg
 
 
-def as_annotated_with_field_info(p: inspect.Parameter) -> Tuple[Type, FieldInfo]:
+def function_param_as_type_and_field_info(
+    p: inspect.Parameter,
+) -> Tuple[Type, FieldInfo]:
     if get_origin(p.annotation) is not Annotated:
         base_type = p.annotation
         return base_type, Field()
