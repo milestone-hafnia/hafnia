@@ -576,7 +576,7 @@ def is_cyclopts_parameter(obj: Any) -> bool:
 
 
 def is_typer(obj: Any) -> bool:
-    # Checks if the object is 'typer.Argument' or 'typer.Option' without adding the 'typer' package as a dependency.
+    # Checks if the object is 'typer.Argument'/'typer.Option' without adding the 'typer' package as a dependency.
     is_typer_arg = (
         hasattr(obj, "__class__")
         and obj.__class__.__name__ in ("ArgumentInfo", "OptionInfo")
@@ -592,9 +592,7 @@ def is_typer(obj: Any) -> bool:
     return is_typer_arg
 
 
-def function_param_as_type_and_field_info(
-    p: inspect.Parameter,
-) -> Tuple[Type, FieldInfo]:
+def function_param_as_type_and_field_info(p: inspect.Parameter) -> Tuple[Type, FieldInfo]:
     if get_origin(p.annotation) is not Annotated:
         base_type = p.annotation
         return base_type, Field()
