@@ -29,16 +29,18 @@ dependencies = [
     "mlflow>=3.4.0",
     "sagemaker-mlflow>=0.1.0",
     "mcp>=1.23.0",
+    "docstring-parser>=0.17.0",          # Used to parse docstrings for CommandBuilder
 ]
 
 [dependency-groups]
 dev = [
     "ipykernel>=6.29.5",
-    "lark>=1.2.2",
     "torch>=2.6.0",
     "torchvision>=0.21.0",
     "flatten-dict>=0.4.2",
     "pytest-cov>=7.0.0",
+    "cyclopts>=4.5.0",     # Only to test "CommandBuilder" module
+    "typer>=0.21.1",       # Only to test "CommandBuilder" module
 ]
 
 test = ["pytest>=8.3.4", "pre-commit>=4.2.0", "ruff>=0.9.1"]
