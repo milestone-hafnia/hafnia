@@ -49,6 +49,63 @@ DEFAULT_ASSIGNMENT_SEPARATOR: Literal["space", "equals"] = "space"
 DEFAULT_BOOL_HANDLING: Literal["none", "flag-negation"] = "none"
 
 
+def auto_save_command_builder_schema(
+    cli_function: Callable[..., Any],
+    ignore_params: tuple[str, ...] = (),
+    handle_union_types: bool = True,
+    path_schema: Optional[Path] = None,
+    cmd: Optional[str] = None,
+    kebab_case: bool = DEFAULT_KEBAB_CASE,
+    parameter_prefix: str = DEFAULT_PARAMETER_PREFIX,
+    nested_parameter_separator: str = DEFAULT_NESTED_PARAMETER_SEPARATOR,
+    assignment_separator: Literal["space", "equals"] = DEFAULT_ASSIGNMENT_SEPARATOR,
+    bool_handling: Literal["none", "flag-negation"] = DEFAULT_BOOL_HANDLING,
+    n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
+) -> Path:
+    """
+    Magic function to create and save CommandBuilderSchema as JSON file from a CLI function.
+    If the function is invoked in e.g. 'scripts/train.py' it will create a JSON schema file
+    'scripts/train.json' next to the script file.
+
+    The the auto-generated schema might not work for all CLI functions and settings. In that case,
+    you can manually create the CommandBuilderSchema using the 'CommandBuilderSchema.from_function(...)'
+    method and save it using the 'to_json_file(...)' method. Or directly create the CommandBuilderSchema
+    by providing the 'json_schema' argument as shown in the example below.
+
+    ```python
+    function_schema = schema_from_cli_function(main_cli_function)
+    command_builder = CommandBuilderSchema(
+        cmd="python scripts/train.py",
+        json_schema=function_schema,
+        kebab_case=True,
+        parameter_prefix="--",
+        nested_parameter_separator=".",
+        assignment_separator="space",
+        n_positional_args=0,
+        bool_handling="flag-negation",
+    )
+    command_builder.to_json_file(Path("scripts/train.json"))
+
+    """
+
+    launch_schema = CommandBuilderSchema.from_function(
+        cli_function,
+        ignore_params=ignore_params,
+        handle_union_types=handle_union_types,
+        cmd=cmd,
+        kebab_case=kebab_case,
+        parameter_prefix=parameter_prefix,
+        nested_parameter_separator=nested_parameter_separator,
+        assignment_separator=assignment_separator,
+        bool_handling=bool_handling,
+        n_positional_args=n_positional_args,
+    )
+
+    path_schema = path_schema or path_of_function(cli_function).with_suffix(".json")
+    launch_schema.to_json_file(path_schema)
+    return path_schema
+
+
 class CommandBuilderSchema(BaseModel):
     """
     A schema or configuration for the Command Builder Form. It is a data model that describes
@@ -258,63 +315,6 @@ def simulate_form_data(function: Callable[..., Any], user_args: Dict[str, Any]) 
     pydantic_model = pydantic_model_from_cli_function(function)
     cli_args = pydantic_model(**user_args)  # Validate args
     return cli_args.model_dump(mode="json")
-
-
-def auto_save_command_builder_schema(
-    cli_function: Callable[..., Any],
-    ignore_params: tuple[str, ...] = (),
-    handle_union_types: bool = True,
-    path_schema: Optional[Path] = None,
-    cmd: Optional[str] = None,
-    kebab_case: bool = DEFAULT_KEBAB_CASE,
-    parameter_prefix: str = DEFAULT_PARAMETER_PREFIX,
-    nested_parameter_separator: str = DEFAULT_NESTED_PARAMETER_SEPARATOR,
-    assignment_separator: Literal["space", "equals"] = DEFAULT_ASSIGNMENT_SEPARATOR,
-    bool_handling: Literal["none", "flag-negation"] = DEFAULT_BOOL_HANDLING,
-    n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
-) -> Path:
-    """
-    Magic function to create and save CommandBuilderSchema as JSON file from a CLI function.
-    If the function is invoked in e.g. 'scripts/train.py' it will create a JSON schema file
-    'scripts/train.json' next to the script file.
-
-    The the auto-generated schema might not work for all CLI functions and settings. In that case,
-    you can manually create the CommandBuilderSchema using the 'CommandBuilderSchema.from_function(...)'
-    method and save it using the 'to_json_file(...)' method. Or directly create the CommandBuilderSchema
-    by providing the 'json_schema' argument as shown in the example below.
-
-    ```python
-    function_schema = schema_from_cli_function(main_cli_function)
-    command_builder = CommandBuilderSchema(
-        cmd="python scripts/train.py",
-        json_schema=function_schema,
-        kebab_case=True,
-        parameter_prefix="--",
-        nested_parameter_separator=".",
-        assignment_separator="space",
-        n_positional_args=0,
-        bool_handling="flag-negation",
-    )
-    command_builder.to_json_file(Path("scripts/train.json"))
-    ```
-    """
-
-    launch_schema = CommandBuilderSchema.from_function(
-        cli_function,
-        ignore_params=ignore_params,
-        handle_union_types=handle_union_types,
-        cmd=cmd,
-        kebab_case=kebab_case,
-        parameter_prefix=parameter_prefix,
-        nested_parameter_separator=nested_parameter_separator,
-        assignment_separator=assignment_separator,
-        bool_handling=bool_handling,
-        n_positional_args=n_positional_args,
-    )
-
-    path_schema = path_schema or path_of_function(cli_function).with_suffix(".json")
-    launch_schema.to_json_file(path_schema)
-    return path_schema
 
 
 def schema_from_cli_function(
