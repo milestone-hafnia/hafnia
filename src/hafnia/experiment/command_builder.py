@@ -136,12 +136,14 @@ class CommandBuilderSchema(BaseModel):
     n_positional_args: int = Field(
         DEFAULT_N_POSITIONAL_ARGS,
         description=(
-            "CLI format: Number of positional arguments in the command. To handle that some CLI tools "
+            "Number of positional arguments in the command. To handle that some CLI tools "
             "accept positional arguments before options, this specifies how many positional arguments are expected. "
             "These will be filled in order before any named arguments. "
             "E.g. for 'python train.py data/train --batch-size 32', n_positional_args would be 1 ('data/train')."
         ),
     )
+
+    # Below defines how the specified parameters/arguments are formatted as command line arguments
     case_conversion: Literal["none", "kebab"] = Field(
         DEFAULT_CASE_CONVERSION,
         description=(
