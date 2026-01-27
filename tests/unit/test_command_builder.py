@@ -329,17 +329,17 @@ def test_command_args_from_form_data_simple():
     cmd_string = " ".join(commands_args)
     assert cmd_string.count(" --") == n_root_params - cmd_builder1.n_positional_args
     assert "nested.name" in cmd_string, "Nested parameter not correctly represented. Expected '.' separator."
-    assert "param-value1" in cmd_string, "Parameter value was not converted to kebab-case."
-    assert "--bool-flag1 False" in cmd_string, "Boolean flag not correctly represented with default settings."
-    assert "--bool-flag2 True" in cmd_string, "Boolean flag with default True not correctly represented."
+    assert "param_value1" in cmd_string, "Parameter value was not converted to kebab-case."
+    assert "--bool_flag1 False" in cmd_string, "Boolean flag not correctly represented with default settings."
+    assert "--bool_flag2 True" in cmd_string, "Boolean flag with default True not correctly represented."
 
     # Use case 2: Custom settings
     cmd_builder2 = CommandBuilderSchema.from_function(
         some_function,
         parameter_prefix="++",
-        nested_parameter_separator="__",
+        nested_parameter_handling="dot",
         n_positional_args=1,
-        kebab_case=False,
+        case_conversion="kebab",
         assignment_separator="equals",
         bool_handling="flag-negation",
     )
@@ -348,8 +348,8 @@ def test_command_args_from_form_data_simple():
     commands_args[0] = "'custom_value'"  # Adjust for positional argument
     cmd_string = " ".join(commands_args)
     assert cmd_string.count(" ++") == n_root_params - cmd_builder2.n_positional_args
-    assert "nested__name" in cmd_string, "Nested parameter not correctly represented. Expected '__' separator."
-    assert "param_value2" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
-    assert "++nested__name='default'" in cmd_string, "Assignment separator '=' not correctly used."
-    assert "++no-bool_flag1" in cmd_string, "Boolean flag not correctly represented with flag-negation handling."
-    assert "++bool_flag2" in cmd_string, "Boolean flag with default True not correctly represented with flag-negation."
+    assert "nested.name" in cmd_string, "Nested parameter not correctly represented. Expected '.' separator."
+    assert "param-value2" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
+    assert "++nested.name='default'" in cmd_string, "Assignment separator '=' not correctly used."
+    assert "++no-bool-flag1" in cmd_string, "Boolean flag not correctly represented with flag-negation handling."
+    assert "++bool-flag2" in cmd_string, "Boolean flag with default True not correctly represented with flag-negation."
