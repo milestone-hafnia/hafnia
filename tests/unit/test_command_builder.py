@@ -6,11 +6,13 @@ from typing import Annotated, Callable, Literal, Optional
 import cyclopts
 import pytest
 import typer
+from flask import json
 from pydantic import BaseModel
 from pydantic import Field as PydanticField
+from typer.testing import CliRunner
 
 from hafnia.experiment import command_builder
-from hafnia.experiment.command_builder import CommandBuilderSchema, auto_save_command_builder_schema
+from hafnia.experiment.command_builder import CommandBuilderSchema, auto_save_command_builder_schema, simulate_form_data
 
 
 def test_docstring_description_example():
@@ -194,6 +196,7 @@ def test_command_builder_schema(tmp_path: Path):
     cli_function_example = example_advanced_cli_example()
     path_schema_json = tmp_path / "command_schema.json"
     auto_save_command_builder_schema(
+        n_positional_args=0,
         cli_function=cli_function_example,
         path_schema=path_schema_json,
     )
@@ -329,19 +332,19 @@ def test_command_args_from_form_data_simple():
     cmd_string = " ".join(commands_args)
     assert cmd_string.count(" --") == n_root_params - cmd_builder1.n_positional_args
     assert "nested.name" in cmd_string, "Nested parameter not correctly represented. Expected '.' separator."
-    assert "param_value1" in cmd_string, "Parameter value was not converted to kebab-case."
-    assert "--bool_flag1 False" in cmd_string, "Boolean flag not correctly represented with default settings."
-    assert "--bool_flag2 True" in cmd_string, "Boolean flag with default True not correctly represented."
+    assert "param-value1" in cmd_string, "Parameter value was not converted to kebab-case."
+    assert "--no-bool-flag1" in cmd_string, "Boolean flag not correctly represented with default settings."
+    assert "--bool-flag2" in cmd_string, "Boolean flag with default True not correctly represented."
 
     # Use case 2: Custom settings
     cmd_builder2 = CommandBuilderSchema.from_function(
         some_function,
+        n_positional_args=1,
         parameter_prefix="++",
         nested_parameter_handling="dot",
-        n_positional_args=1,
-        case_conversion="kebab",
+        case_conversion="none",
         assignment_separator="equals",
-        bool_handling="flag-negation",
+        bool_handling="none",
     )
 
     commands_args = cmd_builder2.command_args_from_form_data(form_dataset)
@@ -349,7 +352,116 @@ def test_command_args_from_form_data_simple():
     cmd_string = " ".join(commands_args)
     assert cmd_string.count(" ++") == n_root_params - cmd_builder2.n_positional_args
     assert "nested.name" in cmd_string, "Nested parameter not correctly represented. Expected '.' separator."
-    assert "param-value2" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
+    assert "param_value2" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
     assert "++nested.name='default'" in cmd_string, "Assignment separator '=' not correctly used."
-    assert "++no-bool-flag1" in cmd_string, "Boolean flag not correctly represented with flag-negation handling."
-    assert "++bool-flag2" in cmd_string, "Boolean flag with default True not correctly represented with flag-negation."
+    assert "++bool_flag1=False" in cmd_string, "Boolean flag not correctly represented with flag-negation handling."
+    assert "++bool_flag2=True" in cmd_string, (
+        "Boolean flag with default True not correctly represented with flag-negation."
+    )
+
+
+def test_cyclopts_cmdline():
+    app = cyclopts.App(name="train", help="PyTorch Training")
+
+    # For testing nested models
+    class NestedModel(BaseModel):
+        nested_param_str: Annotated[str, cyclopts.Parameter(help="This is nested param 1")]
+        nested_param_int: Annotated[int, cyclopts.Parameter(help="This is nested param 2")] = 5
+
+    # Simulate cyclopts cli application function that will be converted into a cli tool
+    @app.default
+    def cyclopts_example(
+        string_param0: Annotated[str, cyclopts.Parameter(help="This is string")],
+        nested_model_no_default: NestedModel,
+        string_param1: Annotated[str, cyclopts.Parameter(help="This is string")] = "default value",
+        nested_model: NestedModel = NestedModel(nested_param_str="nested default"),
+        param_int: Annotated[int, cyclopts.Parameter(help="This is int")] = 10,
+        bool_param: Annotated[bool, cyclopts.Parameter(help="This is bool")] = False,
+        bool_param_true: Annotated[bool, cyclopts.Parameter(help="This is bool true")] = True,
+    ):
+        return {
+            "string_param0": string_param0,
+            "nested_model_no_default": nested_model_no_default,
+            "string_param1": string_param1,
+            "nested_model": nested_model,
+            "param_int": param_int,
+            "bool_param": bool_param,
+            "bool_param_true": bool_param_true,
+        }
+
+    # Generate command builder schema from cyclopts function
+    command_builder = CommandBuilderSchema.from_function(
+        cyclopts_example,
+        cli_tool="cyclopts",
+    )
+
+    # Simulate form data submission
+    user_args = {
+        "string_param0": "some string",
+        "nested_model_no_default": NestedModel(nested_param_str="nested value"),
+    }
+    form_data = simulate_form_data(cyclopts_example, user_args=user_args)
+
+    #
+    commands_args = command_builder.command_args_from_form_data(form_data, include_cmd=False)
+    str_args = " ".join(commands_args)
+    func, arguments_parsed, _ = app.parse_args(str_args)
+
+    returns = cyclopts_example(**arguments_parsed.arguments)
+    assert returns["string_param0"] == "some string"
+    assert returns["string_param1"] == "default value"
+    assert returns["param_int"] == 10
+    assert returns["bool_param"] is False
+    assert returns["bool_param_true"] is True
+    assert returns["nested_model_no_default"].nested_param_str == "nested value"
+    assert returns["nested_model_no_default"].nested_param_int == 5
+    assert returns["nested_model"].nested_param_str == "nested default"
+    assert returns["nested_model"].nested_param_int == 5
+
+
+def test_typer_cmdline(tmp_path: Path):
+    app = typer.Typer(add_completion=False)
+    function_data = tmp_path / "function_data.json"
+
+    # Simulate typer cli application function that will be converted into a cli tool
+    @app.command()
+    def typer_example(
+        string_param0: Annotated[str, typer.Option(help="This is string")],
+        string_param1: Annotated[str, typer.Option(help="This is string")] = "default value",
+        param_int: Annotated[int, typer.Option(help="This is int")] = 10,
+        bool_param: Annotated[bool, typer.Option(help="This is bool")] = False,
+        bool_param_true: Annotated[bool, typer.Option(help="This is bool true")] = True,
+    ):
+        parsed_data = {
+            "string_param0": string_param0,
+            "string_param1": string_param1,
+            "param_int": param_int,
+            "bool_param": bool_param,
+            "bool_param_true": bool_param_true,
+        }
+        # Hack to save function data for verification since typer function return is not accessible via CliRunner
+        function_data.write_text(json.dumps(parsed_data))
+        return parsed_data  # This is not accessible via CliRunner
+
+    # Generate command builder schema from typer function
+    command_builder = CommandBuilderSchema.from_function(typer_example, cli_tool="typer")
+
+    # Simulate form data submission
+    user_args = {
+        "string_param0": "some string",
+    }
+    form_data = simulate_form_data(typer_example, user_args=user_args)
+    commands_args = command_builder.command_args_from_form_data(form_data, include_cmd=False)
+    str_args = " ".join(commands_args)
+
+    runner = CliRunner()
+    result = runner.invoke(app, str_args)
+    assert result.exit_code == 0, f"Command failed: {result.stderr}"
+
+    # Load the saved function data to verify parameters
+    parsed_data = json.loads(function_data.read_text())
+    assert parsed_data["string_param0"] == "some string"
+    assert parsed_data["string_param1"] == "default value"
+    assert parsed_data["param_int"] == 10
+    assert parsed_data["bool_param"] is False
+    assert parsed_data["bool_param_true"] is True
