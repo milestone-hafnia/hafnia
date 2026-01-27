@@ -37,30 +37,31 @@ from typing import (
 
 import docstring_parser
 import flatten_dict
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 DEFAULT_N_POSITIONAL_ARGS: int = 0
-DEFAULT_KEBAB_CASE: bool = True
+DEFAULT_CASE_CONVERSION: Literal["none", "kebab"] = "none"
 DEFAULT_PARAMETER_PREFIX: str = "--"
-DEFAULT_NESTED_PARAMETER_SEPARATOR: str = "."
+DEFAULT_NESTED_PARAMETER_HANDLING: Literal["dot", "not-supported"] = "dot"
 DEFAULT_ASSIGNMENT_SEPARATOR: Literal["space", "equals"] = "space"
 DEFAULT_BOOL_HANDLING: Literal["none", "flag-negation"] = "none"
 
 
 def auto_save_command_builder_schema(
     cli_function: Callable[..., Any],
+    n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
+    cli_tool: Optional[str] = "cyclopts",
     ignore_params: tuple[str, ...] = (),
     handle_union_types: bool = True,
     path_schema: Optional[Path] = None,
     cmd: Optional[str] = None,
-    kebab_case: bool = DEFAULT_KEBAB_CASE,
-    parameter_prefix: str = DEFAULT_PARAMETER_PREFIX,
-    nested_parameter_separator: str = DEFAULT_NESTED_PARAMETER_SEPARATOR,
-    assignment_separator: Literal["space", "equals"] = DEFAULT_ASSIGNMENT_SEPARATOR,
-    bool_handling: Literal["none", "flag-negation"] = DEFAULT_BOOL_HANDLING,
-    n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
+    case_conversion: Optional[Literal["none", "kebab"]] = None,
+    parameter_prefix: Optional[str] = None,
+    nested_parameter_handling: Optional[Literal["dot", "not-supported"]] = None,
+    assignment_separator: Optional[Literal["space", "equals"]] = None,
+    bool_handling: Optional[Literal["none", "flag-negation"]] = None,
 ) -> Path:
     """
     Magic function to create and save CommandBuilderSchema as JSON file from a CLI function.
@@ -90,15 +91,16 @@ def auto_save_command_builder_schema(
 
     launch_schema = CommandBuilderSchema.from_function(
         cli_function,
+        cli_tool=cli_tool,
         ignore_params=ignore_params,
         handle_union_types=handle_union_types,
         cmd=cmd,
-        kebab_case=kebab_case,
+        n_positional_args=n_positional_args,
+        case_conversion=case_conversion,
         parameter_prefix=parameter_prefix,
-        nested_parameter_separator=nested_parameter_separator,
+        nested_parameter_handling=nested_parameter_handling,
         assignment_separator=assignment_separator,
         bool_handling=bool_handling,
-        n_positional_args=n_positional_args,
     )
 
     path_schema = path_schema or path_of_function(cli_function).with_suffix(".json")
@@ -134,14 +136,16 @@ class CommandBuilderSchema(BaseModel):
     n_positional_args: int = Field(
         DEFAULT_N_POSITIONAL_ARGS,
         description=(
-            "CLI format: Number of positional arguments in the command. To handle that some CLI tools "
+            "Number of positional arguments in the command. To handle that some CLI tools "
             "accept positional arguments before options, this specifies how many positional arguments are expected. "
             "These will be filled in order before any named arguments. "
             "E.g. for 'python train.py data/train --batch-size 32', n_positional_args would be 1 ('data/train')."
         ),
     )
-    kebab_case: bool = Field(
-        DEFAULT_KEBAB_CASE,
+
+    # Below defines how the specified parameters/arguments are formatted as command line arguments
+    case_conversion: Literal["none", "kebab"] = Field(
+        DEFAULT_CASE_CONVERSION,
         description=(
             "CLI format: The command line arguments will use kebab-case (e.g. --batch-size). "
             "This handles what is commonly done in CLI tools where function argument names are converted from "
@@ -153,8 +157,8 @@ class CommandBuilderSchema(BaseModel):
         description="CLI format: The prefix used for command line arguments. E.g. '--' for '--batch-size' ",
     )
 
-    nested_parameter_separator: str = Field(
-        DEFAULT_NESTED_PARAMETER_SEPARATOR,
+    nested_parameter_handling: Literal["dot", "not-supported"] = Field(
+        DEFAULT_NESTED_PARAMETER_HANDLING,
         description=(
             "CLI format: Separator used for nested parameters in the command line interface. "
             "E.g. 'optimizer.lr' to set the learning rate inside an optimizer configuration."
@@ -192,6 +196,21 @@ class CommandBuilderSchema(BaseModel):
         path.write_text(json_str)
         return path
 
+    @model_validator(mode="after")
+    def validate_json_schema(self) -> "CommandBuilderSchema":
+        # Basic validation of the json_schema field to ensure it has 'properties'
+        if "properties" not in self.json_schema:
+            raise ValueError("The 'json_schema' must contain a 'properties' field.")
+
+        if "$defs" in self.json_schema and self.nested_parameter_handling == "not-supported":
+            raise ValueError(
+                "The 'json_schema' contains '$defs' indicating nested parameters, "
+                "but 'nested_parameter_handling' is set to 'not-supported'. "
+                "Either remove nested parameters from the schema or change "
+                "'nested_parameter_handling' to support nested parameters."
+            )
+        return self
+
     @staticmethod
     def from_json_file(path: Path) -> "CommandBuilderSchema":
         json_str = path.read_text()
@@ -200,36 +219,59 @@ class CommandBuilderSchema(BaseModel):
     @staticmethod
     def from_function(
         cli_function: Callable[..., Any],
+        cli_tool: Optional[str] = "cyclopts",
         ignore_params: tuple[str, ...] = (),
         cmd: Optional[str] = None,
         handle_union_types: bool = True,
-        kebab_case: bool = DEFAULT_KEBAB_CASE,
-        parameter_prefix: str = DEFAULT_PARAMETER_PREFIX,
-        nested_parameter_separator: str = DEFAULT_NESTED_PARAMETER_SEPARATOR,
-        assignment_separator: Literal["space", "equals"] = DEFAULT_ASSIGNMENT_SEPARATOR,
-        bool_handling: Literal["none", "flag-negation"] = DEFAULT_BOOL_HANDLING,
         n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
+        case_conversion: Optional[Literal["none", "kebab"]] = None,
+        parameter_prefix: Optional[str] = None,
+        nested_parameter_handling: Optional[Literal["dot", "not-supported"]] = None,
+        assignment_separator: Optional[Literal["space", "equals"]] = None,
+        bool_handling: Optional[Literal["none", "flag-negation"]] = None,
     ) -> "CommandBuilderSchema":
         cmd = cmd or f"python {path_of_function(cli_function).as_posix()}"
+        if cli_tool == "cyclopts":
+            set_case_conversion = "kebab"
+            set_parameter_prefix = "--"
+            set_nested_parameter_handling = "dot"
+            set_assignment_separator = "space"
+            set_bool_handling = "flag-negation"
+        elif cli_tool == "typer":
+            set_case_conversion = "kebab"
+            set_parameter_prefix = "--"
+            set_nested_parameter_handling = "not-supported"
+            set_assignment_separator = "space"
+            set_bool_handling = "flag-negation"
+        else:
+            raise ValueError(f"Unsupported cli_tool: {cli_tool}")
+
+        # Option to override individual settings
+        set_case_conversion = case_conversion or set_case_conversion or DEFAULT_CASE_CONVERSION
+        set_parameter_prefix = parameter_prefix or set_parameter_prefix or DEFAULT_PARAMETER_PREFIX
+        set_nested_parameter_handling = (
+            nested_parameter_handling or set_nested_parameter_handling or DEFAULT_NESTED_PARAMETER_HANDLING
+        )
+        set_assignment_separator = assignment_separator or set_assignment_separator or DEFAULT_ASSIGNMENT_SEPARATOR
+        set_bool_handling = bool_handling or set_bool_handling or DEFAULT_BOOL_HANDLING
 
         function_schema = schema_from_cli_function(
             cli_function,
             ignore_params=ignore_params,
             handle_union_types=handle_union_types,
         )
-
         return CommandBuilderSchema(
             cmd=cmd,
             json_schema=function_schema,
-            kebab_case=kebab_case,
-            parameter_prefix=parameter_prefix,
-            nested_parameter_separator=nested_parameter_separator,
-            assignment_separator=assignment_separator,
-            bool_handling=bool_handling,
+            case_conversion=set_case_conversion,
+            parameter_prefix=set_parameter_prefix,
+            nested_parameter_handling=set_nested_parameter_handling,
+            assignment_separator=set_assignment_separator,
+            bool_handling=set_bool_handling,
             n_positional_args=n_positional_args,
         )
 
-    def command_args_from_form_data(self, form_data: Dict[str, Any]) -> List[str]:
+    def command_args_from_form_data(self, form_data: Dict[str, Any], include_cmd: bool = True) -> List[str]:
         """Convert form data dictionary to command line arguments list.
 
         Args:
@@ -240,18 +282,32 @@ class CommandBuilderSchema(BaseModel):
         """
 
         # Flatten nested parameters ({"optimizer": {"lr": 0.01}} -> {"optimizer.lr": 0.01})
-        sep = self.nested_parameter_separator
-        form_data = flatten_dict.flatten(form_data)  # Flatten doesn't support str directly
-        form_data = {sep.join(keys): value for keys, value in form_data.items()}
+        if self.nested_parameter_handling == "dot":
+            sep = "."
+            form_data = flatten_dict.flatten(form_data)  # Flatten doesn't support str directly
+            form_data = {sep.join(keys): value for keys, value in form_data.items()}
+        elif self.nested_parameter_handling == "none":
+            pass  # No special handling
+        elif self.nested_parameter_handling == "not-supported":
+            # Ensure there are no nested parameters
+            for value in form_data.values():
+                if isinstance(value, dict):
+                    raise ValueError("Nested parameters are not supported, but found nested parameter in form data.")
+        else:
+            raise ValueError(f"Unsupported nested_parameter_handling: {self.nested_parameter_handling}")
 
-        cmd_args: List[str] = self.cmd.split(" ")  # Start with the base command split into args
+        cmd_args: List[str] = []
+
+        if include_cmd:
+            cmd_args.extend(self.cmd.split(" "))
+
         for position, (name, value) in enumerate(form_data.items()):
             is_positional = position < self.n_positional_args
             arg_parts = name_and_value_as_command_line_arguments(
                 name=name,
                 value=value,
                 is_positional=is_positional,
-                kebab_case=self.kebab_case,
+                case_conversion=self.case_conversion,
                 parameter_prefix=self.parameter_prefix,
                 assignment_separator=self.assignment_separator,
                 bool_handling=self.bool_handling,
@@ -264,7 +320,7 @@ def name_and_value_as_command_line_arguments(
     name: str,
     value: Any,
     is_positional: bool,
-    kebab_case: bool,
+    case_conversion: Literal["none", "kebab"],
     parameter_prefix: str,
     assignment_separator: Literal["space", "equals"],
     bool_handling: Literal["none", "flag-negation"],
@@ -274,15 +330,23 @@ def name_and_value_as_command_line_arguments(
     # should be "--some_str 'Some String'" to be parsed correctly by the CLI.
     value_str = repr(value)
 
-    if kebab_case:
+    if case_conversion == "kebab":
         name = snake_case_to_kebab_case(name)
+    elif case_conversion == "none":
+        pass  # No conversion
+    else:
+        raise ValueError(f"Unsupported case_conversion: {case_conversion}")
 
     # Handle boolean flags with flag-negation
-    is_bool_flag = isinstance(value, bool) and bool_handling == "flag-negation"
-    if is_bool_flag:
-        if value is False:
-            name = f"no-{name}"  # E.g. '--no-flag' for False
-        return [f"{parameter_prefix}{name}"]
+    if isinstance(value, bool):
+        if bool_handling == "flag-negation":
+            if value is False:
+                name = f"no-{name}"  # E.g. '--no-flag' for False
+            return [f"{parameter_prefix}{name}"]
+        elif bool_handling == "none":
+            pass  # No special handling
+        else:
+            raise ValueError(f"Unsupported bool_handling: {bool_handling}")
 
     name = f"{parameter_prefix}{name}"
 
@@ -291,11 +355,10 @@ def name_and_value_as_command_line_arguments(
 
     if assignment_separator == "equals":  # Is combined into one arg
         return [f"{name}={value_str}"]
-
-    if assignment_separator == "space":  # Is separated into two args
+    elif assignment_separator == "space":  # Is separated into two args
         return [name, value_str]
-
-    raise ValueError(f"Unsupported assignment_separator: {assignment_separator}")
+    else:
+        raise ValueError(f"Unsupported assignment_separator: {assignment_separator}")
 
 
 def path_of_function(cli_function: Callable[..., Any]) -> Path:
