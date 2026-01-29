@@ -39,7 +39,7 @@ class Classification(Primitive):
     def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
         if draw_label is False:
             return image
-        from hafnia.visualizations import image_visualizations
+        from hafnia.dataset import image_visualizations
 
         class_name = self.get_class_name()
         if self.task_name == self.default_task_name():

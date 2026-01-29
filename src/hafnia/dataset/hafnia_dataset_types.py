@@ -470,7 +470,7 @@ class Sample(BaseModel):
         return image
 
     def draw_annotations(self, image: Optional[np.ndarray] = None) -> np.ndarray:
-        from hafnia.visualizations import image_visualizations
+        from hafnia.dataset import image_visualizations
 
         if image is None:
             image = self.read_image()

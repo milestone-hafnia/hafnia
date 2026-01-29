@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from hafnia.visualizations import image_visualizations
+from hafnia.dataset import image_visualizations
 from tests.helper_testing import get_path_expected_images
 
 

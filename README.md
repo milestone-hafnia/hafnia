@@ -64,11 +64,9 @@ With Hafnia configured on your local machine, it is now possible to download
 and explore the dataset sample with a python script:
 
 ```python
-from hafnia.data import get_dataset_path
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-# To download the sample dataset use:
-path_dataset = get_dataset_path("midwest-vehicle-detection")
+dataset = HafniaDataset.from_name("midwest-vehicle-detection")
 ```
 
 This will download the dataset sample `midwest-vehicle-detection` to the local `.data/datasets/` folder
@@ -94,11 +92,10 @@ midwest-vehicle-detection
 3 directories, 217 files
 ```
 
-You can interact with data as you want, but we also provide `HafniaDataset`
-for loading/saving, managing and interacting with the dataset.
+We provide the `HafniaDataset` format for loading/saving, managing and interacting with the dataset.
 
 We recommend the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py) 
-for a short introduction on the `HafniaDataset`.
+for a quick introduction on the `HafniaDataset`.
 
 Below is a short introduction to the `HafniaDataset` class.
 
@@ -106,7 +103,7 @@ Below is a short introduction to the `HafniaDataset` class.
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
 # Load dataset from path
-dataset = HafniaDataset.read_from_path(path_dataset)
+dataset = HafniaDataset.from_path(path_dataset)
 
 # Or get dataset directly by name
 dataset = HafniaDataset.from_name("midwest-vehicle-detection")
