@@ -12,7 +12,6 @@ from hafnia.dataset.dataset_recipe.dataset_recipe import (
     FromMerger,
     get_dataset_path_from_recipe,
 )
-from hafnia.dataset.dataset_recipe.recipe_transforms import SelectSamples, Shuffle
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeCreation, RecipeTransform, Serializable
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.utils import is_hafnia_configured, pascal_to_snake_case
@@ -156,111 +155,97 @@ class IntegrationTestUseCase:
     short_name: str
 
 
-@pytest.mark.parametrize(
-    "recipe_use_case",
-    [
-        IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
-            short_name="mnist",
+TEST_CASES = [
+    IntegrationTestUseCase(
+        recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
+        short_name="mnist",
+    ),
+    IntegrationTestUseCase(
+        recipe=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
+        short_name="'.data-datasets-mnist'",
+    ),
+    IntegrationTestUseCase(
+        recipe=DatasetRecipe.from_merger(
+            recipes=[
+                DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
+                DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
+            ]
         ),
-        IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
-            short_name="'.data-datasets-mnist'",
+        short_name="Merger(mnist,'.data-datasets-mnist')",
+    ),
+    IntegrationTestUseCase(
+        recipe=DatasetRecipe.from_merge(
+            recipe0=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
+            recipe1=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
         ),
-        IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_merger(
-                recipes=[
-                    DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
-                    DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
-                ]
-            ),
-            short_name="Merger(mnist,'.data-datasets-mnist')",
-        ),
-        IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_merge(
-                recipe0=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
-                recipe1=DatasetRecipe.from_name(
-                    name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False
-                ),
-            ),
-            short_name="Merger('.data-datasets-mnist',mnist)",
-        ),
-        IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False)
-            .select_samples(n_samples=20, shuffle=True, seed=42)
-            .shuffle(seed=123),
-            short_name="Recipe(mnist,SelectSamples,Shuffle)",
-        ),
-        IntegrationTestUseCase(
-            recipe=(
-                f"mnist:{DATASET_SPEC_MNIST.version}",
-                (
-                    f"mnist:{DATASET_SPEC_MNIST.version}",
-                    [f"mnist:{DATASET_SPEC_MNIST.version}", SelectSamples(n_samples=10), Shuffle()],
-                ),
-            ),
-            short_name="Merger(mnist,Merger(mnist,Recipe(mnist,SelectSamples,Shuffle)))",
-        ),
-        IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version)
-            .select_samples(n_samples=30)
-            .splits_by_ratios(split_ratios={"train": 0.8, "test": 0.2})
-            .split_into_multiple_splits(split_name="test", split_ratios={"val": 0.5, "test": 0.5})
-            .define_sample_set_by_size(n_samples=10),
-            short_name="Recipe(mnist,SelectSamples,SplitsByRatios,SplitIntoMultipleSplits,DefineSampleSetBySize)",
-        ),
-        IntegrationTestUseCase(
-            recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version)
-            .class_mapper(
-                get_strict_class_mapping_mnist(),
-            )
-            .rename_task(
-                old_task_name=primitives.Classification.default_task_name(),
-                new_task_name="digits",
-            )
-            .select_samples_by_class_name(name="odd"),
-            short_name="Recipe(mnist,ClassMapper,RenameTask,SelectSamplesByClassName)",
-        ),
-    ],
-    ids=lambda test_case: test_case.short_name,  # To use the name of the test case as the ID for clarity
-)
-def test_cases_integration_tests(recipe_use_case: IntegrationTestUseCase):
+        short_name="Merger('.data-datasets-mnist',mnist)",
+    ),
+    IntegrationTestUseCase(
+        recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False)
+        .select_samples(n_samples=20, shuffle=True, seed=42)
+        .shuffle(seed=123),
+        short_name="Recipe(mnist,SelectSamples,Shuffle)",
+    ),
+    IntegrationTestUseCase(
+        recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version)
+        .select_samples(n_samples=30)
+        .splits_by_ratios(split_ratios={"train": 0.8, "test": 0.2})
+        .split_into_multiple_splits(split_name="test", split_ratios={"val": 0.5, "test": 0.5})
+        .define_sample_set_by_size(n_samples=10),
+        short_name="Recipe(mnist,SelectSamples,SplitsByRatios,SplitIntoMultipleSplits,DefineSampleSetBySize)",
+    ),
+    IntegrationTestUseCase(
+        recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version)
+        .class_mapper(
+            get_strict_class_mapping_mnist(),
+        )
+        .rename_task(
+            old_task_name=primitives.Classification.default_task_name(),
+            new_task_name="digits",
+        )
+        .select_samples_by_class_name(name="odd"),
+        short_name="Recipe(mnist,ClassMapper,RenameTask,SelectSamplesByClassName)",
+    ),
+]
+
+
+# ids: Use the name of the test case as the ID for clarity
+@pytest.mark.parametrize("test_case", TEST_CASES, ids=lambda test_case: test_case.short_name)
+def test_cases_integration_tests(test_case: IntegrationTestUseCase):
     """
     Test that LoadDataset recipe can be created and serialized.
     Even if it can be considered an integration test, we keep it in the unit-test folder
     as it doesn't require any external dependencies and runs fast.
     """
-    dataset_recipe: DatasetRecipe = DatasetRecipe.from_implicit_form(recipe_use_case.recipe)
 
     if not is_hafnia_configured():
         pytest.skip("Hafnia is not configured, skipping build dataset recipe tests.")
 
     # Smoke test: Convert to short name
-    short_name_str = dataset_recipe.as_short_name()
+    short_name_str = test_case.recipe.as_short_name()
     assert "/" not in short_name_str, f"Short name '{short_name_str}' should not contain '/'."
     assert "\\" not in short_name_str, f"Short name '{short_name_str}' should not contain '\\'."
-    assert short_name_str == recipe_use_case.short_name, (
-        f"Short name '{short_name_str}' does not match expected '{recipe_use_case.short_name}'"
+    assert short_name_str == test_case.short_name, (
+        f"Short name '{short_name_str}' does not match expected '{test_case.short_name}'"
     )
 
     # Smoke test: Convert to code representation
-    code_one_liner_str = dataset_recipe.as_python_code()
+    code_one_liner_str = test_case.recipe.as_python_code()
     assert isinstance(code_one_liner_str, str), "Code representation of dataset recipe is not a string"
 
     # Smoke test: Convert to JSON representation and back
-    json_str = dataset_recipe.as_json_str()
+    json_str = test_case.recipe.as_json_str()
     dataset_recipe_again = DatasetRecipe.from_json_str(json_str=json_str)
-    assert dataset_recipe_again == dataset_recipe, "Deserialized recipe does not match original recipe"
+    assert dataset_recipe_again == test_case.recipe, "Deserialized recipe does not match original recipe"
 
     # Build the dataset from the recipe
-    dataset: HafniaDataset = dataset_recipe.build()
+    dataset: HafniaDataset = test_case.recipe.build()
 
     # Smoke test: Able to store the dataset to disk
     with tempfile.TemporaryDirectory() as temp_dir:
         path_datasets = Path(temp_dir) / "datasets"
 
-        recipe_explicit: DatasetRecipe = DatasetRecipe.from_implicit_form(dataset_recipe)
-        path_dataset = get_dataset_path_from_recipe(recipe_explicit, path_datasets=path_datasets)
+        path_dataset = get_dataset_path_from_recipe(test_case.recipe, path_datasets=path_datasets)
 
         # To make sure that the dataset path is not nested in the datasets path
         # A dataset path is created from the 'as_short_name()' method. If 'as_short_name()'
@@ -268,9 +253,8 @@ def test_cases_integration_tests(recipe_use_case: IntegrationTestUseCase):
         assert path_dataset.parent == path_datasets
 
         assert not path_dataset.exists(), f"Dataset path shouldn't exist before building: {path_dataset} "
-        dataset_again = HafniaDataset.from_recipe_with_cache(dataset_recipe, path_datasets=path_datasets)  # noqa: F841
+        dataset_again = HafniaDataset.from_recipe_with_cache(test_case.recipe, path_datasets=path_datasets)  # noqa: F841
         assert path_dataset.exists(), f"Dataset path should exist after building: {path_dataset} "
-        dataset_again = HafniaDataset.from_recipe_with_cache(dataset_recipe, path_datasets=path_datasets)  # noqa: F841
+        dataset_again = HafniaDataset.from_recipe_with_cache(test_case.recipe, path_datasets=path_datasets)  # noqa: F841
 
     assert isinstance(dataset, HafniaDataset), "Dataset is not an instance of HafniaDataset"
-    # assert isinstance(dataset, HafniaDataset), "Dataset is not an instance of HafniaDataset"

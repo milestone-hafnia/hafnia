@@ -9,7 +9,7 @@ import numpy as np
 import polars as pl
 
 import hafnia
-from hafnia.dataset import primitives
+from hafnia.dataset import image_visualizations, primitives
 from hafnia.dataset.dataset_names import (
     SampleField,
     SplitName,
@@ -17,7 +17,6 @@ from hafnia.dataset.dataset_names import (
 )
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, DatasetMetadataFilePaths, Sample, TaskInfo
 from hafnia.dataset.primitives import Bbox
-from hafnia.visualizations import image_visualizations
 from tests.helper_testing_datasets import DATASET_SPEC_COCO_2017_TINY, DATASET_SPEC_MNIST, DATASET_SPEC_TINY_DATASET
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking

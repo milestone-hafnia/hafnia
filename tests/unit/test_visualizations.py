@@ -3,10 +3,10 @@ from typing import Callable
 import numpy as np
 import pytest
 
+from hafnia.dataset import image_visualizations
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.polygon import Polygon
-from hafnia.visualizations import image_visualizations
 from tests import helper_testing
 
 

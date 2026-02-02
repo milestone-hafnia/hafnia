@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from random import Random
@@ -14,7 +13,6 @@ from hafnia import utils
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_helpers import is_valid_version_string, version_from_string
 from hafnia.dataset.dataset_names import (
-    FILENAME_RECIPE_JSON,
     TAG_IS_SAMPLE,
     PrimitiveField,
     SampleField,
@@ -147,17 +145,6 @@ class HafniaDataset:
         return HafniaDataset(info=info, samples=table)
 
     @staticmethod
-    def from_recipe(dataset_recipe: Any) -> "HafniaDataset":
-        """
-        Load a dataset from a recipe. The recipe can be a string (name of the dataset), a dictionary, or a DataRecipe object.
-        """
-        from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
-
-        recipe_explicit = DatasetRecipe.from_implicit_form(dataset_recipe)
-
-        return recipe_explicit.build()  # Build dataset from the recipe
-
-    @staticmethod
     def from_merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
         return HafniaDataset.merge(dataset0, dataset1)
 
@@ -171,6 +158,8 @@ class HafniaDataset:
         Loads a dataset from a recipe and caches it to disk.
         If the dataset is already cached, it will be loaded from the cache.
         """
+
+        from hafnia.dataset.dataset_recipe.dataset_recipe import get_or_create_dataset_path_from_recipe
 
         path_dataset = get_or_create_dataset_path_from_recipe(
             dataset_recipe,
@@ -245,7 +234,7 @@ class HafniaDataset:
 
         Example: Defining split ratios and applying the transformation
 
-        >>> dataset = HafniaDataset.read_from_path(Path("path/to/dataset"))
+        >>> dataset = HafniaDataset.from_path(Path("path/to/dataset"))
         >>> split_ratios = {SplitName.TRAIN: 0.8, SplitName.VAL: 0.1, SplitName.TEST: 0.1}
         >>> dataset_with_splits = splits_by_ratios(dataset, split_ratios, seed=42)
         Or use the function as a
@@ -270,7 +259,7 @@ class HafniaDataset:
         splits based on the provided ratios.
 
         Example: Defining split ratios and applying the transformation
-        >>> dataset = HafniaDataset.read_from_path(Path("path/to/dataset"))
+        >>> dataset = HafniaDataset.from_path(Path("path/to/dataset"))
         >>> split_name = SplitName.TEST
         >>> split_ratios = {SplitName.TEST: 0.8, SplitName.VAL: 0.2}
         >>> dataset_with_splits = split_into_multiple_splits(dataset, split_name, split_ratios)
@@ -543,7 +532,7 @@ class HafniaDataset:
         primitive: Type[Primitive],
         task_name: Optional[str] = None,
         keep_sample_data: bool = False,
-    ) -> pl.DataFrame:
+    ) -> Optional[pl.DataFrame]:
         return table_transformations.create_primitive_table(
             samples_table=self.samples,
             PrimitiveType=primitive,
@@ -741,36 +730,6 @@ def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
     dataset.check_dataset()
 
 
-def get_or_create_dataset_path_from_recipe(
-    dataset_recipe: Any,
-    force_redownload: bool = False,
-    path_datasets: Optional[Union[Path, str]] = None,
-) -> Path:
-    from hafnia.dataset.dataset_recipe.dataset_recipe import (
-        DatasetRecipe,
-        get_dataset_path_from_recipe,
-    )
-
-    recipe: DatasetRecipe = DatasetRecipe.from_implicit_form(dataset_recipe)
-    path_dataset = get_dataset_path_from_recipe(recipe, path_datasets=path_datasets)
-
-    if force_redownload:
-        shutil.rmtree(path_dataset, ignore_errors=True)
-
-    dataset_metadata_files = DatasetMetadataFilePaths.from_path(path_dataset)
-    if dataset_metadata_files.exists(raise_error=False):
-        return path_dataset
-
-    path_dataset.mkdir(parents=True, exist_ok=True)
-    path_recipe_json = path_dataset / FILENAME_RECIPE_JSON
-    path_recipe_json.write_text(recipe.model_dump_json(indent=4))
-
-    dataset: HafniaDataset = recipe.build()
-    dataset.write(path_dataset)
-
-    return path_dataset
-
-
 def available_dataset_versions_from_name(dataset_name: str) -> Dict[Version, "DatasetMetadataFilePaths"]:
     credentials: ResourceCredentials = get_read_credentials_by_name(dataset_name=dataset_name)
     return available_dataset_versions(credentials=credentials)
@@ -795,12 +754,13 @@ def select_version_from_available_versions(
 
     if version is None:
         str_versions = [str(v) for v in available_versions]
-        raise ValueError(f"Version must be specified. Available versions: {str_versions}")
-    elif version == "latest":
+        raise ValueError(f"Version must be specified. Available versions: {str_versions}. ")
+
+    if version == "latest":
         version_casted = max(available_versions)
         user_logger.info(f"'latest' version '{version_casted}' has been selected")
     else:
-        version_casted = version_from_string(version)
+        version_casted = version_from_string(version, raise_error=True)
 
     if version_casted not in available_versions:
         raise ValueError(f"Selected version '{version}' not found in available versions: {available_versions}")

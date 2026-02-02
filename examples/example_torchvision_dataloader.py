@@ -6,7 +6,7 @@ import torchvision.transforms.functional
 from torch.utils.data import DataLoader
 from torchvision.transforms import v2
 
-from hafnia import torch_helpers
+from hafnia.dataset import torch_helpers
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 if __name__ == "__main__":

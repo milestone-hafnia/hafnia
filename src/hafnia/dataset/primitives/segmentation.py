@@ -4,9 +4,9 @@ import cv2
 import numpy as np
 from pydantic import Field
 
+from hafnia.dataset.colors import get_n_colors
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import get_class_name
-from hafnia.visualizations.colors import get_n_colors
 
 
 class Segmentation(Primitive):

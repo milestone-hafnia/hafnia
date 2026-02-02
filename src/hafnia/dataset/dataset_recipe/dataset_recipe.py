@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
@@ -12,6 +13,7 @@ from pydantic import (
 
 from hafnia import utils
 from hafnia.dataset.dataset_helpers import dataset_name_and_version_from_string
+from hafnia.dataset.dataset_names import FILENAME_RECIPE_JSON
 from hafnia.dataset.dataset_recipe import recipe_transforms
 from hafnia.dataset.dataset_recipe.recipe_types import (
     RecipeCreation,
@@ -22,6 +24,7 @@ from hafnia.dataset.hafnia_dataset import (
     HafniaDataset,
     available_dataset_versions_from_name,
 )
+from hafnia.dataset.hafnia_dataset_types import DatasetMetadataFilePaths
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 
@@ -118,6 +121,23 @@ class DatasetRecipe(Serializable):
         return DatasetRecipe.from_json_str(json_str)
 
     @staticmethod
+    def from_recipe_field(recipe_field: Union[str, Dict[str, Any]]) -> "DatasetRecipe":
+        """
+
+        Deserialize from a recipe field which can be either a string or a dictionary.
+
+        string: A dataset name and version string in the format 'name:version'.
+        dict: A dictionary representation of the DatasetRecipe.
+
+        """
+        if isinstance(recipe_field, str):
+            return DatasetRecipe.from_name_and_version_string(recipe_field)
+        elif isinstance(recipe_field, dict):
+            return DatasetRecipe.from_dict(recipe_field)
+
+        raise TypeError(f"Expected str or dict for recipe_field, got {type(recipe_field).__name__}.")
+
+    @staticmethod
     def from_dict(data: Dict[str, Any]) -> "DatasetRecipe":
         """Deserialize from a dictionary."""
         dataset_recipe = Serializable.from_dict(data)
@@ -133,11 +153,7 @@ class DatasetRecipe(Serializable):
         endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
         recipe_dict = get_dataset_recipe_by_id(recipe_id, endpoint=endpoint_dataset, api_key=cfg.api_key)
         recipe_dict = recipe_dict["template"]["body"]
-        if isinstance(recipe_dict, str):
-            return DatasetRecipe.from_implicit_form(recipe_dict)
-
-        recipe = DatasetRecipe.from_dict(recipe_dict)
-        return recipe
+        return DatasetRecipe.from_recipe_field(recipe_dict)
 
     @staticmethod
     def from_recipe_name(name: str) -> "DatasetRecipe":
@@ -167,82 +183,6 @@ class DatasetRecipe(Serializable):
         )
 
         return DatasetRecipe.from_name(name=dataset_name, version=version)
-
-    @staticmethod
-    def from_implicit_form(recipe: Any) -> DatasetRecipe:
-        """
-        Recursively convert from implicit recipe to explicit form.
-        Handles mixed implicit/explicit recipes.
-
-        Conversion rules:
-        - str: Will get a dataset by name -> DatasetRecipeFromName
-        - Path: Will get a dataset from path -> DatasetRecipeFromPath
-        - tuple: Will merge datasets specified in the tuple -> RecipeMerger
-        - list: Will define a list of transformations -> RecipeTransforms
-
-        Example: DataRecipe from dataset name:
-        ```python
-        recipe_implicit = "mnist"
-        recipe_explicit = DatasetRecipe.from_implicit_form(recipe_implicit)
-        >>> recipe_explicit
-        DatasetRecipeFromName(dataset_name='mnist', force_redownload=False)
-        ```
-
-        Example: DataRecipe from tuple (merging multiple recipes):
-        ```python
-        recipe_implicit = ("dataset1", "dataset2")
-        recipe_explicit = DatasetRecipe.from_implicit_form(recipe_implicit)
-        >>> recipe_explicit
-        RecipeMerger(
-            recipes=[
-                DatasetRecipeFromName(dataset_name='dataset1', force_redownload=False),
-                DatasetRecipeFromName(dataset_name='dataset2', force_redownload=False)
-            ]
-        )
-
-        Example: DataRecipe from list (recipe and transformations):
-        ```python
-        recipe_implicit = ["mnist", SelectSamples(n_samples=20), Shuffle(seed=123)]
-        recipe_explicit = DatasetRecipe.from_implicit_form(recipe_implicit)
-        >>> recipe_explicit
-        Transforms(
-            recipe=DatasetRecipeFromName(dataset_name='mnist', force_redownload=False),
-            transforms=[SelectSamples(n_samples=20), Shuffle(seed=123)]
-        )
-        ```
-
-        """
-        if isinstance(recipe, DatasetRecipe):  # type: ignore
-            # It is possible to do an early return if recipe is a 'DataRecipe'-type even for nested and
-            # potentially mixed recipes. If you (really) think about it, this might surprise you,
-            # as this will bypass the conversion logic for nested recipes.
-            # However, this is not a problem as 'DataRecipe' classes are also pydantic models,
-            # so if a user introduces a 'DataRecipe'-class in the recipe (in potentially
-            # some nested and mixed implicit/explicit form) it will (due to pydantic validation) force
-            # the user to specify all nested recipes to be converted to explicit form.
-            return recipe
-
-        if isinstance(recipe, str):  # str-type is convert to DatasetFromName
-            return DatasetRecipe.from_name_and_version_string(string=recipe, resolve_missing_version=True)
-
-        if isinstance(recipe, Path):  # Path-type is convert to DatasetFromPath
-            return DatasetRecipe.from_path(path_folder=recipe)
-
-        if isinstance(recipe, tuple):  # tuple-type is convert to DatasetMerger
-            recipes = [DatasetRecipe.from_implicit_form(item) for item in recipe]
-            return DatasetRecipe.from_merger(recipes=recipes)
-
-        if isinstance(recipe, list):  # list-type is convert to Transforms
-            if len(recipe) == 0:
-                raise ValueError("List of recipes cannot be empty")
-
-            dataset_recipe = recipe[0]  # First element is the dataset recipe
-            loader = DatasetRecipe.from_implicit_form(dataset_recipe)
-
-            transforms = recipe[1:]  # Remaining items are transformations
-            return DatasetRecipe(creation=loader.creation, operations=transforms)
-
-        raise ValueError(f"Unsupported recipe type: {type(recipe)}")
 
     ### Upload, store and recipe conversions ###
     def as_python_code(self, keep_default_fields: bool = False, as_kwargs: bool = True) -> str:
@@ -428,13 +368,6 @@ def unique_name_from_recipe(recipe: DatasetRecipe) -> str:
     return unique_name
 
 
-def get_dataset_path_from_recipe(recipe: DatasetRecipe, path_datasets: Optional[Union[Path, str]] = None) -> Path:
-    path_datasets = path_datasets or utils.PATH_DATASETS
-    path_datasets = Path(path_datasets)
-    unique_dataset_name = unique_name_from_recipe(recipe)
-    return path_datasets / unique_dataset_name
-
-
 class FromPath(RecipeCreation):
     path_folder: Path
     check_for_images: bool = True
@@ -525,3 +458,34 @@ class FromMerger(RecipeCreation):
         for recipe in self.recipes:
             names.extend(recipe.creation.get_dataset_names())
         return names
+
+
+def get_dataset_path_from_recipe(recipe: DatasetRecipe, path_datasets: Optional[Union[Path, str]] = None) -> Path:
+    path_datasets = path_datasets or utils.PATH_DATASETS
+    path_datasets = Path(path_datasets)
+    unique_dataset_name = unique_name_from_recipe(recipe)
+    return path_datasets / unique_dataset_name
+
+
+def get_or_create_dataset_path_from_recipe(
+    dataset_recipe: DatasetRecipe,
+    force_redownload: bool = False,
+    path_datasets: Optional[Union[Path, str]] = None,
+) -> Path:
+    path_dataset = get_dataset_path_from_recipe(dataset_recipe, path_datasets=path_datasets)
+
+    if force_redownload:
+        shutil.rmtree(path_dataset, ignore_errors=True)
+
+    dataset_metadata_files = DatasetMetadataFilePaths.from_path(path_dataset)
+    if dataset_metadata_files.exists(raise_error=False):
+        return path_dataset
+
+    path_dataset.mkdir(parents=True, exist_ok=True)
+    path_recipe_json = path_dataset / FILENAME_RECIPE_JSON
+    path_recipe_json.write_text(dataset_recipe.model_dump_json(indent=4))
+
+    dataset: HafniaDataset = dataset_recipe.build()
+    dataset.write(path_dataset)
+
+    return path_dataset

@@ -1,4 +1,4 @@
-from hafnia.visualizations.colors import get_n_colors
+from hafnia.dataset.colors import get_n_colors
 
 
 def test_get_n_colors():

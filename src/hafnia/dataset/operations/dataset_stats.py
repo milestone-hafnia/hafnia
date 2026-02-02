@@ -104,7 +104,8 @@ def calculate_primitive_counts(dataset: HafniaDataset) -> Dict[str, int]:
         name = task.primitive.__name__
         if task.name != task.primitive.default_task_name():
             name = f"{name}.{task.name}"
-        annotation_counts[name] = len(objects)
+        n_objects = 0 if objects is None else len(objects)
+        annotation_counts[name] = n_objects
     return annotation_counts
 
 
