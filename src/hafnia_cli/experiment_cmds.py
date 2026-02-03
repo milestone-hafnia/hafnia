@@ -217,9 +217,8 @@ def get_trainer_package_by_identifiers(
         if not trainer_path.exists():
             raise click.ClickException(f"Trainer package path '{trainer_path}' does not exist.")
         response = create_trainer_package(
-            trainer_path,
-            cfg.get_platform_endpoint("trainers"),
-            cfg.api_key,
+            source_dir=trainer_path,
+            cfg=cfg,
         )
         return response["id"]
 
