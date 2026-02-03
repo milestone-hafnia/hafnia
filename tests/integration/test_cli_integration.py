@@ -92,16 +92,32 @@ def test_cli_integration_test():
         hafnia_cli(args=[CMD_EXPERIMENT, "create", "--dataset", "mnist"], standalone_mode=False)
 
     if path_trainer.exists():
+        trainer_response = hafnia_cli(
+            args=[
+                CMD_TRAINER_PACKAGE,
+                "create",
+                str(path_trainer),
+                "--name",
+                f"integration_test_trainer_package_{utils.now_as_str()}",
+                "--description",
+                "Integration test trainer package created by CLI integration test.",
+            ],
+            standalone_mode=False,
+        )
+        assert trainer_response is not None
+        assert isinstance(trainer_response, dict)
+        assert "id" in trainer_response
+
         hafnia_cli(
             args=[
                 CMD_EXPERIMENT,
                 "create",
                 "--dataset",
                 "mnist",
-                "--trainer-path",
-                "../trainer-classification",
+                "--trainer-id",
+                trainer_response["id"],
                 "--name",
-                f"integration_test_{utils.now_as_str()}",
+                f"integration_test_experiment_{utils.now_as_str()}",
             ],
             standalone_mode=False,
         )

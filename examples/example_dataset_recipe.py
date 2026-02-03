@@ -36,7 +36,7 @@ rprint(dataset_recipe)
 
 # Example: Saving and loading a dataset recipe from file.
 path_recipe = Path(".data/dataset_recipes/example_recipe.json")
-json_str: str = dataset_recipe.as_json_file(path_recipe)
+dataset_recipe.as_json_file(path_recipe)
 dataset_recipe_again: DatasetRecipe = DatasetRecipe.from_json_file(path_recipe)
 
 # Verify that the loaded recipe is identical to the original recipe.
