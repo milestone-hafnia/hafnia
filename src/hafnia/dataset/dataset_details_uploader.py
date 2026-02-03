@@ -294,9 +294,9 @@ def upload_dataset_details_to_platform(
     if update_platform:
         dataset_details_exclude_none = dataset_details.model_dump(exclude_none=True, mode="json")
         upload_dataset_details(
-            cfg=cfg,
             data=dataset_details_exclude_none,
             dataset_name=dataset_details.name,
+            cfg=cfg,
         )
 
     dataset_details_dict = dataset_details.model_dump(exclude_none=False, mode="json")

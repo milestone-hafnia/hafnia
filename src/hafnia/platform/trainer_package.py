@@ -10,19 +10,21 @@ from hafnia.utils import (
     pretty_print_list_as_table,
     timed,
 )
+from hafnia_cli.config import Config
 
 
 @timed("Uploading trainer package.")
 def create_trainer_package(
     source_dir: Path,
-    endpoint: str,
-    api_key: str,
     name: Optional[str] = None,
     description: Optional[str] = None,
     cmd: Optional[str] = None,
-) -> str:
+    cfg: Optional[Config] = None,
+) -> Dict:
     # Ensure the path is absolute to handle '.' paths are given an appropriate name.
     source_dir = Path(source_dir).resolve()
+    cfg = cfg or Config()
+    endpoint = cfg.get_platform_endpoint("trainers")
 
     path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
     name = name or path_trainer.stem
@@ -32,7 +34,7 @@ def create_trainer_package(
     cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
     cmd = cmd or "python scripts/train.py"
     description = description or f"Trainer package for '{name}'. Created with Hafnia SDK Cli."
-    headers = {"Authorization": api_key, "accept": "application/json"}
+    headers = {"Authorization": cfg.api_key, "accept": "application/json"}
     data = {
         "name": name,
         "description": description,
@@ -44,7 +46,7 @@ def create_trainer_package(
     user_logger.info(f"Uploading trainer package '{name}' to platform...")
     response = http.post(endpoint, headers=headers, data=data, multipart=True)
     user_logger.info(f"Trainer package uploaded successfully with id '{response['id']}'")
-    return response["id"]
+    return response
 
 
 def auto_discover_cmd_builder_schemas(package_files: List[Path]) -> List[Dict]:
@@ -63,17 +65,21 @@ def auto_discover_cmd_builder_schemas(package_files: List[Path]) -> List[Dict]:
 
 
 @timed("Get trainer package.")
-def get_trainer_package_by_id(id: str, endpoint: str, api_key: str) -> Dict:
+def get_trainer_package_by_id(id: str, cfg: Optional[Config] = None) -> Dict:
+    cfg = cfg or Config()
+    endpoint = cfg.get_platform_endpoint("trainers")
     full_url = f"{endpoint}/{id}"
-    headers = {"Authorization": api_key}
+    headers = {"Authorization": cfg.api_key}
     response: Dict = http.fetch(full_url, headers=headers)  # type: ignore[assignment]
 
     return response
 
 
 @timed("Get trainer packages")
-def get_trainer_packages(endpoint: str, api_key: str) -> List[Dict]:
-    headers = {"Authorization": api_key}
+def get_trainer_packages(cfg: Optional[Config] = None) -> List[Dict]:
+    cfg = cfg or Config()
+    endpoint = cfg.get_platform_endpoint("trainers")
+    headers = {"Authorization": cfg.api_key}
     trainers: List[Dict] = http.fetch(endpoint, headers=headers)  # type: ignore[assignment]
     return trainers
 

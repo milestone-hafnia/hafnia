@@ -150,8 +150,7 @@ class DatasetRecipe(Serializable):
         from hafnia_cli.config import Config
 
         cfg = Config()
-        endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
-        recipe_dict = get_dataset_recipe_by_id(recipe_id, endpoint=endpoint_dataset, api_key=cfg.api_key)
+        recipe_dict = get_dataset_recipe_by_id(recipe_id, cfg=cfg)
         recipe_dict = recipe_dict["template"]["body"]
         return DatasetRecipe.from_recipe_field(recipe_dict)
 
@@ -162,8 +161,7 @@ class DatasetRecipe(Serializable):
         from hafnia_cli.config import Config
 
         cfg = Config()
-        endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
-        recipe = get_dataset_recipe_by_name(name=name, endpoint=endpoint_dataset, api_key=cfg.api_key)
+        recipe = get_dataset_recipe_by_name(name=name, cfg=cfg)
         if not recipe:
             raise ValueError(f"Dataset recipe '{name}' not found.")
         recipe_id = recipe["id"]
@@ -225,17 +223,10 @@ class DatasetRecipe(Serializable):
         from hafnia.platform.dataset_recipe import get_or_create_dataset_recipe
         from hafnia_cli.config import Config
 
-        recipe = self.as_dict()
         cfg = Config()
-        endpoint_dataset = cfg.get_platform_endpoint("dataset_recipes")
-        recipe_dict = get_or_create_dataset_recipe(
-            recipe=recipe,
-            endpoint=endpoint_dataset,
-            api_key=cfg.api_key,
-            name=recipe_name,
-            overwrite=overwrite,
-        )
 
+        recipe = self.as_dict()
+        recipe_dict = get_or_create_dataset_recipe(recipe=recipe, name=recipe_name, overwrite=overwrite, cfg=cfg)
         return recipe_dict
 
     ### Dataset Recipe Transformations ###

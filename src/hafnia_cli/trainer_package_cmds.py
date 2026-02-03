@@ -21,8 +21,7 @@ def cmd_list_trainer_packages(cfg: Config, limit: Optional[int]) -> None:
 
     from hafnia.platform.trainer_package import get_trainer_packages, pretty_print_trainer_packages
 
-    endpoint = cfg.get_platform_endpoint("trainers")
-    trainers = get_trainer_packages(endpoint, cfg.api_key)
+    trainers = get_trainer_packages(cfg=cfg)
 
     pretty_print_trainer_packages(trainers, limit=limit)
 
@@ -67,11 +66,10 @@ def cmd_create_trainer_package(
     path_trainer = Path(path).resolve()
     create_trainer_package(
         source_dir=path_trainer,
-        endpoint=cfg.get_platform_endpoint("trainers"),
-        api_key=cfg.api_key,
         name=name,
         description=description,
         cmd=cmd,
+        cfg=cfg,
     )
 
 
