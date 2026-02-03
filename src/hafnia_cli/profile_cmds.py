@@ -6,10 +6,15 @@ import hafnia_cli.consts as consts
 from hafnia_cli.config import Config, ConfigSchema
 
 
-@click.group()
-def profile():
+@click.group(invoke_without_command=True)
+@click.pass_context
+def profile(ctx):
     """Manage profile."""
-    pass
+    if ctx.invoked_subcommand is None:
+        # No subcommand provided, show active profile and help
+        cfg = ctx.obj
+        profile_show(cfg)
+        click.echo("\n" + ctx.get_help())
 
 
 @profile.command("ls")

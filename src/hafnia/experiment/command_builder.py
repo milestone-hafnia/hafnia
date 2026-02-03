@@ -103,7 +103,7 @@ def auto_save_command_builder_schema(
         bool_handling=bool_handling,
     )
 
-    path_schema = path_schema or path_of_function(cli_function).with_suffix(".json")
+    path_schema = path_schema or path_of_function(cli_function).with_suffix(".schema.json")
     launch_schema.to_json_file(path_schema)
     return path_schema
 

@@ -1,7 +1,8 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from hafnia import http
 from hafnia.utils import pretty_print_list_as_table, timed
+from hafnia_cli.config import Config
 
 
 @timed("Creating experiment.")
@@ -11,10 +12,11 @@ def create_experiment(
     trainer_id: str,
     exec_cmd: str,
     environment_id: str,
-    endpoint: str,
-    api_key: str,
+    cfg: Optional[Config] = None,
 ) -> Dict:
-    headers = {"Authorization": api_key}
+    cfg = cfg or Config()
+    endpoint = cfg.get_platform_endpoint("experiments")
+    headers = {"Authorization": cfg.api_key}
     response = http.post(
         endpoint,
         headers=headers,
@@ -30,8 +32,10 @@ def create_experiment(
 
 
 @timed("Fetching environment info.")
-def get_environments(endpoint: str, api_key: str) -> List[Dict]:
-    headers = {"Authorization": api_key}
+def get_environments(cfg: Optional[Config] = None) -> List[Dict]:
+    cfg = cfg or Config()
+    endpoint = cfg.get_platform_endpoint("experiment_environments")
+    headers = {"Authorization": cfg.api_key}
     envs: List[Dict] = http.fetch(endpoint, headers=headers)  # type: ignore[assignment]
     return envs
 
@@ -54,8 +58,8 @@ def pretty_print_training_environments(envs: List[Dict]) -> None:
     )
 
 
-def get_exp_environment_id(name: str, endpoint: str, api_key: str) -> str:
-    envs = get_environments(endpoint=endpoint, api_key=api_key)
+def get_exp_environment_id(name: str, cfg: Optional[Config] = None) -> str:
+    envs = get_environments(cfg=cfg)
 
     for env in envs:
         if env["name"] == name:

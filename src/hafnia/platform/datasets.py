@@ -83,8 +83,11 @@ def get_datasets(cfg: Optional[Config] = None) -> List[Dict[str, str]]:
 
 
 @timed("Fetching dataset info.")
-def get_dataset_id(dataset_name: str, endpoint: str, api_key: str) -> str:
-    headers = {"Authorization": api_key}
+def get_dataset_id(dataset_name: str, cfg: Optional[Config] = None) -> str:
+    """Get dataset ID by name from the Hafnia platform."""
+    cfg = cfg or Config()
+    endpoint = cfg.get_platform_endpoint("datasets")
+    headers = {"Authorization": cfg.api_key}
     full_url = f"{endpoint}?name__iexact={dataset_name}"
     dataset_responses: List[Dict] = http.fetch(full_url, headers=headers)  # type: ignore[assignment]
     if not dataset_responses:
@@ -186,9 +189,10 @@ def delete_dataset_completely_by_name(
 
 
 @timed("Import dataset details to platform")
-def upload_dataset_details(cfg: Config, data: dict, dataset_name: str) -> dict:
+def upload_dataset_details(data: dict, dataset_name: str, cfg: Optional[Config] = None) -> dict:
+    cfg = cfg or Config()
     dataset_endpoint = cfg.get_platform_endpoint("datasets")
-    dataset_id = get_dataset_id(dataset_name, dataset_endpoint, cfg.api_key)
+    dataset_id = get_dataset_id(dataset_name, cfg=cfg)
 
     import_endpoint = f"{dataset_endpoint}/{dataset_id}/import"
     headers = {"Authorization": cfg.api_key}

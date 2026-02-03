@@ -40,7 +40,7 @@ def test_zip_trainer_package_no_ignore_hafnia_file(tmp_path: Path, project_with_
     """Test zipping a trainer package using the default ignore specification."""
     path_source_code, add_files, _ = project_with_files_default
     path_zipped_trainer = tmp_path / "trainer.zip"
-    path_zipped_trainer = archive_dir(path_source_code, path_zipped_trainer)
+    path_zipped_trainer, _ = archive_dir(path_source_code, path_zipped_trainer)
     zipped_files = ZipFile(path_zipped_trainer).namelist()
     assert set(zipped_files) == set(add_files)
 
@@ -56,7 +56,7 @@ def test_zip_trainer_package_empty_ignore_hafnia_file(tmp_path: Path, project_wi
 
     # Automatically picks up the '.hafniaignore' file from the root of the source code
     path_zipped_trainer = tmp_path / "trainer.zip"
-    path_zipped_trainer = archive_dir(path_source_code, path_zipped_trainer, path_ignore_file=path_ignore_file)
+    path_zipped_trainer, _ = archive_dir(path_source_code, path_zipped_trainer, path_ignore_file=path_ignore_file)
 
     zipped_files = ZipFile(path_zipped_trainer).namelist()
     assert set(zipped_files) == set(keep_files + ignore_files)
@@ -79,6 +79,6 @@ def test_zip_trainer_package_custom_ignore_hafnia_file(tmp_path: Path, project_w
 
     # Automatically picks up the '.hafniaignore' file from the root of the source code
     path_zipped_trainer1 = tmp_path / "trainer.zip"
-    path_zipped_trainer1 = archive_dir(path_source_code, path_zipped_trainer1)
+    path_zipped_trainer1, _ = archive_dir(path_source_code, path_zipped_trainer1)
     zipped_files1 = ZipFile(path_zipped_trainer1).namelist()
     assert set(expected_in_trainer_files) == set(zipped_files1)

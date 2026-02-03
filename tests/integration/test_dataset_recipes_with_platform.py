@@ -21,10 +21,9 @@ def test_dataset_recipe_on_platform():
 
     # Prepare test
     cfg = Config()
-    endpoint = cfg.get_platform_endpoint("dataset_recipes")
     dataset_recipe_name = "test-complex-recipe"
     # Ensure dataset recipe is deleted before test
-    delete_dataset_recipe_by_name(name=dataset_recipe_name, endpoint=endpoint, api_key=cfg.api_key)
+    delete_dataset_recipe_by_name(name=dataset_recipe_name, cfg=cfg)
 
     mappings_coco = {
         "person": "Person",
@@ -67,11 +66,11 @@ def test_dataset_recipe_on_platform():
     assert dataset_recipe_id == dataset_recipe_id_again
 
     # Test case 3: Get dataset recipe by id
-    response = get_dataset_recipe_by_id(dataset_recipe_id, endpoint=endpoint, api_key=cfg.api_key)
+    response = get_dataset_recipe_by_id(dataset_recipe_id, cfg=cfg)
 
     # Test case 4: Delete recipe by id
-    delete_dataset_recipe_by_id(dataset_recipe_id, endpoint=endpoint, api_key=cfg.api_key)
+    delete_dataset_recipe_by_id(dataset_recipe_id, cfg=cfg)
 
     # Verify deletion
     with pytest.raises(urllib3.exceptions.HTTPError, match="Request failed with status 404"):
-        get_dataset_recipe_by_id(dataset_recipe_id, endpoint=endpoint, api_key=cfg.api_key)
+        get_dataset_recipe_by_id(dataset_recipe_id, cfg=cfg)

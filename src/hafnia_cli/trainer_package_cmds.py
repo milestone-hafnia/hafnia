@@ -21,10 +21,56 @@ def cmd_list_trainer_packages(cfg: Config, limit: Optional[int]) -> None:
 
     from hafnia.platform.trainer_package import get_trainer_packages, pretty_print_trainer_packages
 
-    endpoint = cfg.get_platform_endpoint("trainers")
-    trainers = get_trainer_packages(endpoint, cfg.api_key)
+    trainers = get_trainer_packages(cfg=cfg)
 
     pretty_print_trainer_packages(trainers, limit=limit)
+
+
+@trainer_package.command(name="create")
+@click.pass_obj
+@click.argument(
+    "path",
+    type=Path,
+)
+@click.option(
+    "-n",
+    "--name",
+    type=str,
+    default=None,
+    help="Name of the trainer package.",
+)
+@click.option(
+    "-d",
+    "--description",
+    type=str,
+    default=None,
+    help="Description of the trainer package.",
+)
+@click.option(
+    "--cmd",
+    type=Optional[str],
+    default=None,
+    show_default=True,
+    help="Default command to run the trainer package.",
+)
+def cmd_create_trainer_package(
+    cfg: Config,
+    path: Path,
+    cmd: Optional[str] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+) -> None:
+    """Create a trainer package on the platform"""
+    from hafnia.platform.trainer_package import create_trainer_package
+
+    path_trainer = Path(path).resolve()
+    create_trainer_package(
+        source_dir=path_trainer,
+        name=name,
+        description=description,
+        cmd=cmd,
+        cfg=cfg,
+    )
 
 
 @trainer_package.command(name="create-zip")
@@ -46,7 +92,7 @@ def cmd_create_trainer_package_zip(source: str, output: str) -> None:
         raise click.ClickException(consts.ERROR_TRAINER_PACKAGE_FILE_FORMAT)
 
     path_source = Path(source)
-    path_output_zip = archive_dir(path_source, path_output_zip)
+    path_output_zip, _ = archive_dir(path_source, path_output_zip)
 
 
 @trainer_package.command(name="view-zip")

@@ -28,8 +28,7 @@ def cmd_get_or_create_dataset_recipe(cfg: Config, path_json_recipe: Path, name: 
     """Create Hafnia dataset recipe from dataset recipe JSON file"""
     from hafnia.platform.dataset_recipe import get_or_create_dataset_recipe_from_path
 
-    endpoint = cfg.get_platform_endpoint("dataset_recipes")
-    recipe = get_or_create_dataset_recipe_from_path(path_json_recipe, endpoint=endpoint, api_key=cfg.api_key, name=name)
+    recipe = get_or_create_dataset_recipe_from_path(path_json_recipe, name=name, cfg=cfg)
 
     if recipe is None:
         raise click.ClickException("Failed to create dataset recipe.")
@@ -44,8 +43,7 @@ def cmd_list_dataset_recipes(cfg: Config, limit: Optional[int]) -> None:
     """List available dataset recipes"""
     from hafnia.platform.dataset_recipe import get_dataset_recipes, pretty_print_dataset_recipes
 
-    endpoint = cfg.get_platform_endpoint("dataset_recipes")
-    recipes = get_dataset_recipes(endpoint=endpoint, api_key=cfg.api_key)
+    recipes = get_dataset_recipes(cfg=cfg)
     # Sort recipes to have the most recent first
     recipes = sorted(recipes, key=lambda x: x["created_at"], reverse=True)
     if limit is not None:
@@ -61,12 +59,10 @@ def cmd_delete_dataset_recipe(cfg: Config, id: Optional[str], name: Optional[str
     """Delete a dataset recipe by ID or name"""
     from hafnia.platform.dataset_recipe import delete_dataset_recipe_by_id, delete_dataset_recipe_by_name
 
-    endpoint = cfg.get_platform_endpoint("dataset_recipes")
-
     if id is not None:
-        return delete_dataset_recipe_by_id(id=id, endpoint=endpoint, api_key=cfg.api_key)
+        return delete_dataset_recipe_by_id(id=id, cfg=cfg)
     if name is not None:
-        dataset_recipe = delete_dataset_recipe_by_name(name=name, endpoint=endpoint, api_key=cfg.api_key)
+        dataset_recipe = delete_dataset_recipe_by_name(name=name, cfg=cfg)
         if dataset_recipe is None:
             raise click.ClickException(f"Dataset recipe with name '{name}' was not found.")
 

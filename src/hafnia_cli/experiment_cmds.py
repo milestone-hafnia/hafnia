@@ -27,7 +27,7 @@ def cmd_view_environments(cfg: Config):
     """
     from hafnia.platform import get_environments, pretty_print_training_environments
 
-    envs = get_environments(cfg.get_platform_endpoint("experiment_environments"), cfg.api_key)
+    envs = get_environments(cfg=cfg)
 
     pretty_print_training_environments(envs)
 
@@ -132,7 +132,7 @@ def cmd_create_experiment(
     """
     from hafnia.platform import create_experiment, get_exp_environment_id
 
-    dataset_recipe_response = get_dataset_recipe_by_dataset_identifies(
+    dataset_recipe_response = get_dataset_recipe_by_identifiers(
         cfg=cfg,
         dataset_name=dataset,
         dataset_recipe_name=dataset_recipe,
@@ -140,13 +140,8 @@ def cmd_create_experiment(
     )
     dataset_recipe_id = dataset_recipe_response["id"]
 
-    trainer_id = get_trainer_package_by_identifies(
-        cfg=cfg,
-        trainer_path=trainer_path,
-        trainer_id=trainer_id,
-    )
-
-    env_id = get_exp_environment_id(environment, cfg.get_platform_endpoint("experiment_environments"), cfg.api_key)
+    trainer_id = get_trainer_package_by_identifiers(cfg=cfg, trainer_path=trainer_path, trainer_id=trainer_id)
+    env_id = get_exp_environment_id(environment, cfg=cfg)
 
     experiment = create_experiment(
         experiment_name=name,
@@ -154,8 +149,7 @@ def cmd_create_experiment(
         trainer_id=trainer_id,
         exec_cmd=cmd,
         environment_id=env_id,
-        endpoint=cfg.get_platform_endpoint("experiments"),
-        api_key=cfg.api_key,
+        cfg=cfg,
     )
 
     experiment_properties = {
@@ -172,7 +166,7 @@ def cmd_create_experiment(
         print(f"  {key}: {value}")
 
 
-def get_dataset_recipe_by_dataset_identifies(
+def get_dataset_recipe_by_identifiers(
     cfg: Config,
     dataset_name: Optional[str],
     dataset_recipe_name: Optional[str],
@@ -186,18 +180,17 @@ def get_dataset_recipe_by_dataset_identifies(
             "Multiple dataset identifiers have been provided. Define only one dataset identifier."
         )
 
-    dataset_recipe_endpoint = cfg.get_platform_endpoint("dataset_recipes")
     if dataset_name:
-        return get_or_create_dataset_recipe_by_dataset_name(dataset_name, dataset_recipe_endpoint, cfg.api_key)
+        return get_or_create_dataset_recipe_by_dataset_name(dataset_name, cfg=cfg)
 
     if dataset_recipe_name:
-        recipe = get_dataset_recipe_by_name(dataset_recipe_name, dataset_recipe_endpoint, cfg.api_key)
+        recipe = get_dataset_recipe_by_name(dataset_recipe_name, cfg=cfg)
         if recipe is None:
             raise click.ClickException(f"Dataset recipe '{dataset_recipe_name}' was not found in the dataset library.")
         return recipe
 
     if dataset_recipe_id:
-        return get_dataset_recipe_by_id(dataset_recipe_id, dataset_recipe_endpoint, cfg.api_key)
+        return get_dataset_recipe_by_id(dataset_recipe_id, cfg=cfg)
 
     raise click.MissingParameter(
         "At least one dataset identifier must be provided. Set one of the following:\n"
@@ -207,7 +200,7 @@ def get_dataset_recipe_by_dataset_identifies(
     )
 
 
-def get_trainer_package_by_identifies(
+def get_trainer_package_by_identifiers(
     cfg: Config,
     trainer_path: Optional[Path],
     trainer_id: Optional[str],
@@ -223,17 +216,14 @@ def get_trainer_package_by_identifies(
         trainer_path = Path(trainer_path)
         if not trainer_path.exists():
             raise click.ClickException(f"Trainer package path '{trainer_path}' does not exist.")
-        trainer_id = create_trainer_package(
-            trainer_path,
-            cfg.get_platform_endpoint("trainers"),
-            cfg.api_key,
+        response = create_trainer_package(
+            source_dir=trainer_path,
+            cfg=cfg,
         )
-        return trainer_id
+        return response["id"]
 
     if trainer_id:
-        trainer_response = get_trainer_package_by_id(
-            id=trainer_id, endpoint=cfg.get_platform_endpoint("trainers"), api_key=cfg.api_key
-        )
+        trainer_response = get_trainer_package_by_id(id=trainer_id, cfg=cfg)
         return trainer_response["id"]
 
     raise click.MissingParameter(

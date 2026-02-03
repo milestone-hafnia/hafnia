@@ -77,9 +77,24 @@
                 "--dataset",
                 "mnist",
             ]
-        },    
+        },
         {
-            "name": "cmd: 'hafnia train-recipe [X]'",
+            "name": "cmd: 'hafnia trainer create [X]'",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
+            "args": [
+                "trainer",
+                "create",
+                "${workspaceFolder}/../trainer-classification",
+                "--name",
+                "Classification Trainer Package Launched in debug mode from vc-code",
+                "--description",
+                "A trainer package for image classification tasks launched in debug mode."
+            ]
+        },
+        {
+            "name": "cmd: 'hafnia trainer [X]'",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
