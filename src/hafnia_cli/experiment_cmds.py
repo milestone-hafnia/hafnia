@@ -132,7 +132,7 @@ def cmd_create_experiment(
     """
     from hafnia.platform import create_experiment, get_exp_environment_id
 
-    dataset_recipe_response = get_dataset_recipe_by_dataset_identifies(
+    dataset_recipe_response = get_dataset_recipe_by_identifiers(
         cfg=cfg,
         dataset_name=dataset,
         dataset_recipe_name=dataset_recipe,
@@ -140,7 +140,7 @@ def cmd_create_experiment(
     )
     dataset_recipe_id = dataset_recipe_response["id"]
 
-    trainer_id = get_trainer_package_by_identifies(
+    trainer_id = get_trainer_package_by_identifiers(
         cfg=cfg,
         trainer_path=trainer_path,
         trainer_id=trainer_id,
@@ -172,7 +172,7 @@ def cmd_create_experiment(
         print(f"  {key}: {value}")
 
 
-def get_dataset_recipe_by_dataset_identifies(
+def get_dataset_recipe_by_identifiers(
     cfg: Config,
     dataset_name: Optional[str],
     dataset_recipe_name: Optional[str],
@@ -207,7 +207,7 @@ def get_dataset_recipe_by_dataset_identifies(
     )
 
 
-def get_trainer_package_by_identifies(
+def get_trainer_package_by_identifiers(
     cfg: Config,
     trainer_path: Optional[Path],
     trainer_id: Optional[str],

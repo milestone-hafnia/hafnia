@@ -6,7 +6,7 @@ from collections.abc import Sized
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 from zipfile import ZipFile
 
 import more_itertools
@@ -113,20 +113,22 @@ def archive_dir(
     recipe_path: Path,
     output_path: Optional[Path] = None,
     path_ignore_file: Optional[Path] = None,
-) -> Path:
+) -> Tuple[Path, List[Path]]:
     recipe_zip_path = output_path or recipe_path / "trainer.zip"
     assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
     recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
     user_logger.info(f" Creating zip archive of '{recipe_path}'")
-    include_files = filter_trainer_package_files(recipe_path, path_ignore_file)
+    include_files_generator = filter_trainer_package_files(recipe_path, path_ignore_file)
+    included_files = []
     with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
-        for str_filepath in include_files:
+        for str_filepath in include_files_generator:
             full_path = recipe_path / str_filepath
             zip_ref.write(full_path, str_filepath)
+            included_files.append(full_path)
     show_trainer_package_content(recipe_zip_path)
 
-    return recipe_zip_path
+    return recipe_zip_path, included_files
 
 
 def size_human_readable(size_bytes: int, suffix="B") -> str:
