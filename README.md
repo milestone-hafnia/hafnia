@@ -34,9 +34,16 @@ multiple GPUs and instances if needed.
 ## Getting started: Configuration
 To get started with Hafnia: 
 
-1. Install `hafnia` with your favorite python package manager. With pip do this:
+1. Install `hafnia` with your favorite python package manager:
 
-    `pip install hafnia`
+    ```bash
+    # With uv package manager 
+    uv add hafnia
+
+    # With pip
+    pip install hafnia
+    ```
+
 1. Sign in to the [Hafnia Platform](https://hafnia.milestonesys.com/). 
 1. Create an API KEY for Training aaS. For more instructions, follow this 
 [guide](https://hafnia.readme.io/docs/create-an-api-key). 

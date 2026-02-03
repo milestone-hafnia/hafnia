@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import click
 
@@ -59,18 +59,20 @@ def cmd_create_trainer_package(
     cmd: Optional[str] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
-) -> None:
+) -> Dict:
     """Create a trainer package on the platform"""
     from hafnia.platform.trainer_package import create_trainer_package
 
     path_trainer = Path(path).resolve()
-    create_trainer_package(
+    trainer_response = create_trainer_package(
         source_dir=path_trainer,
         name=name,
         description=description,
         cmd=cmd,
         cfg=cfg,
     )
+
+    return trainer_response
 
 
 @trainer_package.command(name="create-zip")
