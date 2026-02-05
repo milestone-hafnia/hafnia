@@ -19,6 +19,7 @@ CommandBuilderSchema JSON file should be saved as `./scripts/train.json`.
 
 from __future__ import annotations
 
+import enum
 import inspect
 from pathlib import Path
 from typing import (
@@ -569,6 +570,15 @@ def pydantic_model_from_cli_function(
 
         base_type, field_info = function_param_as_type_and_field_info(param)
 
+        # if issubclass(base_type, enum.Enum):
+        if type(base_type) is enum.EnumMeta:
+            raise TypeError(
+                f"'Enum' CLI argument types are not supported yet in command builder schema generation.\n"
+                f"Found that '{param.name}' uses enum type.\n"
+                f"As a workaround, use 'Literal[...]' or 'str' type instead if possible for parameter '{param.name}'. "
+                f"If this is not an option you may simply ignore this parameter from the schema generation "
+                f"using the 'ignore_params' argument."
+            )
         default = derive_default_value(field_info, param)
         if field_info.description is None and param.name in docstring_params:
             field_info_attributes = field_info.asdict()["attributes"]
