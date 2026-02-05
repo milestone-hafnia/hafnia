@@ -465,3 +465,22 @@ def test_typer_cmdline(tmp_path: Path):
     assert parsed_data["param_int"] == 10
     assert parsed_data["bool_param"] is False
     assert parsed_data["bool_param_true"] is True
+
+
+def test_enum_not_supported():
+    """Test to ensure that using Enum types raises an error."""
+
+    from enum import Enum
+
+    class Color(Enum):
+        RED = "red"
+        GREEN = "green"
+        BLUE = "blue"
+
+    def enum_parameter_example(
+        color: Annotated[Color, "This is an example parameter using Enum."],
+    ):
+        pass
+
+    with pytest.raises(TypeError, match="'Enum' CLI argument types are not supported yet"):
+        command_builder.schema_from_cli_function(enum_parameter_example)
