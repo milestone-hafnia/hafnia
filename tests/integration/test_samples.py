@@ -12,11 +12,7 @@ from hafnia.dataset import torch_helpers
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.primitives.bbox import Bbox
-from hafnia.dataset.primitives.bitmask import Bitmask
-from hafnia.dataset.primitives.classification import Classification
-from hafnia.dataset.primitives.polygon import Polygon
-from hafnia.dataset.primitives.segmentation import Segmentation
+from hafnia.dataset.primitives import Bbox, Bitmask, Classification, Polygon, Segmentation
 from hafnia.utils import is_hafnia_configured
 from tests.helper_testing_datasets import SUPPORTED_DATASETS
 

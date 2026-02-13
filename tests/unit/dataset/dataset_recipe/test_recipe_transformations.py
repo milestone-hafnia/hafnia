@@ -20,7 +20,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
 )
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.primitives.bbox import Bbox
+from hafnia.dataset.primitives import Bbox
 from tests.helper_testing import dict_as_list_of_tuples, get_micro_hafnia_dataset, get_strict_class_mapping_midwest
 
 

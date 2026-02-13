@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -14,6 +14,9 @@ from hafnia.dataset.primitives.utils import (
     get_class_name,
     text_org_from_left_bottom_to_centered,
 )
+
+if TYPE_CHECKING:
+    from hafnia.dataset.primitives import Bbox, Classification, Polygon
 
 
 class Bitmask(Primitive):
@@ -38,6 +41,12 @@ class Bitmask(Primitive):
         default="", description="Task name to support multiple Bitmask tasks in the same dataset. Defaults to 'bitmask'"
     )
     meta: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the annotation")
+
+    # Attributes - allow nesting of any primitive type including itself
+    bboxes: Optional[List["Bbox"]] = None
+    classifications: Optional[List["Classification"]] = None
+    polygons: Optional[List["Polygon"]] = None
+    bitmasks: Optional[List["Bitmask"]] = None
 
     @staticmethod
     def default_task_name() -> str:

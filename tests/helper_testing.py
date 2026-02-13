@@ -303,7 +303,7 @@ def simulate_hafnia_video_dataset(
     video_writer.release()
     tasks = []
     if add_bboxes:
-        tasks.append(TaskInfo(primitive=Bbox, class_names=class_names))
+        tasks.append(TaskInfo.from_class_names(primitive=Bbox, class_names=class_names))
     dataset_info = DatasetInfo(
         dataset_name="SimulatedHafniaVideoDataset",
         tasks=tasks,

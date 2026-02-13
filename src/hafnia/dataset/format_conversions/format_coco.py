@@ -148,8 +148,8 @@ def coco_format_folder_with_split_to_hafnia_samples(
 
     id_to_category, class_names = get_coco_id_category_mapping(image_and_annotation_dict.get("categories", []))
     tasks = [
-        TaskInfo(primitive=Bbox, class_names=class_names),
-        TaskInfo(primitive=Bitmask, class_names=class_names),
+        TaskInfo.from_class_names(primitive=Bbox, class_names=class_names),
+        TaskInfo.from_class_names(primitive=Bitmask, class_names=class_names),
     ]
 
     coco_licenses = image_and_annotation_dict.get("licenses", [])
@@ -351,7 +351,7 @@ def to_coco_format(
         task_info = tasks_info[0]
 
     categories_list_dict = [
-        {"id": i, "name": c, "supercategory": "NotDefined"} for i, c in enumerate(task_info.class_names or [])
+        {"id": i, "name": c, "supercategory": "NotDefined"} for i, c in enumerate(task_info.get_class_names() or [])
     ]
     category_mapping = {cat["name"]: cat["id"] for cat in categories_list_dict}
 

@@ -35,11 +35,16 @@ from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 
 
+class ClassInfo(BaseModel):
+    name: str = Field(description="Name of the class")
+    attributes: Optional[List["TaskInfo"]] = None
+
+
 class TaskInfo(BaseModel):
     primitive: Type[Primitive] = Field(
         description="Primitive class or string name of the primitive, e.g. 'Bbox' or 'bitmask'"
     )
-    class_names: Optional[List[str]] = Field(default=None, description="Optional list of class names for the primitive")
+    classes: Optional[List[ClassInfo]] = Field(default=None, description="Optional list of classes for the task")
     name: Optional[str] = Field(
         default=None,
         description=(
@@ -48,17 +53,29 @@ class TaskInfo(BaseModel):
         ),
     )
 
+    def get_class_names(self) -> Optional[List[str]]:
+        if self.classes is None:
+            return None
+        return [class_info.name for class_info in self.classes]
+
+    @staticmethod
+    def from_class_names(primitive: Type[Primitive], class_names: List[str], name: Optional[str] = None) -> "TaskInfo":
+        """Create TaskInfo object from a list of class names"""
+        classes = [ClassInfo(name=class_name) for class_name in class_names]
+        return TaskInfo(primitive=primitive, classes=classes, name=name)
+
     def model_post_init(self, __context: Any) -> None:
         if self.name is None:
             self.name = self.primitive.default_task_name()
 
     def get_class_index(self, class_name: str) -> int:
         """Get class index for a given class name"""
-        if self.class_names is None:
+        class_names = self.get_class_names()
+        if class_names is None:
             raise ValueError(f"Task '{self.name}' has no class names defined.")
-        if class_name not in self.class_names:
+        if class_name not in class_names:
             raise ValueError(f"Class name '{class_name}' not found in task '{self.name}'.")
-        return self.class_names.index(class_name)
+        return class_names.index(class_name)
 
     # The 'primitive'-field of type 'Type[Primitive]' is not supported by pydantic out-of-the-box as
     # the 'Primitive' class is an abstract base class and for the actual primitives such as Bbox, Bitmask, Classification.
@@ -82,18 +99,19 @@ class TaskInfo(BaseModel):
             raise ValueError(f"Primitive must be a subclass of Primitive, got {type(primitive)} instead.")
         return primitive.__name__
 
-    @field_validator("class_names", mode="after")
+    @field_validator("classes", mode="after")
     @classmethod
-    def validate_unique_class_names(cls, class_names: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_unique_class_names(cls, classes: Optional[List[ClassInfo]]) -> Optional[List[ClassInfo]]:
         """Validate that class names are unique"""
-        if class_names is None:
+        if classes is None:
             return None
+        class_names = [class_info.name for class_info in classes]
         duplicate_class_names = set([name for name in class_names if class_names.count(name) > 1])
         if duplicate_class_names:
             raise ValueError(
                 f"Class names must be unique. The following class names appear multiple times: {duplicate_class_names}."
             )
-        return class_names
+        return classes
 
     def full_name(self) -> str:
         """Get qualified name for the task: <primitive_name>:<task_name>"""
@@ -101,13 +119,13 @@ class TaskInfo(BaseModel):
 
     # To get unique hash value for TaskInfo objects
     def __hash__(self) -> int:
-        class_names = self.class_names or []
+        class_names = self.get_class_names() or []
         return hash((self.name, self.primitive.__name__, tuple(class_names)))
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, TaskInfo):
             return False
-        return self.name == other.name and self.primitive == other.primitive and self.class_names == other.class_names
+        return self.name == other.name and self.primitive == other.primitive and self.classes == other.classes
 
 
 class DatasetInfo(BaseModel):
@@ -188,8 +206,17 @@ class DatasetInfo(BaseModel):
         if "format_version" not in json_dict:
             json_dict["format_version"] = "0.0.0"
 
+        if Version(json_dict["format_version"]) <= Version("0.2.0"):
+            old_convention = any("class_names" in task for task in json_dict["tasks"])
+            if "tasks" in json_dict and old_convention:
+                new_tasks = []
+                for task_dict in json_dict["tasks"]:
+                    task_dict_new = TaskInfo.from_class_names(**task_dict).model_dump(mode="dict")
+                    new_tasks.append(task_dict_new)
+                json_dict["tasks"] = new_tasks
         if "updated_at" not in json_dict:
             json_dict["updated_at"] = datetime.min.isoformat()
+
         dataset_info = DatasetInfo.model_validate(json_dict)
 
         return dataset_info
@@ -213,8 +240,8 @@ class DatasetInfo(BaseModel):
 
                 is_same_name_and_primitive = same_name and same_primitive
                 if is_same_name_and_primitive:
-                    task_ds0_class_names = task_ds0.class_names or []
-                    task_ds1_class_names = task_ds1.class_names or []
+                    task_ds0_class_names = task_ds0.get_class_names() or []
+                    task_ds1_class_names = task_ds1.get_class_names() or []
                     if task_ds0_class_names != task_ds1_class_names:
                         raise ValueError(
                             f"Cannot merge datasets with different class names for the same task name and primitive: "

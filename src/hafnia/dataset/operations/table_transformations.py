@@ -9,8 +9,7 @@ from hafnia.dataset.dataset_names import (
 )
 from hafnia.dataset.hafnia_dataset_types import TaskInfo
 from hafnia.dataset.operations import table_transformations
-from hafnia.dataset.primitives import PRIMITIVE_TYPES
-from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives import PRIMITIVE_TYPES, Classification
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
@@ -264,7 +263,8 @@ def unnest_classification_tasks(table: pl.DataFrame, strict: bool = True) -> pl.
 
 
 def update_class_indices(samples: pl.DataFrame, task: TaskInfo) -> pl.DataFrame:
-    if task.class_names is None or len(task.class_names) == 0:
+    class_names = task.get_class_names()
+    if class_names is None or len(class_names) == 0:
         raise ValueError(f"Task '{task.name}' does not have defined class names to update class indices.")
 
     objs = (
@@ -274,13 +274,13 @@ def update_class_indices(samples: pl.DataFrame, task: TaskInfo) -> pl.DataFrame:
         .filter(pl.col(PrimitiveField.TASK_NAME) == task.name)
     )
     expected_class_names = set(objs[PrimitiveField.CLASS_NAME].unique())
-    missing_class_names = expected_class_names - set(task.class_names)
+    missing_class_names = expected_class_names - set(class_names)
     if len(missing_class_names) > 0:
         raise ValueError(
             f"Task '{task.name}' is missing class names: {missing_class_names}. Cannot update class indices."
         )
 
-    name_2_idx_mapping = {name: idx for idx, name in enumerate(task.class_names)}
+    name_2_idx_mapping = {name: idx for idx, name in enumerate(class_names)}
 
     samples_updated = samples.with_columns(
         pl.col(task.primitive.column_name())

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Type
+from typing import List, Optional, Type
 
 from .bbox import Bbox
 from .bitmask import Bitmask
@@ -10,6 +10,13 @@ from .polygon import Polygon
 from .primitive import Primitive
 from .segmentation import Segmentation  # noqa: F401
 from .utils import class_color_by_name  # noqa: F401
+
+# Rebuild models to resolve forward references after all types are imported
+Bbox.model_rebuild()
+Bitmask.model_rebuild()
+Polygon.model_rebuild()
+Classification.model_rebuild()
+
 
 PRIMITIVE_TYPES: List[Type[Primitive]] = [Bbox, Classification, Polygon, Bitmask]
 PRIMITIVE_NAME_TO_TYPE = {cls.__name__: cls for cls in PRIMITIVE_TYPES}

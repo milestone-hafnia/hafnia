@@ -79,9 +79,9 @@ def auto_save_command_builder_schema(
     command_builder = CommandBuilderSchema(
         cmd="python scripts/train.py",
         json_schema=function_schema,
-        kebab_case=True,
+        case_conversion="kebab",
         parameter_prefix="--",
-        nested_parameter_separator=".",
+        nested_parameter_handling="dot",
         assignment_separator="space",
         n_positional_args=0,
         bool_handling="flag-negation",

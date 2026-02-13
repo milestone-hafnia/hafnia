@@ -71,7 +71,7 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
     assert len(dataset) == 3
     assert len(dataset.info.tasks) == 1
     task = dataset.info.tasks[0]
-    assert len(task.class_names or []) == 80
+    assert len(task.get_class_names() or []) == 80
     assert task.primitive == primitives.Bbox
     assert task.name == primitives.Bbox.default_task_name()
 
@@ -85,7 +85,9 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
     for split_paths in list_split_paths:
         split_paths.check_paths()
         split_class_names = [n for n in split_paths.path_class_names.read_text().splitlines() if n.strip() != ""]
-        assert split_class_names == task.class_names
+        assert split_class_names == task.get_class_names(), (
+            "The class names in the exported YOLO dataset should match the original dataset task class names."
+        )
         image_paths = split_paths.path_images_txt.read_text().splitlines()
         assert len(image_paths) > 0
         for image_path in image_paths:

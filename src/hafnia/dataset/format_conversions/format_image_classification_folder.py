@@ -111,7 +111,7 @@ def from_image_classification_split_folder(
 
     dataset_info = DatasetInfo(
         dataset_name=dataset_name,
-        tasks=[TaskInfo(primitive=Classification, class_names=class_names)],
+        tasks=[TaskInfo.from_class_names(primitive=Classification, class_names=class_names)],
     )
 
     hafnia_dataset = HafniaDataset.from_samples_list(samples_list=samples, info=dataset_info)
