@@ -39,6 +39,31 @@ class ClassInfo(BaseModel):
     name: str = Field(description="Name of the class")
     attributes: Optional[List["TaskInfo"]] = None
 
+    @staticmethod
+    def from_encord_option_dict(option_dict: Dict, parent_primitive: Type[Primitive]) -> "ClassInfo":
+        """Create ClassInfo from an Encord option dictionary.
+
+        Args:
+            option_dict: Dictionary containing 'value' and optionally nested 'options'
+            parent_primitive: The primitive type that this option belongs to
+
+        Returns:
+            ClassInfo object with name and potentially nested attributes
+        """
+        class_name = option_dict["value"]
+
+        # Check if this option has nested attributes (like Gray -> Gray Tone)
+        nested_attributes = []
+        if "options" in option_dict:
+            for nested_attr_dict in option_dict["options"]:
+                if nested_attr_dict.get("type") not in ["radio", "checklist"]:
+                    continue
+                # Nested attributes become Classification TaskInfo
+                nested_task = TaskInfo.from_encord_attribute_dict(nested_attr_dict, primitive=Classification)
+                nested_attributes.append(nested_task)
+
+        return ClassInfo(name=class_name, attributes=nested_attributes if nested_attributes else None)
+
 
 class TaskInfo(BaseModel):
     primitive: Type[Primitive] = Field(
@@ -76,6 +101,87 @@ class TaskInfo(BaseModel):
         if class_name not in class_names:
             raise ValueError(f"Class name '{class_name}' not found in task '{self.name}'.")
         return class_names.index(class_name)
+
+    @staticmethod
+    def from_encord_ontology_dict(ontology_dict: Dict) -> List["TaskInfo"]:
+        """Parse Encord ontology JSON into a list of TaskInfo objects.
+
+        Objects are grouped by primitive type (all bounding boxes in one task, etc.)
+        Classifications each become their own TaskInfo.
+
+        Args:
+            ontology_dict: Dictionary containing 'objects' and 'classifications' keys
+
+        Returns:
+            List of TaskInfo objects representing the complete ontology
+        """
+        from data_management.encord_datasets.encord_exporter import primitive_from_encord_shape_name
+
+        tasks = []
+
+        # Group objects by their primitive type
+        objects_by_primitive = collections.defaultdict(list)
+        for obj_dict in ontology_dict.get("objects", []):
+            Primitive = primitive_from_encord_shape_name(obj_dict["shape"])
+            objects_by_primitive[Primitive].append(obj_dict)
+
+        # Create one TaskInfo per primitive type
+        for Primitive, obj_dicts in objects_by_primitive.items():
+            classes = []
+            for obj_dict in obj_dicts:
+                class_name = obj_dict["name"]
+
+                # Parse attributes for this class
+                class_attributes = []
+                for attr_dict in obj_dict.get("attributes", []):
+                    if attr_dict.get("type") not in ["radio", "checklist"]:
+                        user_logger.warning(
+                            f"Skipping unsupported attribute type '{attr_dict.get('type')}' in class '{class_name}'"
+                        )
+                        continue
+                    # Object attributes become Classification TaskInfo
+                    attr_task = TaskInfo.from_encord_attribute_dict(attr_dict, primitive=Classification)
+                    class_attributes.append(attr_task)
+
+                classes.append(ClassInfo(name=class_name, attributes=class_attributes if class_attributes else None))
+
+            tasks.append(
+                TaskInfo(
+                    primitive=Primitive,
+                    classes=classes,
+                )
+            )
+
+        # Each classification attribute becomes its own TaskInfo
+        for classification_dict in ontology_dict.get("classifications", []):
+            for attr_dict in classification_dict.get("attributes", []):
+                if attr_dict.get("type") not in ["radio", "checklist"]:
+                    continue
+                classification_task = TaskInfo.from_encord_attribute_dict(attr_dict, primitive=Classification)
+                tasks.append(classification_task)
+
+        return tasks
+
+    @staticmethod
+    def from_encord_attribute_dict(attribute_dict: Dict, primitive: Type[Primitive]) -> "TaskInfo":
+        """Create TaskInfo from an Encord attribute dictionary.
+
+        Args:
+            attribute_dict: Dictionary containing 'name', 'type', and 'options'
+            primitive: The primitive type for this task (typically Classification for attributes)
+
+        Returns:
+            TaskInfo object with classes parsed from options
+        """
+        task_name = attribute_dict["name"]
+
+        # Parse all options into ClassInfo objects
+        classes = []
+        for option_dict in attribute_dict.get("options", []):
+            class_info = ClassInfo.from_encord_option_dict(option_dict, primitive)
+            classes.append(class_info)
+
+        return TaskInfo(primitive=primitive, classes=classes if classes else None, name=task_name)
 
     # The 'primitive'-field of type 'Type[Primitive]' is not supported by pydantic out-of-the-box as
     # the 'Primitive' class is an abstract base class and for the actual primitives such as Bbox, Bitmask, Classification.
