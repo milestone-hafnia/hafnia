@@ -55,7 +55,7 @@ if utils.is_hafnia_configured():  # First ensure you are connected to the hafnia
     dataset_recipe_again = DatasetRecipe.from_recipe_name(name="example-mnist-recipe")
 
     # Launch an experiment with the dataset recipe using the CLI:
-    # hafnia experiment create --dataset-recipe example-mnist-recipe --trainer-path ../trainer-classification
+    # hafnia experiment create --recipe example-mnist-recipe --trainer-path ../trainer-classification
 
     # Coming soon: Dataset recipes will be included in the web platform to them to be shared, managed
     # and used in experiments.
@@ -164,12 +164,12 @@ if utils.is_hafnia_configured():
     print(f"Recipe Name: '{recipe_response['name']}', Recipe id: '{recipe_response['id']}'")
 
     # 4) The recipe is now available in TaaS for you and other users in your organization
-    # 4a) View recipes from your terminal with 'hafnia dataset-recipe ls'
+    # 4a) View recipes from your terminal with 'hafnia recipe ls'
     # 4b) (Coming soon) Or go to 'Dataset Recipes' in the TaaS web platform:  https://hafnia.milestonesys.com/training-aas/dataset-recipes
 
     # 5) Launch an experiment with the dataset:
     # 5a) Using the CLI:
-    #   'hafnia experiment create --dataset-recipe person-vehicle-detection --trainer-path ../trainer-classification'
+    #   'hafnia experiment create --recipe person-vehicle-detection --trainer-path ../trainer-classification'
     # 5b) (Coming soon) Or through the TaaS web platform:  https://hafnia.milestonesys.com/training-aas/experiments
 
 # 6) Monitor and manage your experiments

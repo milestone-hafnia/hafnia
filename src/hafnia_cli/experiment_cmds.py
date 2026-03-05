@@ -77,18 +77,18 @@ def default_experiment_run_name():
 )
 @click.option(
     "-r",
-    "--dataset-recipe",
+    "--recipe",
     type=str,
     default=None,
     required=False,
-    help="DatasetIdentifier: Name of the dataset recipe. View available dataset recipes with 'hafnia dataset-recipe ls'",
+    help="DatasetIdentifier: Name of the dataset recipe. View available dataset recipes with 'hafnia recipe ls'",
 )
 @click.option(
-    "--dataset-recipe-id",
+    "--recipe-id",
     type=str,
     default=None,
     required=False,
-    help="DatasetIdentifier: ID of the dataset recipe. View dataset recipes with 'hafnia dataset-recipe ls'",
+    help="DatasetIdentifier: ID of the dataset recipe. View dataset recipes with 'hafnia recipe ls'",
 )
 @click.option(
     "-e",
@@ -106,15 +106,15 @@ def cmd_create_experiment(
     trainer_path: Path,
     trainer_id: Optional[str],
     dataset: Optional[str],
-    dataset_recipe: Optional[str],
-    dataset_recipe_id: Optional[str],
+    recipe: Optional[str],
+    recipe_id: Optional[str],
     environment: str,
 ) -> None:
     """
     Create and launch a new experiment run
 
     Requires one dataset recipe and one trainer package:.
-        - One dataset identifier is required either '--dataset', '--dataset-recipe' or '--dataset-recipe-id'.
+        - One dataset identifier is required either '--dataset', '--recipe' or '--recipe-id'.
         - One trainer identifier is required either '--trainer-path' or '--trainer-id'.
 
     \b
@@ -124,7 +124,7 @@ def cmd_create_experiment(
 
     \b
     # Launch experiment with dataset recipe by name and trainer package by id
-    hafnia experiment create --dataset-recipe mnist-recipe --trainer-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e
+    hafnia experiment create --recipe mnist-recipe --trainer-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e
 
     \b
     # Show available options:
@@ -135,17 +135,17 @@ def cmd_create_experiment(
     dataset_recipe_response = get_dataset_recipe_by_identifiers(
         cfg=cfg,
         dataset_name=dataset,
-        dataset_recipe_name=dataset_recipe,
-        dataset_recipe_id=dataset_recipe_id,
+        recipe_name=recipe,
+        recipe_id=recipe_id,
     )
-    dataset_recipe_id = dataset_recipe_response["id"]
+    recipe_id = dataset_recipe_response["id"]
 
     trainer_id = get_trainer_package_by_identifiers(cfg=cfg, trainer_path=trainer_path, trainer_id=trainer_id)
     env_id = get_exp_environment_id(environment, cfg=cfg)
 
     experiment = create_experiment(
         experiment_name=name,
-        dataset_recipe_id=dataset_recipe_id,
+        dataset_recipe_id=recipe_id,
         trainer_id=trainer_id,
         exec_cmd=cmd,
         environment_id=env_id,
@@ -169,10 +169,10 @@ def cmd_create_experiment(
 def get_dataset_recipe_by_identifiers(
     cfg: Config,
     dataset_name: Optional[str],
-    dataset_recipe_name: Optional[str],
-    dataset_recipe_id: Optional[str],
+    recipe_name: Optional[str],
+    recipe_id: Optional[str],
 ) -> Dict:
-    dataset_identifiers = [dataset_name, dataset_recipe_name, dataset_recipe_id]
+    dataset_identifiers = [dataset_name, recipe_name, recipe_id]
     n_dataset_identifies_defined = sum([bool(identifier) for identifier in dataset_identifiers])
 
     if n_dataset_identifies_defined > 1:
@@ -183,20 +183,20 @@ def get_dataset_recipe_by_identifiers(
     if dataset_name:
         return get_or_create_dataset_recipe_by_dataset_name(dataset_name, cfg=cfg)
 
-    if dataset_recipe_name:
-        recipe = get_dataset_recipe_by_name(dataset_recipe_name, cfg=cfg)
+    if recipe_name:
+        recipe = get_dataset_recipe_by_name(recipe_name, cfg=cfg)
         if recipe is None:
-            raise click.ClickException(f"Dataset recipe '{dataset_recipe_name}' was not found in the dataset library.")
+            raise click.ClickException(f"Dataset recipe '{recipe_name}' was not found in the dataset library.")
         return recipe
 
-    if dataset_recipe_id:
-        return get_dataset_recipe_by_id(dataset_recipe_id, cfg=cfg)
+    if recipe_id:
+        return get_dataset_recipe_by_id(recipe_id, cfg=cfg)
 
     raise click.MissingParameter(
         "At least one dataset identifier must be provided. Set one of the following:\n"
         "  --dataset <name>  -- E.g. '--dataset mnist'\n"
-        "  --dataset-recipe <name>  -- E.g. '--dataset-recipe my-recipe'\n"
-        "  --dataset-recipe-id <id>  -- E.g. '--dataset-recipe-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e'\n"
+        "  --recipe <name>  -- E.g. '--recipe my-recipe'\n"
+        "  --recipe-id <id>  -- E.g. '--recipe-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e'\n"
     )
 
 

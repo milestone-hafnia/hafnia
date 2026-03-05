@@ -14,13 +14,19 @@ def dataset():
     pass
 
 
+ordering_options = ["name", "-name", "created_at", "-created_at", "traceability_score", "-traceability_score"]
+
+
 @dataset.command("ls")
+@click.option("--limit", "-l", default=10, help="Limit the number of datasets displayed.")
+@click.option("--search", "-s", default=None, help="Search term to filter datasets.")
+@click.option("--ordering", "-o", type=click.Choice(ordering_options), default="name", help="Ordering of the datasets.")
 @click.pass_obj
-def cmd_list_datasets(cfg: Config) -> None:
+def cmd_list_datasets(cfg: Config, limit: int, search: Optional[str], ordering: str) -> None:
     """List available datasets on Hafnia platform"""
     from hafnia.platform.datasets import get_datasets, pretty_print_datasets
 
-    datasets = get_datasets(cfg=cfg)
+    datasets = get_datasets(cfg=cfg, limit=limit, search=search, ordering=ordering)
     pretty_print_datasets(datasets)
 
 

@@ -7,7 +7,7 @@ from rich import print as rprint
 from hafnia_cli.config import Config
 
 
-@click.group(name="dataset-recipe")
+@click.group(name="recipe")
 def dataset_recipe() -> None:
     """Dataset recipe commands"""
     pass
@@ -38,12 +38,20 @@ def cmd_get_or_create_dataset_recipe(cfg: Config, path_json_recipe: Path, name: 
 
 @dataset_recipe.command(name="ls")
 @click.pass_obj
-@click.option("-l", "--limit", type=int, default=None, help="Limit number of listed dataset recipes.")
-def cmd_list_dataset_recipes(cfg: Config, limit: Optional[int]) -> None:
+@click.option("-l", "--limit", type=int, default=1000, help="Limit number of listed dataset recipes.")
+@click.option(
+    "-o",
+    "--ordering",
+    type=click.Choice(["created_at", "-created_at", "name", "-name"], case_sensitive=False),
+    default="-created_at",
+    help="Ordering of listed dataset recipes.",
+)
+@click.option("-s", "--search", type=str, default=None, help="Search term to filter dataset recipes by name.")
+def cmd_list_dataset_recipes(cfg: Config, limit: int, ordering: str, search: Optional[str] = None) -> None:
     """List available dataset recipes"""
     from hafnia.platform.dataset_recipe import get_dataset_recipes, pretty_print_dataset_recipes
 
-    recipes = get_dataset_recipes(cfg=cfg)
+    recipes = get_dataset_recipes(cfg=cfg, limit=limit, ordering=ordering, search=search)
     # Sort recipes to have the most recent first
     recipes = sorted(recipes, key=lambda x: x["created_at"], reverse=True)
     if limit is not None:
@@ -70,5 +78,5 @@ def cmd_delete_dataset_recipe(cfg: Config, id: Optional[str], name: Optional[str
 
     raise click.MissingParameter(
         "No dataset recipe identifier have been given. Provide either --id or --name. "
-        "Get available recipes with 'hafnia dataset-recipe ls'."
+        "Get available recipes with 'hafnia recipe ls'."
     )

@@ -19,14 +19,16 @@ def get_dataset_by_name(dataset_name: str, cfg: Optional[Config] = None) -> Opti
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
     header = {"Authorization": cfg.api_key}
     full_url = f"{endpoint_dataset}?name__iexact={dataset_name}"
-    datasets: List[Dict[str, Any]] = http.fetch(full_url, headers=header)  # type: ignore[assignment]
-    if len(datasets) == 0:
+    response: Dict = http.fetch(full_url, headers=header)
+    dataset_count = response.get("count", 0)
+    if dataset_count == 0:
         return None
 
-    if len(datasets) > 1:
+    if dataset_count > 1:
         raise ValueError(f"Multiple datasets found with the name '{dataset_name}'.")
 
-    return datasets[0]
+    dataset = response["data"][0]
+    return dataset
 
 
 @timed("Fetching dataset by ID.")
@@ -70,15 +72,25 @@ def get_or_create_dataset(dataset_name: str = "", cfg: Optional[Config] = None) 
 
 
 @timed("Fetching dataset list.")
-def get_datasets(cfg: Optional[Config] = None) -> List[Dict[str, str]]:
+def get_datasets(
+    cfg: Optional[Config] = None,
+    ordering: str = "name",
+    limit: int = 1000,
+    search: Optional[str] = None,
+) -> List[Dict[str, str]]:
     """List available datasets on the Hafnia platform."""
     cfg = cfg or Config()
-    endpoint_dataset = cfg.get_platform_endpoint("datasets")
+    endpoint_dataset_base = cfg.get_platform_endpoint("datasets")
+    endpoint_dataset = f"{endpoint_dataset_base}?page_size={limit}&ordering={ordering}"
+    if search:
+        endpoint_dataset += f"&search={search}"
     header = {"Authorization": cfg.api_key}
-    datasets: List[Dict[str, str]] = fetch(endpoint_dataset, headers=header)  # type: ignore
-    if not datasets:
+    response: Dict = fetch(endpoint_dataset, headers=header)
+
+    if response["count"] == 0:
         raise ValueError("No datasets found on the Hafnia platform.")
 
+    datasets = response["data"]
     return datasets
 
 
@@ -89,13 +101,19 @@ def get_dataset_id(dataset_name: str, cfg: Optional[Config] = None) -> str:
     endpoint = cfg.get_platform_endpoint("datasets")
     headers = {"Authorization": cfg.api_key}
     full_url = f"{endpoint}?name__iexact={dataset_name}"
-    dataset_responses: List[Dict] = http.fetch(full_url, headers=headers)  # type: ignore[assignment]
-    if not dataset_responses:
+    response: Dict = http.fetch(full_url, headers=headers)
+    dataset_responses = response.get("data", [])
+    if len(dataset_responses) == 0:
         raise ValueError(f"Dataset '{dataset_name}' was not found in the dataset library.")
-    try:
-        return dataset_responses[0]["id"]
-    except (IndexError, KeyError) as e:
-        raise ValueError("Dataset information is missing or invalid") from e
+
+    if len(dataset_responses) > 1:
+        raise ValueError(f"Multiple datasets found with the name '{dataset_name}'.")
+
+    dataset = dataset_responses[0]
+    dataset_id = dataset.get("id", None)
+    if dataset_id is None:
+        raise ValueError(f"Dataset ID not found for dataset '{dataset_name}'.")
+    return dataset_id
 
 
 @timed("Get upload access credentials")

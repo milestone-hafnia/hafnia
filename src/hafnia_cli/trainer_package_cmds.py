@@ -15,15 +15,22 @@ def trainer_package() -> None:
 
 @trainer_package.command(name="ls")
 @click.pass_obj
-@click.option("-l", "--limit", type=int, default=None, help="Limit number of listed trainer packages.")
-def cmd_list_trainer_packages(cfg: Config, limit: Optional[int]) -> None:
+@click.option("-l", "--limit", type=int, default=1000, help="Limit number of listed trainer packages.")
+@click.option(
+    "--ordering",
+    type=click.Choice(["created_at", "-created_at", "name", "-name"], case_sensitive=False),
+    default="-created_at",
+    help="Ordering of listed trainer packages.",
+)
+@click.option("--search", type=str, default=None, help="Search term to filter trainer packages by name.")
+def cmd_list_trainer_packages(cfg: Config, limit: int, ordering: str, search: Optional[str] = None) -> None:
     """List available trainer packages on the platform"""
 
     from hafnia.platform.trainer_package import get_trainer_packages, pretty_print_trainer_packages
 
-    trainers = get_trainer_packages(cfg=cfg)
+    trainers = get_trainer_packages(cfg=cfg, limit=limit, ordering=ordering, search=search)
 
-    pretty_print_trainer_packages(trainers, limit=limit)
+    pretty_print_trainer_packages(trainers)
 
 
 @trainer_package.command(name="create")

@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import urllib3
 
 
-def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Union[Dict, List]:
+def fetch(endpoint: str, headers: Dict, params: Optional[Dict] = None) -> Dict:
     """Fetches data from the API endpoint.
 
     Args:
