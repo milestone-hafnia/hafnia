@@ -18,7 +18,7 @@ ordering_options = ["name", "-name", "created_at", "-created_at", "traceability_
 
 
 @dataset.command("ls")
-@click.option("--limit", "-l", default=10, help="Limit the number of datasets displayed.")
+@click.option("--limit", "-l", type=int, default=10, help="Limit the number of datasets displayed.")
 @click.option("--search", "-s", default=None, help="Search term to filter datasets.")
 @click.option("--ordering", "-o", type=click.Choice(ordering_options), default="name", help="Ordering of the datasets.")
 @click.pass_obj

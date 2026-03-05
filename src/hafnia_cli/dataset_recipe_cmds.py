@@ -52,10 +52,6 @@ def cmd_list_dataset_recipes(cfg: Config, limit: int, ordering: str, search: Opt
     from hafnia.platform.dataset_recipe import get_dataset_recipes, pretty_print_dataset_recipes
 
     recipes = get_dataset_recipes(cfg=cfg, limit=limit, ordering=ordering, search=search)
-    # Sort recipes to have the most recent first
-    recipes = sorted(recipes, key=lambda x: x["created_at"], reverse=True)
-    if limit is not None:
-        recipes = recipes[:limit]
     pretty_print_dataset_recipes(recipes)
 
 

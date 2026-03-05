@@ -86,11 +86,9 @@ def get_datasets(
         endpoint_dataset += f"&search={search}"
     header = {"Authorization": cfg.api_key}
     response: Dict = fetch(endpoint_dataset, headers=header)
-
-    if response["count"] == 0:
+    datasets = response.get("data", [])
+    if len(datasets) == 0:
         raise ValueError("No datasets found on the Hafnia platform.")
-
-    datasets = response["data"]
     return datasets
 
 
@@ -233,7 +231,6 @@ TABLE_FIELDS = {
 
 def pretty_print_datasets(datasets: List[Dict[str, str]]) -> None:
     datasets = extend_dataset_details(datasets)
-    datasets = sorted(datasets, key=lambda x: x["name"].lower())
 
     table = rich.table.Table(title="Available Datasets")
     for i_dataset, dataset in enumerate(datasets):
