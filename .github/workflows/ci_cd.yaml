@@ -5,14 +5,22 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    paths: ["src/**", "tests/**", "pyproject.toml", ".python-version", "uv.lock", ".github/workflows/**"]
+    paths:
+      [
+        "src/**",
+        "tests/**",
+        "pyproject.toml",
+        ".python-version",
+        "uv.lock",
+        ".github/workflows/**",
+      ]
 
 jobs:
   lint:
     name: Lint Code
     uses: ./.github/workflows/lint.yaml
     with:
-        python-version-file: ".python-version"
+      python-version-file: ".python-version"
 
   security-scan:
     name: Security Scan
@@ -21,14 +29,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.2
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'table'
-          exit-code: '1'
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          scan-type: "fs"
+          scan-ref: "."
+          format: "table"
+          exit-code: "1"
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   test:
     name: Run Tests
@@ -36,15 +44,15 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/tests.yaml
     with:
-        python-version-file: ".python-version"
+      python-version-file: ".python-version"
 
   build:
     name: Build Package
     needs: [test, security-scan]
     uses: ./.github/workflows/build.yaml
     with:
-        python-version-file: ".python-version"
-        pyproject-toml-file: "pyproject.toml"
+      python-version-file: ".python-version"
+      pyproject-toml-file: "pyproject.toml"
 
   publish-docker-staging:
     name: Publish Docker Image to Staging
@@ -61,7 +69,7 @@ jobs:
     name: Check if Release Exists
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/check_release.yaml 
+    uses: ./.github/workflows/check_release.yaml
     with:
       package-version: ${{ needs.build.outputs.package-version }}
 
@@ -73,7 +81,6 @@ jobs:
     with:
       environment: pypi
 
-
   publish-docker-production:
     name: Publish Docker Image to Production
     needs: [build, publish-pypi]
@@ -84,4 +91,3 @@ jobs:
       python-version-file: ".python-version"
       package-version: ${{ needs.build.outputs.package-version }}
       environment: "production"
-
