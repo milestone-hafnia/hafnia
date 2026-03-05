@@ -84,12 +84,12 @@ def get_trainer_packages(
 ) -> List[Dict]:
     cfg = cfg or Config()
 
-    endpoint_base = cfg.get_platform_endpoint("trainers")
-    endpoint = f"{endpoint_base}?page_size={limit}&ordering={ordering}"
+    endpoint = cfg.get_platform_endpoint("trainers")
+    params = {"page_size": limit, "ordering": ordering}
     if search:
-        endpoint += f"&search={search}"
+        params["search"] = search
     headers = {"Authorization": cfg.api_key}
-    response: Dict = http.fetch(endpoint, headers=headers)
+    response: Dict = http.fetch(endpoint, headers=headers, params=params)
     trainers = response.get("data", [])
     return trainers
 

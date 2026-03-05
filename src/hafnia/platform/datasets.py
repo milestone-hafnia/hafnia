@@ -18,8 +18,8 @@ def get_dataset_by_name(dataset_name: str, cfg: Optional[Config] = None) -> Opti
     cfg = cfg or Config()
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
     header = {"Authorization": cfg.api_key}
-    full_url = f"{endpoint_dataset}?name__iexact={dataset_name}"
-    response: Dict = http.fetch(full_url, headers=header)
+    params = {"name__iexact": dataset_name}
+    response: Dict = http.fetch(endpoint_dataset, headers=header, params=params)
     dataset_count = response.get("count", 0)
     if dataset_count == 0:
         return None
@@ -80,12 +80,12 @@ def get_datasets(
 ) -> List[Dict[str, str]]:
     """List available datasets on the Hafnia platform."""
     cfg = cfg or Config()
-    endpoint_dataset_base = cfg.get_platform_endpoint("datasets")
-    endpoint_dataset = f"{endpoint_dataset_base}?page_size={limit}&ordering={ordering}"
+    endpoint_dataset = cfg.get_platform_endpoint("datasets")
+    params = {"page_size": limit, "ordering": ordering}
     if search:
-        endpoint_dataset += f"&search={search}"
+        params["search"] = search
     header = {"Authorization": cfg.api_key}
-    response: Dict = fetch(endpoint_dataset, headers=header)
+    response: Dict = fetch(endpoint_dataset, headers=header, params=params)
     datasets = response.get("data", [])
     if len(datasets) == 0:
         raise ValueError("No datasets found on the Hafnia platform.")
@@ -98,8 +98,8 @@ def get_dataset_id(dataset_name: str, cfg: Optional[Config] = None) -> str:
     cfg = cfg or Config()
     endpoint = cfg.get_platform_endpoint("datasets")
     headers = {"Authorization": cfg.api_key}
-    full_url = f"{endpoint}?name__iexact={dataset_name}"
-    response: Dict = http.fetch(full_url, headers=headers)
+    params = {"name__iexact": dataset_name}
+    response: Dict = http.fetch(endpoint, headers=headers, params=params)
     dataset_responses = response.get("data", [])
     if len(dataset_responses) == 0:
         raise ValueError(f"Dataset '{dataset_name}' was not found in the dataset library.")

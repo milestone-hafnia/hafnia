@@ -40,12 +40,12 @@ def get_dataset_recipes(
     search: Optional[str] = None,
 ) -> List[Dict]:
     cfg = cfg or Config()
-    endpoint_core = cfg.get_platform_endpoint("dataset_recipes")
-    endpoint = f"{endpoint_core}?page_size={limit}&ordering={ordering}"
+    endpoint = cfg.get_platform_endpoint("dataset_recipes")
+    params = {"page_size": limit, "ordering": ordering}
     if search:
-        endpoint += f"&search={search}"
+        params["search"] = search
     headers = {"Authorization": cfg.api_key}
-    response: Dict = http.fetch(endpoint, headers=headers)
+    response: Dict = http.fetch(endpoint, headers=headers, params=params)
     dataset_recipes = response.get("data", [])
     return dataset_recipes
 
@@ -86,8 +86,8 @@ def get_dataset_recipe_by_name(name: str, cfg: Optional[Config] = None) -> Optio
 
     endpoint = cfg.get_platform_endpoint("dataset_recipes")
     headers = {"Authorization": cfg.api_key}
-    full_url = f"{endpoint}?name__iexact={name}"
-    response: Dict = http.fetch(full_url, headers=headers)
+    params = {"name__iexact": name}
+    response: Dict = http.fetch(endpoint, headers=headers, params=params)
     dataset_recipes = response.get("data", [])
     if len(dataset_recipes) == 0:
         return None
