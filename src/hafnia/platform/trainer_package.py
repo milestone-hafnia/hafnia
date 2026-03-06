@@ -76,20 +76,25 @@ def get_trainer_package_by_id(id: str, cfg: Optional[Config] = None) -> Dict:
 
 
 @timed("Get trainer packages")
-def get_trainer_packages(cfg: Optional[Config] = None) -> List[Dict]:
+def get_trainer_packages(
+    cfg: Optional[Config] = None,
+    limit: int = 1000,
+    ordering: str = "-created_at",
+    search: Optional[str] = None,
+) -> List[Dict]:
     cfg = cfg or Config()
+
     endpoint = cfg.get_platform_endpoint("trainers")
+    params = {"page_size": limit, "ordering": ordering}
+    if search:
+        params["search"] = search
     headers = {"Authorization": cfg.api_key}
-    trainers: List[Dict] = http.fetch(endpoint, headers=headers)  # type: ignore[assignment]
+    response: Dict = http.fetch(endpoint, headers=headers, params=params)
+    trainers = response.get("data", [])
     return trainers
 
 
-def pretty_print_trainer_packages(trainers: List[Dict[str, str]], limit: Optional[int]) -> None:
-    # Sort trainer packages to have the most recent first
-    trainers = sorted(trainers, key=lambda x: x["created_at"], reverse=True)
-    if limit is not None:
-        trainers = trainers[:limit]
-
+def pretty_print_trainer_packages(trainers: List[Dict[str, str]]) -> None:
     mapping = {
         "ID": "id",
         "Name": "name",

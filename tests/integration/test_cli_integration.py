@@ -48,7 +48,7 @@ def test_cli_integration_test():
     hafnia_cli(args=[CMD_DATASET, "download", "mnist", "-v", DATASET_SPEC_MNIST.version], standalone_mode=False)
 
     # Dataset recipe commands
-    CMD_DATASET_RECIPE = "dataset-recipe"
+    CMD_DATASET_RECIPE = "recipe"
     with pytest.raises(NoArgsIsHelpError):
         hafnia_cli(args=[CMD_DATASET_RECIPE], standalone_mode=False)
     hafnia_cli(args=[CMD_DATASET_RECIPE, "--help"], standalone_mode=False)

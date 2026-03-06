@@ -33,11 +33,20 @@ def get_or_create_dataset_recipe_by_dataset_name(dataset_name: str, cfg: Optiona
     return get_or_create_dataset_recipe(recipe=dataset_name, cfg=cfg)
 
 
-def get_dataset_recipes(cfg: Optional[Config] = None) -> List[Dict]:
+def get_dataset_recipes(
+    cfg: Optional[Config] = None,
+    ordering: str = "-created_at",
+    limit: int = 100,
+    search: Optional[str] = None,
+) -> List[Dict]:
     cfg = cfg or Config()
     endpoint = cfg.get_platform_endpoint("dataset_recipes")
+    params = {"page_size": limit, "ordering": ordering}
+    if search:
+        params["search"] = search
     headers = {"Authorization": cfg.api_key}
-    dataset_recipes: List[Dict] = http.fetch(endpoint, headers=headers)  # type: ignore[assignment]
+    response: Dict = http.fetch(endpoint, headers=headers, params=params)
+    dataset_recipes = response.get("data", [])
     return dataset_recipes
 
 
@@ -77,8 +86,9 @@ def get_dataset_recipe_by_name(name: str, cfg: Optional[Config] = None) -> Optio
 
     endpoint = cfg.get_platform_endpoint("dataset_recipes")
     headers = {"Authorization": cfg.api_key}
-    full_url = f"{endpoint}?name__iexact={name}"
-    dataset_recipes: List[Dict] = http.fetch(full_url, headers=headers)  # type: ignore[assignment]
+    params = {"name__iexact": name}
+    response: Dict = http.fetch(endpoint, headers=headers, params=params)
+    dataset_recipes = response.get("data", [])
     if len(dataset_recipes) == 0:
         return None
 
