@@ -47,7 +47,12 @@ def cmd_get_or_create_dataset_recipe(cfg: Config, path_json_recipe: Path, name: 
     help="Ordering of listed dataset recipes.",
 )
 @click.option("-s", "--search", type=str, default=None, help="Search term to filter dataset recipes by name.")
-def cmd_list_dataset_recipes(cfg: Config, limit: int, ordering: str, search: Optional[str] = None) -> None:
+def cmd_list_dataset_recipes(
+    cfg: Config,
+    limit: int,
+    ordering: str,
+    search: Optional[str] = None,
+) -> None:
     """List available dataset recipes"""
     from hafnia.platform.dataset_recipe import get_dataset_recipes, pretty_print_dataset_recipes
 

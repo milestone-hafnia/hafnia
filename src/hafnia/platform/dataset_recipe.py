@@ -41,7 +41,7 @@ def get_dataset_recipes(
 ) -> List[Dict]:
     cfg = cfg or Config()
     endpoint = cfg.get_platform_endpoint("dataset_recipes")
-    params = {"page_size": limit, "ordering": ordering}
+    params = {"page_size": limit, "ordering": ordering, "is_direct_dataset_reference": False}
     if search:
         params["search"] = search
     headers = {"Authorization": cfg.api_key}
@@ -111,13 +111,14 @@ def pretty_print_dataset_recipes(recipes: List[Dict]) -> None:
     recipes = [flatten(recipe, reducer="dot", max_flatten_depth=2) for recipe in recipes]  # noqa: F821
     for recipe in recipes:
         recipe["recipe_json"] = json.dumps(recipe["template.body"])[:20]
+        datasets = recipe.get("template.datasets", [])
+        recipe["datasets"] = ", ".join(dataset.get("name", "") for dataset in datasets)
 
     RECIPE_FIELDS = {
         "ID": "id",
         "Name": "name",
-        "Recipe": "recipe_json",
+        "Datasets": "datasets",
         "Created": "created_at",
-        "IsDataset": "template.is_direct_dataset_reference",
     }
     pretty_print_list_as_table(
         table_title="Available Dataset Recipes",

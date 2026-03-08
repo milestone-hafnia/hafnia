@@ -17,6 +17,7 @@ PLATFORM_API_MAPPING = {
     "experiment_runs": "/api/v1/experiment-runs",
     "runs": "/api/v1/experiments-runs",
     "datasets": "/api/v1/datasets",
+    "users": "/api/v1/auth/users",
 }
 
 

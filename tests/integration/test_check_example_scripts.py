@@ -14,6 +14,7 @@ from hafnia.utils import is_hafnia_configured
         "examples/example_hafnia_dataset.py",
         "examples/example_logger.py",
         "examples/example_dataset_recipe.py",
+        "examples/example_custom_dataset.py",
         # Add other example scripts here
     ],
 )

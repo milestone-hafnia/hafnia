@@ -7,7 +7,7 @@ from rich import print as rprint
 
 from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives.bbox import Bbox
 from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.classification import Classification
@@ -37,6 +37,7 @@ rprint(dataset.info)
 dataset.samples.head(2)
 
 # Print dataset information
+dataset.print_basic_stats()  # Print basic dataset statistics
 dataset.print_sample_and_task_counts()
 dataset.print_class_distribution()
 dataset.print_stats()  # Print verbose dataset statistics
@@ -148,51 +149,6 @@ image_with_annotations = sample.draw_annotations()
 # Save the image with annotations to a temporary directory
 path_tmp.mkdir(parents=True, exist_ok=True)
 Image.fromarray(image_with_annotations).save(path_tmp / "sample_with_annotations.png")
-
-
-## Create a hafnia dataset from scratch ##
-path_yolo_dataset = Path("tests/data/dataset_formats/format_yolo/train")
-path_class_names = path_yolo_dataset.parent / "obj.names"
-class_names = [line.strip() for line in path_class_names.read_text().splitlines() if line.strip()]
-path_images_file = path_yolo_dataset / "images.txt"
-image_files = [line.strip() for line in path_images_file.read_text().splitlines() if line.strip()]
-
-fake_samples = []
-for image_file in image_files:
-    path_image = path_yolo_dataset / image_file
-    path_bboxes = path_yolo_dataset / image_file.replace(".jpg", ".txt")
-    bboxes: List[Bbox] = []
-    for bboxes_line in path_bboxes.read_text().splitlines():
-        str_parts = bboxes_line.strip().split()
-        class_idx = int(str_parts[0])
-        x_center, y_center, bbox_width, bbox_height = (float(value) for value in str_parts[1:5])
-        bbox = Bbox(
-            top_left_x=x_center - bbox_width / 2,
-            top_left_y=y_center - bbox_height / 2,
-            width=bbox_width,
-            height=bbox_height,
-            class_idx=class_idx,
-            class_name=class_names[class_idx],
-        )
-        bboxes.append(bbox)
-    image = Image.open(path_image)
-    height, width = image.size[1], image.size[0]
-    sample = Sample(file_path=str(path_image), height=height, width=width, split="train", bboxes=bboxes)
-    fake_samples.append(sample)
-
-
-fake_dataset_info = DatasetInfo(
-    dataset_name="custom-dataset",
-    version="0.0.1",
-    tasks=[TaskInfo(primitive=Bbox, class_names=class_names)],
-)
-custom_dataset = HafniaDataset.from_samples_list(samples_list=fake_samples, info=fake_dataset_info)
-
-sample = Sample(**custom_dataset[0])
-
-# To visualize and verify dataset is formatted correctly store image with annotations
-image_with_annotations = sample.draw_annotations()
-Image.fromarray(image_with_annotations).save(path_tmp / "custom_dataset_sample.png")  # Save visualization to TM
 
 # To upload the dataset to Hafnia platform
 # custom_dataset.upload_to_platform(interactive=True, allow_version_overwrite=False)

@@ -81,11 +81,14 @@ def get_trainer_packages(
     limit: int = 1000,
     ordering: str = "-created_at",
     search: Optional[str] = None,
+    visibility: Optional[str] = None,
 ) -> List[Dict]:
     cfg = cfg or Config()
 
     endpoint = cfg.get_platform_endpoint("trainers")
     params = {"page_size": limit, "ordering": ordering}
+    if visibility:
+        params["visibility"] = visibility
     if search:
         params["search"] = search
     headers = {"Authorization": cfg.api_key}
@@ -101,6 +104,14 @@ def pretty_print_trainer_packages(trainers: List[Dict[str, str]]) -> None:
         "Description": "description",
         "Created At": "created_at",
     }
+    description_max_length = 25
+    for trainer in trainers:
+        description = trainer.get("description", None)
+        if description is None:
+            description = ""
+        if len(description) > description_max_length:
+            trainer["description"] = description[:description_max_length] + "..."
+
     pretty_print_list_as_table(
         table_title="Available Trainer Packages (most recent first)",
         dict_items=trainers,
