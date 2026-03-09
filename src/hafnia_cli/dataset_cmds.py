@@ -21,12 +21,19 @@ ordering_options = ["name", "-name", "created_at", "-created_at", "traceability_
 @click.option("--limit", "-l", type=int, default=10, help="Limit the number of datasets displayed.")
 @click.option("--search", "-s", default=None, help="Search term to filter datasets.")
 @click.option("--ordering", "-o", type=click.Choice(ordering_options), default="name", help="Ordering of the datasets.")
+@click.option(
+    "-v",
+    "--visibility",
+    default=None,
+    type=click.Choice(["PUBLIC", "ORGANIZATION"], case_sensitive=False),
+    help="Filter datasets by visibility.",
+)
 @click.pass_obj
-def cmd_list_datasets(cfg: Config, limit: int, search: Optional[str], ordering: str) -> None:
+def cmd_list_datasets(cfg: Config, limit: int, search: Optional[str], ordering: str, visibility: Optional[str]) -> None:
     """List available datasets on Hafnia platform"""
     from hafnia.platform.datasets import get_datasets, pretty_print_datasets
 
-    datasets = get_datasets(cfg=cfg, limit=limit, search=search, ordering=ordering)
+    datasets = get_datasets(cfg=cfg, limit=limit, search=search, ordering=ordering, visibility=visibility)
     pretty_print_datasets(datasets)
 
 

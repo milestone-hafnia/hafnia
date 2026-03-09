@@ -1,6 +1,6 @@
 [project]
 name = "hafnia"
-version = "0.6.0"
+version = "0.6.1"
 description = "Python SDK for communication with Hafnia platform."
 readme = "README.md"
 authors = [
@@ -41,6 +41,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "cyclopts>=4.5.0",     # Only to test "CommandBuilder" module
     "typer>=0.21.1",       # Only to test "CommandBuilder" module
+    "ipywidgets>=8.1.8",
 ]
 
 test = ["pytest>=8.3.4", "pre-commit>=4.2.0", "ruff>=0.9.1"]

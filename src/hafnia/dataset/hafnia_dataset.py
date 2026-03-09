@@ -52,6 +52,7 @@ class HafniaDataset:
     calculate_primitive_counts = dataset_stats.calculate_primitive_counts
 
     # Function mapping: Print stats
+    print_basic_stats = dataset_stats.print_basic_stats
     print_stats = dataset_stats.print_stats
     print_sample_and_task_counts = dataset_stats.print_sample_and_task_counts
     print_class_distribution = dataset_stats.print_class_distribution

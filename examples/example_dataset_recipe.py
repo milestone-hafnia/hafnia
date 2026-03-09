@@ -99,14 +99,14 @@ print(dataset_recipe.as_json_str())  # as a JSON string
 
 # 1a) Explore 'coco-2017'
 coco = HafniaDataset.from_name("coco-2017", version=COCO_VERSION)
-coco.print_stats()  # Print dataset statistics
+coco.print_basic_stats()  # Print dataset statistics
 coco_class_names = coco.info.get_task_by_primitive("Bbox").class_names  # Get the class names for the bbox task
 # You will notice coco has 80 classes including 'person' and various vehicle classes such as 'car', 'bus', 'truck', etc.
 # but also many unrelated classes such as 'toaster', 'hair drier', etc.
 
 # 1b) Explore 'midwest-vehicle-detection'
 midwest = HafniaDataset.from_name("midwest-vehicle-detection", version=MIDWEST_VERSION)
-midwest.print_stats()  # Print dataset statistics
+midwest.print_basic_stats()  # Print dataset statistics
 midwest_class_names = midwest.info.get_task_by_primitive("Bbox").class_names
 # You will also notice midwest has similar classes, but they are named differently, e.g. 'Persons',
 # 'Vehicle.Car', 'Vehicle.Bicycle', etc.

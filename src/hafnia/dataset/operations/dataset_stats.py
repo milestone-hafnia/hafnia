@@ -131,18 +131,30 @@ def calculate_split_counts_extended(dataset: HafniaDataset) -> List[Dict[str, An
     return rows
 
 
+def print_basic_stats(dataset: HafniaDataset) -> None:
+    """
+    Prints basic statistics about the dataset, including dataset name, version, and number of samples.
+    """
+    table = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
+    table.add_column("Property", style="cyan")
+    table.add_column("Value")
+    table.add_row("Dataset Name", dataset.info.dataset_name)
+    table.add_row("Version", dataset.info.version)
+    table.add_row("Number of samples", str(len(dataset.samples)))
+
+    for task in dataset.info.tasks:
+        class_count = len(task.class_names) if task.class_names else "N/A"
+        table.add_row(f"Task: {task.full_name()}", f"Number of classes: {class_count}")
+
+    rprint(table)
+
+
 def print_stats(dataset: HafniaDataset) -> None:
     """
     Prints verbose statistics about the dataset, including dataset name, version,
     number of samples, and detailed counts of samples and tasks.
     """
-    table_base = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
-    table_base.add_column("Property", style="cyan")
-    table_base.add_column("Value")
-    table_base.add_row("Dataset Name", dataset.info.dataset_name)
-    table_base.add_row("Version", dataset.info.version)
-    table_base.add_row("Number of samples", str(len(dataset.samples)))
-    rprint(table_base)
+    print_basic_stats(dataset)
     print_sample_and_task_counts(dataset)
     print_class_distribution(dataset)
 

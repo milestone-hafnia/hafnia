@@ -61,6 +61,16 @@
             ]
         },
         {
+            "name": "cmd: 'hafnia recipe [X]'",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
+            "args": [
+                "recipe",
+                "ls"
+            ]
+        },        
+        {
             "name": "cmd: 'hafnia experiment [X]'",
             "type": "debugpy",
             "request": "launch",

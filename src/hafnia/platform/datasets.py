@@ -77,6 +77,7 @@ def get_datasets(
     ordering: str = "name",
     limit: int = 1000,
     search: Optional[str] = None,
+    visibility: Optional[str] = None,
 ) -> List[Dict[str, str]]:
     """List available datasets on the Hafnia platform."""
     cfg = cfg or Config()
@@ -84,6 +85,10 @@ def get_datasets(
     params = {"page_size": limit, "ordering": ordering}
     if search:
         params["search"] = search
+
+    if visibility:
+        params["visibility"] = visibility
+
     header = {"Authorization": cfg.api_key}
     response: Dict = fetch(endpoint_dataset, headers=header, params=params)
     datasets = response.get("data", [])

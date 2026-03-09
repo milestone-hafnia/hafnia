@@ -41,6 +41,11 @@ def test_class_counts_all():
     assert len(counts) == expected_num_classes
 
 
+def test_print_basic_stats():
+    dataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
+    dataset.print_basic_stats()
+
+
 def test_print_stats():
     dataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
     dataset.print_stats()

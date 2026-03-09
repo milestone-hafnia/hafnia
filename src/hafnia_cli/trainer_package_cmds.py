@@ -23,12 +23,25 @@ def trainer_package() -> None:
     help="Ordering of listed trainer packages.",
 )
 @click.option("--search", type=str, default=None, help="Search term to filter trainer packages by name.")
-def cmd_list_trainer_packages(cfg: Config, limit: int, ordering: str, search: Optional[str] = None) -> None:
+@click.option(
+    "-v",
+    "--visibility",
+    default=None,
+    type=click.Choice(["PUBLIC", "ORGANIZATION"], case_sensitive=False),
+    help="Filter trainer packages by visibility.",
+)
+def cmd_list_trainer_packages(
+    cfg: Config,
+    limit: int,
+    ordering: str,
+    search: Optional[str] = None,
+    visibility: Optional[str] = None,
+) -> None:
     """List available trainer packages on the platform"""
 
     from hafnia.platform.trainer_package import get_trainer_packages, pretty_print_trainer_packages
 
-    trainers = get_trainer_packages(cfg=cfg, limit=limit, ordering=ordering, search=search)
+    trainers = get_trainer_packages(cfg=cfg, limit=limit, ordering=ordering, search=search, visibility=visibility)
 
     pretty_print_trainer_packages(trainers)
 
