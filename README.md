@@ -1,73 +1,75 @@
 # Hafnia
 
 The `hafnia` python sdk and cli is a collection of tools to create and run model trainer packages on
-the [Hafnia Platform](https://hafnia.milestonesys.com/). 
+the [Hafnia Platform](https://hafnia.milestonesys.com/).
 
-The package includes the following interfaces: 
+The package includes the following interfaces:
 
-- `cli`: A Command Line Interface (CLI) to 1) configure/connect to Hafnia's [Training-aaS](https://hafnia.readme.io/docs/training-as-a-service) and 2) create and 
-launch trainer packages.
-- `hafnia`: A python package including `HafniaDataset` to manage datasets and `HafniaLogger` to do 
-experiment tracking.
-
+- `cli`: A Command Line Interface (CLI) to 1) configure/connect to Hafnia's [Training-aaS](https://hafnia.readme.io/docs/training-as-a-service) and 2) create and
+  launch trainer packages.
+- `hafnia`: A python package including `HafniaDataset` to manage datasets and `HafniaLogger` to do
+  experiment tracking.
 
 ## The Concept: Training as a Service (Training-aaS)
-`Training-aaS` is the concept of training models on the Hafnia platform on large 
-and *hidden* datasets. Hidden datasets refers to datasets that can be used for 
-training, but are not available for download or direct access. 
 
-This is a key for the Hafnia platform, as a hidden dataset ensures data 
+`Training-aaS` is the concept of training models on the Hafnia platform on large
+and _hidden_ datasets. Hidden datasets refers to datasets that can be used for
+training, but are not available for download or direct access.
+
+This is a key for the Hafnia platform, as a hidden dataset ensures data
 privacy, and allow models to be trained compliantly and ethically by third parties (you).
 
-The `script2model` approach is a Training-aaS concept, where you package your custom training 
-project or script as a *trainer package* and use the package to train models on the hidden datasets.
+The `script2model` approach is a Training-aaS concept, where you package your custom training
+project or script as a _trainer package_ and use the package to train models on the hidden datasets.
 
-To support local development of a trainer package, we have introduced a **sample dataset** 
-for each dataset available in the Hafnia [data library](https://hafnia.milestonesys.com/training-aas/datasets). The sample dataset is a small 
-and an anonymized subset of the full dataset and available for download. 
+To support local development of a trainer package, we have introduced a **sample dataset**
+for each dataset available in the Hafnia [data library](https://hafnia.milestonesys.com/training-aas/datasets). The sample dataset is a small
+and an anonymized subset of the full dataset and available for download.
 
-With the sample dataset, you can seamlessly switch between local development and Training-aaS. 
-Locally, you can create, validate and debug your trainer package. The trainer package is then 
+With the sample dataset, you can seamlessly switch between local development and Training-aaS.
+Locally, you can create, validate and debug your trainer package. The trainer package is then
 launched with Training-aaS, where the package runs on the full dataset and can be scaled to run on
-multiple GPUs and instances if needed. 
+multiple GPUs and instances if needed.
 
 ## Getting started: Configuration
-To get started with Hafnia: 
+
+To get started with Hafnia:
 
 1. Install `hafnia` with your favorite python package manager:
 
-    ```bash
-    # With uv package manager 
-    uv add hafnia
+   ```bash
+   # With uv package manager
+   uv add hafnia
 
-    # With pip
-    pip install hafnia
-    ```
+   # With pip
+   pip install hafnia
+   ```
 
-1. Sign in to the [Hafnia Platform](https://hafnia.milestonesys.com/). 
-1. Create an API KEY for Training aaS. For more instructions, follow this 
-[guide](https://hafnia.readme.io/docs/create-an-api-key). 
-Copy the key and save it for later use.
-1. From terminal, configure your machine to access Hafnia: 
+1. Sign in to the [Hafnia Platform](https://hafnia.milestonesys.com/).
+1. Create an API KEY for Training aaS. For more instructions, follow this
+   [guide](https://hafnia.readme.io/docs/create-an-api-key).
+   Copy the key and save it for later use.
+1. From terminal, configure your machine to access Hafnia:
 
-    ```
-    # Start configuration with
-    hafnia configure
+   ```
+   # Start configuration with
+   hafnia configure
 
-    # You are then prompted: 
-    Profile Name [default]:   # Press [Enter] or select an optional name
-    Hafnia API Key:  # Pass your HAFNIA API key
-    Hafnia Platform URL [https://api.mdi.milestonesys.com]:  # Press [Enter]
-    ```
+   # You are then prompted:
+   Profile Name [default]:   # Press [Enter] or select an optional name
+   Hafnia API Key:  # Pass your HAFNIA API key
+   Hafnia Platform URL [https://api.mdi.milestonesys.com]:  # Press [Enter]
+   ```
 
-1. Download `mnist` from terminal to verify that your configuration is working.  
+1. Download `mnist` from terminal to verify that your configuration is working.
 
-    ```bash
-    hafnia dataset download mnist --force
-    ```
+   ```bash
+   hafnia dataset download mnist --force
+   ```
 
 ## Getting started: Loading datasets samples
-With Hafnia configured on your local machine, it is now possible to download 
+
+With Hafnia configured on your local machine, it is now possible to download
 and explore the dataset sample with a python script:
 
 ```python
@@ -77,7 +79,7 @@ dataset = HafniaDataset.from_name("midwest-vehicle-detection")
 ```
 
 This will download the dataset sample `midwest-vehicle-detection` to the local `.data/datasets/` folder
-in a human readable format. 
+in a human readable format.
 
 Images are stored in the `data` folder, general dataset information is stored in `dataset_info.json`  
 and annotations are stored as both `annotations.jsonl`(jsonl) and `annotations.parquet`.
@@ -101,7 +103,7 @@ midwest-vehicle-detection
 
 We provide the `HafniaDataset` format for loading/saving, managing and interacting with the dataset.
 
-We recommend the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py) 
+We recommend the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py)
 for a quick introduction on the `HafniaDataset`.
 
 Below is a short introduction to the `HafniaDataset` class.
@@ -122,10 +124,10 @@ dataset.print_stats()
 dataset_train = dataset.create_split_dataset("train")
 ```
 
-The `HafniaDataset` object provides a convenient way to interact with the dataset, including methods for 
+The `HafniaDataset` object provides a convenient way to interact with the dataset, including methods for
 creating splits, accessing samples, printing statistics, saving to and loading from disk.
 
-In essence, the `HafniaDataset` class contains `dataset.info` with dataset information 
+In essence, the `HafniaDataset` class contains `dataset.info` with dataset information
 and `dataset.samples` with annotations as a polars DataFrame
 
 ```python
@@ -196,6 +198,7 @@ for sample_dict in dataset:
     print(sample.sample_id, sample.bboxes)
     break
 ```
+
 Not that it is possible to create a `Sample` object from the sample dictionary.
 This is useful for accessing the image and annotations in a structured way.
 
@@ -209,7 +212,7 @@ image_annotations = sample.draw_annotations()
 ```
 
 Note that the `Sample` object contains all information about the sample, including image and metadata.
-It also contain annotations as primitive types such as `Bbox`, `Classification`. 
+It also contain annotations as primitive types such as `Bbox`, `Classification`.
 
 ```python
 rich.print(sample)
@@ -283,20 +286,21 @@ Sample(
 )
 ```
 
-To learn more, we recommend the `HafniaDataset` example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py). 
+To learn more, we recommend the `HafniaDataset` example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py).
 
 ### Dataset Locally vs. Training-aaS
-An important feature of `HafniaDataset.from_name` is that it will return the full dataset 
-when loaded with Training-aaS on the Hafnia platform. 
 
-This enables seamlessly switching between running/validating a training script 
-locally (on the sample dataset) and running full model trainings with Training-aaS (on the full dataset). 
+An important feature of `HafniaDataset.from_name` is that it will return the full dataset
+when loaded with Training-aaS on the Hafnia platform.
+
+This enables seamlessly switching between running/validating a training script
+locally (on the sample dataset) and running full model trainings with Training-aaS (on the full dataset).
 without changing code or configurations for the training script.
 
-Available datasets with corresponding sample datasets can be found in [data library](https://hafnia.milestonesys.com/training-aas/datasets) including metadata and description for each dataset. 
-
+Available datasets with corresponding sample datasets can be found in [data library](https://hafnia.milestonesys.com/training-aas/datasets) including metadata and description for each dataset.
 
 ## Getting started: Experiment Tracking with HafniaLogger
+
 The `HafniaLogger` is an important part of the trainer and enables you to track, log and
 reproduce your experiments.
 
@@ -337,27 +341,28 @@ logger.log_scalar("validation/loss", value=0.1, step=100)
 logger.log_metric("validation/accuracy", value=0.95, step=100)
 ```
 
-The tracker behaves differently when running locally or in the cloud. 
-Locally, experiment data is stored in a local folder `.data/experiments/{DATE_TIME}`. 
+The tracker behaves differently when running locally or in the cloud.
+Locally, experiment data is stored in a local folder `.data/experiments/{DATE_TIME}`.
 
-In the cloud, the experiment data will be available in the Hafnia platform under 
-[experiments](https://hafnia.milestonesys.com/training-aas/experiments). 
+In the cloud, the experiment data will be available in the Hafnia platform under
+[experiments](https://hafnia.milestonesys.com/training-aas/experiments).
 
 ## Example: Torch Dataloader
-Commonly for `torch`-based training scripts, a dataset is used in combination 
+
+Commonly for `torch`-based training scripts, a dataset is used in combination
 with a dataloader that performs data augmentations and batching of the dataset as torch tensors.
 
 To support this, we have provided a torch dataloader example script
-[example_torchvision_dataloader.py](./examples/example_torchvision_dataloader.py). 
+[example_torchvision_dataloader.py](./examples/example_torchvision_dataloader.py).
 
 The script demonstrates how to load a dataset sample, apply data augmentations using
 `torchvision.transforms.v2`, and visualize the dataset with `torch_helpers.draw_image_and_targets`.
 
-Note also how `torch_helpers.TorchVisionCollateFn` is used in combination with the `DataLoader` from 
+Note also how `torch_helpers.TorchVisionCollateFn` is used in combination with the `DataLoader` from
 `torch.utils.data` to handle the dataset's collate function.
 
-The dataloader and visualization function supports computer vision tasks 
-and datasets available in the data library. 
+The dataloader and visualization function supports computer vision tasks
+and datasets available in the data library.
 
 ```python
 # Load Hugging Face dataset
@@ -401,19 +406,19 @@ collate_fn = torch_helpers.TorchVisionCollateFn(
 train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 ```
 
-
 ## Example: Training-aaS
-By combining logging and dataset loading, we can now construct our model trainer package. 
+
+By combining logging and dataset loading, we can now construct our model trainer package.
 
 To demonstrate this, we have provided a trainer package project that serves as a template for creating and structuring trainers. The example repo is called
 [trainer-classification](https://github.com/milestone-hafnia/trainer-classification)
 
-The project also contains additional information on how to structure your trainer package, use the `HafniaLogger`, loading a dataset and different approach for launching 
+The project also contains additional information on how to structure your trainer package, use the `HafniaLogger`, loading a dataset and different approach for launching
 the trainer on the Hafnia platform.
 
-
 ## Create, Build and Run `trainer.zip` locally
-In order to test trainer package compatibility with Hafnia cloud use the following command to build and 
+
+In order to test trainer package compatibility with Hafnia cloud use the following command to build and
 start the job locally.
 
 ```bash
@@ -428,17 +433,20 @@ start the job locally.
 ```
 
 ## Detailed Documentation
-For more information, go to our [documentation page](https://hafnia.readme.io/docs/welcome-to-hafnia) 
-or in below markdown pages. 
+
+For more information, go to our [documentation page](https://hafnia.readme.io/docs/welcome-to-hafnia)
+or in below markdown pages.
 
 - [CLI](docs/cli.md) - Detailed guide for the Hafnia command-line interface
 - [Release lifecycle](docs/release.md) - Details about package release lifecycle.
 
 ## Development
+
 For development, we are using an uv based virtual python environment.
 
-Install uv
-```bash 
+Install uv (linux and macOS)
+
+```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
@@ -448,7 +456,8 @@ Create virtual environment and install python dependencies
 uv sync --dev
 ```
 
- Run tests:
+Run tests:
+
 ```bash
 uv run pytest tests
 ```

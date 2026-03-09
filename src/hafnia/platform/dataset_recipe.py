@@ -110,7 +110,6 @@ def delete_dataset_recipe_by_name(name: str, cfg: Optional[Config] = None) -> Op
 def pretty_print_dataset_recipes(recipes: List[Dict]) -> None:
     recipes = [flatten(recipe, reducer="dot", max_flatten_depth=2) for recipe in recipes]  # noqa: F821
     for recipe in recipes:
-        recipe["recipe_json"] = json.dumps(recipe["template.body"])[:20]
         datasets = recipe.get("template.datasets", [])
         recipe["datasets"] = ", ".join(dataset.get("name", "") for dataset in datasets)
 

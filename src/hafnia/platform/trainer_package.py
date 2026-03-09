@@ -103,17 +103,22 @@ def pretty_print_trainer_packages(trainers: List[Dict[str, str]]) -> None:
         "Name": "name",
         "Description": "description",
         "Created At": "created_at",
+        "Visibility": "visibility",
     }
     description_max_length = 25
+    display_trainers = []
     for trainer in trainers:
+        trainer = trainer.copy()
         description = trainer.get("description", None)
         if description is None:
             description = ""
         if len(description) > description_max_length:
             trainer["description"] = description[:description_max_length] + "..."
 
+        display_trainers.append(trainer)
+
     pretty_print_list_as_table(
         table_title="Available Trainer Packages (most recent first)",
-        dict_items=trainers,
+        dict_items=display_trainers,
         column_name_to_key_mapping=mapping,
     )

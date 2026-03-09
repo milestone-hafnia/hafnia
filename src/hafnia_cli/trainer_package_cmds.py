@@ -22,6 +22,7 @@ def trainer_package() -> None:
     default="-created_at",
     help="Ordering of listed trainer packages.",
 )
+@click.option("--search", type=str, default=None, help="Search term to filter trainer packages by name.")
 @click.option(
     "-v",
     "--visibility",
