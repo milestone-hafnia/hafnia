@@ -84,6 +84,55 @@ def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes, str], mult
         http.clear()
 
 
+def patch(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes, str], multipart: bool = False) -> Dict:
+    """Sends a PATCH request to the specified endpoint.
+
+    Args:
+        endpoint: The URL endpoint to patch
+        data: The data to send - either a file path, dictionary, raw bytes, or string
+        multipart: Whether to send as multipart/form-data
+
+    Returns:
+        Dict[str, Any]: The JSON response from the endpoint
+
+    Raises:
+        urllib3.exceptions.HTTPError: If the request fails
+        json.JSONDecodeError: If response isn't valid JSON
+    """
+    http = urllib3.PoolManager(retries=urllib3.Retry(3))
+    try:
+        if multipart:
+            headers.pop("Content-Type", None)
+            response = http.request(
+                "PATCH",
+                endpoint,
+                fields=data if isinstance(data, dict) else {"file": data},
+                headers=headers,
+            )
+        else:
+            if isinstance(data, Path):
+                with open(data, "rb") as f:
+                    body = f.read()
+                response = http.request("PATCH", endpoint, body=body, headers=headers)
+            elif isinstance(data, (str, dict)):
+                if isinstance(data, dict):
+                    data = json.dumps(data)
+                headers["Content-Type"] = "application/json"
+                response = http.request("PATCH", endpoint, body=data, headers=headers)
+            elif isinstance(data, bytes):
+                response = http.request("PATCH", endpoint, body=data, headers=headers)
+            else:
+                raise ValueError(f"Unsupported data type: {type(data)}")
+
+        if response.status not in (200, 201):
+            error_details = response.data.decode("utf-8")
+            raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}: {error_details}")
+
+        return json.loads(response.data.decode("utf-8"))
+    finally:
+        http.clear()
+
+
 def delete(endpoint: str, headers: Dict) -> Dict:
     """Sends a DELETE request to the specified endpoint."""
     http = urllib3.PoolManager(retries=urllib3.Retry(3))

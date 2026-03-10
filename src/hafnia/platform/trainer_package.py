@@ -13,6 +13,21 @@ from hafnia.utils import (
 from hafnia_cli.config import Config
 
 
+def _prepare_trainer_package(source_dir: Path) -> tuple[Path, List[Path], List[Dict], str]:
+    """
+    Prepare a trainer package by archiving the source directory and discovering cmd builder schemas.
+
+    Returns:
+        tuple: (zip_path, package_files, cmd_builder_schemas, trainer_name)
+    """
+    source_dir = Path(source_dir).resolve()
+    path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
+    zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
+    user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
+    cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
+    return zip_path, package_files, cmd_builder_schemas, source_dir.name
+
+
 @timed("Uploading trainer package.")
 def create_trainer_package(
     source_dir: Path,
@@ -21,17 +36,12 @@ def create_trainer_package(
     cmd: Optional[str] = None,
     cfg: Optional[Config] = None,
 ) -> Dict:
-    # Ensure the path is absolute to handle '.' paths are given an appropriate name.
-    source_dir = Path(source_dir).resolve()
     cfg = cfg or Config()
     endpoint = cfg.get_platform_endpoint("trainers")
 
-    path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
-    name = name or path_trainer.stem
-    zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
-    user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
+    zip_path, package_files, cmd_builder_schemas, trainer_name = _prepare_trainer_package(source_dir)
 
-    cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
+    name = name or trainer_name
     cmd = cmd or "python scripts/train.py"
     description = description or f"Trainer package for '{name}'. Created with Hafnia SDK Cli."
     headers = {"Authorization": cfg.api_key, "accept": "application/json"}
@@ -41,11 +51,50 @@ def create_trainer_package(
         "default_command": cmd,
         "file": (zip_path.name, Path(zip_path).read_bytes()),
     }
-    if len(cmd_builder_schemas) == 0:
+    if len(cmd_builder_schemas) > 0:
         data["command_builder_schemas"] = json.dumps(cmd_builder_schemas)
     user_logger.info(f"Uploading trainer package '{name}' to platform...")
     response = http.post(endpoint, headers=headers, data=data, multipart=True)
     user_logger.info(f"Trainer package uploaded successfully with id '{response['id']}'")
+    return response
+
+
+@timed("Updating trainer package.")
+def update_trainer_package(
+    id: str,
+    source_dir: Optional[Path] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    cmd: Optional[str] = None,
+    cfg: Optional[Config] = None,
+) -> Dict:
+    """Update an existing trainer package on the platform."""
+    cfg = cfg or Config()
+    endpoint = cfg.get_platform_endpoint("trainers")
+    full_url = f"{endpoint}/{id}"
+    headers = {"Authorization": cfg.api_key, "accept": "application/json"}
+
+    data: Dict = {}
+    if name is not None:
+        data["name"] = name
+    if description is not None:
+        data["description"] = description
+    if cmd is not None:
+        data["default_command"] = cmd
+
+    if source_dir is not None:
+        zip_path, package_files, cmd_builder_schemas, trainer_name = _prepare_trainer_package(source_dir)
+        if len(cmd_builder_schemas) > 0:
+            data["command_builder_schemas"] = json.dumps(cmd_builder_schemas)
+        data["file"] = (zip_path.name, Path(zip_path).read_bytes())
+
+    if not data:
+        raise ValueError("At least one field (source_dir, name, description, or cmd) must be provided for update.")
+
+    user_logger.info(f"Updating trainer package '{id}' on platform...")
+    # Always use multipart for consistency and compatibility
+    response = http.patch(full_url, headers=headers, data=data, multipart=True)
+    user_logger.info(f"Trainer package '{id}' updated successfully.")
     return response
 
 

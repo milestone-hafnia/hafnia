@@ -95,6 +95,58 @@ def cmd_create_trainer_package(
     return trainer_response
 
 
+@trainer_package.command(name="update")
+@click.pass_obj
+@click.argument("id", type=str)
+@click.option(
+    "--path",
+    type=Path,
+    default=None,
+    help="Path to a local directory to re-package and upload.",
+)
+@click.option(
+    "-n",
+    "--name",
+    type=str,
+    default=None,
+    help="New name for the trainer package.",
+)
+@click.option(
+    "-d",
+    "--description",
+    type=str,
+    default=None,
+    help="New description for the trainer package.",
+)
+@click.option(
+    "--cmd",
+    type=str,
+    default=None,
+    help="New default command for the trainer package.",
+)
+def cmd_update_trainer_package(
+    cfg: Config,
+    id: str,
+    path: Optional[Path] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    cmd: Optional[str] = None,
+) -> Dict:
+    """Update an existing trainer package on the platform"""
+    from hafnia.platform.trainer_package import update_trainer_package
+
+    source_dir = Path(path).resolve() if path is not None else None
+    response = update_trainer_package(
+        id=id,
+        source_dir=source_dir,
+        name=name,
+        description=description,
+        cmd=cmd,
+        cfg=cfg,
+    )
+    return response
+
+
 @trainer_package.command(name="create-zip")
 @click.argument("source")
 @click.option(
