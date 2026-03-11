@@ -283,6 +283,14 @@ $defs:
         default: null
         description: Class name, e.g. 'car'
         title: Class Name
+      classifications:
+        anyOf:
+        - items:
+            $ref: '#/$defs/Classification'
+          type: array
+        - type: 'null'
+        default: null
+        title: Classifications
       confidence:
         default: 1.0
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification

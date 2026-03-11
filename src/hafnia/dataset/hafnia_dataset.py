@@ -21,13 +21,20 @@ from hafnia.dataset.dataset_names import (
 )
 from hafnia.dataset.format_conversions import (
     format_coco,
+    format_encord,
     format_image_classification_folder,
     format_yolo,
 )
-from hafnia.dataset.hafnia_dataset_types import DatasetInfo, DatasetMetadataFilePaths, Sample
+from hafnia.dataset.hafnia_dataset_types import (
+    DatasetInfo,
+    DatasetMetadataFilePaths,
+    Sample,
+    TaskInfo,
+)
 from hafnia.dataset.operations import (
     dataset_stats,
     dataset_transformations,
+    flattening_attributes,
     table_transformations,
 )
 from hafnia.dataset.primitives.primitive import Primitive
@@ -72,6 +79,7 @@ class HafniaDataset:
     from_coco_format = format_coco.from_coco_format
     to_image_classification_folder = format_image_classification_folder.to_image_classification_folder
     from_image_classification_folder = format_image_classification_folder.from_image_classification_folder
+    from_encord_zip_format = format_encord.from_encord_zip_format
 
     def __getitem__(self, item: int) -> Dict[str, Any]:
         return self.samples.row(index=item, named=True)
@@ -160,7 +168,9 @@ class HafniaDataset:
         If the dataset is already cached, it will be loaded from the cache.
         """
 
-        from hafnia.dataset.dataset_recipe.dataset_recipe import get_or_create_dataset_path_from_recipe
+        from hafnia.dataset.dataset_recipe.dataset_recipe import (
+            get_or_create_dataset_path_from_recipe,
+        )
 
         path_dataset = get_or_create_dataset_path_from_recipe(
             dataset_recipe,
@@ -340,6 +350,39 @@ class HafniaDataset:
             primitive=primitive,
             task_name=task_name,
         )
+
+    def flattening_by_specification(
+        dataset: "HafniaDataset",
+        flattening_specification: Dict[TaskInfo, List[List[str]]],
+    ) -> "HafniaDataset":
+        updated_tasks = []
+        samples = dataset.samples
+        for task, flatten_types in flattening_specification.items():
+            try:
+                task_updated = dataset.info.get_task_by_name(task_name=task.name).model_copy(deep=True)
+            except ValueError as e:
+                task_names = [
+                    f"'{task_info.name}' ({task_info.primitive.__name__})" for task_info in dataset.info.tasks
+                ]
+                raise ValueError(
+                    f"A '{task.primitive.__name__}' primitive with task name '{task.name}' in the flattening "
+                    "specification does not exist in the dataset.\n"
+                    f"Available tasks in the dataset: {task_names}"
+                ) from e
+
+            for flatten_types_list in flatten_types:
+                samples, task_updated = flattening_attributes.flatten_class_names(
+                    samples=samples,
+                    task_info=task_updated,
+                    flatten_types=flatten_types_list,
+                )
+
+            updated_tasks.append(task_updated)
+
+        dataset_info = dataset.info.model_copy(deep=True)
+        for task_updated in updated_tasks:
+            dataset_info = dataset_info.replace_task(old_task=task_updated, new_task=task_updated)
+        return HafniaDataset(info=dataset_info, samples=samples)
 
     def rename_task(
         dataset: "HafniaDataset",
@@ -651,8 +694,12 @@ class HafniaDataset:
             identifiers and status).
         """
 
-        from hafnia.dataset.dataset_details_uploader import upload_dataset_details_to_platform
-        from hafnia.dataset.operations.dataset_s3_storage import sync_dataset_files_to_platform
+        from hafnia.dataset.dataset_details_uploader import (
+            upload_dataset_details_to_platform,
+        )
+        from hafnia.dataset.operations.dataset_s3_storage import (
+            sync_dataset_files_to_platform,
+        )
         from hafnia.platform.datasets import get_or_create_dataset
 
         cfg = cfg or Config()
@@ -731,7 +778,9 @@ def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
     dataset.check_dataset()
 
 
-def available_dataset_versions_from_name(dataset_name: str) -> Dict[Version, "DatasetMetadataFilePaths"]:
+def available_dataset_versions_from_name(
+    dataset_name: str,
+) -> Dict[Version, "DatasetMetadataFilePaths"]:
     credentials: ResourceCredentials = get_read_credentials_by_name(dataset_name=dataset_name)
     return available_dataset_versions(credentials=credentials)
 
@@ -770,7 +819,9 @@ def select_version_from_available_versions(
 
 
 def download_meta_dataset_files_from_version(
-    resource_credentials: ResourceCredentials, version: Optional[str], path_dataset: Path
+    resource_credentials: ResourceCredentials,
+    version: Optional[str],
+    path_dataset: Path,
 ) -> list[str]:
     envs = resource_credentials.aws_credentials()
     available_versions = available_dataset_versions(credentials=resource_credentials)
@@ -820,7 +871,9 @@ def download_or_get_dataset_path(
         raise ValueError(f"Failed to get read credentials for dataset '{dataset_name}' from the platform.")
 
     download_meta_dataset_files_from_version(
-        resource_credentials=resource_credentials, version=version, path_dataset=path_dataset
+        resource_credentials=resource_credentials,
+        version=version,
+        path_dataset=path_dataset,
     )
 
     if not download_files:

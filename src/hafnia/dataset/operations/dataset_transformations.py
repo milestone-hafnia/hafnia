@@ -33,7 +33,7 @@ import json
 import re
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import cv2
 import more_itertools
@@ -316,15 +316,15 @@ def class_mapper(
 
     # Update dataset info with new class names
     name_and_classes_new: Dict[str, List[ClassInfo]] = {new_name: [] for new_name in new_class_names}
-    name_and_classes_old = {klass.name: klass.attributes for klass in task.classes}
+    name_and_classes_old = {klass.name: klass.attributes for klass in task.classes or []}
     classes = []
     for new_name in name_and_classes_new:
         previous_names = [name_from for name_from, name_to in class_mapping.items() if name_to == new_name]
-        attributes_combined = []
+        attributes_combined: List[Any] = []
         for previous_name in previous_names:
             attributes_combined.extend(name_and_classes_old[previous_name] or [])
-        attributes_combined = None if len(attributes_combined) == 0 else attributes_combined
-        classes.append(ClassInfo(name=new_name, attributes=attributes_combined))
+        attributes = None if len(attributes_combined or []) == 0 else attributes_combined
+        classes.append(ClassInfo(name=new_name, attributes=attributes))
     new_task = task.model_copy(deep=True)
     new_task.classes = classes
     dataset_info = dataset.info.replace_task(old_task=task, new_task=new_task)

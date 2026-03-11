@@ -44,13 +44,13 @@ class ClassInfo(BaseModel):
         """Create ClassInfo from an Encord option dictionary.
 
         Args:
-            option_dict: Dictionary containing 'value' and optionally nested 'options'
+            option_dict: Dictionary containing 'label' and optionally nested 'options'
             parent_primitive: The primitive type that this option belongs to
 
         Returns:
             ClassInfo object with name and potentially nested attributes
         """
-        class_name = option_dict["value"]
+        class_name = option_dict["label"]
 
         # Check if this option has nested attributes (like Gray -> Gray Tone)
         nested_attributes = []
@@ -63,6 +63,19 @@ class ClassInfo(BaseModel):
                 nested_attributes.append(nested_task)
 
         return ClassInfo(name=class_name, attributes=nested_attributes if nested_attributes else None)
+
+    def get_attribute_by_name(self, name: str, raise_error: bool = True) -> Optional["TaskInfo"]:
+        attributes = self.attributes or []
+        for attr in attributes:
+            if attr.name == name:
+                return attr
+            elif attr.classes:
+                for class_info in attr.classes:
+                    return class_info.get_attribute_by_name(name, raise_error=raise_error)
+
+        if raise_error:
+            raise ValueError(f"Attribute '{name}' not found in class '{self.name}'.")
+        return None
 
 
 class TaskInfo(BaseModel):
@@ -82,6 +95,18 @@ class TaskInfo(BaseModel):
         if self.classes is None:
             return None
         return [class_info.name for class_info in self.classes]
+
+    def get_class_by_name(self, class_name: str, raise_error: bool = True) -> Optional[ClassInfo]:
+        if self.classes is None:
+            if raise_error:
+                raise ValueError(f"Task '{self.name}' has no classes defined.")
+            return None
+        for class_info in self.classes:
+            if class_info.name == class_name:
+                return class_info
+        if raise_error:
+            raise ValueError(f"Class name '{class_name}' not found in task '{self.name}'.")
+        return None
 
     @staticmethod
     def from_class_names(primitive: Type[Primitive], class_names: List[str], name: Optional[str] = None) -> "TaskInfo":
@@ -115,7 +140,9 @@ class TaskInfo(BaseModel):
         Returns:
             List of TaskInfo objects representing the complete ontology
         """
-        from data_management.encord_datasets.encord_exporter import primitive_from_encord_shape_name
+        from hafnia.dataset.format_conversions.format_encord import (
+            primitive_from_encord_shape_name,
+        )
 
         tasks = []
 
@@ -143,7 +170,12 @@ class TaskInfo(BaseModel):
                     attr_task = TaskInfo.from_encord_attribute_dict(attr_dict, primitive=Classification)
                     class_attributes.append(attr_task)
 
-                classes.append(ClassInfo(name=class_name, attributes=class_attributes if class_attributes else None))
+                classes.append(
+                    ClassInfo(
+                        name=class_name,
+                        attributes=class_attributes if class_attributes else None,
+                    )
+                )
 
             tasks.append(
                 TaskInfo(
@@ -377,10 +409,12 @@ class DatasetInfo(BaseModel):
             format_version=dataset_format_version,
         )
 
-    def get_task_by_name(self, task_name: str) -> TaskInfo:
+    def get_task_by_name(self, task_name: Optional[str]) -> TaskInfo:
         """
         Get task by its name. Raises an error if the task name is not found or if multiple tasks have the same name.
         """
+        if task_name is None:
+            raise ValueError("Task name must be provided. 'None' is not a valid task name.")
         tasks_with_name = [task for task in self.tasks if task.name == task_name]
         if not tasks_with_name:
             raise ValueError(f"Task with name '{task_name}' not found in dataset info.")

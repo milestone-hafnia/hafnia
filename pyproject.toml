@@ -29,7 +29,7 @@ dependencies = [
     "mlflow>=3.4.0",
     "sagemaker-mlflow>=0.1.0",
     "mcp>=1.23.0",
-    "docstring-parser>=0.17.0",    # Used to parse docstrings for CommandBuilder
+    "docstring-parser>=0.17.0",
 ]
 
 [dependency-groups]
@@ -42,6 +42,7 @@ dev = [
     "cyclopts>=4.5.0",     # Only to test "CommandBuilder" module
     "typer>=0.21.1",       # Only to test "CommandBuilder" module
     "ipywidgets>=8.1.8",
+    "encord>=0.1.189",     # Only to test "format_encord" module
 ]
 
 test = ["pytest>=8.3.4", "pre-commit>=4.2.0", "ruff>=0.9.1"]

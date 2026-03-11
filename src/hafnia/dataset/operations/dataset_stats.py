@@ -177,7 +177,10 @@ def print_class_distribution(dataset: HafniaDataset) -> None:
         rich_table.add_column("Class Idx", style="cyan")
         rich_table.add_column("Count", justify="right")
         for class_name, count in class_counts.items():
-            class_idx = task.get_class_names().index(class_name)  # Get class idx from task info
+            class_names = task.get_class_names()
+            if class_names is None:
+                continue
+            class_idx = class_names.index(class_name)  # Get class idx from task info
             rich_table.add_row(class_name, str(class_idx), str(count))
         rprint(rich_table)
 
@@ -276,7 +279,7 @@ def check_dataset_tasks(dataset: HafniaDataset):
                     msg_something_wrong
                     + f"the column '{column_name}' with {task.name=} has no defined classes. Please check the dataset."
                 )
-            defined_classes = set(task.get_class_names())
+            defined_classes = set(task.get_class_names() or [])
 
             if not actual_classes.issubset(defined_classes):
                 raise ValueError(
