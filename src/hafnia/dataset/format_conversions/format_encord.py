@@ -89,7 +89,7 @@ def dump_encord_project_from_id(
     return path_output_file
 
 
-def get_encord_dataset_items(project: Project, select_rows: Optional[List[str]]) -> List[Dict]:
+def get_encord_dataset_items(project: "Project", select_rows: Optional[List[str]]) -> List[Dict]:
     dataset_items = project.list_label_rows_v2()
     encord_annotation_items = []
     for data_item in progress_bar(dataset_items, description="Loading Encord Annotations"):
