@@ -277,6 +277,7 @@ def get_folder_size(path: Path) -> int:
 
 def upload_dataset_details_to_platform(
     dataset: HafniaDataset,
+    dataset_sample: Optional[HafniaDataset] = None,
     path_gallery_images: Optional[Path] = None,
     gallery_image_names: Optional[List[str]] = None,
     distribution_task_names: Optional[List[str]] = None,
@@ -286,6 +287,7 @@ def upload_dataset_details_to_platform(
     cfg = cfg or Config()
     dataset_details = dataset_details_from_hafnia_dataset(
         dataset=dataset,
+        dataset_sample=dataset_sample,
         path_gallery_images=path_gallery_images,
         gallery_image_names=gallery_image_names,
         distribution_task_names=distribution_task_names,
@@ -360,6 +362,7 @@ def s3_based_fields(bucket_name: str, variant_type: DatasetVariant, session: bot
 
 def dataset_details_from_hafnia_dataset(
     dataset: HafniaDataset,
+    dataset_sample: Optional[HafniaDataset] = None,
     path_gallery_images: Optional[Path] = None,
     gallery_image_names: Optional[List[str]] = None,
     distribution_task_names: Optional[List[str]] = None,
@@ -368,16 +371,17 @@ def dataset_details_from_hafnia_dataset(
     dataset_reports = []
     dataset_meta_info = dataset.info.meta or {}
 
+    dataset_sample = dataset_sample or dataset.create_sample_dataset()
     path_and_variant = [DatasetVariant.SAMPLE, DatasetVariant.HIDDEN]
     gallery_images = create_gallery_images(
-        dataset=dataset,
+        dataset=dataset_sample,
         path_gallery_images=path_gallery_images,
         gallery_image_names=gallery_image_names,
     )
 
     for variant_type in path_and_variant:
         if variant_type == DatasetVariant.SAMPLE:
-            dataset_variant = dataset.create_sample_dataset()
+            dataset_variant = dataset_sample
         else:
             dataset_variant = dataset
 

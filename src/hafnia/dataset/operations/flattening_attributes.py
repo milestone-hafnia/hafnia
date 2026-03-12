@@ -78,9 +78,6 @@ def _expand_class_info(
                     attributes=merged_attrs if merged_attrs else None,
                 )
             )
-    # Keep the base class alongside the expanded children so it remains a valid
-    # class name in TaskInfo (e.g. "Sunrise/Sunset" stays next to
-    # "Sunrise/Sunset.Sunrise" and "Sunrise/Sunset.Sunset").
     return [class_info] + result
 
 
@@ -115,6 +112,7 @@ def flatten_class_names(
         ``(updated_samples, new_task_info)``
     """
     task_column_name = task_info.primitive.column_name()
+
     # Update TaskInfo
     new_classes: List[ClassInfo] = []
     for cls in task_info.classes or []:
@@ -125,7 +123,13 @@ def flatten_class_names(
         classes=new_classes,
     )
 
-    # Change polars DataFrame Samples
+    # Update Samples
+    struct_fields = samples[task_column_name].dtype.inner.fields
+
+    if has_null_attribute_column(struct_fields):
+        samples_updated = update_class_indices(samples, new_task_info)
+        return samples_updated, new_task_info
+
     classifications_expr = pl.element().struct.field(SampleField.CLASSIFICATIONS)
     is_target_task = pl.element().struct.field(PrimitiveField.TASK_NAME) == task_info.name
     base_name = pl.element().struct.field(PrimitiveField.CLASS_NAME)
@@ -137,11 +141,21 @@ def flatten_class_names(
 
     new_class_name = pl.when(is_target_task).then(name_expr).otherwise(base_name)
 
-    updated_df = samples.with_columns(
+    samples_updated = samples.with_columns(
         pl.col(task_column_name)
         .list.eval(pl.element().struct.with_fields(new_class_name.alias(PrimitiveField.CLASS_NAME)))
         .alias(task_column_name)
     )
 
-    samples_updated = update_class_indices(updated_df, new_task_info)
+    samples_updated = update_class_indices(samples_updated, new_task_info)
     return samples_updated, new_task_info
+
+
+def has_null_attribute_column(struct_fields: List[pl.Field]) -> bool:
+    has_no_classifications = SampleField.CLASSIFICATIONS not in [f.name for f in struct_fields]
+    if has_no_classifications:
+        return True
+    null_type = [f for f in struct_fields if f.name == SampleField.CLASSIFICATIONS and f.dtype == pl.Null]
+    if null_type:
+        return True
+    return False

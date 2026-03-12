@@ -73,16 +73,9 @@ def from_encord_zip_format(path_compressed_data: Path) -> "HafniaDataset":
 def dump_encord_project_from_id(
     project_id: str,
     encord_client: encord.EncordUserClient,
-    path_output_data: Optional[Path] = None,
+    path_output_file: Path,
     select_rows: Optional[List[str]] = None,
-    redownload_labels: bool = False,
 ) -> Path:
-    if path_output_data is None:
-        path_output_data = Path(f".data/encord_project_{project_id}") / FILENAME_ENCORD_ANNOTATIONS
-
-    if not redownload_labels and path_output_data.exists():
-        return path_output_data
-
     encord_project = encord_client.get_project(project_id)
 
     encord_data = dump_encord_data(
@@ -90,9 +83,9 @@ def dump_encord_project_from_id(
         select_rows=select_rows,
     )
 
-    path_output_data.parent.mkdir(parents=True, exist_ok=True)
-    utils.save_compressed_json(path_output_data, encord_data)
-    return path_output_data
+    path_output_file.parent.mkdir(parents=True, exist_ok=True)
+    utils.save_compressed_json(path_output_file, encord_data)
+    return path_output_file
 
 
 def get_encord_dataset_items(project: Project, select_rows: Optional[List[str]]) -> List[Dict]:

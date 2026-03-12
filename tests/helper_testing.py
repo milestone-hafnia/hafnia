@@ -28,6 +28,8 @@ if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type
 # They are stored and version controlled together with the source code to not have external dependencies
 # when running unit tests. The datasets are very small making them fast to load and run tests on.
 # Micro datasets are derived from other datasets and should be updated regularly to ensure compatibility
+# However, notice also that micro datasets are derived from non-published datasets.
+# Meaning we can update them on the platform without breaking stuff for our users.
 MICRO_DATASETS = {
     "micro-tiny-dataset": DATASET_SPEC_TINY_DATASET,
     "micro-coco-2017": DATASET_SPEC_COCO_2017_TINY,
@@ -64,7 +66,7 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
 
     path_test_dataset = get_path_micro_hafnia_dataset_no_check() / dataset_name
     dataset_metadata_files = DatasetMetadataFilePaths.from_path(path_test_dataset)
-    has_dataset = dataset_metadata_files.exists()
+    has_dataset = dataset_metadata_files.exists(raise_error=False)
     if has_dataset and not force_update:
         return path_test_dataset
 
@@ -188,7 +190,7 @@ def get_dummy_recipe() -> "DatasetRecipe":
     return dataset_recipe
 
 
-def get_strict_class_mapping_midwest() -> Dict[str, str]:
+def get_strict_class_mapping_tiny_dataset() -> Dict[str, str]:
     strict_class_mapping = {
         "Person": "person",  # Index 0
         "Vehicle.Trailer": "__REMOVE__",  # Removed not provided an index
@@ -197,13 +199,14 @@ def get_strict_class_mapping_midwest() -> Dict[str, str]:
         "Vehicle.Car": "vehicle",
         "Vehicle.Van": "vehicle",
         "Vehicle.RV": "__REMOVE__",
-        "Vehicle.Single_Truck": "truck",  # Index 2
-        "Vehicle.Combo_Truck": "__REMOVE__",
-        "Vehicle.Pickup_Truck": "truck",
-        "Vehicle.Emergency_Vehicle": "vehicle",
+        "Vehicle.Single Truck": "truck",  # Index 2
+        "Vehicle.Combo Truck": "__REMOVE__",
+        "Vehicle.Pickup Truck": "truck",
+        "Vehicle.Emergency Vehicle": "vehicle",
         "Vehicle.Bus": "vehicle",
-        "Vehicle.Heavy_Duty_Vehicle": "vehicle",
+        "Vehicle.Heavy Duty Vehicle": "vehicle",
     }
+    #'Vehicle.Tricycle', 'Vehicle.Unknown', 'Vehicle.Aeroplane', 'Vehicle.Boat', 'Vehicle.Train', 'Animal', 'Object', 'Human Face', 'License Plate', 'Annotator Marking'
     return strict_class_mapping
 
 

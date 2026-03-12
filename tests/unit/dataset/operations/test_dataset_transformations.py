@@ -13,7 +13,7 @@ from hafnia.dataset.operations.dataset_transformations import (
 from hafnia.dataset.primitives import Bbox, Classification
 from tests.helper_testing import (
     get_path_micro_hafnia_dataset,
-    get_strict_class_mapping_midwest,
+    get_strict_class_mapping_tiny_dataset,
     simulate_hafnia_video_dataset,
 )
 
@@ -24,7 +24,7 @@ def test_class_mapper_strict():
     dataset = HafniaDataset.from_path(path_dataset)
 
     dataset_updated = dataset.class_mapper(
-        class_mapping=get_strict_class_mapping_midwest(),
+        class_mapping=get_strict_class_mapping_tiny_dataset(),
         method="strict",
         primitive=Bbox,
     )
@@ -120,7 +120,6 @@ def test_class_mapper_keep_undefined():
 
     task_bbox = dataset.info.get_task_by_primitive(Bbox)
     class_names_original = task_bbox.get_class_names() or []
-    # class_mapping_strict = get_strict_class_mapping_midwest()
     rename_class = "Vehicle.Car"
     class_mapping = {
         rename_class: "vehicle",
@@ -223,7 +222,7 @@ def test_merge_datasets():
     assert len(dataset_merged.info.tasks) == len(dataset_1.info.tasks), "Tasks should be preserved after merging"
 
     # Use case 2: Merging two datasets with the same tasks but different class names should raise an error
-    mapping = get_strict_class_mapping_midwest()
+    mapping = get_strict_class_mapping_tiny_dataset()
     dataset_1_changed = dataset_1.class_mapper(
         class_mapping=mapping,
         primitive=Bbox,

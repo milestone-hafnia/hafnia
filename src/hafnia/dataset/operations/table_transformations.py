@@ -45,7 +45,26 @@ def create_primitive_table(
             {"height": "image.height", "width": "image.width", "meta": "image.meta"},
             strict=False,
         )
-        objects_df = remove_no_object_frames.explode(column_name).unnest(column_name)
+        # tmp_column_name = "tmp_column_name_will_be_dropped_after_unnest"
+        # remove_no_object_frames = remove_no_object_frames.rename({column_name: tmp_column_name}, strict=True)
+        row_per_object = remove_no_object_frames.explode(column_name)
+        nested_fields = row_per_object[column_name].struct.fields
+        existing_fields = set(row_per_object.columns)
+        overlap_fields = set(nested_fields).intersection(existing_fields)
+        if len(overlap_fields) > 0:
+            # To avoid conflicts struct fields are renamed by column_name + "." + field_name (e.g. "bboxes.xmin", "bboxes.ymin" etc.)
+            nested_fields_renamed = []
+            for field in nested_fields:
+                if field in overlap_fields:
+                    nested_fields_renamed.append(f"{column_name}.{field}")
+                else:
+                    nested_fields_renamed.append(field)
+
+            row_per_object = row_per_object.with_columns(
+                pl.col(column_name).struct.rename_fields(nested_fields_renamed).alias(column_name)
+            )
+
+        objects_df = row_per_object.unnest(column_name)
     else:
         objects_df = remove_no_object_frames.select(pl.col(column_name).explode().struct.unnest())
 

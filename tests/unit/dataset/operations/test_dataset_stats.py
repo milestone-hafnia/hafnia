@@ -29,8 +29,9 @@ def test_micro_dataset_format_versions(micro_dataset_name: str):
 def test_class_counts_for_task():
     dataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
     counts = dataset.calculate_task_class_counts(primitive=Bbox)
+    bbox_task = dataset.info.get_task_by_primitive(Bbox)
     assert isinstance(counts, dict)
-    assert len(counts) == len(dataset.info.tasks[0].get_class_names() or [])
+    assert len(counts) == len(bbox_task.get_class_names() or [])
 
 
 def test_class_counts_all():

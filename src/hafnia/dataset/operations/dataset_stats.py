@@ -143,7 +143,8 @@ def print_basic_stats(dataset: HafniaDataset) -> None:
     table.add_row("Number of samples", str(len(dataset.samples)))
 
     for task in dataset.info.tasks:
-        class_count = len(task.class_names) if task.class_names else "N/A"
+        class_names = task.get_class_names()
+        class_count = len(class_names) if class_names else "N/A"
         table.add_row(f"Task: {task.full_name()}", f"Number of classes: {class_count}")
 
     rprint(table)

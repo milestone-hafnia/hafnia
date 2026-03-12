@@ -5,26 +5,26 @@ import pytest
 
 from hafnia import utils
 from hafnia.dataset import primitives
-from hafnia.dataset.format_conversions.format_encord import FILENAME_ENCORD_ANNOTATIONS
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample, TaskInfo
 from tests import helper_testing
 
 
-def get_encord_dataset_compressed_path() -> Path:
+def get_encord_dataset_tiny_path() -> Path:
     path_encord_dataset_folder = helper_testing.get_path_test_dataset_formats() / "format_encord"
-    path_compressed_data = path_encord_dataset_folder / FILENAME_ENCORD_ANNOTATIONS
+    path_compressed_data = path_encord_dataset_folder / "tiny_dataset.json.gz"
     return path_compressed_data
 
 
-def get_encord_dataset() -> Dict[str, Dict]:
-    path_compressed_data = get_encord_dataset_compressed_path()
-    metadata_dict = utils.read_compressed_json(path_compressed_data)
-    return metadata_dict
+def get_encord_midwest_vehicle_detection_tiny_path() -> Path:
+    path_encord_dataset_folder = helper_testing.get_path_test_dataset_formats() / "format_encord"
+    path_compressed_data = path_encord_dataset_folder / "midwest_vehicle_detection_tiny.json.gz"
+    return path_compressed_data
 
 
 def test_parse_nested_ontology():
-    metadata_dict = get_encord_dataset()
+    path_compressed_data = get_encord_dataset_tiny_path()
+    metadata_dict = utils.read_compressed_json(path_compressed_data)
 
     ontology_dict = metadata_dict["ontology"]
     tasks = TaskInfo.from_encord_ontology_dict(ontology_dict)
@@ -69,20 +69,20 @@ def test_parse_nested_ontology():
 
 
 @pytest.fixture(scope="session")
-def encord_dataset():  # This is session scoped fixture. Use 'dataset = dataset.copy()' for each test to avoid affecting other tests when modifying the dataset.
-    path_compressed_data = get_encord_dataset_compressed_path()
+def encord_dataset_tiny():  # This is session scoped fixture. Use 'dataset = dataset.copy()' for each test to avoid affecting other tests when modifying the dataset.
+    path_compressed_data = get_encord_dataset_tiny_path()
     dataset = HafniaDataset.from_encord_zip_format(path_compressed_data)
     return dataset
 
 
-def test_from_encord_zip_format(encord_dataset: HafniaDataset):
-    encord_dataset = encord_dataset.copy()  # This is Session scoped fixture - copy to not affect other tests
+def test_from_encord_zip_format(encord_dataset_tiny: HafniaDataset):
+    encord_dataset_tiny = encord_dataset_tiny.copy()  # This is Session scoped fixture - copy to not affect other tests
 
-    assert len(encord_dataset.info.tasks) > 0, "Expected to find tasks in the dataset info"
-    assert len(encord_dataset.samples) > 0, "Expected to find samples in the dataset"
+    assert len(encord_dataset_tiny.info.tasks) > 0, "Expected to find tasks in the dataset info"
+    assert len(encord_dataset_tiny.samples) > 0, "Expected to find samples in the dataset"
 
     # Check pydantic parsing of sample
-    sample = Sample(**encord_dataset[0])
+    sample = Sample(**encord_dataset_tiny[0])
     assert len(sample.polygons or []) > 0, "Expected to find polygons in the sample"
     assert len(sample.bboxes or []) > 0, "Expected to find bboxes in the sample"
     for bbox in sample.bboxes or []:
@@ -90,11 +90,28 @@ def test_from_encord_zip_format(encord_dataset: HafniaDataset):
     assert len(sample.bitmasks or []) > 0, "Expected to find bitmasks in the sample"
     assert len(sample.classifications or []) > 0, "Expected to find classifications in the sample"
 
-    encord_dataset.check_dataset(check_splits=False)
+    encord_dataset_tiny.check_dataset(check_splits=False)
 
 
-def test_flattening_specification_assert(encord_dataset: HafniaDataset):
-    encord_dataset = encord_dataset.copy()  # This is Session scoped fixture - copy to not affect other tests
+def test_flattening_specification_midwest():
+    path_compressed_data = get_encord_midwest_vehicle_detection_tiny_path()
+    dataset: HafniaDataset = HafniaDataset.from_encord_zip_format(path_compressed_data)
+    dataset.check_dataset(check_splits=False)
+
+    flattening_specification: Dict[TaskInfo, List[List[str]]] = {
+        TaskInfo(primitive=primitives.Bbox): [["Vehicle Type"], ["Annotator Marking Type"]],
+        TaskInfo(primitive=primitives.Polygon): [["Annotator Marking Polygon Type"]],
+        TaskInfo(primitive=primitives.Classification, name="Time of Day"): [["Sunrise/Sunset Type"], ["Twilight Type"]],
+    }
+
+    dataset_flat = dataset.flattening_by_specification(
+        flattening_specification=flattening_specification,
+    )
+    dataset_flat.check_dataset(check_splits=False)
+
+
+def test_flattening_specification_assert(encord_dataset_tiny: HafniaDataset):
+    encord_dataset_tiny = encord_dataset_tiny.copy()  # This is Session scoped fixture - copy to not affect other tests
 
     flattening_specification: Dict[TaskInfo, List[List[str]]] = {
         # Deliberately use wrong task names to trigger the assertion error
@@ -105,18 +122,18 @@ def test_flattening_specification_assert(encord_dataset: HafniaDataset):
     }
 
     with pytest.raises(ValueError, match="does not exist in the dataset"):
-        encord_dataset.flattening_by_specification(flattening_specification=flattening_specification)
+        encord_dataset_tiny.flattening_by_specification(flattening_specification=flattening_specification)
 
 
-def test_flattening_specification(encord_dataset: HafniaDataset):
-    encord_dataset = encord_dataset.copy()  # This is Session scoped fixture - copy to not affect other tests
+def test_flattening_specification(encord_dataset_tiny: HafniaDataset):
+    encord_dataset_tiny = encord_dataset_tiny.copy()  # This is Session scoped fixture - copy to not affect other tests
 
     # Check dataset looks correct
-    assert len(encord_dataset.info.tasks) > 0, "Expected to find tasks in the dataset info"
-    assert len(encord_dataset.samples) > 0, "Expected to find samples in the dataset"
+    assert len(encord_dataset_tiny.info.tasks) > 0, "Expected to find tasks in the dataset info"
+    assert len(encord_dataset_tiny.samples) > 0, "Expected to find samples in the dataset"
 
     # Check classes names before flattening
-    class_name_counts = encord_dataset.calculate_class_counts()
+    class_name_counts = encord_dataset_tiny.calculate_class_counts()
     class_names = [cn["Class Name"] for cn in class_name_counts]
 
     assert all("." not in cn for cn in class_names), "Expected not nesting and therefore no '.' before flattening"
@@ -128,7 +145,7 @@ def test_flattening_specification(encord_dataset: HafniaDataset):
         TaskInfo(primitive=primitives.Classification, name="Time of Day"): [["Sunrise/Sunset Type"], ["Twilight Type"]],
     }
 
-    dataset_flat = encord_dataset.flattening_by_specification(
+    dataset_flat = encord_dataset_tiny.flattening_by_specification(
         flattening_specification=flattening_specification,
     )
 
@@ -174,4 +191,4 @@ def test_flattening_specification(encord_dataset: HafniaDataset):
                 "Expected to find flattened Twilight classes in the flattened dataset"
             )
 
-    encord_dataset.check_dataset(check_splits=False)
+    encord_dataset_tiny.check_dataset(check_splits=False)

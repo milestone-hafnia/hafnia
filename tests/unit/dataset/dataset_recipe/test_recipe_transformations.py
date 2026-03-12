@@ -21,7 +21,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.primitives import Bbox
-from tests.helper_testing import dict_as_list_of_tuples, get_micro_hafnia_dataset, get_strict_class_mapping_midwest
+from tests.helper_testing import dict_as_list_of_tuples, get_micro_hafnia_dataset, get_strict_class_mapping_tiny_dataset
 
 
 @dataclass
@@ -63,12 +63,12 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
         ),
         TestCaseRecipeTransform(
             recipe_transform=ClassMapper(
-                class_mapping=get_strict_class_mapping_midwest(),
+                class_mapping=get_strict_class_mapping_tiny_dataset(),
                 method="strict",
                 primitive=None,
                 task_name=None,
             ),
-            as_python_code=f"class_mapper(class_mapping={dict_as_list_of_tuples(get_strict_class_mapping_midwest())}, method='strict', primitive=None, task_name=None)",  # noqa: E501
+            as_python_code=f"class_mapper(class_mapping={dict_as_list_of_tuples(get_strict_class_mapping_tiny_dataset())}, method='strict', primitive=None, task_name=None)",  # noqa: E501
             short_name="ClassMapper",
         ),
         TestCaseRecipeTransform(

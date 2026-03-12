@@ -294,6 +294,12 @@ class DatasetInfo(BaseModel):
         description="Timestamp of the last update to the dataset info. You should not set this manually.",
     )
 
+    def overwrite_inplace(self, overwrite_info: "DatasetInfo") -> None:
+        """Override the fields of the current DatasetInfo with the non-None fields of the provided overwrite_info."""
+        for field_name, value in overwrite_info.model_dump().items():
+            if value is not None:
+                setattr(self, field_name, value)
+
     @field_validator("tasks", mode="after")
     @classmethod
     def _validate_check_for_duplicate_tasks(cls, tasks: Optional[List[TaskInfo]]) -> List[TaskInfo]:
