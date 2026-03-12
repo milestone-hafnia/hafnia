@@ -3,9 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Type
 
-import encord
 import numpy as np
-from encord.project import Project
 from pycocotools import mask as mask_utils
 
 from hafnia import utils
@@ -72,7 +70,7 @@ def from_encord_zip_format(path_compressed_data: Path) -> "HafniaDataset":
 
 def dump_encord_project_from_id(
     project_id: str,
-    encord_client: encord.EncordUserClient,
+    encord_client,
     path_output_file: Path,
     select_rows: Optional[List[str]] = None,
 ) -> Path:
@@ -88,7 +86,7 @@ def dump_encord_project_from_id(
     return path_output_file
 
 
-def get_encord_dataset_items(project: Project, select_rows: Optional[List[str]]) -> List[Dict]:
+def get_encord_dataset_items(project, select_rows: Optional[List[str]]) -> List[Dict]:
     dataset_items = project.list_label_rows_v2()
     encord_annotation_items = []
     for data_item in progress_bar(dataset_items, description="Loading Encord Annotations"):
@@ -104,7 +102,7 @@ def get_encord_dataset_items(project: Project, select_rows: Optional[List[str]])
 
 
 def dump_encord_data(
-    encord_project: encord.Project,
+    encord_project,
     select_rows: Optional[List[str]] = None,
 ) -> Dict:
     collection_items = get_encord_dataset_items(encord_project, select_rows=select_rows)

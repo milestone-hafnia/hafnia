@@ -291,7 +291,7 @@ def progress_bar(sequence: Iterable, total: Optional[int] = None, description: s
 
 def title_to_name(title: str) -> str:
     """
-    Convert a human-readable title to a clean snake_case name.
+    Convert a human-readable title to a machine-friendly name.
 
     Lowercases the string, replaces whitespace with underscores, and strips
     all remaining characters that are not alphanumeric or underscores.
