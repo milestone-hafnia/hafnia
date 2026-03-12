@@ -14,6 +14,10 @@ from tests.helper_testing import get_micro_hafnia_dataset
 def test_import_export_image_classification_from_directory(tmp_path: Path) -> None:
     dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")
 
+    # Test fix. The 'tiny-dataset' has some duplicate samples with the same file path
+    # when stored to disk this will reduce the number of samples from 6 to 3.
+    dataset.samples = dataset.samples.unique(subset=["file_path"], keep="first")
+
     path_exported = tmp_path / "exported"
     with pytest.raises(ValueError, match="Found multiple tasks"):
         to_image_classification_folder(dataset, path_output=path_exported)

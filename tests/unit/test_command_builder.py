@@ -306,7 +306,7 @@ def test_command_args_from_form_data():
 
 def test_command_args_from_form_data_simple():
     class NestedModel(BaseModel):
-        name: str
+        name: str  # type: ignore
 
     def some_function(
         param_value1: str,
@@ -365,8 +365,8 @@ def test_cyclopts_cmdline():
 
     # For testing nested models
     class NestedModel(BaseModel):
-        nested_param_str: Annotated[str, cyclopts.Parameter(help="This is nested param 1")]
-        nested_param_int: Annotated[int, cyclopts.Parameter(help="This is nested param 2")] = 5
+        nested_param_str: Annotated[str, cyclopts.Parameter(help="This is nested param 1")]  # type: ignore
+        nested_param_int: Annotated[int, cyclopts.Parameter(help="This is nested param 2")] = 5  # type: ignore
 
     # Simulate cyclopts cli application function that will be converted into a cli tool
     @app.default

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from pydantic import Field
@@ -24,6 +24,9 @@ class Classification(Primitive):
     meta: Optional[Dict[str, Any]] = Field(
         default=None, description="This can be used to store additional information about the classification"
     )
+
+    # Attributes - allow nesting
+    classifications: Optional[List["Classification"]] = None
 
     @staticmethod
     def default_task_name() -> str:

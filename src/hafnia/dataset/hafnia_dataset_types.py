@@ -35,11 +35,54 @@ from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 
 
+class ClassInfo(BaseModel):
+    name: str = Field(description="Name of the class")
+    attributes: Optional[List["TaskInfo"]] = None
+
+    @staticmethod
+    def from_encord_option_dict(option_dict: Dict, parent_primitive: Type[Primitive]) -> "ClassInfo":
+        """Create ClassInfo from an Encord option dictionary.
+
+        Args:
+            option_dict: Dictionary containing 'label' and optionally nested 'options'
+            parent_primitive: The primitive type that this option belongs to
+
+        Returns:
+            ClassInfo object with name and potentially nested attributes
+        """
+        class_name = option_dict["label"]
+
+        # Check if this option has nested attributes (like Gray -> Gray Tone)
+        nested_attributes = []
+        if "options" in option_dict:
+            for nested_attr_dict in option_dict["options"]:
+                if nested_attr_dict.get("type") not in ["radio", "checklist"]:
+                    continue
+                # Nested attributes become Classification TaskInfo
+                nested_task = TaskInfo.from_encord_attribute_dict(nested_attr_dict, primitive=Classification)
+                nested_attributes.append(nested_task)
+
+        return ClassInfo(name=class_name, attributes=nested_attributes if nested_attributes else None)
+
+    def get_attribute_by_name(self, name: str, raise_error: bool = True) -> Optional["TaskInfo"]:
+        attributes = self.attributes or []
+        for attr in attributes:
+            if attr.name == name:
+                return attr
+            elif attr.classes:
+                for class_info in attr.classes:
+                    return class_info.get_attribute_by_name(name, raise_error=raise_error)
+
+        if raise_error:
+            raise ValueError(f"Attribute '{name}' not found in class '{self.name}'.")
+        return None
+
+
 class TaskInfo(BaseModel):
     primitive: Type[Primitive] = Field(
         description="Primitive class or string name of the primitive, e.g. 'Bbox' or 'bitmask'"
     )
-    class_names: Optional[List[str]] = Field(default=None, description="Optional list of class names for the primitive")
+    classes: Optional[List[ClassInfo]] = Field(default=None, description="Optional list of classes for the task")
     name: Optional[str] = Field(
         default=None,
         description=(
@@ -48,17 +91,129 @@ class TaskInfo(BaseModel):
         ),
     )
 
+    def get_class_names(self) -> Optional[List[str]]:
+        if self.classes is None:
+            return None
+        return [class_info.name for class_info in self.classes]
+
+    def get_class_by_name(self, class_name: str, raise_error: bool = True) -> Optional[ClassInfo]:
+        if self.classes is None:
+            if raise_error:
+                raise ValueError(f"Task '{self.name}' has no classes defined.")
+            return None
+        for class_info in self.classes:
+            if class_info.name == class_name:
+                return class_info
+        if raise_error:
+            raise ValueError(f"Class name '{class_name}' not found in task '{self.name}'.")
+        return None
+
+    @staticmethod
+    def from_class_names(primitive: Type[Primitive], class_names: List[str], name: Optional[str] = None) -> "TaskInfo":
+        """Create TaskInfo object from a list of class names"""
+        classes = [ClassInfo(name=class_name) for class_name in class_names]
+        return TaskInfo(primitive=primitive, classes=classes, name=name)
+
     def model_post_init(self, __context: Any) -> None:
         if self.name is None:
             self.name = self.primitive.default_task_name()
 
     def get_class_index(self, class_name: str) -> int:
         """Get class index for a given class name"""
-        if self.class_names is None:
+        class_names = self.get_class_names()
+        if class_names is None:
             raise ValueError(f"Task '{self.name}' has no class names defined.")
-        if class_name not in self.class_names:
+        if class_name not in class_names:
             raise ValueError(f"Class name '{class_name}' not found in task '{self.name}'.")
-        return self.class_names.index(class_name)
+        return class_names.index(class_name)
+
+    @staticmethod
+    def from_encord_ontology_dict(ontology_dict: Dict) -> List["TaskInfo"]:
+        """Parse Encord ontology JSON into a list of TaskInfo objects.
+
+        Objects are grouped by primitive type (all bounding boxes in one task, etc.)
+        Classifications each become their own TaskInfo.
+
+        Args:
+            ontology_dict: Dictionary containing 'objects' and 'classifications' keys
+
+        Returns:
+            List of TaskInfo objects representing the complete ontology
+        """
+        from hafnia.dataset.format_conversions.format_encord import (
+            primitive_from_encord_shape_name,
+        )
+
+        tasks = []
+
+        # Group objects by their primitive type
+        objects_by_primitive = collections.defaultdict(list)
+        for obj_dict in ontology_dict.get("objects", []):
+            Primitive = primitive_from_encord_shape_name(obj_dict["shape"])
+            objects_by_primitive[Primitive].append(obj_dict)
+
+        # Create one TaskInfo per primitive type
+        for Primitive, obj_dicts in objects_by_primitive.items():
+            classes = []
+            for obj_dict in obj_dicts:
+                class_name = obj_dict["name"]
+
+                # Parse attributes for this class
+                class_attributes = []
+                for attr_dict in obj_dict.get("attributes", []):
+                    if attr_dict.get("type") not in ["radio", "checklist"]:
+                        user_logger.warning(
+                            f"Skipping unsupported attribute type '{attr_dict.get('type')}' in class '{class_name}'"
+                        )
+                        continue
+                    # Object attributes become Classification TaskInfo
+                    attr_task = TaskInfo.from_encord_attribute_dict(attr_dict, primitive=Classification)
+                    class_attributes.append(attr_task)
+
+                classes.append(
+                    ClassInfo(
+                        name=class_name,
+                        attributes=class_attributes if class_attributes else None,
+                    )
+                )
+
+            tasks.append(
+                TaskInfo(
+                    primitive=Primitive,
+                    classes=classes,
+                )
+            )
+
+        # Each classification attribute becomes its own TaskInfo
+        for classification_dict in ontology_dict.get("classifications", []):
+            for attr_dict in classification_dict.get("attributes", []):
+                if attr_dict.get("type") not in ["radio", "checklist"]:
+                    continue
+                classification_task = TaskInfo.from_encord_attribute_dict(attr_dict, primitive=Classification)
+                tasks.append(classification_task)
+
+        return tasks
+
+    @staticmethod
+    def from_encord_attribute_dict(attribute_dict: Dict, primitive: Type[Primitive]) -> "TaskInfo":
+        """Create TaskInfo from an Encord attribute dictionary.
+
+        Args:
+            attribute_dict: Dictionary containing 'name', 'type', and 'options'
+            primitive: The primitive type for this task (typically Classification for attributes)
+
+        Returns:
+            TaskInfo object with classes parsed from options
+        """
+        task_name = attribute_dict["name"]
+
+        # Parse all options into ClassInfo objects
+        classes = []
+        for option_dict in attribute_dict.get("options", []):
+            class_info = ClassInfo.from_encord_option_dict(option_dict, primitive)
+            classes.append(class_info)
+
+        return TaskInfo(primitive=primitive, classes=classes if classes else None, name=task_name)
 
     # The 'primitive'-field of type 'Type[Primitive]' is not supported by pydantic out-of-the-box as
     # the 'Primitive' class is an abstract base class and for the actual primitives such as Bbox, Bitmask, Classification.
@@ -82,18 +237,19 @@ class TaskInfo(BaseModel):
             raise ValueError(f"Primitive must be a subclass of Primitive, got {type(primitive)} instead.")
         return primitive.__name__
 
-    @field_validator("class_names", mode="after")
+    @field_validator("classes", mode="after")
     @classmethod
-    def validate_unique_class_names(cls, class_names: Optional[List[str]]) -> Optional[List[str]]:
+    def validate_unique_class_names(cls, classes: Optional[List[ClassInfo]]) -> Optional[List[ClassInfo]]:
         """Validate that class names are unique"""
-        if class_names is None:
+        if classes is None:
             return None
+        class_names = [class_info.name for class_info in classes]
         duplicate_class_names = set([name for name in class_names if class_names.count(name) > 1])
         if duplicate_class_names:
             raise ValueError(
                 f"Class names must be unique. The following class names appear multiple times: {duplicate_class_names}."
             )
-        return class_names
+        return classes
 
     def full_name(self) -> str:
         """Get qualified name for the task: <primitive_name>:<task_name>"""
@@ -101,13 +257,13 @@ class TaskInfo(BaseModel):
 
     # To get unique hash value for TaskInfo objects
     def __hash__(self) -> int:
-        class_names = self.class_names or []
+        class_names = self.get_class_names() or []
         return hash((self.name, self.primitive.__name__, tuple(class_names)))
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, TaskInfo):
             return False
-        return self.name == other.name and self.primitive == other.primitive and self.class_names == other.class_names
+        return self.name == other.name and self.primitive == other.primitive and self.classes == other.classes
 
 
 class DatasetInfo(BaseModel):
@@ -137,6 +293,12 @@ class DatasetInfo(BaseModel):
         default_factory=datetime.now,
         description="Timestamp of the last update to the dataset info. You should not set this manually.",
     )
+
+    def overwrite_inplace(self, overwrite_info: "DatasetInfo") -> None:
+        """Override the fields of the current DatasetInfo with the non-None fields of the provided overwrite_info."""
+        for field_name, value in overwrite_info.model_dump().items():
+            if value is not None:
+                setattr(self, field_name, value)
 
     @field_validator("tasks", mode="after")
     @classmethod
@@ -188,8 +350,17 @@ class DatasetInfo(BaseModel):
         if "format_version" not in json_dict:
             json_dict["format_version"] = "0.0.0"
 
+        if Version(json_dict["format_version"]) <= Version("0.2.0"):
+            old_convention = any("class_names" in task for task in json_dict["tasks"])
+            if "tasks" in json_dict and old_convention:
+                new_tasks = []
+                for task_dict in json_dict["tasks"]:
+                    task_dict_new = TaskInfo.from_class_names(**task_dict).model_dump(mode="dict")
+                    new_tasks.append(task_dict_new)
+                json_dict["tasks"] = new_tasks
         if "updated_at" not in json_dict:
             json_dict["updated_at"] = datetime.min.isoformat()
+
         dataset_info = DatasetInfo.model_validate(json_dict)
 
         return dataset_info
@@ -213,8 +384,8 @@ class DatasetInfo(BaseModel):
 
                 is_same_name_and_primitive = same_name and same_primitive
                 if is_same_name_and_primitive:
-                    task_ds0_class_names = task_ds0.class_names or []
-                    task_ds1_class_names = task_ds1.class_names or []
+                    task_ds0_class_names = task_ds0.get_class_names() or []
+                    task_ds1_class_names = task_ds1.get_class_names() or []
                     if task_ds0_class_names != task_ds1_class_names:
                         raise ValueError(
                             f"Cannot merge datasets with different class names for the same task name and primitive: "
@@ -244,10 +415,12 @@ class DatasetInfo(BaseModel):
             format_version=dataset_format_version,
         )
 
-    def get_task_by_name(self, task_name: str) -> TaskInfo:
+    def get_task_by_name(self, task_name: Optional[str]) -> TaskInfo:
         """
         Get task by its name. Raises an error if the task name is not found or if multiple tasks have the same name.
         """
+        if task_name is None:
+            raise ValueError("Task name must be provided. 'None' is not a valid task name.")
         tasks_with_name = [task for task in self.tasks if task.name == task_name]
         if not tasks_with_name:
             raise ValueError(f"Task with name '{task_name}' not found in dataset info.")

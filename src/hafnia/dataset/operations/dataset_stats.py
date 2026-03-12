@@ -60,7 +60,7 @@ def calculate_task_class_counts(
 
     # Initialize counts with zero for all classes to ensure zero-count classes are included
     # and to have class names in the order of class idx
-    class_counts = {name: 0 for name in task.class_names or []}
+    class_counts = {name: 0 for name in task.get_class_names() or []}
     class_counts.update(dict(class_counts_df.iter_rows()))
 
     return class_counts
@@ -143,7 +143,8 @@ def print_basic_stats(dataset: HafniaDataset) -> None:
     table.add_row("Number of samples", str(len(dataset.samples)))
 
     for task in dataset.info.tasks:
-        class_count = len(task.class_names) if task.class_names else "N/A"
+        class_names = task.get_class_names()
+        class_count = len(class_names) if class_names else "N/A"
         table.add_row(f"Task: {task.full_name()}", f"Number of classes: {class_count}")
 
     rprint(table)
@@ -164,7 +165,7 @@ def print_class_distribution(dataset: HafniaDataset) -> None:
     Prints the class distribution for each task in the dataset.
     """
     for task in dataset.info.tasks:
-        if task.class_names is None:
+        if task.get_class_names() is None:
             raise ValueError(f"Task '{task.name}' does not have class names defined.")
         class_counts = dataset.calculate_task_class_counts(primitive=task.primitive, task_name=task.name)
 
@@ -177,7 +178,10 @@ def print_class_distribution(dataset: HafniaDataset) -> None:
         rich_table.add_column("Class Idx", style="cyan")
         rich_table.add_column("Count", justify="right")
         for class_name, count in class_counts.items():
-            class_idx = task.class_names.index(class_name)  # Get class idx from task info
+            class_names = task.get_class_names()
+            if class_names is None:
+                continue
+            class_idx = class_names.index(class_name)  # Get class idx from task info
             rich_table.add_row(class_name, str(class_idx), str(count))
         rprint(rich_table)
 
@@ -252,6 +256,12 @@ def check_dataset_tasks(dataset: HafniaDataset):
     for task in dataset.info.tasks:
         primitive = task.primitive.__name__
         column_name = task.primitive.column_name()
+
+        if column_name not in dataset.samples.columns:
+            raise ValueError(
+                f"Column '{column_name}' for primitive '{primitive}' and task '{task.name}' is missing in 'dataset.samples' "
+                f"for dataset '{dataset.info.dataset_name}'. Please check the dataset."
+            )
         primitive_column = dataset.samples[column_name]
         msg_something_wrong = (
             f"Something is wrong with the defined tasks ('info.tasks') in dataset '{dataset.info.dataset_name}'. \n"
@@ -271,12 +281,12 @@ def check_dataset_tasks(dataset: HafniaDataset):
                 )
 
             actual_classes = set(primitive_table[PrimitiveField.CLASS_NAME].unique().to_list())
-            if task.class_names is None:
+            if task.get_class_names() is None:
                 raise ValueError(
                     msg_something_wrong
                     + f"the column '{column_name}' with {task.name=} has no defined classes. Please check the dataset."
                 )
-            defined_classes = set(task.class_names)
+            defined_classes = set(task.get_class_names() or [])
 
             if not actual_classes.issubset(defined_classes):
                 raise ValueError(
@@ -285,8 +295,9 @@ def check_dataset_tasks(dataset: HafniaDataset):
                     f"to be a subset of the defined classes\n\t{actual_classes=} \n\t{defined_classes=}."
                 )
             # Check class_indices
+            class_names = task.get_class_names() or []
             mapped_indices = primitive_table[PrimitiveField.CLASS_NAME].map_elements(
-                lambda x: task.class_names.index(x), return_dtype=pl.Int64
+                lambda x: class_names.index(x), return_dtype=pl.Int64
             )
             table_indices = primitive_table[PrimitiveField.CLASS_IDX]
 

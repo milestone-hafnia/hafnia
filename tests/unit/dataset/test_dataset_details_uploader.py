@@ -6,7 +6,7 @@ import pytest
 from hafnia.dataset.dataset_details_uploader import dataset_details_from_hafnia_dataset
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives import Classification
 from tests import helper_testing
 
 

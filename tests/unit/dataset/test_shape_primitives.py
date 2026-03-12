@@ -7,11 +7,7 @@ import yaml
 from hafnia.dataset.dataset_details_uploader import DatasetImageMetadata
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.primitives import PRIMITIVE_TYPES
-from hafnia.dataset.primitives.bbox import Bbox
-from hafnia.dataset.primitives.bitmask import Bitmask
-from hafnia.dataset.primitives.classification import Classification
-from hafnia.dataset.primitives.polygon import Polygon
+from hafnia.dataset.primitives import PRIMITIVE_TYPES, Bbox, Bitmask, Classification, Polygon
 from hafnia.dataset.primitives.primitive import Primitive
 from tests import helper_testing
 
@@ -51,7 +47,7 @@ def test_sample_primitive_names(TypePrimitive: Type[Primitive]):
     sample = Sample(file_path="test_image.jpg", width=100, height=100, split="test_split")
 
     for expected_field in PrimitiveField.fields():
-        assert expected_field in TypePrimitive.__annotations__, (
+        assert expected_field in TypePrimitive.model_fields, (
             f"Expected field '{expected_field}' not found in {{TypePrimitive.__name__}} annotations."
         )
 

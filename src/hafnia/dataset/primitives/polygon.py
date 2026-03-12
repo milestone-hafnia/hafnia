@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
@@ -6,10 +6,12 @@ from more_itertools import collapse
 from pycocotools import mask as coco_utils
 from pydantic import Field
 
-from hafnia.dataset.primitives.bitmask import Bitmask
 from hafnia.dataset.primitives.point import Point
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import class_color_by_name, get_class_name
+
+if TYPE_CHECKING:
+    from hafnia.dataset.primitives import Bbox, Bitmask, Classification
 
 
 class Polygon(Primitive):
@@ -28,6 +30,12 @@ class Polygon(Primitive):
     meta: Optional[Dict[str, Any]] = Field(
         default=None, description="This can be used to store additional information about the polygon"
     )
+
+    # Attributes - allow nesting of any primitive type including itself
+    bboxes: Optional[List["Bbox"]] = None
+    classifications: Optional[List["Classification"]] = None
+    polygons: Optional[List["Polygon"]] = None
+    bitmasks: Optional[List["Bitmask"]] = None
 
     @staticmethod
     def from_list_of_points(
@@ -79,6 +87,8 @@ class Polygon(Primitive):
         return image
 
     def anonymize_by_blurring(self, image: np.ndarray, inplace: bool = False, max_resolution: int = 20) -> np.ndarray:
+        from hafnia.dataset.primitives import Bitmask
+
         if not inplace:
             image = image.copy()
         points = np.array(self.to_pixel_coordinates(image_shape=image.shape[:2]))
@@ -102,7 +112,9 @@ class Polygon(Primitive):
         mask = cv2.fillPoly(mask, [points], color=255).astype(bool)
         return mask
 
-    def to_bitmask(self, img_height: int, img_width: int) -> Bitmask:
+    def to_bitmask(self, img_height: int, img_width: int) -> "Bitmask":
+        from hafnia.dataset.primitives import Bitmask
+
         points = list(collapse(self.to_pixel_coordinates(image_shape=(img_height, img_width))))
         rles = coco_utils.frPyObjects([points], img_height, img_width)
         rle = coco_utils.merge(rles)

@@ -17,7 +17,7 @@ DATASET_SPEC_MIDWEST = DatasetSpec(
 
 DATASET_SPEC_TINY_DATASET = DatasetSpec(
     name="tiny-dataset",
-    splits={"train": 3, "validation": 2, "test": 3},
+    splits={"train": 12, "validation": 8, "test": 12},
     version="1.0.0",
 )
 

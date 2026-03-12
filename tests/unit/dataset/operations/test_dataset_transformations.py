@@ -13,7 +13,7 @@ from hafnia.dataset.operations.dataset_transformations import (
 from hafnia.dataset.primitives import Bbox, Classification
 from tests.helper_testing import (
     get_path_micro_hafnia_dataset,
-    get_strict_class_mapping_midwest,
+    get_strict_class_mapping_tiny_dataset,
     simulate_hafnia_video_dataset,
 )
 
@@ -24,7 +24,7 @@ def test_class_mapper_strict():
     dataset = HafniaDataset.from_path(path_dataset)
 
     dataset_updated = dataset.class_mapper(
-        class_mapping=get_strict_class_mapping_midwest(),
+        class_mapping=get_strict_class_mapping_tiny_dataset(),
         method="strict",
         primitive=Bbox,
     )
@@ -33,7 +33,7 @@ def test_class_mapper_strict():
     task_bbox = dataset_updated.info.get_task_by_primitive(Bbox)
     expected_class_names = ["person", "vehicle", "truck"]
     expected_indices = list(range(len(expected_class_names)))
-    assert task_bbox.class_names == expected_class_names
+    assert task_bbox.get_class_names() == expected_class_names
     bboxes = dataset_updated.samples[task_bbox.primitive.column_name()].explode().struct.unnest()
     assert set(bboxes[PrimitiveField.CLASS_NAME]).issubset(expected_class_names)
     assert set(bboxes[PrimitiveField.CLASS_IDX]).issubset(set(expected_indices))
@@ -63,7 +63,7 @@ def test_class_mapper_strict_wildcard_mapping():
     dataset_updated.check_dataset_tasks()
     task_bbox = dataset_updated.info.get_task_by_primitive(Bbox)
     expected_class_names = ["person", "vehicle"]
-    assert task_bbox.class_names == expected_class_names
+    assert task_bbox.get_class_names() == expected_class_names
 
 
 def test_class_mapper_remove_undefined():
@@ -84,7 +84,7 @@ def test_class_mapper_remove_undefined():
     dataset_updated.check_dataset_tasks()
     task_bbox = dataset_updated.info.get_task_by_primitive(Bbox)
     expected_class_names = ["vehicle"]
-    assert task_bbox.class_names == expected_class_names
+    assert task_bbox.get_class_names() == expected_class_names
 
 
 def test_class_mapper_exceptions():
@@ -119,8 +119,7 @@ def test_class_mapper_keep_undefined():
     dataset = HafniaDataset.from_path(path_dataset)
 
     task_bbox = dataset.info.get_task_by_primitive(Bbox)
-    class_names_original = task_bbox.class_names
-    # class_mapping_strict = get_strict_class_mapping_midwest()
+    class_names_original = task_bbox.get_class_names() or []
     rename_class = "Vehicle.Car"
     class_mapping = {
         rename_class: "vehicle",
@@ -138,7 +137,7 @@ def test_class_mapper_keep_undefined():
     class_names_original.remove(rename_class)
     expected_class_names = ["vehicle"]
     expected_class_names.extend(class_names_original)
-    assert task_bbox.class_names == expected_class_names
+    assert task_bbox.get_class_names() == expected_class_names
 
 
 def test_expand_class_mapping():
@@ -223,7 +222,7 @@ def test_merge_datasets():
     assert len(dataset_merged.info.tasks) == len(dataset_1.info.tasks), "Tasks should be preserved after merging"
 
     # Use case 2: Merging two datasets with the same tasks but different class names should raise an error
-    mapping = get_strict_class_mapping_midwest()
+    mapping = get_strict_class_mapping_tiny_dataset()
     dataset_1_changed = dataset_1.class_mapper(
         class_mapping=mapping,
         primitive=Bbox,
@@ -255,8 +254,8 @@ def test_select_samples_by_class_name():
 
 
 def test_get_task_info_from_task_name_and_primitive():
-    task_class = TaskInfo(primitive="Classification", class_names=["cat", "dog"])
-    task_bbox = TaskInfo(primitive="Bbox", class_names=["car", "bus"])
+    task_class = TaskInfo.from_class_names(primitive="Classification", class_names=["cat", "dog"])
+    task_bbox = TaskInfo.from_class_names(primitive="Bbox", class_names=["car", "bus"])
 
     ### Test case: No tasks defined
     with pytest.raises(ValueError, match="Dataset has no tasks defined."):

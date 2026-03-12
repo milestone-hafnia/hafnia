@@ -9,8 +9,7 @@ from hafnia.dataset.dataset_names import (
 )
 from hafnia.dataset.hafnia_dataset_types import TaskInfo
 from hafnia.dataset.operations import table_transformations
-from hafnia.dataset.primitives import PRIMITIVE_TYPES
-from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives import PRIMITIVE_TYPES, Classification
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
@@ -46,7 +45,26 @@ def create_primitive_table(
             {"height": "image.height", "width": "image.width", "meta": "image.meta"},
             strict=False,
         )
-        objects_df = remove_no_object_frames.explode(column_name).unnest(column_name)
+        # tmp_column_name = "tmp_column_name_will_be_dropped_after_unnest"
+        # remove_no_object_frames = remove_no_object_frames.rename({column_name: tmp_column_name}, strict=True)
+        row_per_object = remove_no_object_frames.explode(column_name)
+        nested_fields = row_per_object[column_name].struct.fields
+        existing_fields = set(row_per_object.columns)
+        overlap_fields = set(nested_fields).intersection(existing_fields)
+        if len(overlap_fields) > 0:
+            # To avoid conflicts struct fields are renamed by column_name + "." + field_name (e.g. "bboxes.xmin", "bboxes.ymin" etc.)
+            nested_fields_renamed = []
+            for field in nested_fields:
+                if field in overlap_fields:
+                    nested_fields_renamed.append(f"{column_name}.{field}")
+                else:
+                    nested_fields_renamed.append(field)
+
+            row_per_object = row_per_object.with_columns(
+                pl.col(column_name).struct.rename_fields(nested_fields_renamed).alias(column_name)
+            )
+
+        objects_df = row_per_object.unnest(column_name)
     else:
         objects_df = remove_no_object_frames.select(pl.col(column_name).explode().struct.unnest())
 
@@ -264,7 +282,8 @@ def unnest_classification_tasks(table: pl.DataFrame, strict: bool = True) -> pl.
 
 
 def update_class_indices(samples: pl.DataFrame, task: TaskInfo) -> pl.DataFrame:
-    if task.class_names is None or len(task.class_names) == 0:
+    class_names = task.get_class_names()
+    if class_names is None or len(class_names) == 0:
         raise ValueError(f"Task '{task.name}' does not have defined class names to update class indices.")
 
     objs = (
@@ -274,13 +293,13 @@ def update_class_indices(samples: pl.DataFrame, task: TaskInfo) -> pl.DataFrame:
         .filter(pl.col(PrimitiveField.TASK_NAME) == task.name)
     )
     expected_class_names = set(objs[PrimitiveField.CLASS_NAME].unique())
-    missing_class_names = expected_class_names - set(task.class_names)
+    missing_class_names = expected_class_names - set(class_names)
     if len(missing_class_names) > 0:
         raise ValueError(
             f"Task '{task.name}' is missing class names: {missing_class_names}. Cannot update class indices."
         )
 
-    name_2_idx_mapping = {name: idx for idx, name in enumerate(task.class_names)}
+    name_2_idx_mapping = {name: idx for idx, name in enumerate(class_names)}
 
     samples_updated = samples.with_columns(
         pl.col(task.primitive.column_name())

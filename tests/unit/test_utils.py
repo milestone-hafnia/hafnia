@@ -82,3 +82,25 @@ def test_zip_trainer_package_custom_ignore_hafnia_file(tmp_path: Path, project_w
     path_zipped_trainer1, _ = archive_dir(path_source_code, path_zipped_trainer1)
     zipped_files1 = ZipFile(path_zipped_trainer1).namelist()
     assert set(expected_in_trainer_files) == set(zipped_files1)
+
+
+_title_to_name_cases = [
+    ("My Dataset", "my_dataset"),
+    ("My-Dataset", "my-dataset"),
+    ("Dataset Title !*'\n", "dataset_title"),
+    ("   Leading and trailing spaces   ", "leading_and_trailing_spaces"),
+    ("Multiple   Spaces", "multiple_spaces"),
+    ("Special_Characters@#$%^&*()!", "special_characters"),
+    ("Mixed-CASE Title", "mixed-case_title"),
+]
+
+
+@pytest.mark.parametrize(
+    "title, expected_name",
+    _title_to_name_cases,
+    ids=[f"{tc[0]} -> {tc[1]}" for tc in _title_to_name_cases],
+)
+def test_title_to_name(title: str, expected_name: str) -> None:
+    from hafnia.utils import title_to_name
+
+    assert title_to_name(title) == expected_name

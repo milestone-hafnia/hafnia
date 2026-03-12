@@ -1,184 +1,666 @@
 {
-    "dataset_name": "coco-2017",
-    "version": "1.1.0",
+    "dataset_name": "coco-2017-tiny",
+    "version": "1.0.0",
+    "dataset_title": null,
+    "description": null,
     "tasks": [
         {
             "primitive": "Bbox",
-            "class_names": [
-                "person",
-                "bicycle",
-                "car",
-                "motorcycle",
-                "airplane",
-                "bus",
-                "train",
-                "truck",
-                "boat",
-                "traffic light",
-                "fire hydrant",
-                "stop sign",
-                "parking meter",
-                "bench",
-                "bird",
-                "cat",
-                "dog",
-                "horse",
-                "sheep",
-                "cow",
-                "elephant",
-                "bear",
-                "zebra",
-                "giraffe",
-                "backpack",
-                "umbrella",
-                "handbag",
-                "tie",
-                "suitcase",
-                "frisbee",
-                "skis",
-                "snowboard",
-                "sports ball",
-                "kite",
-                "baseball bat",
-                "baseball glove",
-                "skateboard",
-                "surfboard",
-                "tennis racket",
-                "bottle",
-                "wine glass",
-                "cup",
-                "fork",
-                "knife",
-                "spoon",
-                "bowl",
-                "banana",
-                "apple",
-                "sandwich",
-                "orange",
-                "broccoli",
-                "carrot",
-                "hot dog",
-                "pizza",
-                "donut",
-                "cake",
-                "chair",
-                "couch",
-                "potted plant",
-                "bed",
-                "dining table",
-                "toilet",
-                "tv",
-                "laptop",
-                "mouse",
-                "remote",
-                "keyboard",
-                "cell phone",
-                "microwave",
-                "oven",
-                "toaster",
-                "sink",
-                "refrigerator",
-                "book",
-                "clock",
-                "vase",
-                "scissors",
-                "teddy bear",
-                "hair drier",
-                "toothbrush"
+            "classes": [
+                {
+                    "name": "person",
+                    "attributes": null
+                },
+                {
+                    "name": "bicycle",
+                    "attributes": null
+                },
+                {
+                    "name": "car",
+                    "attributes": null
+                },
+                {
+                    "name": "motorcycle",
+                    "attributes": null
+                },
+                {
+                    "name": "airplane",
+                    "attributes": null
+                },
+                {
+                    "name": "bus",
+                    "attributes": null
+                },
+                {
+                    "name": "train",
+                    "attributes": null
+                },
+                {
+                    "name": "truck",
+                    "attributes": null
+                },
+                {
+                    "name": "boat",
+                    "attributes": null
+                },
+                {
+                    "name": "traffic light",
+                    "attributes": null
+                },
+                {
+                    "name": "fire hydrant",
+                    "attributes": null
+                },
+                {
+                    "name": "stop sign",
+                    "attributes": null
+                },
+                {
+                    "name": "parking meter",
+                    "attributes": null
+                },
+                {
+                    "name": "bench",
+                    "attributes": null
+                },
+                {
+                    "name": "bird",
+                    "attributes": null
+                },
+                {
+                    "name": "cat",
+                    "attributes": null
+                },
+                {
+                    "name": "dog",
+                    "attributes": null
+                },
+                {
+                    "name": "horse",
+                    "attributes": null
+                },
+                {
+                    "name": "sheep",
+                    "attributes": null
+                },
+                {
+                    "name": "cow",
+                    "attributes": null
+                },
+                {
+                    "name": "elephant",
+                    "attributes": null
+                },
+                {
+                    "name": "bear",
+                    "attributes": null
+                },
+                {
+                    "name": "zebra",
+                    "attributes": null
+                },
+                {
+                    "name": "giraffe",
+                    "attributes": null
+                },
+                {
+                    "name": "backpack",
+                    "attributes": null
+                },
+                {
+                    "name": "umbrella",
+                    "attributes": null
+                },
+                {
+                    "name": "handbag",
+                    "attributes": null
+                },
+                {
+                    "name": "tie",
+                    "attributes": null
+                },
+                {
+                    "name": "suitcase",
+                    "attributes": null
+                },
+                {
+                    "name": "frisbee",
+                    "attributes": null
+                },
+                {
+                    "name": "skis",
+                    "attributes": null
+                },
+                {
+                    "name": "snowboard",
+                    "attributes": null
+                },
+                {
+                    "name": "sports ball",
+                    "attributes": null
+                },
+                {
+                    "name": "kite",
+                    "attributes": null
+                },
+                {
+                    "name": "baseball bat",
+                    "attributes": null
+                },
+                {
+                    "name": "baseball glove",
+                    "attributes": null
+                },
+                {
+                    "name": "skateboard",
+                    "attributes": null
+                },
+                {
+                    "name": "surfboard",
+                    "attributes": null
+                },
+                {
+                    "name": "tennis racket",
+                    "attributes": null
+                },
+                {
+                    "name": "bottle",
+                    "attributes": null
+                },
+                {
+                    "name": "wine glass",
+                    "attributes": null
+                },
+                {
+                    "name": "cup",
+                    "attributes": null
+                },
+                {
+                    "name": "fork",
+                    "attributes": null
+                },
+                {
+                    "name": "knife",
+                    "attributes": null
+                },
+                {
+                    "name": "spoon",
+                    "attributes": null
+                },
+                {
+                    "name": "bowl",
+                    "attributes": null
+                },
+                {
+                    "name": "banana",
+                    "attributes": null
+                },
+                {
+                    "name": "apple",
+                    "attributes": null
+                },
+                {
+                    "name": "sandwich",
+                    "attributes": null
+                },
+                {
+                    "name": "orange",
+                    "attributes": null
+                },
+                {
+                    "name": "broccoli",
+                    "attributes": null
+                },
+                {
+                    "name": "carrot",
+                    "attributes": null
+                },
+                {
+                    "name": "hot dog",
+                    "attributes": null
+                },
+                {
+                    "name": "pizza",
+                    "attributes": null
+                },
+                {
+                    "name": "donut",
+                    "attributes": null
+                },
+                {
+                    "name": "cake",
+                    "attributes": null
+                },
+                {
+                    "name": "chair",
+                    "attributes": null
+                },
+                {
+                    "name": "couch",
+                    "attributes": null
+                },
+                {
+                    "name": "potted plant",
+                    "attributes": null
+                },
+                {
+                    "name": "bed",
+                    "attributes": null
+                },
+                {
+                    "name": "dining table",
+                    "attributes": null
+                },
+                {
+                    "name": "toilet",
+                    "attributes": null
+                },
+                {
+                    "name": "tv",
+                    "attributes": null
+                },
+                {
+                    "name": "laptop",
+                    "attributes": null
+                },
+                {
+                    "name": "mouse",
+                    "attributes": null
+                },
+                {
+                    "name": "remote",
+                    "attributes": null
+                },
+                {
+                    "name": "keyboard",
+                    "attributes": null
+                },
+                {
+                    "name": "cell phone",
+                    "attributes": null
+                },
+                {
+                    "name": "microwave",
+                    "attributes": null
+                },
+                {
+                    "name": "oven",
+                    "attributes": null
+                },
+                {
+                    "name": "toaster",
+                    "attributes": null
+                },
+                {
+                    "name": "sink",
+                    "attributes": null
+                },
+                {
+                    "name": "refrigerator",
+                    "attributes": null
+                },
+                {
+                    "name": "book",
+                    "attributes": null
+                },
+                {
+                    "name": "clock",
+                    "attributes": null
+                },
+                {
+                    "name": "vase",
+                    "attributes": null
+                },
+                {
+                    "name": "scissors",
+                    "attributes": null
+                },
+                {
+                    "name": "teddy bear",
+                    "attributes": null
+                },
+                {
+                    "name": "hair drier",
+                    "attributes": null
+                },
+                {
+                    "name": "toothbrush",
+                    "attributes": null
+                }
             ],
             "name": "object_detection"
         },
         {
             "primitive": "Bitmask",
-            "class_names": [
-                "person",
-                "bicycle",
-                "car",
-                "motorcycle",
-                "airplane",
-                "bus",
-                "train",
-                "truck",
-                "boat",
-                "traffic light",
-                "fire hydrant",
-                "stop sign",
-                "parking meter",
-                "bench",
-                "bird",
-                "cat",
-                "dog",
-                "horse",
-                "sheep",
-                "cow",
-                "elephant",
-                "bear",
-                "zebra",
-                "giraffe",
-                "backpack",
-                "umbrella",
-                "handbag",
-                "tie",
-                "suitcase",
-                "frisbee",
-                "skis",
-                "snowboard",
-                "sports ball",
-                "kite",
-                "baseball bat",
-                "baseball glove",
-                "skateboard",
-                "surfboard",
-                "tennis racket",
-                "bottle",
-                "wine glass",
-                "cup",
-                "fork",
-                "knife",
-                "spoon",
-                "bowl",
-                "banana",
-                "apple",
-                "sandwich",
-                "orange",
-                "broccoli",
-                "carrot",
-                "hot dog",
-                "pizza",
-                "donut",
-                "cake",
-                "chair",
-                "couch",
-                "potted plant",
-                "bed",
-                "dining table",
-                "toilet",
-                "tv",
-                "laptop",
-                "mouse",
-                "remote",
-                "keyboard",
-                "cell phone",
-                "microwave",
-                "oven",
-                "toaster",
-                "sink",
-                "refrigerator",
-                "book",
-                "clock",
-                "vase",
-                "scissors",
-                "teddy bear",
-                "hair drier",
-                "toothbrush"
+            "classes": [
+                {
+                    "name": "person",
+                    "attributes": null
+                },
+                {
+                    "name": "bicycle",
+                    "attributes": null
+                },
+                {
+                    "name": "car",
+                    "attributes": null
+                },
+                {
+                    "name": "motorcycle",
+                    "attributes": null
+                },
+                {
+                    "name": "airplane",
+                    "attributes": null
+                },
+                {
+                    "name": "bus",
+                    "attributes": null
+                },
+                {
+                    "name": "train",
+                    "attributes": null
+                },
+                {
+                    "name": "truck",
+                    "attributes": null
+                },
+                {
+                    "name": "boat",
+                    "attributes": null
+                },
+                {
+                    "name": "traffic light",
+                    "attributes": null
+                },
+                {
+                    "name": "fire hydrant",
+                    "attributes": null
+                },
+                {
+                    "name": "stop sign",
+                    "attributes": null
+                },
+                {
+                    "name": "parking meter",
+                    "attributes": null
+                },
+                {
+                    "name": "bench",
+                    "attributes": null
+                },
+                {
+                    "name": "bird",
+                    "attributes": null
+                },
+                {
+                    "name": "cat",
+                    "attributes": null
+                },
+                {
+                    "name": "dog",
+                    "attributes": null
+                },
+                {
+                    "name": "horse",
+                    "attributes": null
+                },
+                {
+                    "name": "sheep",
+                    "attributes": null
+                },
+                {
+                    "name": "cow",
+                    "attributes": null
+                },
+                {
+                    "name": "elephant",
+                    "attributes": null
+                },
+                {
+                    "name": "bear",
+                    "attributes": null
+                },
+                {
+                    "name": "zebra",
+                    "attributes": null
+                },
+                {
+                    "name": "giraffe",
+                    "attributes": null
+                },
+                {
+                    "name": "backpack",
+                    "attributes": null
+                },
+                {
+                    "name": "umbrella",
+                    "attributes": null
+                },
+                {
+                    "name": "handbag",
+                    "attributes": null
+                },
+                {
+                    "name": "tie",
+                    "attributes": null
+                },
+                {
+                    "name": "suitcase",
+                    "attributes": null
+                },
+                {
+                    "name": "frisbee",
+                    "attributes": null
+                },
+                {
+                    "name": "skis",
+                    "attributes": null
+                },
+                {
+                    "name": "snowboard",
+                    "attributes": null
+                },
+                {
+                    "name": "sports ball",
+                    "attributes": null
+                },
+                {
+                    "name": "kite",
+                    "attributes": null
+                },
+                {
+                    "name": "baseball bat",
+                    "attributes": null
+                },
+                {
+                    "name": "baseball glove",
+                    "attributes": null
+                },
+                {
+                    "name": "skateboard",
+                    "attributes": null
+                },
+                {
+                    "name": "surfboard",
+                    "attributes": null
+                },
+                {
+                    "name": "tennis racket",
+                    "attributes": null
+                },
+                {
+                    "name": "bottle",
+                    "attributes": null
+                },
+                {
+                    "name": "wine glass",
+                    "attributes": null
+                },
+                {
+                    "name": "cup",
+                    "attributes": null
+                },
+                {
+                    "name": "fork",
+                    "attributes": null
+                },
+                {
+                    "name": "knife",
+                    "attributes": null
+                },
+                {
+                    "name": "spoon",
+                    "attributes": null
+                },
+                {
+                    "name": "bowl",
+                    "attributes": null
+                },
+                {
+                    "name": "banana",
+                    "attributes": null
+                },
+                {
+                    "name": "apple",
+                    "attributes": null
+                },
+                {
+                    "name": "sandwich",
+                    "attributes": null
+                },
+                {
+                    "name": "orange",
+                    "attributes": null
+                },
+                {
+                    "name": "broccoli",
+                    "attributes": null
+                },
+                {
+                    "name": "carrot",
+                    "attributes": null
+                },
+                {
+                    "name": "hot dog",
+                    "attributes": null
+                },
+                {
+                    "name": "pizza",
+                    "attributes": null
+                },
+                {
+                    "name": "donut",
+                    "attributes": null
+                },
+                {
+                    "name": "cake",
+                    "attributes": null
+                },
+                {
+                    "name": "chair",
+                    "attributes": null
+                },
+                {
+                    "name": "couch",
+                    "attributes": null
+                },
+                {
+                    "name": "potted plant",
+                    "attributes": null
+                },
+                {
+                    "name": "bed",
+                    "attributes": null
+                },
+                {
+                    "name": "dining table",
+                    "attributes": null
+                },
+                {
+                    "name": "toilet",
+                    "attributes": null
+                },
+                {
+                    "name": "tv",
+                    "attributes": null
+                },
+                {
+                    "name": "laptop",
+                    "attributes": null
+                },
+                {
+                    "name": "mouse",
+                    "attributes": null
+                },
+                {
+                    "name": "remote",
+                    "attributes": null
+                },
+                {
+                    "name": "keyboard",
+                    "attributes": null
+                },
+                {
+                    "name": "cell phone",
+                    "attributes": null
+                },
+                {
+                    "name": "microwave",
+                    "attributes": null
+                },
+                {
+                    "name": "oven",
+                    "attributes": null
+                },
+                {
+                    "name": "toaster",
+                    "attributes": null
+                },
+                {
+                    "name": "sink",
+                    "attributes": null
+                },
+                {
+                    "name": "refrigerator",
+                    "attributes": null
+                },
+                {
+                    "name": "book",
+                    "attributes": null
+                },
+                {
+                    "name": "clock",
+                    "attributes": null
+                },
+                {
+                    "name": "vase",
+                    "attributes": null
+                },
+                {
+                    "name": "scissors",
+                    "attributes": null
+                },
+                {
+                    "name": "teddy bear",
+                    "attributes": null
+                },
+                {
+                    "name": "hair drier",
+                    "attributes": null
+                },
+                {
+                    "name": "toothbrush",
+                    "attributes": null
+                }
             ],
             "name": "mask_detection"
         }
     ],
-    "reference_bibtex": "@ARTICLE{Lin2014-wu,\n    title         = \"Microsoft {COCO}: Common objects in context\",\n    author        = \"Lin, Tsung-Yi and Maire, Michael and Belongie, Serge and\n                    Bourdev, Lubomir and Girshick, Ross and Hays, James and\n                    Perona, Pietro and Ramanan, Deva and Zitnick, C Lawrence and\n                    Doll{'a}r, Piotr\",\n    month         =  may,\n    year          =  2014,\n    copyright     = \"http://arxiv.org/licenses/nonexclusive-distrib/1.0/\",\n    archivePrefix = \"arXiv\",\n    primaryClass  = \"cs.CV\",\n    eprint        = \"1405.0312\"\n    }",
+    "reference_bibtex": "ReferenceIsMissing!",
     "reference_paper_url": "https://arxiv.org/abs/1405.0312",
     "reference_dataset_page": "https://cocodataset.org/#home",
     "meta": null,
-    "format_version": "0.2.0",
-    "updated_at": "2025-11-11T13:14:58.470750"
+    "format_version": "0.3.0",
+    "updated_at": "2026-03-12T09:22:13.257683"
 }

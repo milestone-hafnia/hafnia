@@ -11,7 +11,7 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 # from data_management import utils
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.operations import dataset_stats, dataset_transformations
-from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives import Classification
 from tests.helper_testing import (
     get_hafnia_functions_from_module,
 )
@@ -20,8 +20,8 @@ from tests.helper_testing import (
 def test_dataset_info_serializing_deserializing(tmp_path: Path):
     # Create a sample dataset
     tasks = [
-        TaskInfo(name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification),
-        TaskInfo(name="Another Task", class_names=["Class C", "Class D"], primitive=Classification),
+        TaskInfo.from_class_names(name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification),
+        TaskInfo.from_class_names(name="Another Task", class_names=["Class C", "Class D"], primitive=Classification),
     ]
     dataset_info = DatasetInfo(dataset_name="Sample Dataset", version="1.0.0", tasks=tasks)
 
@@ -35,7 +35,9 @@ def test_dataset_info_serializing_deserializing(tmp_path: Path):
 
 def test_hafnia_dataset_save_and_load(tmp_path: Path):
     # Create a sample dataset
-    task_info = TaskInfo(name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification)
+    task_info = TaskInfo.from_class_names(
+        name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification
+    )
     dataset_info = DatasetInfo(
         dataset_name="Sample Dataset", version="1.0.0", tasks=[task_info], primitive=Classification
     )
@@ -93,13 +95,13 @@ def test_hafnia_dataset_has_all_dataset_stats_functions(function_name: str):
 
 def test_task_info_validation_exceptions():
     with pytest.raises(ValueError, match="Class names must be unique"):
-        TaskInfo(
+        TaskInfo.from_class_names(
             primitive=Classification,
             class_names=["car", "person", "car"],  # <-- Duplicate name is used
         )
     primitive_wrong_name = "WrongPrimitiveName"
     with pytest.raises(ValueError, match=f"Primitive '{primitive_wrong_name}' is not recognized."):
-        TaskInfo(
+        TaskInfo.from_class_names(
             primitive=primitive_wrong_name,
             class_names=["person", "car"],  # <-- Duplicate name is used
         )
@@ -111,8 +113,8 @@ def test_dataset_info_validation_exceptions():
         dataset_name="test_dataset",
         version="1.0.0",
         tasks=[
-            TaskInfo(primitive=Classification, class_names=["car", "person"]),
-            TaskInfo(primitive=Classification, class_names=["car", "person"], name="Task2"),
+            TaskInfo.from_class_names(primitive=Classification, class_names=["car", "person"]),
+            TaskInfo.from_class_names(primitive=Classification, class_names=["car", "person"], name="Task2"),
         ],
     )
 
@@ -122,15 +124,15 @@ def test_dataset_info_validation_exceptions():
             dataset_name="test_dataset",
             version="1.0.0",
             tasks=[
-                TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
-                TaskInfo(primitive=Classification, class_names=["car", "person"], name="my_task"),
+                TaskInfo.from_class_names(primitive=Classification, class_names=["car", "person"], name="my_task"),
+                TaskInfo.from_class_names(primitive=Classification, class_names=["car", "person"], name="my_task"),
             ],
         )
 
 
 def test_dataset_info_replace_task():
-    task1 = TaskInfo(primitive=Classification, class_names=["car", "person"], name="Task1")
-    task2 = TaskInfo(primitive=Classification, class_names=["cat", "dog"], name="Task2")
+    task1 = TaskInfo.from_class_names(primitive=Classification, class_names=["car", "person"], name="Task1")
+    task2 = TaskInfo.from_class_names(primitive=Classification, class_names=["cat", "dog"], name="Task2")
     dataset_info = DatasetInfo(
         dataset_name="test_dataset",
         version="1.0.0",
@@ -138,7 +140,7 @@ def test_dataset_info_replace_task():
     )
 
     # Create a new task to replace task1
-    new_task1 = TaskInfo(primitive=Classification, class_names=["bus", "truck"], name="Task3")
+    new_task1 = TaskInfo.from_class_names(primitive=Classification, class_names=["bus", "truck"], name="Task3")
 
     # Replace task1 with new_task1
     dataset_info_updated = dataset_info.replace_task(old_task=task1, new_task=new_task1)
@@ -150,7 +152,9 @@ def test_dataset_info_replace_task():
     assert task1 not in dataset_info_updated.tasks
 
     # Attempt to replace a non-existing task
-    non_existing_task = TaskInfo(primitive=Classification, class_names=["bike"], name="NonExistingTask")
+    non_existing_task = TaskInfo.from_class_names(
+        primitive=Classification, class_names=["bike"], name="NonExistingTask"
+    )
     with pytest.raises(ValueError, match="Task '.*' not found in dataset info."):
         dataset_info.replace_task(old_task=non_existing_task, new_task=new_task1)
 
