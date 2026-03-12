@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional, Type
+from typing import List, Type
 
 from .bbox import Bbox
 from .bitmask import Bitmask

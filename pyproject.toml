@@ -29,7 +29,7 @@ dependencies = [
     "mlflow>=3.4.0",
     "sagemaker-mlflow>=0.1.0",
     "mcp>=1.23.0",
-    "docstring-parser>=0.17.0",
+    "docstring-parser>=0.17.0",    # Used to parse docstrings for CommandBuilder
 ]
 
 [dependency-groups]
