@@ -21,6 +21,9 @@ from hafnia.dataset.primitives import (
 from hafnia.utils import progress_bar, title_to_name
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
+    import encord
+    from encord.project import Project
+
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 FILENAME_ENCORD_ANNOTATIONS = "encord_annotations.json.gz"
@@ -70,7 +73,7 @@ def from_encord_zip_format(path_compressed_data: Path) -> "HafniaDataset":
 
 def dump_encord_project_from_id(
     project_id: str,
-    encord_client,
+    encord_client: "encord.EncordUserClient",
     path_output_file: Path,
     select_rows: Optional[List[str]] = None,
 ) -> Path:
@@ -86,7 +89,7 @@ def dump_encord_project_from_id(
     return path_output_file
 
 
-def get_encord_dataset_items(project, select_rows: Optional[List[str]]) -> List[Dict]:
+def get_encord_dataset_items(project: Project, select_rows: Optional[List[str]]) -> List[Dict]:
     dataset_items = project.list_label_rows_v2()
     encord_annotation_items = []
     for data_item in progress_bar(dataset_items, description="Loading Encord Annotations"):
@@ -102,7 +105,7 @@ def get_encord_dataset_items(project, select_rows: Optional[List[str]]) -> List[
 
 
 def dump_encord_data(
-    encord_project,
+    encord_project: "encord.Project",
     select_rows: Optional[List[str]] = None,
 ) -> Dict:
     collection_items = get_encord_dataset_items(encord_project, select_rows=select_rows)
