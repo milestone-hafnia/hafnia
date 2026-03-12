@@ -412,11 +412,17 @@ class HafniaDataset:
         if no_other_tasks_with_same_primitive:
             return dataset.drop_primitive(primitive=drop_task.primitive)
 
+        column_name = drop_task.primitive.column_name()
         dataset.info = dataset.info.replace_task(old_task=drop_task, new_task=None)
+
+        # If column is already dropped return early
+        if column_name not in dataset.samples.columns:
+            return dataset
+
         dataset.samples = dataset.samples.with_columns(
-            pl.col(drop_task.primitive.column_name())
+            pl.col(column_name)
             .list.filter(pl.element().struct.field(PrimitiveField.TASK_NAME) != drop_task.name)
-            .alias(drop_task.primitive.column_name())
+            .alias(column_name)
         )
 
         return dataset
@@ -434,7 +440,7 @@ class HafniaDataset:
             dataset.info = dataset.info.replace_task(old_task=task, new_task=None)
 
         # Drop the primitive column from the samples table
-        dataset.samples = dataset.samples.drop(primitive.column_name())
+        dataset.samples = dataset.samples.drop(primitive.column_name(), strict=False)
         return dataset
 
     def select_samples_by_class_name(

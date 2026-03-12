@@ -256,6 +256,12 @@ def check_dataset_tasks(dataset: HafniaDataset):
     for task in dataset.info.tasks:
         primitive = task.primitive.__name__
         column_name = task.primitive.column_name()
+
+        if column_name not in dataset.samples.columns:
+            raise ValueError(
+                f"Column '{column_name}' for primitive '{primitive}' and task '{task.name}' is missing in 'dataset.samples' "
+                f"for dataset '{dataset.info.dataset_name}'. Please check the dataset."
+            )
         primitive_column = dataset.samples[column_name]
         msg_something_wrong = (
             f"Something is wrong with the defined tasks ('info.tasks') in dataset '{dataset.info.dataset_name}'. \n"

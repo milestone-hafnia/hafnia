@@ -18,6 +18,7 @@ from hafnia.dataset.primitives import (
     Primitive,
     Segmentation,
 )
+from hafnia.log import user_logger
 from hafnia.utils import progress_bar, title_to_name
 
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
@@ -91,10 +92,16 @@ def dump_encord_project_from_id(
 
 def get_encord_dataset_items(project: "Project", select_rows: Optional[List[str]]) -> List[Dict]:
     dataset_items = project.list_label_rows_v2()
+    bundle_size = 30
+    user_logger.info("Downloading labels from encord")
+    with project.create_bundle(bundle_size=bundle_size) as bundle:
+        for label_row in dataset_items:
+            label_row.initialise_labels(bundle=bundle)
+    user_logger.info("Convert to dictionary format")
     encord_annotation_items = []
     for data_item in progress_bar(dataset_items, description="Loading Encord Annotations"):
         if (select_rows is not None) and data_item.data_title not in select_rows:
-            print(f"NOTE: Skipping row '{data_item.data_title}'")
+            user_logger.info(f"NOTE: Skipping row '{data_item.data_title}'")
             continue
         if not data_item.is_labelling_initialised:
             data_item.initialise_labels()
@@ -237,118 +244,125 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
 
         labels = data_item["labels"]
         encord_meta_data["number_of_frames"] = len(labels)
+        storage_format = StorageFormat.VIDEO
+    elif data_type == "image":
+        frame_labels = data_item["labels"]
+        frame_number = str(data_item["data_sequence"])
+        labels = {frame_number: frame_labels}
+        storage_format = StorageFormat.IMAGE
+    else:
+        raise NotImplementedError(f"Data type '{data_type}' not implemented")
 
-        for frame_as_str, annotations in labels.items():
-            frame = int(frame_as_str)
-            sample = Sample(
-                file_path=None,
-                height=data_item["height"],
-                width=data_item["width"],
-                collection_id=data_item_title,
-                collection_index=frame,
-                storage_format=StorageFormat.VIDEO,
-                split=SplitName.UNDEFINED,
-                remote_path=data_item["data_link"],
-            )
+    for frame_as_str, annotations in labels.items():
+        frame = int(frame_as_str)
+        sample = Sample(
+            file_path=None,
+            height=data_item["height"],
+            width=data_item["width"],
+            collection_id=data_item_title,
+            collection_index=frame,
+            storage_format=storage_format,
+            split=SplitName.UNDEFINED,
+            remote_path=data_item["data_link"],
+        )
 
-            if "objects" in annotations:  # Iterate any primitives (e.g., bboxes, masks etc) in the frame
-                objects = annotations["objects"]
-                for obj_annotation in objects:
-                    obj_annotation = obj_annotation.copy()
-                    obj_annotation["confidence"] = float(
-                        obj_annotation["confidence"]
-                    )  # To avoid mixing float and int values
-                    object_hash = obj_annotation["objectHash"]
-                    encord_primitive_shape = obj_annotation.pop("shape")
-                    Primitive = primitive_from_encord_shape_name(encord_primitive_shape)
-                    task_info: TaskInfo = object_tasks[Primitive]
+        if "objects" in annotations:  # Iterate any primitives (e.g., bboxes, masks etc) in the frame
+            objects = annotations["objects"]
+            for obj_annotation in objects:
+                obj_annotation = obj_annotation.copy()
+                obj_annotation["confidence"] = float(
+                    obj_annotation["confidence"]
+                )  # To avoid mixing float and int values
+                object_hash = obj_annotation["objectHash"]
+                encord_primitive_shape = obj_annotation.pop("shape")
+                Primitive = primitive_from_encord_shape_name(encord_primitive_shape)
+                task_info: TaskInfo = object_tasks[Primitive]
 
-                    class_name = obj_annotation["name"]
-                    class_idx = task_info.get_class_index(class_name)
-                    if task_info.classes is None:
-                        raise ValueError(f"Expected task '{task_info.name}' to have classes defined in the ontology.")
-                    class_info: ClassInfo = task_info.classes[class_idx]
+                class_name = obj_annotation["name"]
+                class_idx = task_info.get_class_index(class_name)
+                if task_info.classes is None:
+                    raise ValueError(f"Expected task '{task_info.name}' to have classes defined in the ontology.")
+                class_info: ClassInfo = task_info.classes[class_idx]
 
-                    object_attributes = object_answers[object_hash]["classifications"]
+                object_attributes = object_answers[object_hash]["classifications"]
 
-                    attributes = _get_nested_attributes(object_attributes, class_info)
-                    primitive_attributes = attributes or None
-                    if Primitive == Bbox:
-                        if sample.bboxes is None:
-                            sample.bboxes = []
-                        encord_primitive_data = obj_annotation.pop("boundingBox")
-                        sample.bboxes.append(
-                            Bbox(
-                                height=float(encord_primitive_data["h"]),
-                                width=float(encord_primitive_data["w"]),
-                                top_left_x=float(encord_primitive_data["x"]),
-                                top_left_y=float(encord_primitive_data["y"]),
-                                object_id=object_hash,
-                                class_name=class_name,
-                                class_idx=class_idx,
-                                meta=obj_annotation,
-                                classifications=primitive_attributes,
-                            )
-                        )
-                    elif Primitive == Polygon:
-                        if sample.polygons is None:
-                            sample.polygons = []
-                        obj_annotation.pop("polygons")  # Remove duplicated field
-                        encord_primitive_data = obj_annotation.pop("polygon")
-                        polygon_points = [
-                            Point(x=float(point["x"]), y=float(point["y"])) for point in encord_primitive_data.values()
-                        ]
-                        sample.polygons.append(
-                            Polygon(
-                                points=polygon_points,
-                                object_id=object_hash,
-                                class_name=class_name,
-                                class_idx=class_idx,
-                                meta=obj_annotation,
-                                classifications=primitive_attributes,
-                            )
-                        )
-                    elif Primitive == Bitmask:
-                        if sample.bitmasks is None:
-                            sample.bitmasks = []
-                        encord_primitive_data = obj_annotation.pop("bitmask")
-                        rle_string = from_encord_bitmask_to_coco_rle_string(encord_primitive_data)
-                        top, left, height, width = mask_utils.toBbox(rle_string)
-                        tmp_bitmask = Bitmask(
-                            top=int(top),
-                            left=int(left),
-                            height=int(height),
-                            width=int(width),
-                            area=mask_utils.area(rle_string) / (sample.height * sample.width),
-                            rle_string=rle_string["counts"].decode("utf-8"),
+                attributes = _get_nested_attributes(object_attributes, class_info)
+                primitive_attributes = attributes or None
+                if Primitive == Bbox:
+                    if sample.bboxes is None:
+                        sample.bboxes = []
+                    encord_primitive_data = obj_annotation.pop("boundingBox")
+                    sample.bboxes.append(
+                        Bbox(
+                            height=float(encord_primitive_data["h"]),
+                            width=float(encord_primitive_data["w"]),
+                            top_left_x=float(encord_primitive_data["x"]),
+                            top_left_y=float(encord_primitive_data["y"]),
                             object_id=object_hash,
                             class_name=class_name,
                             class_idx=class_idx,
                             meta=obj_annotation,
                             classifications=primitive_attributes,
                         )
-
-                        sample.bitmasks.append(tmp_bitmask)
-                    else:
-                        raise NotImplementedError(
-                            f"Encord shape '{encord_primitive_shape}' to Hafnia primitive not implemented yet"
+                    )
+                elif Primitive == Polygon:
+                    if sample.polygons is None:
+                        sample.polygons = []
+                    obj_annotation.pop("polygons")  # Remove duplicated field
+                    encord_primitive_data = obj_annotation.pop("polygon")
+                    polygon_points = [
+                        Point(x=float(point["x"]), y=float(point["y"])) for point in encord_primitive_data.values()
+                    ]
+                    sample.polygons.append(
+                        Polygon(
+                            points=polygon_points,
+                            object_id=object_hash,
+                            class_name=class_name,
+                            class_idx=class_idx,
+                            meta=obj_annotation,
+                            classifications=primitive_attributes,
                         )
+                    )
+                elif Primitive == Bitmask:
+                    if sample.bitmasks is None:
+                        sample.bitmasks = []
+                    encord_primitive_data = obj_annotation.pop("bitmask")
+                    rle_string = from_encord_bitmask_to_coco_rle_string(encord_primitive_data)
+                    left, top, width, height = mask_utils.toBbox(rle_string)
+                    tmp_bitmask = Bitmask(
+                        top=int(top),
+                        left=int(left),
+                        height=int(height),
+                        width=int(width),
+                        area=mask_utils.area(rle_string) / (sample.height * sample.width),
+                        rle_string=rle_string["counts"].decode("utf-8"),
+                        object_id=object_hash,
+                        class_name=class_name,
+                        class_idx=class_idx,
+                        meta=obj_annotation,
+                        classifications=primitive_attributes,
+                    )
 
-            if "classifications" in annotations:
-                classifications = []
-                for classification in annotations["classifications"]:
-                    classification_hash = classification["classificationHash"]
-                    classification_attributes = classification_answers[classification_hash]["classifications"]
+                    sample.bitmasks.append(tmp_bitmask)
+                else:
+                    raise NotImplementedError(
+                        f"Encord shape '{encord_primitive_shape}' to Hafnia primitive not implemented yet"
+                    )
 
-                    class_info = ClassInfo(name=classification["name"], attributes=classification_tasks)
-                    attributes_: List[Classification] = _get_nested_attributes(classification_attributes, class_info)
-                    classifications.extend(attributes_)
+        if "classifications" in annotations:
+            classifications = []
+            for classification in annotations["classifications"]:
+                classification_hash = classification["classificationHash"]
+                classification_attributes = classification_answers[classification_hash]["classifications"]
 
-                sample.classifications = classifications or None
-            sample.meta = encord_meta_data
-            samples.append(sample)
-    else:
-        raise NotImplementedError(f"Data type '{data_type}' not implemented")
+                class_info = ClassInfo(name=classification["name"], attributes=classification_tasks)
+                attributes_: List[Classification] = _get_nested_attributes(classification_attributes, class_info)
+                classifications.extend(attributes_)
+
+            sample.classifications = classifications or None
+        sample.meta = encord_meta_data
+        samples.append(sample)
+
     return samples
 
 

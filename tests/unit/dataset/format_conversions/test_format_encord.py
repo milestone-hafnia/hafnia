@@ -22,6 +22,12 @@ def get_encord_midwest_vehicle_detection_tiny_path() -> Path:
     return path_compressed_data
 
 
+def get_encord_image_based_dataset() -> Path:
+    path_encord_dataset_folder = helper_testing.get_path_test_dataset_formats() / "format_encord"
+    path_compressed_data = path_encord_dataset_folder / "poc_prelabelling_part1_encord_annotations.json.gz"
+    return path_compressed_data
+
+
 def test_parse_nested_ontology():
     path_compressed_data = get_encord_dataset_tiny_path()
     metadata_dict = utils.read_compressed_json(path_compressed_data)
@@ -91,6 +97,27 @@ def test_from_encord_zip_format(encord_dataset_tiny: HafniaDataset):
     assert len(sample.classifications or []) > 0, "Expected to find classifications in the sample"
 
     encord_dataset_tiny.check_dataset(check_splits=False)
+
+
+def test_flattening_specification_image_based():
+    path_compressed_data = get_encord_image_based_dataset()
+    dataset: HafniaDataset = HafniaDataset.from_encord_zip_format(path_compressed_data)
+
+    # No classifications have been marked for this dataset
+    dataset = dataset.drop_primitive(primitives.Classification)
+    dataset.check_dataset(check_splits=False)
+
+    flattening_specification: Dict[TaskInfo, List[List[str]]] = {
+        TaskInfo(primitive=primitives.Bbox): [["Vehicle Type"], ["Pedestrian"]],
+        TaskInfo(primitive=primitives.Polygon): [["Annotator Marking Type"]],
+    }
+
+    dataset_flat = dataset.flattening_by_specification(
+        flattening_specification=flattening_specification,
+    )
+    dataset_flat.check_dataset(check_splits=False)
+
+    dataset_flat.print_stats()
 
 
 def test_flattening_specification_midwest():
