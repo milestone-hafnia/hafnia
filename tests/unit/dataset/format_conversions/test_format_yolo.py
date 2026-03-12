@@ -37,9 +37,12 @@ def test_format_yolo_import_export_tiny_dataset(tmp_path: Path, compare_to_expec
 
     dataset_reloaded = format_yolo.from_yolo_format(path_yolo_dataset_exported)
 
-    filename = "ec60f2f4fb854b59c97e16b45c713de0.png"
+    filename = "9a495c8815b2ab1d8547bc5f5b405310.png"
     samples = dataset_reloaded.samples.filter(pl.col(SampleField.FILE_PATH).str.contains(filename))
-    assert len(samples) == 1, f"Expected to find one sample with name '{filename}'"
+    assert len(samples) == 2, (
+        f"Expected to find two! samples with name '{filename}' as 'tiny-dataset' has duplicate file paths, "
+        f"but after export and re-import, duplicates should be preserved. Found {len(samples)} samples."
+    )
     sample = Sample(**samples.row(0, named=True))
     sample_visualized = sample.draw_annotations()
     compare_to_expected_image(sample_visualized)
@@ -71,7 +74,7 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
     assert len(dataset) == 3
     assert len(dataset.info.tasks) == 1
     task = dataset.info.tasks[0]
-    assert len(task.class_names or []) == 80
+    assert len(task.get_class_names() or []) == 80
     assert task.primitive == primitives.Bbox
     assert task.name == primitives.Bbox.default_task_name()
 
@@ -85,7 +88,9 @@ def test_format_yolo_import_export(tmp_path: Path) -> None:
     for split_paths in list_split_paths:
         split_paths.check_paths()
         split_class_names = [n for n in split_paths.path_class_names.read_text().splitlines() if n.strip() != ""]
-        assert split_class_names == task.class_names
+        assert split_class_names == task.get_class_names(), (
+            "The class names in the exported YOLO dataset should match the original dataset task class names."
+        )
         image_paths = split_paths.path_images_txt.read_text().splitlines()
         assert len(image_paths) > 0
         for image_path in image_paths:

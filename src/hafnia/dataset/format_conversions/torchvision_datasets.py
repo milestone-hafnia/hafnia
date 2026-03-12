@@ -126,7 +126,7 @@ def caltech_256_as_hafnia_dataset(
 
     # Class Mapping: To remove numeric prefixes from class names
     # E.g. "001.ak47 --> ak47", "002.american-flag --> american-flag", ...
-    class_mapping = {name: name.split(".")[-1] for name in task.class_names or []}
+    class_mapping = {name: name.split(".")[-1] for name in task.get_class_names() or []}
     hafnia_dataset = hafnia_dataset.class_mapper(class_mapping=class_mapping, task_name=task.name)
     return hafnia_dataset
 
@@ -240,7 +240,7 @@ def torchvision_basic_image_classification_dataset_as_hafnia_dataset(
 
         samples.extend(samples_in_split)
     class_names = list(class_name_to_index.keys())
-    tasks = [TaskInfo(primitive=Classification, class_names=class_names)]
+    tasks = [TaskInfo.from_class_names(primitive=Classification, class_names=class_names)]
 
     return samples, tasks
 

@@ -11,6 +11,13 @@ from .primitive import Primitive
 from .segmentation import Segmentation  # noqa: F401
 from .utils import class_color_by_name  # noqa: F401
 
+# Rebuild models to resolve forward references after all types are imported
+Bbox.model_rebuild()
+Bitmask.model_rebuild()
+Polygon.model_rebuild()
+Classification.model_rebuild()
+
+
 PRIMITIVE_TYPES: List[Type[Primitive]] = [Bbox, Classification, Polygon, Bitmask]
 PRIMITIVE_NAME_TO_TYPE = {cls.__name__: cls for cls in PRIMITIVE_TYPES}
 PRIMITIVE_COLUMN_NAMES: List[str] = [PrimitiveType.column_name() for PrimitiveType in PRIMITIVE_TYPES]

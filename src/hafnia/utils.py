@@ -1,5 +1,9 @@
+import gzip
 import hashlib
+import json
 import os
+import re
+import subprocess
 import time
 import zipfile
 from collections.abc import Sized
@@ -14,7 +18,14 @@ import pathspec
 import rich
 import seedir
 from rich import print as rprint
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 from hafnia.log import sys_logger, user_logger
 
@@ -227,6 +238,20 @@ def remove_duplicates_preserve_order(seq: Iterable) -> List:
     return list(more_itertools.unique_everseen(seq))
 
 
+def save_compressed_json(path: Path, data: Dict) -> Path:
+    as_json_text = json.dumps(data)
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write(as_json_text)
+    return path
+
+
+def read_compressed_json(path: Path) -> Dict:
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        data_as_json_str = f.read()
+    data = json.loads(data_as_json_str)
+    return data
+
+
 def is_image_file(file_path: Path) -> bool:
     image_extensions = (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".gif")
     return file_path.suffix.lower() in image_extensions
@@ -262,3 +287,34 @@ def progress_bar(sequence: Iterable, total: Optional[int] = None, description: s
         for item in sequence:
             yield item
             progress.update(task, advance=1)
+
+
+def title_to_name(title: str) -> str:
+    """
+    Convert a human-readable title to a machine-friendly name.
+
+    Lowercases the string, replaces whitespace with underscores, and strips
+    all remaining characters that are not alphanumeric or underscores.
+
+    Examples::
+
+        >>> title_to_name("Dataset Title !*'\\n")
+        'dataset_title'
+        >>> title_to_name("My  Dataset - v2")
+        'my__dataset__v2'
+
+    Args:
+        title: Arbitrary human-readable title string.
+
+    Returns:
+        A lowercase, underscore-separated name with special characters removed.
+    """
+    name = title.lower()
+    name = re.sub(r"[\s]+", "_", name)  # whitespace (space, tab, newline, …) → "_"
+    name = re.sub(r"[^a-z0-9_-]", "", name)  # Remove special characters except for underscores and hyphens
+    name = name.strip("_")  # Remove leading/trailing underscores
+    return name
+
+
+def get_git_revision_hash() -> str:
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()

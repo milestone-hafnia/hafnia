@@ -16,14 +16,14 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import (
     PRIMITIVE_COLUMN_NAMES,
+    Bbox,
+    Bitmask,
+    Classification,
+    Polygon,
+    Segmentation,
     class_color_by_name,
 )
-from hafnia.dataset.primitives.bbox import Bbox
-from hafnia.dataset.primitives.bitmask import Bitmask
-from hafnia.dataset.primitives.classification import Classification
-from hafnia.dataset.primitives.polygon import Polygon
 from hafnia.dataset.primitives.primitive import Primitive
-from hafnia.dataset.primitives.segmentation import Segmentation
 from hafnia.log import user_logger
 
 

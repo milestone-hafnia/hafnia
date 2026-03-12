@@ -6,9 +6,7 @@ import pytest
 from hafnia.dataset.dataset_names import PrimitiveField
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.operations.table_transformations import unnest_classification_tasks
-from hafnia.dataset.primitives.bbox import Bbox
-from hafnia.dataset.primitives.bitmask import Bitmask
-from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives import Bbox, Bitmask, Classification
 from hafnia.dataset.primitives.primitive import Primitive
 from tests import helper_testing
 

@@ -33,7 +33,7 @@ import json
 import re
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import cv2
 import more_itertools
@@ -47,7 +47,7 @@ from hafnia.dataset.dataset_names import (
     SampleField,
     StorageFormat,
 )
-from hafnia.dataset.hafnia_dataset_types import Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample, TaskInfo
 from hafnia.dataset.operations.table_transformations import update_class_indices
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
@@ -245,7 +245,7 @@ def class_mapper(
         raise ValueError(f"Method '{method}' is not recognized. Allowed methods are: {allowed_methods}")
 
     task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
-    current_names = task.class_names or []
+    current_names = task.get_class_names() or []
 
     # Expand wildcard mappings e.g. {"Vehicle.*": "Vehicle"} to {"Vehicle.Car": "Vehicle", "Vehicle.Bus": "Vehicle"}
     class_mapping = expand_class_mapping(class_mapping, current_names)
@@ -314,8 +314,19 @@ def class_mapper(
 
         new_class_names = [c for c in new_class_names if c != OPS_REMOVE_CLASS]
 
+    # Update dataset info with new class names
+    name_and_classes_new: Dict[str, List[ClassInfo]] = {new_name: [] for new_name in new_class_names}
+    name_and_classes_old = {klass.name: klass.attributes for klass in task.classes or []}
+    classes = []
+    for new_name in name_and_classes_new:
+        previous_names = [name_from for name_from, name_to in class_mapping.items() if name_to == new_name]
+        attributes_combined: List[Any] = []
+        for previous_name in previous_names:
+            attributes_combined.extend(name_and_classes_old[previous_name] or [])
+        attributes = None if len(attributes_combined or []) == 0 else attributes_combined
+        classes.append(ClassInfo(name=new_name, attributes=attributes))
     new_task = task.model_copy(deep=True)
-    new_task.class_names = new_class_names
+    new_task.classes = classes
     dataset_info = dataset.info.replace_task(old_task=task, new_task=new_task)
 
     # Update class indices to match new class names
@@ -426,7 +437,7 @@ def _validate_inputs_select_samples_by_class_name(
     names = list(name)
 
     # Check that specified names are available in at least one of the tasks
-    available_names_across_tasks = set(more_itertools.flatten([t.class_names for t in dataset.info.tasks]))
+    available_names_across_tasks = set(more_itertools.flatten([t.get_class_names() for t in dataset.info.tasks]))
     missing_class_names_across_tasks = set(names) - available_names_across_tasks
     if len(missing_class_names_across_tasks) > 0:
         raise ValueError(
@@ -436,7 +447,7 @@ def _validate_inputs_select_samples_by_class_name(
 
     # Auto infer task if task_name and primitive are not provided
     if task_name is None and primitive is None:
-        tasks_with_names = [t for t in dataset.info.tasks if set(names).issubset(t.class_names or [])]
+        tasks_with_names = [t for t in dataset.info.tasks if set(names).issubset(t.get_class_names() or [])]
         if len(tasks_with_names) == 0:
             raise ValueError(
                 f"The specified names {names} have not been found in any of the tasks. "
@@ -458,7 +469,7 @@ def _validate_inputs_select_samples_by_class_name(
             primitive=primitive,
         )
 
-    task_class_names = set(task.class_names or [])
+    task_class_names = set(task.get_class_names() or [])
     missing_class_names = set(names) - task_class_names
     if len(missing_class_names) > 0:
         raise ValueError(

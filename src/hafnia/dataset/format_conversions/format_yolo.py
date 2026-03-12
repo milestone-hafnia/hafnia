@@ -163,7 +163,7 @@ def dataset_split_from_yolo_format(
         )
         samples.append(sample)
 
-    tasks = [TaskInfo(primitive=primitives.Bbox, class_names=class_names)]
+    tasks = [TaskInfo.from_class_names(primitive=primitives.Bbox, class_names=class_names)]
     info = DatasetInfo(dataset_name=dataset_name, tasks=tasks)
     hafnia_dataset = HafniaDataset.from_samples_list(samples, info=info)
     return hafnia_dataset
@@ -209,7 +209,7 @@ def to_yolo_split_format(
 
     bbox_task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitives.Bbox)
 
-    class_names = bbox_task.class_names or []
+    class_names = bbox_task.get_class_names() or []
     if len(class_names) == 0:
         raise ValueError(
             f"Hafnia dataset task '{bbox_task.name}' has no class names defined. This is required for YOLO export."

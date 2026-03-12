@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -14,6 +14,9 @@ from hafnia.dataset.primitives.utils import (
     get_class_name,
     round_int_clip_value,
 )
+
+if TYPE_CHECKING:
+    from hafnia.dataset.primitives import Bitmask, Classification, Polygon
 
 
 class Bbox(Primitive):
@@ -43,6 +46,12 @@ class Bbox(Primitive):
         default="", description="Task name to support multiple Bbox tasks in the same dataset. '' defaults to 'bboxes'"
     )
     meta: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the annotation")
+
+    # Attributes - allow nesting of any primitive type including itself
+    bboxes: Optional[List["Bbox"]] = None
+    classifications: Optional[List["Classification"]] = None
+    polygons: Optional[List["Polygon"]] = None
+    bitmasks: Optional[List["Bitmask"]] = None
 
     @staticmethod
     def default_task_name() -> str:

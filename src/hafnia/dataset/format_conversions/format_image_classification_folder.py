@@ -41,7 +41,8 @@ def from_image_classification_folder_by_split_paths(
 ) -> "HafniaDataset":
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-    class_names = sorted(more_itertools.collapse([class_names_from_folder(split.path) for split in list_split_paths]))
+    class_names_dub = more_itertools.collapse([class_names_from_folder(split.path) for split in list_split_paths])
+    class_names = sorted(list(set(class_names_dub)))  # Remove duplicates and sort for determinism
 
     if n_samples is not None:
         n_samples = n_samples // len(list_split_paths)  # Divide samples evenly across splits
@@ -111,7 +112,7 @@ def from_image_classification_split_folder(
 
     dataset_info = DatasetInfo(
         dataset_name=dataset_name,
-        tasks=[TaskInfo(primitive=Classification, class_names=class_names)],
+        tasks=[TaskInfo.from_class_names(primitive=Classification, class_names=class_names)],
     )
 
     hafnia_dataset = HafniaDataset.from_samples_list(samples_list=samples, info=dataset_info)

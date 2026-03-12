@@ -8,9 +8,7 @@ from rich import print as rprint
 from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.primitives.bbox import Bbox
-from hafnia.dataset.primitives.bitmask import Bitmask
-from hafnia.dataset.primitives.classification import Classification
+from hafnia.dataset.primitives import Bbox, Bitmask, Classification
 from hafnia.dataset.primitives.polygon import Polygon
 
 MNIST_VERSION = "1.0.0"
@@ -149,10 +147,6 @@ image_with_annotations = sample.draw_annotations()
 # Save the image with annotations to a temporary directory
 path_tmp.mkdir(parents=True, exist_ok=True)
 Image.fromarray(image_with_annotations).save(path_tmp / "sample_with_annotations.png")
-
-# To upload the dataset to Hafnia platform
-# custom_dataset.upload_to_platform(interactive=True, allow_version_overwrite=False)
-
 
 ## Storing predictions: A hafnia dataset can also be used for storing predictions per sample
 # set 'ground_truth=False' and add 'confidence'.

@@ -2,7 +2,7 @@ import pytest
 
 import hafnia
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.primitives.bbox import Bbox
+from hafnia.dataset.primitives import Bbox
 from tests.helper_testing import (
     MICRO_DATASETS,
     get_micro_hafnia_dataset,
@@ -29,15 +29,16 @@ def test_micro_dataset_format_versions(micro_dataset_name: str):
 def test_class_counts_for_task():
     dataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
     counts = dataset.calculate_task_class_counts(primitive=Bbox)
+    bbox_task = dataset.info.get_task_by_primitive(Bbox)
     assert isinstance(counts, dict)
-    assert len(counts) == len(dataset.info.tasks[0].class_names)
+    assert len(counts) == len(bbox_task.get_class_names() or [])
 
 
 def test_class_counts_all():
     dataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
     counts = dataset.calculate_class_counts()
     assert isinstance(counts, list)
-    expected_num_classes = sum(len(task.class_names) for task in dataset.info.tasks if task.class_names)
+    expected_num_classes = sum(len(task.get_class_names() or []) for task in dataset.info.tasks)
     assert len(counts) == expected_num_classes
 
 
