@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from hafnia.dataset import image_visualizations
+from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.operations.adjust_mask import _adjust_bboxes_from_polygon_masks
@@ -134,3 +135,7 @@ def test_adjust_bbox_from_polygon(compare_to_expected_image: Callable):
 
     images = np.concatenate([image_roi, image_roi_adjusted], axis=1)
     compare_to_expected_image(images)
+
+    is_adjusted_sample = dataset_adjusted.samples[SampleField.BBOXES] != dataset.samples[SampleField.BBOXES]
+    assert len(is_adjusted_sample) == 6
+    assert sum(is_adjusted_sample) == 2

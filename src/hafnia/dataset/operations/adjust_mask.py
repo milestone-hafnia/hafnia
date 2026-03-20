@@ -17,15 +17,31 @@ def adjust_bboxes_from_polygon_masks_dataset(
     polygon_class_names: List[str],
     run_checks: bool = True,
 ) -> "HafniaDataset":
-    if run_checks:
-        # Check tasks exists
-        polygon_tasks = dataset.info.get_tasks_by_primitive(Polygon)
+    """
+    Adjust bounding boxes to avoid overlapping with polygon masks for all samples in the dataset.
 
+    Functions use pydantic Bbox and Polygon primitives to carry information instead of
+    python native types such as tuple, list and dict.
+
+    We use Bbox and Polygon primitives for better maintainability, but it adds computational overhead.
+    We may consider using python native types in the future for better performance
+
+    Performance: Running bbox adjustment for all samples:
+    - coco-2017:
+        - 26.3s: Python native types
+        - 38.5s: Pydantic primitives (current implementation)
+
+    - midwest-vehicle-detection:
+        - 6.1s: Python native types
+        - 9.0s: Pydantic primitives (current implementation)
+
+    """
+    if run_checks:
+        # Check tasks for 'polygon_class_names'
+        polygon_tasks = dataset.info.get_tasks_by_primitive(Polygon)
         if len(polygon_tasks) == 0:
             raise ValueError("No Polygon tasks found in the dataset, cannot adjust bboxes from polygon masks")
-
         classes_from_tasks = set(more_itertools.flatten([t.get_class_names() for t in polygon_tasks]))
-
         has_existing_polygon_class = set(polygon_class_names).issubset(classes_from_tasks)
         if not has_existing_polygon_class:
             raise ValueError(
@@ -33,12 +49,14 @@ def adjust_bboxes_from_polygon_masks_dataset(
                 f"Available polygon class names from tasks: {classes_from_tasks}"
             )
 
-        classes_in_samples = dataset.create_primitive_table(Polygon)
-        if classes_in_samples is None:
+        # Check samples for 'polygon_class_names'
+        classes_in_samples_df = dataset.create_primitive_table(Polygon)
+        if classes_in_samples_df is None:
             raise ValueError(
                 "No polygon primitives found in the dataset samples, cannot adjust bboxes from polygon masks"
             )
-        has_existing_polygon_class_in_samples = len(set(classes_in_samples).intersection(polygon_class_names)) > 0
+        classes_in_samples = set(classes_in_samples_df[PrimitiveField.CLASS_NAME].drop_nulls().to_list())
+        has_existing_polygon_class_in_samples = len(classes_in_samples.intersection(polygon_class_names)) > 0
         if not has_existing_polygon_class_in_samples:
             raise ValueError(
                 f"None of the provided polygon class names {polygon_class_names} are present in the dataset samples. "
@@ -62,11 +80,12 @@ def adjust_bboxes_from_polygon_masks_dataset(
         adjusted_bboxes_per_sample.append(adjusted_boxes_dicts)  # Convert to list of dicts for JSON serialization
     samples_adjusted_bboxes = dataset.samples.with_columns(pl.from_records(adjusted_bboxes_per_sample))
 
-    adjusted_samples = samples_adjusted_bboxes[SampleField.BBOXES] != dataset.samples[SampleField.BBOXES]
-    num_adjusted = adjusted_samples.sum()
-    user_logger.info(f"Adjusted bboxes for '{num_adjusted}' out of '{len(adjusted_samples)}' samples ")
-
-    return dataset.update_samples(samples_adjusted_bboxes)
+    if run_checks:
+        adjusted_samples = samples_adjusted_bboxes[SampleField.BBOXES] != dataset.samples[SampleField.BBOXES]
+        num_adjusted = adjusted_samples.sum()
+        user_logger.info(f"Adjusted bboxes for '{num_adjusted}' out of '{len(adjusted_samples)}' samples ")
+    dataset_updated = dataset.update_samples(samples_adjusted_bboxes)
+    return dataset_updated
 
 
 def _adjust_bboxes_from_polygon_masks(

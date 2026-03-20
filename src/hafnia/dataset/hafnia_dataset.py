@@ -37,8 +37,7 @@ from hafnia.dataset.operations import (
     flattening_attributes,
     table_transformations,
 )
-from hafnia.dataset.operations.adjust_mask import _adjust_bboxes_from_polygon_masks
-from hafnia.dataset.primitives import Bbox, Polygon
+from hafnia.dataset.operations.adjust_mask import adjust_bboxes_from_polygon_masks_dataset
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
@@ -583,26 +582,16 @@ class HafniaDataset:
     def copy(self) -> "HafniaDataset":
         return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
 
-    def adjust_bboxes_from_polygon_masks(self, polygon_class_names: List[str]) -> "HafniaDataset":
-        adjusted_bboxes_per_sample = []
-        for sample in progress_bar(self, description="Adjusting bboxes"):
-            bboxes_dict = sample.get(SampleField.BBOXES, []) or []  # Returns list if missing or is None
-            boxes = [Bbox(**bbox) for bbox in bboxes_dict]
-            polygons_dict = sample.get(SampleField.POLYGONS, []) or []  # Returns list if missing or is None
-            polygons = [
-                Polygon(**poly) for poly in polygons_dict if poly[PrimitiveField.CLASS_NAME] in polygon_class_names
-            ]
-
-            adjusted_boxes = _adjust_bboxes_from_polygon_masks(
-                boxes=boxes,
-                polygons=polygons,
-                image_width=sample[SampleField.WIDTH],
-                image_height=sample[SampleField.HEIGHT],
-            )
-            adjusted_boxes_dicts = {SampleField.BBOXES: [box.model_dump(mode="json") for box in adjusted_boxes]}
-            adjusted_bboxes_per_sample.append(adjusted_boxes_dicts)  # Convert to list of dicts for JSON serialization
-        samples_adjusted_bboxes = self.samples.with_columns(pl.from_records(adjusted_bboxes_per_sample))
-        return self.update_samples(samples_adjusted_bboxes)
+    def adjust_bboxes_from_polygon_masks(
+        self,
+        polygon_class_names: List[str],
+        run_checks: bool = True,
+    ) -> "HafniaDataset":
+        return adjust_bboxes_from_polygon_masks_dataset(
+            dataset=self,
+            polygon_class_names=polygon_class_names,
+            run_checks=run_checks,
+        )
 
     def create_primitive_table(
         self,
