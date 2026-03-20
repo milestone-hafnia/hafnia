@@ -449,7 +449,7 @@ def _validate_inputs_select_samples_by_class_name(
     names = list(name)
 
     # Check that specified names are available in at least one of the tasks
-    available_names_across_tasks = set(more_itertools.flatten([t.get_class_names() for t in dataset.info.tasks]))
+    available_names_across_tasks = set(more_itertools.flatten([t.get_class_names() or [] for t in dataset.info.tasks]))
     missing_class_names_across_tasks = set(names) - available_names_across_tasks
     if len(missing_class_names_across_tasks) > 0:
         raise ValueError(

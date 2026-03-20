@@ -45,11 +45,11 @@ def adjust_bboxes_from_polygon_masks_dataset(
         polygon_tasks = dataset.info.get_tasks_by_primitive(Polygon)
         if len(polygon_tasks) == 0:
             raise ValueError("No Polygon tasks found in the dataset, cannot adjust bboxes from polygon masks")
-        classes_from_tasks = set(more_itertools.flatten([t.get_class_names() for t in polygon_tasks]))
+        classes_from_tasks = set(more_itertools.flatten([t.get_class_names() or [] for t in polygon_tasks]))
         has_existing_polygon_class = set(polygon_class_names).issubset(classes_from_tasks)
         if not has_existing_polygon_class:
             raise ValueError(
-                f"None of the provided polygon class names {polygon_class_names} are present in the dataset tasks. "
+                f"Polygon class names {polygon_class_names} are not present in the dataset tasks. "
                 f"Available polygon class names from tasks: {classes_from_tasks}"
             )
 
@@ -63,7 +63,7 @@ def adjust_bboxes_from_polygon_masks_dataset(
         has_existing_polygon_class_in_samples = len(classes_in_samples.intersection(polygon_class_names)) > 0
         if not has_existing_polygon_class_in_samples:
             raise ValueError(
-                f"None of the provided polygon class names {polygon_class_names} are present in the dataset samples. "
+                f"Polygon class names {polygon_class_names} are not present in the dataset samples. "
                 f"Available polygon class names in samples: {classes_in_samples}"
             )
 

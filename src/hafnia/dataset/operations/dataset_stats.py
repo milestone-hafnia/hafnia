@@ -155,15 +155,20 @@ def calculate_video_stats(dataset: HafniaDataset) -> Dict[str, Any]:
         if VideoInfoField.FRAME_RATE in field_names:
             stats["frame_rate"] = video_data.select(pl.col(VideoInfoField.FRAME_RATE).mean())[0, 0]
 
+        if VideoInfoField.BIT_RATE_KBPS in field_names:
+            stats["bit_rate"] = video_data.select(pl.col(VideoInfoField.BIT_RATE_KBPS).mean())[0, 0]
+
         if VideoInfoField.DOWNLOADED_AT in field_names:
             dates = video_data[VideoInfoField.DOWNLOADED_AT].str.to_datetime().drop_nulls().sort()
-            stats["data_received_start"] = dates[0]
-            stats["data_received_end"] = dates[-1]
+            if len(dates) > 0:
+                stats["data_received_start"] = dates[0]
+                stats["data_received_end"] = dates[-1]
 
         if VideoInfoField.CAPTURED_AT in field_names:
             dates = video_data[VideoInfoField.CAPTURED_AT].str.to_datetime().drop_nulls().sort()
-            stats["data_captured_start"] = dates[0]
-            stats["data_captured_end"] = dates[-1]
+            if len(dates) > 0:
+                stats["data_captured_start"] = dates[0]
+                stats["data_captured_end"] = dates[-1]
 
     has_camera_info = SampleField.CAMERA_INFO in samples.columns and samples[SampleField.CAMERA_INFO].dtype == pl.Struct
     if has_camera_info:

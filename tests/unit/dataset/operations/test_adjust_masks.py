@@ -139,3 +139,18 @@ def test_adjust_bbox_from_polygon(compare_to_expected_image: Callable):
     is_adjusted_sample = dataset_adjusted.samples[SampleField.BBOXES] != dataset.samples[SampleField.BBOXES]
     assert len(is_adjusted_sample) == 6
     assert sum(is_adjusted_sample) == 2
+
+
+def test_adjust_bbox_from_polygon_assertions(compare_to_expected_image: Callable):
+    dataset: HafniaDataset = helper_testing.get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")
+
+    # Test case 1: Polygon class names not present in dataset tasks
+    with pytest.raises(ValueError, match="not present in the dataset tasks"):
+        dataset.adjust_bboxes_from_polygon_masks(polygon_class_names=["Doesn't exist"])
+
+    # Test case 2: Polygon Primitive is not even present in the dataset tasks
+    with pytest.raises(ValueError, match="No Polygon tasks found in the dataset"):
+        # Drop polygon tasks to trigger error
+        dataset.info.tasks = [t for t in dataset.info.tasks if t.primitive != Polygon]
+
+        dataset.adjust_bboxes_from_polygon_masks(polygon_class_names=["Annotator Marking Polygon.Mask"])

@@ -394,7 +394,11 @@ def dataset_details_from_hafnia_dataset(
                 data_type=DataTypeChoices.images,
                 number_of_data_items=len(samples_variant),
                 resolutions=get_resolutions(samples_variant, max_resolutions_selected=8),
-                **video_stats,
+                duration=video_stats.get("duration", None),
+                duration_average=video_stats.get("duration_average", None),
+                frame_rate=video_stats.get("frame_rate", None),
+                bit_rate=video_stats.get("bit_rate", None),
+                n_cameras=video_stats.get("n_cameras", None),
             )
         )
 
