@@ -15,6 +15,12 @@ DATASET_SPEC_MIDWEST = DatasetSpec(
     version="1.0.0",  # Remember to update "MIDWEST_VERSION" used in example-scripts accordingly
 )
 
+DATASET_SPEC_MIDWEST_TRAFFIC = DatasetSpec(
+    name="midwest-detection-traffic",
+    splits={"train": 172, "validation": 21, "test": 21},
+    version="1.0.0",
+)
+
 DATASET_SPEC_TINY_DATASET = DatasetSpec(
     name="tiny-dataset",
     splits={"train": 12, "validation": 8, "test": 12},
@@ -63,6 +69,7 @@ DATASET_SPEC_COCO_2017_TINY = DatasetSpec(
 
 SUPPORTED_DATASETS = [
     DATASET_SPEC_MIDWEST,
+    DATASET_SPEC_MIDWEST_TRAFFIC,
     DATASET_SPEC_TINY_DATASET,
     DATASET_SPEC_MNIST,
     DATASET_SPEC_CALTECH_101,
