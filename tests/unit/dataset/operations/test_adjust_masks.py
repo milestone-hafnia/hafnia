@@ -7,7 +7,7 @@ import pytest
 from hafnia.dataset import image_visualizations
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.operations.adjust_mask import adjust_bbox_from_polygon_masks
+from hafnia.dataset.operations.adjust_mask import _adjust_bboxes_from_polygon_masks
 from hafnia.dataset.primitives import Bbox, Polygon
 from tests import helper_testing
 
@@ -100,7 +100,7 @@ TEST_CASES: List[TestCaseAdjustBbox] = [
 @pytest.mark.parametrize("case_key", TEST_CASES, ids=[case.key for case in TEST_CASES])
 def test_cases_adjust_bbox_from_polygon(case_key: TestCaseAdjustBbox, compare_to_expected_image: Callable):
     polygons = case_key.polygons_as_primitives()
-    adjust_bboxes = adjust_bbox_from_polygon_masks(
+    adjust_bboxes = _adjust_bboxes_from_polygon_masks(
         boxes=case_key.boxes,
         polygons=polygons,
         image_width=case_key.image_width,
@@ -120,7 +120,7 @@ def test_cases_adjust_bbox_from_polygon(case_key: TestCaseAdjustBbox, compare_to
 def test_adjust_bbox_from_polygon(compare_to_expected_image: Callable):
     dataset: HafniaDataset = helper_testing.get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")
     polygon_masks = ["Annotator Marking Polygon.Mask"]
-    dataset_adjusted = dataset.adjust_bbox_from_polygon_mask(polygon_class_names=polygon_masks)
+    dataset_adjusted = dataset.adjust_bboxes_from_polygon_masks(polygon_class_names=polygon_masks)
     dataset_adjusted.check_dataset(check_splits=False)  # Check that the dataset is still valid after adjustments
 
     person_bbox_adjusted_sample = 1  # Sample index showing an adjusted bbox

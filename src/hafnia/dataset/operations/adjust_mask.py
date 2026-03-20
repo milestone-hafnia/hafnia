@@ -1,9 +1,75 @@
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
+import more_itertools
+import polars as pl
+
+from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.primitives import Bbox, Point, Polygon
+from hafnia.log import user_logger
+from hafnia.utils import progress_bar
+
+if TYPE_CHECKING:
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 
-def adjust_bbox_from_polygon_masks(
+def adjust_bboxes_from_polygon_masks_dataset(
+    dataset: "HafniaDataset",
+    polygon_class_names: List[str],
+    run_checks: bool = True,
+) -> "HafniaDataset":
+    if run_checks:
+        # Check tasks exists
+        polygon_tasks = dataset.info.get_tasks_by_primitive(Polygon)
+
+        if len(polygon_tasks) == 0:
+            raise ValueError("No Polygon tasks found in the dataset, cannot adjust bboxes from polygon masks")
+
+        classes_from_tasks = set(more_itertools.flatten([t.get_class_names() for t in polygon_tasks]))
+
+        has_existing_polygon_class = set(polygon_class_names).issubset(classes_from_tasks)
+        if not has_existing_polygon_class:
+            raise ValueError(
+                f"None of the provided polygon class names {polygon_class_names} are present in the dataset tasks. "
+                f"Available polygon class names from tasks: {classes_from_tasks}"
+            )
+
+        classes_in_samples = dataset.create_primitive_table(Polygon)
+        if classes_in_samples is None:
+            raise ValueError(
+                "No polygon primitives found in the dataset samples, cannot adjust bboxes from polygon masks"
+            )
+        has_existing_polygon_class_in_samples = len(set(classes_in_samples).intersection(polygon_class_names)) > 0
+        if not has_existing_polygon_class_in_samples:
+            raise ValueError(
+                f"None of the provided polygon class names {polygon_class_names} are present in the dataset samples. "
+                f"Available polygon class names in samples: {classes_in_samples}"
+            )
+
+    adjusted_bboxes_per_sample = []
+    for sample in progress_bar(dataset, description="Adjusting bboxes"):
+        bboxes_dict = sample.get(SampleField.BBOXES, []) or []  # Returns list if missing or is None
+        boxes = [Bbox(**bbox) for bbox in bboxes_dict]
+        polygons_dict = sample.get(SampleField.POLYGONS, []) or []  # Returns list if missing or is None
+        polygons = [Polygon(**poly) for poly in polygons_dict if poly[PrimitiveField.CLASS_NAME] in polygon_class_names]
+
+        adjusted_boxes = _adjust_bboxes_from_polygon_masks(
+            boxes=boxes,
+            polygons=polygons,
+            image_width=sample[SampleField.WIDTH],
+            image_height=sample[SampleField.HEIGHT],
+        )
+        adjusted_boxes_dicts = {SampleField.BBOXES: [box.model_dump(mode="json") for box in adjusted_boxes]}
+        adjusted_bboxes_per_sample.append(adjusted_boxes_dicts)  # Convert to list of dicts for JSON serialization
+    samples_adjusted_bboxes = dataset.samples.with_columns(pl.from_records(adjusted_bboxes_per_sample))
+
+    adjusted_samples = samples_adjusted_bboxes[SampleField.BBOXES] != dataset.samples[SampleField.BBOXES]
+    num_adjusted = adjusted_samples.sum()
+    user_logger.info(f"Adjusted bboxes for '{num_adjusted}' out of '{len(adjusted_samples)}' samples ")
+
+    return dataset.update_samples(samples_adjusted_bboxes)
+
+
+def _adjust_bboxes_from_polygon_masks(
     boxes: List[Bbox],
     polygons: List[Polygon],
     image_width: int,

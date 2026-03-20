@@ -37,7 +37,7 @@ from hafnia.dataset.operations import (
     flattening_attributes,
     table_transformations,
 )
-from hafnia.dataset.operations.adjust_mask import adjust_bbox_from_polygon_masks
+from hafnia.dataset.operations.adjust_mask import _adjust_bboxes_from_polygon_masks
 from hafnia.dataset.primitives import Bbox, Polygon
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
@@ -583,7 +583,7 @@ class HafniaDataset:
     def copy(self) -> "HafniaDataset":
         return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
 
-    def adjust_bbox_from_polygon_mask(self, polygon_class_names: List[str]) -> "HafniaDataset":
+    def adjust_bboxes_from_polygon_masks(self, polygon_class_names: List[str]) -> "HafniaDataset":
         adjusted_bboxes_per_sample = []
         for sample in progress_bar(self, description="Adjusting bboxes"):
             bboxes_dict = sample.get(SampleField.BBOXES, []) or []  # Returns list if missing or is None
@@ -593,7 +593,7 @@ class HafniaDataset:
                 Polygon(**poly) for poly in polygons_dict if poly[PrimitiveField.CLASS_NAME] in polygon_class_names
             ]
 
-            adjusted_boxes = adjust_bbox_from_polygon_masks(
+            adjusted_boxes = _adjust_bboxes_from_polygon_masks(
                 boxes=boxes,
                 polygons=polygons,
                 image_width=sample[SampleField.WIDTH],
