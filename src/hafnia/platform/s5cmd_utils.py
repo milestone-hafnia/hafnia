@@ -156,7 +156,7 @@ def fast_copy_files(
 ) -> List[str]:
     if len(src_paths) != len(dst_paths):
         raise ValueError("Source and destination paths must have the same length.")
-    cmds = [f"cp {src} {dst}" for src, dst in zip(src_paths, dst_paths)]
+    cmds = [f'cp "{src}" "{dst}"' for src, dst in zip(src_paths, dst_paths)]
     lines = execute_commands(cmds, append_envs=append_envs, description=description)
     return lines
 

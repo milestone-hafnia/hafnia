@@ -75,8 +75,8 @@ def hafnia_2_torch_dataset(dataset: HafniaDataset) -> torch.utils.data.Dataset:
     return dataset_torch
 
 
-def test_run_on_old_datasets():
-    """Test that the flag for running on old datasets is set correctly."""
+def test_check_flags():
+    """Checks different optional flags to avoid accidentally committing these flags in the wrong state."""
     assert not RUN_ON_OLD_DATASETS, "Remember to set RUN_ON_OLD_DATASETS=False before committing"
     assert not FORCE_REDOWNLOAD, "Remember to set FORCE_REDOWNLOAD=False before committing"
 

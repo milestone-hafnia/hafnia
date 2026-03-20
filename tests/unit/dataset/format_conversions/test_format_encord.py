@@ -9,6 +9,8 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample, TaskInfo
 from tests import helper_testing
 
+MAX_SAMPLES = 10  # Small number for faster testing (None for full set)
+
 
 def get_encord_dataset_tiny_path() -> Path:
     path_encord_dataset_folder = helper_testing.get_path_test_dataset_formats() / "format_encord"
@@ -77,7 +79,7 @@ def test_parse_nested_ontology():
 @pytest.fixture(scope="session")
 def encord_dataset_tiny():  # This is session scoped fixture. Use 'dataset = dataset.copy()' for each test to avoid affecting other tests when modifying the dataset.
     path_compressed_data = get_encord_dataset_tiny_path()
-    dataset = HafniaDataset.from_encord_zip_format(path_compressed_data)
+    dataset = HafniaDataset.from_encord_zip_format(path_compressed_data, max_samples=MAX_SAMPLES)
     return dataset
 
 
@@ -101,7 +103,7 @@ def test_from_encord_zip_format(encord_dataset_tiny: HafniaDataset):
 
 def test_flattening_specification_image_based():
     path_compressed_data = get_encord_image_based_dataset()
-    dataset: HafniaDataset = HafniaDataset.from_encord_zip_format(path_compressed_data)
+    dataset: HafniaDataset = HafniaDataset.from_encord_zip_format(path_compressed_data, max_samples=MAX_SAMPLES)
 
     # No classifications have been marked for this dataset
     dataset = dataset.drop_primitive(primitives.Classification)
@@ -116,13 +118,13 @@ def test_flattening_specification_image_based():
         flattening_specification=flattening_specification,
     )
     dataset_flat.check_dataset(check_splits=False)
-
     dataset_flat.print_stats()
+    dataset_flat.print_class_distribution()
 
 
 def test_flattening_specification_midwest():
     path_compressed_data = get_encord_midwest_vehicle_detection_tiny_path()
-    dataset: HafniaDataset = HafniaDataset.from_encord_zip_format(path_compressed_data)
+    dataset: HafniaDataset = HafniaDataset.from_encord_zip_format(path_compressed_data, max_samples=MAX_SAMPLES)
     dataset.check_dataset(check_splits=False)
 
     flattening_specification: Dict[TaskInfo, List[List[str]]] = {
@@ -135,6 +137,7 @@ def test_flattening_specification_midwest():
         flattening_specification=flattening_specification,
     )
     dataset_flat.check_dataset(check_splits=False)
+    dataset_flat.print_stats()
 
 
 def test_flattening_specification_assert(encord_dataset_tiny: HafniaDataset):

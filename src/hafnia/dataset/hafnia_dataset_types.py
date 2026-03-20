@@ -471,6 +471,27 @@ class DatasetInfo(BaseModel):
         )
         return task
 
+    def get_tasks_by_task_name_and_primitive(
+        self,
+        task_name: Optional[str],
+        primitive: Optional[Union[Type[Primitive], str]],
+    ) -> List[TaskInfo]:
+        """
+        Get tasks based on the provided 'task_name' and/or 'primitive'.
+        If both 'task_name' and 'primitive' are None, all tasks will be returned.
+        """
+        primitive_defined = primitive is not None
+        task_name_defined = task_name is not None
+
+        if not primitive_defined and not task_name_defined:  # Return all tasks if no filter is provided
+            return self.tasks
+
+        if primitive_defined and not task_name_defined:  # Return all tasks matching the primitive
+            return self.get_tasks_by_primitive(primitive)  # type: ignore[arg-type]
+
+        task = self.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
+        return [task]
+
     def replace_task(self, old_task: TaskInfo, new_task: Optional[TaskInfo]) -> "DatasetInfo":
         dataset_info = self.model_copy(deep=True)
         has_task = any(t for t in dataset_info.tasks if t.name == old_task.name and t.primitive == old_task.primitive)
@@ -555,6 +576,128 @@ class Attribution(BaseModel):
     source_url: Optional[str] = Field(default=None, description="Source URL for the image", max_length=255)
 
 
+class VideoInfo(BaseModel):
+    """
+    Information about the recording of the data for video based datasets.
+    """
+
+    name: Optional[str] = Field(default=None, description="Name of the recording, e.g. 'video1.mp4'")
+    description: Optional[str] = Field(default=None, description="Description of the recording")
+    captured_at: Optional[datetime] = Field(
+        default=None,
+        description="Date and time when the recording was captured. Prefer 'Attribution.date_captured' for image samples.",
+    )
+    downloaded_at: Optional[datetime] = Field(
+        default=None, description="Date and time when the recording was downloaded"
+    )
+    duration_seconds: Optional[float] = Field(default=None, description="Duration of the recording in seconds")
+    frame_rate: Optional[float] = Field(
+        default=None,
+        description="Frame rate of the recording in frames per second, e.g. 25.0, 29.97, 60.0",
+    )
+    total_frames: Optional[int] = Field(default=None, description="Total number of frames in the recording")
+    resolution_width: Optional[int] = Field(default=None, description="Width of the video resolution in pixels")
+    resolution_height: Optional[int] = Field(default=None, description="Height of the video resolution in pixels")
+    aspect_ratio: Optional[float] = Field(
+        default=None,
+        description="Aspect ratio of the video (width / height), e.g. 1.778 for 16:9. Convenience field derived from resolution.",
+    )
+    codec: Optional[str] = Field(default=None, description="Video codec, e.g. 'H.264', 'H.265', 'VP9'")
+    container_format: Optional[str] = Field(
+        default=None,
+        description="Container format of the video file, e.g. 'mp4', 'avi', 'mkv'",
+    )
+    bit_rate_kbps: Optional[float] = Field(
+        default=None, description="Bit rate of the video in kilobits per second (kbps)"
+    )
+    color_space: Optional[str] = Field(default=None, description="Color space of the video, e.g. 'YUV420', 'RGB'")
+    rotation_degrees: Optional[int] = Field(
+        default=None,
+        description="Rotation metadata embedded in the file in degrees. Common values: 0, 90, 180, 270",
+    )
+
+
+class CameraInfo(BaseModel):
+    """
+    Information about the camera used for recording the data. This is especially relevant for video datasets,
+    but can also be used for image datasets.
+    """
+
+    id: Optional[str] = Field(default=None, description=("Unique identifier for the camera. "), max_length=100)
+    name: Optional[str] = Field(
+        default=None,
+        description="Name of the camera, e.g. 'Front Camera' or 'Street 14th and Main'",
+    )
+    make: Optional[str] = Field(default=None, description="Camera make, e.g. 'Canon'")
+    model: Optional[str] = Field(default=None, description="Camera model, e.g. 'EOS 80D'")
+    lens: Optional[str] = Field(
+        default=None,
+        description="Camera lens information, e.g. 'EF-S 18-135mm f/3.5-5.6 IS USM'",
+    )
+    focal_length_mm: Optional[float] = Field(default=None, description="Focal length in millimeters")
+    aperture_f_number: Optional[float] = Field(
+        default=None, description="Aperture f-number, e.g. f/2.8 is stored as 2.8"
+    )
+    iso: Optional[int] = Field(default=None, description="ISO sensitivity value, e.g. 100, 400, 3200")
+    exposure_time_seconds: Optional[float] = Field(
+        default=None,
+        description="Exposure time in seconds, e.g. 1/1000s is stored as 0.001",
+    )
+    white_balance: Optional[str] = Field(
+        default=None, description="White balance setting, e.g. 'Auto', 'Daylight', etc."
+    )
+    color_space: Optional[str] = Field(
+        default=None,
+        description="Color space of the captured image/video, e.g. 'sRGB', 'AdobeRGB', 'P3'",
+    )
+    metering_mode: Optional[str] = Field(
+        default=None,
+        description="Metering mode used for exposure, e.g. 'Evaluative', 'Spot', 'Center-weighted'",
+    )
+    flash: Optional[bool] = Field(default=None, description="Whether the flash was fired during capture")
+
+
+class Position(BaseModel):
+    latitude: Optional[float] = Field(
+        default=None,
+        description="GPS latitude where the image/video was captured. WGS84 coordinate system, range -90 to 90.",
+    )
+    longitude: Optional[float] = Field(
+        default=None,
+        description="GPS longitude where the image/video was captured. WGS84 coordinate system, range -180 to 180.",
+    )
+    altitude_meters: Optional[float] = Field(
+        default=None,
+        description="GPS altitude above mean sea level (MSL) in meters where the image/video was captured",
+    )
+    height_above_ground_meters: Optional[float] = Field(
+        default=None,
+        description=(
+            "Height above ground level (AGL) in meters. Distinct from 'gps_altitude_meters' which is MSL. "
+            "Especially relevant for drone/aerial datasets."
+        ),
+    )
+
+
+class Orientation(BaseModel):
+    heading_degrees: Optional[float] = Field(
+        default=None,
+        description="Compass heading of the camera in degrees (0-360, clockwise from North)",
+    )
+    pitch_degrees: Optional[float] = Field(
+        default=None,
+        description="Camera pitch angle in degrees. Positive values indicate upward tilt.",
+    )
+    roll_degrees: Optional[float] = Field(
+        default=None,
+        description="Camera roll angle in degrees. Positive values indicate clockwise rotation.",
+    )
+    yaw_degrees: Optional[float] = Field(
+        default=None,
+        description="Camera yaw angle in degrees. Equivalent to heading for body-frame orientation.",
+    )
+
+
 class Sample(BaseModel):
     file_path: Optional[str] = Field(description="Path to the image/video file.")
     height: int = Field(description="Height of the image")
@@ -590,6 +733,20 @@ class Sample(BaseModel):
             "Name of the dataset the sample belongs to. E.g. 'coco-2017' or 'midwest-vehicle-detection'."
         ),
     )
+
+    video_info: Optional[VideoInfo] = Field(
+        default=None, description="Video recording metadata for video-based samples"
+    )
+    camera_info: Optional[CameraInfo] = Field(default=None, description="Camera metadata for the image or video sample")
+    position: Optional[Position] = Field(
+        default=None,
+        description="Position information such as GPS coordinates where the image/video was captured",
+    )
+    orientation: Optional[Orientation] = Field(
+        default=None,
+        description="Orientation information such as GPS heading, pitch, roll, yaw of the camera when captured",
+    )
+
     meta: Optional[Dict] = Field(
         default=None,
         description="Additional metadata, e.g., camera settings, GPS data, etc.",

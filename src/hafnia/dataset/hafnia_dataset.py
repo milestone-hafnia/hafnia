@@ -37,6 +37,7 @@ from hafnia.dataset.operations import (
     flattening_attributes,
     table_transformations,
 )
+from hafnia.dataset.operations.adjust_mask import adjust_bboxes_from_polygon_masks_dataset
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
@@ -57,6 +58,7 @@ class HafniaDataset:
     calculate_task_class_counts = dataset_stats.calculate_task_class_counts
     calculate_class_counts = dataset_stats.calculate_class_counts
     calculate_primitive_counts = dataset_stats.calculate_primitive_counts
+    calculate_video_stats = dataset_stats.calculate_video_stats
 
     # Function mapping: Print stats
     print_basic_stats = dataset_stats.print_basic_stats
@@ -146,8 +148,11 @@ class HafniaDataset:
             raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
 
         # To ensure that the 'file_path' column is of type string even if all samples have 'None' as file_path
-        schema_override = {SampleField.FILE_PATH: pl.String}
-        table = pl.from_records(json_samples, schema_overrides=schema_override)
+        schema_override = {
+            SampleField.FILE_PATH: pl.String,
+            SampleField.TAGS: pl.List(pl.String),
+        }
+        table = pl.from_records(json_samples, schema_overrides=schema_override, infer_schema_length=None)
         table = table.drop(pl.selectors.by_dtype(pl.Null))
         table = table_transformations.add_sample_index(table)
         table = table_transformations.add_dataset_name_if_missing(table, dataset_name=info.dataset_name)
@@ -576,6 +581,17 @@ class HafniaDataset:
 
     def copy(self) -> "HafniaDataset":
         return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
+
+    def adjust_bboxes_from_polygon_masks(
+        self,
+        polygon_class_names: List[str],
+        run_checks: bool = True,
+    ) -> "HafniaDataset":
+        return adjust_bboxes_from_polygon_masks_dataset(
+            dataset=self,
+            polygon_class_names=polygon_class_names,
+            run_checks=run_checks,
+        )
 
     def create_primitive_table(
         self,

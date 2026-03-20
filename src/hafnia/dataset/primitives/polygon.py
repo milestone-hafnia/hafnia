@@ -48,6 +48,18 @@ class Polygon(Primitive):
         return Polygon(points=list_points, class_name=class_name, class_idx=class_idx, object_id=object_id)
 
     @staticmethod
+    def from_list_of_pixel_points(
+        points: Sequence[Sequence[int]],
+        image_height: int,
+        image_width: int,
+        class_name: Optional[str] = None,
+        class_idx: Optional[int] = None,
+        object_id: Optional[str] = None,
+    ) -> "Polygon":
+        normalized_points = [Point(x=point[0] / image_width, y=point[1] / image_height) for point in points]
+        return Polygon(points=normalized_points, class_name=class_name, class_idx=class_idx, object_id=object_id)
+
+    @staticmethod
     def default_task_name() -> str:
         return "polygon_detection"
 

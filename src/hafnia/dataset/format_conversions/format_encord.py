@@ -58,7 +58,7 @@ MAPPING_GET_PRIMITIVE_FROM_ENCORD_SHAPE_NAME = {item.encord_shape_name: item.pri
 MAPPING_GET_ENCORD_NAME_FROM_PRIMITIVE = {item.primitive: item.encord_name for item in ENCORD_NAMES}
 
 
-def from_encord_zip_format(path_compressed_data: Path) -> "HafniaDataset":
+def from_encord_zip_format(path_compressed_data: Path, max_samples: Optional[int] = None) -> "HafniaDataset":
     metadata_dict = utils.read_compressed_json(path_compressed_data)
     encord_info = metadata_dict["encord_info"]
     encord_labels = metadata_dict["labels"]
@@ -68,6 +68,7 @@ def from_encord_zip_format(path_compressed_data: Path) -> "HafniaDataset":
         encord_info=encord_info,
         encord_labels=encord_labels,
         encord_ontology_dict=encord_ontology_dict,
+        max_samples=max_samples,
     )
     return hafnia_dataset
 
@@ -92,11 +93,13 @@ def dump_encord_project_from_id(
 
 def get_encord_dataset_items(project: "Project", select_rows: Optional[List[str]]) -> List[Dict]:
     dataset_items = project.list_label_rows_v2()
-    bundle_size = 30
+    bundle_size = 100
     user_logger.info("Downloading labels from encord")
     with project.create_bundle(bundle_size=bundle_size) as bundle:
-        for label_row in dataset_items:
+        for label_row in progress_bar(dataset_items, description="Initializing Labels"):
             label_row.initialise_labels(bundle=bundle)
+        user_logger.info("This can take several minutes for large datasets")
+
     user_logger.info("Convert to dictionary format")
     encord_annotation_items = []
     for data_item in progress_bar(dataset_items, description="Loading Encord Annotations"):
@@ -138,6 +141,7 @@ def hafnia_dataset_from_encord_data(
     encord_info: Dict,
     encord_labels: List[Dict],
     encord_ontology_dict: Dict,
+    max_samples: Optional[int] = None,
 ) -> "HafniaDataset":
     from hafnia.dataset.hafnia_dataset import HafniaDataset  # Avoid circular import
 
@@ -149,6 +153,8 @@ def hafnia_dataset_from_encord_data(
         dataset_title=encord_dataset_title,
         tasks=tasks,
     )
+    if max_samples is not None:
+        encord_labels = encord_labels[:max_samples]
     samples_list: List[Sample] = []
     for data_item in progress_bar(
         encord_labels, description="Processing Encord Labels"

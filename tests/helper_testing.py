@@ -73,7 +73,7 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
     dataset_info = MICRO_DATASETS[dataset_name]
     hafnia_dataset = HafniaDataset.from_name(dataset_info.name, version=dataset_info.version, force_redownload=True)
     if dataset_info.name == "tiny-dataset":
-        select_samples = [0, 2, 6]
+        select_samples = [2, 4, 6]
         hafnia_dataset.samples = hafnia_dataset.samples.filter(pl.col(SampleField.SAMPLE_INDEX).is_in(select_samples))
     else:
         hafnia_dataset = hafnia_dataset.select_samples(n_samples=3, seed=0)

@@ -7,7 +7,7 @@ import rich
 from rich import print as rprint
 from rich.table import Table
 
-from hafnia.dataset.dataset_names import PrimitiveField, SampleField, SplitName
+from hafnia.dataset.dataset_names import PrimitiveField, SampleField, SplitName, VideoInfoField
 from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.operations.table_transformations import create_primitive_table
 from hafnia.dataset.primitives import PRIMITIVE_TYPES
@@ -50,17 +50,23 @@ def calculate_task_class_counts(
     }
     """
     task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
+
+    # Initialize counts with zero for all classes to ensure zero-count classes are included
+    # and to have class names in the order of class idx
+    class_counts = {name: 0 for name in (task.get_class_names() or [])}
+
+    task_column_name = task.primitive.column_name()
+    if task_column_name not in dataset.samples.columns:
+        return class_counts
+
     class_counts_df = (
-        dataset.samples[task.primitive.column_name()]
+        dataset.samples[task_column_name]
         .explode()
         .struct.unnest()
         .filter(pl.col(PrimitiveField.TASK_NAME) == task.name)[PrimitiveField.CLASS_NAME]
         .value_counts()
     )
 
-    # Initialize counts with zero for all classes to ensure zero-count classes are included
-    # and to have class names in the order of class idx
-    class_counts = {name: 0 for name in task.get_class_names() or []}
     class_counts.update(dict(class_counts_df.iter_rows()))
 
     return class_counts
@@ -131,6 +137,48 @@ def calculate_split_counts_extended(dataset: HafniaDataset) -> List[Dict[str, An
     return rows
 
 
+def calculate_video_stats(dataset: HafniaDataset) -> Dict[str, Any]:
+    stats = {}
+    samples = dataset.samples
+
+    has_video_info = SampleField.VIDEO_INFO in samples.columns and samples[SampleField.VIDEO_INFO].dtype == pl.Struct
+    if has_video_info:
+        field_names = [f.name for f in samples.schema[SampleField.VIDEO_INFO].fields if f.dtype is not pl.Null]
+        video_data = samples.select(pl.col(SampleField.VIDEO_INFO).struct.unnest()).unique()
+
+        stats["n_videos"] = len(video_data)
+
+        if VideoInfoField.DURATION_SECONDS in field_names:
+            stats["duration"] = video_data.select(pl.col(VideoInfoField.DURATION_SECONDS).sum())[0, 0]
+            stats["duration_average"] = video_data.select(pl.col(VideoInfoField.DURATION_SECONDS).mean())[0, 0]
+
+        if VideoInfoField.FRAME_RATE in field_names:
+            stats["frame_rate"] = video_data.select(pl.col(VideoInfoField.FRAME_RATE).mean())[0, 0]
+
+        if VideoInfoField.BIT_RATE_KBPS in field_names:
+            stats["bit_rate"] = video_data.select(pl.col(VideoInfoField.BIT_RATE_KBPS).mean())[0, 0]
+
+        if VideoInfoField.DOWNLOADED_AT in field_names:
+            dates = video_data[VideoInfoField.DOWNLOADED_AT].str.to_datetime().drop_nulls().sort()
+            if len(dates) > 0:
+                stats["data_received_start"] = dates[0]
+                stats["data_received_end"] = dates[-1]
+
+        if VideoInfoField.CAPTURED_AT in field_names:
+            dates = video_data[VideoInfoField.CAPTURED_AT].str.to_datetime().drop_nulls().sort()
+            if len(dates) > 0:
+                stats["data_captured_start"] = dates[0]
+                stats["data_captured_end"] = dates[-1]
+
+    has_camera_info = SampleField.CAMERA_INFO in samples.columns and samples[SampleField.CAMERA_INFO].dtype == pl.Struct
+    if has_camera_info:
+        field_names = [f.name for f in samples.schema[SampleField.CAMERA_INFO].fields if f.dtype is not pl.Null]
+        camera_data = samples.select(pl.col(SampleField.CAMERA_INFO).struct.unnest()).unique()
+
+        stats["n_cameras"] = len(camera_data)
+    return stats
+
+
 def print_basic_stats(dataset: HafniaDataset) -> None:
     """
     Prints basic statistics about the dataset, including dataset name, version, and number of samples.
@@ -160,11 +208,17 @@ def print_stats(dataset: HafniaDataset) -> None:
     print_class_distribution(dataset)
 
 
-def print_class_distribution(dataset: HafniaDataset) -> None:
+def print_class_distribution(
+    dataset: HafniaDataset,
+    primitive: Optional[Type[Primitive]] = None,
+    task_name: Optional[str] = None,
+) -> None:
     """
-    Prints the class distribution for each task in the dataset.
+    Prints the class distribution for each task in the dataset. Filter by primitive type
+    and/or task name can be applied.
     """
-    for task in dataset.info.tasks:
+    tasks = dataset.info.get_tasks_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
+    for task in tasks:
         if task.get_class_names() is None:
             raise ValueError(f"Task '{task.name}' does not have class names defined.")
         class_counts = dataset.calculate_task_class_counts(primitive=task.primitive, task_name=task.name)

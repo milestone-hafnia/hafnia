@@ -33,7 +33,17 @@ import json
 import re
 import textwrap
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 import cv2
 import more_itertools
@@ -99,7 +109,7 @@ def convert_to_image_storage_format(
     path_output_folder: Path,
     reextract_frames: bool,
     image_format: str = "png",
-    transform: Optional[Callable[[np.ndarray, Sample], np.ndarray]] = None,
+    append_transform: Optional[Callable[[np.ndarray, Sample], np.ndarray]] = None,
 ) -> "HafniaDataset":
     """
     Convert a video-based dataset ("storage_format" == "video", FieldName.STORAGE_FORMAT == StorageFormat.VIDEO)
@@ -117,8 +127,10 @@ def convert_to_image_storage_format(
         user_logger.info("Dataset has no video-based samples. Returning dataset unchanged.")
         return dataset
 
+    video_grouped_samples = list(video_based_samples.group_by(SampleField.FILE_PATH))
+    n_videos = len(video_grouped_samples)
     update_list = []
-    for (path_video,), video_samples in video_based_samples.group_by(SampleField.FILE_PATH):
+    for i_video, ((path_video,), video_samples) in enumerate(video_grouped_samples):
         assert Path(path_video).exists(), (
             f"'{path_video}' not found. We expect the video to be downloaded to '{path_output_folder}'"
         )
@@ -128,7 +140,7 @@ def convert_to_image_storage_format(
         for sample_dict in progress_bar(
             video_samples.iter_rows(named=True),
             total=video_samples.height,
-            description=f"Extracting frames from '{Path(path_video).name}'",
+            description=f"({i_video + 1}/{n_videos}) Extracting frames from '{Path(path_video).name}'",
         ):
             frame_number = sample_dict[SampleField.COLLECTION_INDEX]
             image_name = f"{Path(path_video).stem}_F{frame_number:06d}.{image_format}"
@@ -153,8 +165,8 @@ def convert_to_image_storage_format(
             if not ret:
                 raise RuntimeError(f"Could not read frame {frame_number} from video '{path_video}'")
 
-            if transform is not None:
-                frame_org = transform(frame_org, Sample(**sample_dict))
+            if append_transform is not None:
+                frame_org = append_transform(frame_org, Sample(**sample_dict))
 
             cv2.imwrite(str(path_image), frame_org)
     df_updates = pl.DataFrame(update_list)
@@ -437,7 +449,7 @@ def _validate_inputs_select_samples_by_class_name(
     names = list(name)
 
     # Check that specified names are available in at least one of the tasks
-    available_names_across_tasks = set(more_itertools.flatten([t.get_class_names() for t in dataset.info.tasks]))
+    available_names_across_tasks = set(more_itertools.flatten([t.get_class_names() or [] for t in dataset.info.tasks]))
     missing_class_names_across_tasks = set(names) - available_names_across_tasks
     if len(missing_class_names_across_tasks) > 0:
         raise ValueError(

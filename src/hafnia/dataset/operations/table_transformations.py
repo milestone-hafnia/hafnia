@@ -92,8 +92,15 @@ def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFram
             if column_name not in samples1.schema:
                 continue
             samples0, samples1 = correction_of_list_struct_primitives(samples0, samples1, column_name)
+            column0_type = samples0.schema[column_name]
+            column1_type = samples1.schema[column_name]
 
-            if samples0.schema[column_name] != samples1.schema[column_name]:
+            both_are_structs = isinstance(column0_type, pl.Struct) and isinstance(column1_type, pl.Struct)
+            one_is_struct_other_is_null0 = isinstance(column0_type, pl.Struct) and column1_type == pl.Null
+            one_is_struct_other_is_null1 = isinstance(column1_type, pl.Struct) and column0_type == pl.Null
+            if both_are_structs or one_is_struct_other_is_null0 or one_is_struct_other_is_null1:
+                pass  # Keep Struct columns even if they do not match exactly.
+            elif column0_type != column1_type:
                 continue
             shared_columns.append(column_name)
 
@@ -112,7 +119,7 @@ def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFram
 
         samples0 = samples0.select(list(shared_columns))
         samples1 = samples1.select(list(shared_columns))
-    merged_samples = pl.concat([samples0, samples1], how="vertical")
+    merged_samples = pl.concat([samples0, samples1], how="vertical_relaxed")
     merged_samples = add_sample_index(merged_samples)
     return merged_samples
 
