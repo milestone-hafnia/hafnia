@@ -37,6 +37,8 @@ from hafnia.dataset.operations import (
     flattening_attributes,
     table_transformations,
 )
+from hafnia.dataset.operations.adjust_mask import adjust_bbox_from_polygon_masks
+from hafnia.dataset.primitives import Bbox, Polygon
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
@@ -57,6 +59,7 @@ class HafniaDataset:
     calculate_task_class_counts = dataset_stats.calculate_task_class_counts
     calculate_class_counts = dataset_stats.calculate_class_counts
     calculate_primitive_counts = dataset_stats.calculate_primitive_counts
+    calculate_video_stats = dataset_stats.calculate_video_stats
 
     # Function mapping: Print stats
     print_basic_stats = dataset_stats.print_basic_stats
@@ -146,8 +149,11 @@ class HafniaDataset:
             raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
 
         # To ensure that the 'file_path' column is of type string even if all samples have 'None' as file_path
-        schema_override = {SampleField.FILE_PATH: pl.String}
-        table = pl.from_records(json_samples, schema_overrides=schema_override)
+        schema_override = {
+            SampleField.FILE_PATH: pl.String,
+            SampleField.TAGS: pl.List(pl.String),
+        }
+        table = pl.from_records(json_samples, schema_overrides=schema_override, infer_schema_length=None)
         table = table.drop(pl.selectors.by_dtype(pl.Null))
         table = table_transformations.add_sample_index(table)
         table = table_transformations.add_dataset_name_if_missing(table, dataset_name=info.dataset_name)
@@ -576,6 +582,27 @@ class HafniaDataset:
 
     def copy(self) -> "HafniaDataset":
         return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
+
+    def adjust_bbox_from_polygon_mask(self, polygon_class_names: List[str]) -> "HafniaDataset":
+        adjusted_bboxes_per_sample = []
+        for sample in progress_bar(self, description="Adjusting bboxes"):
+            bboxes_dict = sample.get(SampleField.BBOXES, []) or []  # Returns list if missing or is None
+            boxes = [Bbox(**bbox) for bbox in bboxes_dict]
+            polygons_dict = sample.get(SampleField.POLYGONS, []) or []  # Returns list if missing or is None
+            polygons = [
+                Polygon(**poly) for poly in polygons_dict if poly[PrimitiveField.CLASS_NAME] in polygon_class_names
+            ]
+
+            adjusted_boxes = adjust_bbox_from_polygon_masks(
+                boxes=boxes,
+                polygons=polygons,
+                image_width=sample[SampleField.WIDTH],
+                image_height=sample[SampleField.HEIGHT],
+            )
+            adjusted_boxes_dicts = {SampleField.BBOXES: [box.model_dump(mode="json") for box in adjusted_boxes]}
+            adjusted_bboxes_per_sample.append(adjusted_boxes_dicts)  # Convert to list of dicts for JSON serialization
+        samples_adjusted_bboxes = self.samples.with_columns(pl.from_records(adjusted_bboxes_per_sample))
+        return self.update_samples(samples_adjusted_bboxes)
 
     def create_primitive_table(
         self,

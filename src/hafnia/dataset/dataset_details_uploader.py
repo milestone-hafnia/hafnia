@@ -381,23 +381,20 @@ def dataset_details_from_hafnia_dataset(
 
     for variant_type in path_and_variant:
         if variant_type == DatasetVariant.SAMPLE:
-            dataset_variant = dataset_sample
+            samples_variant = dataset_sample
         else:
-            dataset_variant = dataset
-
-        files_paths = dataset_variant.samples[SampleField.FILE_PATH].to_list()
+            samples_variant = dataset
+        video_stats = samples_variant.calculate_video_stats()
+        files_paths = set(samples_variant.samples[SampleField.FILE_PATH])
         size_bytes = sum([Path(file_path).stat().st_size for file_path in files_paths])
         dataset_variants.append(
             DbDatasetVariant(
                 variant_type=VARIANT_TYPE_MAPPING[variant_type],  # type: ignore[index]
                 size_bytes=size_bytes,
                 data_type=DataTypeChoices.images,
-                number_of_data_items=len(dataset_variant),
-                resolutions=get_resolutions(dataset_variant, max_resolutions_selected=8),
-                duration=dataset_meta_info.get("duration", None),
-                duration_average=dataset_meta_info.get("duration_average", None),
-                frame_rate=dataset_meta_info.get("frame_rate", None),
-                n_cameras=dataset_meta_info.get("n_cameras", None),
+                number_of_data_items=len(samples_variant),
+                resolutions=get_resolutions(samples_variant, max_resolutions_selected=8),
+                **video_stats,
             )
         )
 
@@ -405,7 +402,7 @@ def dataset_details_from_hafnia_dataset(
         distribution_tasks = [t for t in dataset.info.tasks if t.name in distribution_task_names]
         for split_name in SplitChoices:
             split_names = SPLIT_CHOICE_MAPPING[split_name]
-            dataset_split = dataset_variant.samples.filter(pl.col(SampleField.SPLIT).is_in(split_names))
+            dataset_split = samples_variant.samples.filter(pl.col(SampleField.SPLIT).is_in(split_names))
 
             distribution_values = calculate_distribution_values(
                 dataset_split=dataset_split,
@@ -430,6 +427,9 @@ def dataset_details_from_hafnia_dataset(
                 report.distribution_values = []
 
             dataset_reports.append(report)
+
+    video_stats = dataset.calculate_video_stats()
+
     dataset_name = dataset.info.dataset_name
     dataset_info = DatasetDetails(
         name=dataset_name,
@@ -441,10 +441,10 @@ def dataset_details_from_hafnia_dataset(
         dataset_updated_at=dataset.info.updated_at,
         dataset_format_version=dataset.info.format_version,
         license_citation=dataset.info.reference_bibtex,
-        data_captured_start=dataset_meta_info.get("data_captured_start", None),
-        data_captured_end=dataset_meta_info.get("data_captured_end", None),
-        data_received_start=dataset_meta_info.get("data_received_start", None),
-        data_received_end=dataset_meta_info.get("data_received_end", None),
+        data_captured_start=video_stats.get("data_captured_start", None),
+        data_captured_end=video_stats.get("data_captured_end", None),
+        data_received_start=video_stats.get("data_received_start", None),
+        data_received_end=video_stats.get("data_received_end", None),
         annotation_project_id=dataset_meta_info.get("annotation_project_id", None),
         annotation_dataset_id=dataset_meta_info.get("annotation_dataset_id", None),
         imgs=gallery_images,

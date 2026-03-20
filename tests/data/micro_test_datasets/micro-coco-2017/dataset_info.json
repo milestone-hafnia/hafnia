@@ -661,6 +661,6 @@
     "reference_paper_url": "https://arxiv.org/abs/1405.0312",
     "reference_dataset_page": "https://cocodataset.org/#home",
     "meta": null,
-    "format_version": "0.3.0",
-    "updated_at": "2026-03-12T09:22:13.257683"
+    "format_version": "0.3.1",
+    "updated_at": "2026-03-17T22:18:28.993080"
 }

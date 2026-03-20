@@ -53,3 +53,21 @@ def test_dataset_details_from_hafnia_dataset(dataset_name: str, tmp_path: Path):
     assert full_report.distribution_values is not None
     actual_dist_names = {d.distribution_category.distribution_type.name for d in full_report.distribution_values}
     assert actual_dist_names == set(distribution_task_names)
+
+
+def test_dataset_details_extraction():
+    path_dataset = helper_testing.get_path_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+
+    dataset_info = dataset_details_from_hafnia_dataset(dataset=dataset)
+    assert dataset_info.data_captured_end is not None, "Expected data_captured_end to be extracted from dataset"
+    assert dataset_info.data_captured_start is not None, "Expected data_captured_start to be extracted from dataset"
+    assert dataset_info.data_received_end is not None, "Expected data_received_end to be extracted from dataset"
+    assert dataset_info.data_received_start is not None, "Expected data_received_start to be extracted from dataset"
+
+    variant = dataset_info.dataset_variants[1]
+    assert variant.n_cameras is not None, "Expected n_cameras to be extracted from dataset"
+    assert variant.duration is not None, "Expected duration_seconds to be extracted from dataset"
+    assert variant.duration_average is not None, "Expected duration_average to be extracted from dataset"
+    assert variant.frame_rate is not None, "Expected frame_rate to be extracted from dataset"
+    assert isinstance(variant.resolutions, list) and len(variant.resolutions) > 0, "Expected resolutions to be a list"

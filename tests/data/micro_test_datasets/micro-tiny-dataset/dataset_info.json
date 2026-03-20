@@ -5,96 +5,10 @@
     "description": null,
     "tasks": [
         {
-            "primitive": "Classification",
+            "primitive": "Polygon",
             "classes": [
                 {
-                    "name": "Sunny/Clear",
-                    "attributes": null
-                },
-                {
-                    "name": "Rainy",
-                    "attributes": null
-                },
-                {
-                    "name": "Snow",
-                    "attributes": null
-                },
-                {
-                    "name": "Clear Night",
-                    "attributes": null
-                },
-                {
-                    "name": "Cloudy",
-                    "attributes": null
-                }
-            ],
-            "name": "Weather"
-        },
-        {
-            "primitive": "Classification",
-            "classes": [
-                {
-                    "name": "Day",
-                    "attributes": null
-                },
-                {
-                    "name": "Sunrise/Sunset",
-                    "attributes": [
-                        {
-                            "primitive": "Classification",
-                            "classes": [
-                                {
-                                    "name": "Sunrise",
-                                    "attributes": null
-                                },
-                                {
-                                    "name": "Sunset",
-                                    "attributes": null
-                                }
-                            ],
-                            "name": "Sunrise/Sunset Type"
-                        }
-                    ]
-                },
-                {
-                    "name": "Night",
-                    "attributes": null
-                },
-                {
-                    "name": "Twilight",
-                    "attributes": [
-                        {
-                            "primitive": "Classification",
-                            "classes": [
-                                {
-                                    "name": "Dawn",
-                                    "attributes": null
-                                },
-                                {
-                                    "name": "Dusk",
-                                    "attributes": null
-                                }
-                            ],
-                            "name": "Twilight Type"
-                        }
-                    ]
-                },
-                {
-                    "name": "Not Applicable",
-                    "attributes": null
-                }
-            ],
-            "name": "Time of Day"
-        },
-        {
-            "primitive": "Bitmask",
-            "classes": [
-                {
-                    "name": "BitmaskTest",
-                    "attributes": null
-                },
-                {
-                    "name": "Annotator Marking Bitmask",
+                    "name": "Annotator Marking Polygon",
                     "attributes": [
                         {
                             "primitive": "Classification",
@@ -104,50 +18,20 @@
                                     "attributes": null
                                 }
                             ],
-                            "name": "Annotator Marking Bitmask Type"
+                            "name": "Annotator Marking Polygon Type"
                         }
                     ]
                 },
                 {
-                    "name": "Annotator Marking Bitmask.Mask",
+                    "name": "Annotator Marking Polygon.Mask",
                     "attributes": null
                 },
                 {
-                    "name": "Vehicle Bitmask",
+                    "name": "Vehicle Polygon",
                     "attributes": null
                 }
             ],
-            "name": "mask_detection"
-        },
-        {
-            "primitive": "Classification",
-            "classes": [
-                {
-                    "name": "Urban",
-                    "attributes": null
-                },
-                {
-                    "name": "Rural",
-                    "attributes": null
-                },
-                {
-                    "name": "Forest",
-                    "attributes": null
-                },
-                {
-                    "name": "Desert",
-                    "attributes": null
-                },
-                {
-                    "name": "Coastal",
-                    "attributes": null
-                },
-                {
-                    "name": "Polar",
-                    "attributes": null
-                }
-            ],
-            "name": "Geographical Context"
+            "name": "polygon_detection"
         },
         {
             "primitive": "Bbox",
@@ -1349,10 +1233,14 @@
             "name": "object_detection"
         },
         {
-            "primitive": "Polygon",
+            "primitive": "Bitmask",
             "classes": [
                 {
-                    "name": "Annotator Marking Polygon",
+                    "name": "BitmaskTest",
+                    "attributes": null
+                },
+                {
+                    "name": "Annotator Marking Bitmask",
                     "attributes": [
                         {
                             "primitive": "Classification",
@@ -1362,38 +1250,138 @@
                                     "attributes": null
                                 }
                             ],
-                            "name": "Annotator Marking Polygon Type"
+                            "name": "Annotator Marking Bitmask Type"
                         }
                     ]
                 },
                 {
-                    "name": "Annotator Marking Polygon.Mask",
+                    "name": "Annotator Marking Bitmask.Mask",
                     "attributes": null
                 },
                 {
-                    "name": "Vehicle Polygon",
+                    "name": "Vehicle Bitmask",
                     "attributes": null
                 }
             ],
-            "name": "polygon_detection"
+            "name": "mask_detection"
+        },
+        {
+            "primitive": "Classification",
+            "classes": [
+                {
+                    "name": "Sunny/Clear",
+                    "attributes": null
+                },
+                {
+                    "name": "Rainy",
+                    "attributes": null
+                },
+                {
+                    "name": "Snow",
+                    "attributes": null
+                },
+                {
+                    "name": "Clear Night",
+                    "attributes": null
+                },
+                {
+                    "name": "Cloudy",
+                    "attributes": null
+                }
+            ],
+            "name": "Weather"
+        },
+        {
+            "primitive": "Classification",
+            "classes": [
+                {
+                    "name": "Day",
+                    "attributes": null
+                },
+                {
+                    "name": "Sunrise/Sunset",
+                    "attributes": [
+                        {
+                            "primitive": "Classification",
+                            "classes": [
+                                {
+                                    "name": "Sunrise",
+                                    "attributes": null
+                                },
+                                {
+                                    "name": "Sunset",
+                                    "attributes": null
+                                }
+                            ],
+                            "name": "Sunrise/Sunset Type"
+                        }
+                    ]
+                },
+                {
+                    "name": "Night",
+                    "attributes": null
+                },
+                {
+                    "name": "Twilight",
+                    "attributes": [
+                        {
+                            "primitive": "Classification",
+                            "classes": [
+                                {
+                                    "name": "Dawn",
+                                    "attributes": null
+                                },
+                                {
+                                    "name": "Dusk",
+                                    "attributes": null
+                                }
+                            ],
+                            "name": "Twilight Type"
+                        }
+                    ]
+                },
+                {
+                    "name": "Not Applicable",
+                    "attributes": null
+                }
+            ],
+            "name": "Time of Day"
+        },
+        {
+            "primitive": "Classification",
+            "classes": [
+                {
+                    "name": "Urban",
+                    "attributes": null
+                },
+                {
+                    "name": "Rural",
+                    "attributes": null
+                },
+                {
+                    "name": "Forest",
+                    "attributes": null
+                },
+                {
+                    "name": "Desert",
+                    "attributes": null
+                },
+                {
+                    "name": "Coastal",
+                    "attributes": null
+                },
+                {
+                    "name": "Polar",
+                    "attributes": null
+                }
+            ],
+            "name": "Geographical Context"
         }
     ],
     "reference_bibtex": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Hafnia Dataset: Tiny Dataset},\n    url = https://mdi.milestonesys.com/datasets/070b3bd5-0266-4446-a318-052c993558ef,\n    note = {Part of the Hafnia project},\n    version = {0.0.1},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}",
     "reference_paper_url": null,
     "reference_dataset_page": null,
-    "meta": {
-        "annotation_project_id": "c62076a1-e7c5-48a7-b613-229fcde7d7c2",
-        "n_videos": 1,
-        "n_cameras": 1,
-        "duration": 14400.0,
-        "duration_average": 120.0,
-        "frame_rate": 1.0,
-        "data_captured_start": "2024-07-10T18:30:00Z",
-        "data_captured_end": "2024-07-10T18:30:00Z",
-        "data_received_start": "2024-08-26T11:02:10Z",
-        "data_received_end": "2024-08-26T11:02:10Z",
-        "annotation_dataset_id": "9a0faaba-46d7-484a-91e8-b34b7c9ef236"
-    },
-    "format_version": "0.3.0",
-    "updated_at": "2026-03-12T12:45:11.429157"
+    "meta": {},
+    "format_version": "0.3.1",
+    "updated_at": "2026-03-20T07:23:33.392270"
 }
