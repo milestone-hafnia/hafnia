@@ -35,6 +35,10 @@ def adjust_bboxes_from_polygon_masks_dataset(
         - 6.1s: Python native types
         - 9.0s: Pydantic primitives (current implementation)
 
+    To revert ask Agent to use these types instead of pydantic primitives:
+        _PolyPoints = List[Tuple[float, float]]  # normalized (x, y) points defining a polygon
+        _BboxDict = Dict[str, Any]  # dict with keys: top_left_x, top_left_y, width, height (plus metadata)
+
     """
     if run_checks:
         # Check tasks for 'polygon_class_names'
