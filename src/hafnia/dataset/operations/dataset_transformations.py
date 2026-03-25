@@ -32,6 +32,7 @@ that the signatures match.
 import json
 import re
 import textwrap
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -49,6 +50,7 @@ import cv2
 import more_itertools
 import numpy as np
 import polars as pl
+from PIL import Image
 
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_names import (
@@ -85,20 +87,42 @@ def transform_images(
     transform: Callable[[np.ndarray, Sample], np.ndarray],
     path_output: Path,
     description: str = "Transform images",
+    num_workers: int = 8,
+    use_hash: bool = True,
+    skip_existing: bool = True,
 ) -> "HafniaDataset":
-    new_paths = []
-    path_image_folder = path_output / "data"
+    path_image_folder = path_output
     path_image_folder.mkdir(parents=True, exist_ok=True)
 
-    for sample_dict in progress_bar(dataset, description=description):
+    samples_list = list(dataset)
+    new_paths: List[Optional[str]] = [None] * len(samples_list)
+
+    def _process(i: int, sample_dict: dict) -> Tuple[int, str]:
         sample = Sample(**sample_dict)
         image = sample.read_image()
         image_transformed = transform(image, sample)
-        new_path = dataset_helpers.save_image_with_hash_name(image_transformed, path_image_folder)
-
-        if not new_path.exists():
+        if use_hash:
+            new_path = dataset_helpers.save_image_with_hash_name(
+                image_transformed,
+                path_folder=path_image_folder,
+                allow_skip=skip_existing,
+            )
+        else:
+            if sample.file_path is None:
+                raise ValueError(f"Sample {sample} does not have a file path.")
+            filename = Path(sample.file_path).stem
+            new_path = path_image_folder / f"transformed_{filename}.png"
+            if not skip_existing or not new_path.exists():
+                Image.fromarray(image_transformed).save(new_path, format="PNG", compress_level=1)
+        if not Path(new_path).exists():
             raise FileNotFoundError(f"Transformed file {new_path} does not exist in the dataset.")
-        new_paths.append(str(new_path))
+        return i, str(new_path)
+
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {executor.submit(_process, i, sd): i for i, sd in enumerate(samples_list)}
+        for future in progress_bar(as_completed(futures), total=len(samples_list), description=description):
+            i, path = future.result()
+            new_paths[i] = path
 
     table = dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
     return dataset.update_samples(table)

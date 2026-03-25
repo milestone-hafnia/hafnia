@@ -311,7 +311,7 @@ def test_command_args_from_form_data_simple():
     def some_function(
         param_value1: str,
         param_value2: int = 10,
-        nested: NestedModel = NestedModel(name="default"),
+        nested: NestedModel = NestedModel(name="some name"),
         bool_flag1: Annotated[bool, "A boolean flag 1"] = False,
         bool_flag2: Annotated[bool, "A boolean flag 2"] = True,
     ) -> None:
@@ -325,7 +325,9 @@ def test_command_args_from_form_data_simple():
     n_root_params = len(params)
     form_dataset = command_builder.simulate_form_data(some_function, update_params)
     assert len(form_dataset) == n_root_params, "Form dataset does not have the correct number of parameters."
+    import rich
 
+    rich.print(form_dataset)
     # Use case 1: Using default settings
     cmd_builder1 = CommandBuilderSchema.from_function(some_function)
     commands_args = cmd_builder1.command_args_from_form_data(form_dataset)
@@ -348,12 +350,11 @@ def test_command_args_from_form_data_simple():
     )
 
     commands_args = cmd_builder2.command_args_from_form_data(form_dataset)
-    commands_args[0] = "'custom_value'"  # Adjust for positional argument
     cmd_string = " ".join(commands_args)
     assert cmd_string.count(" ++") == n_root_params - cmd_builder2.n_positional_args
     assert "nested.name" in cmd_string, "Nested parameter not correctly represented. Expected '.' separator."
     assert "param_value2" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
-    assert "++nested.name='default'" in cmd_string, "Assignment separator '=' not correctly used."
+    assert "++nested.name='some name'" in cmd_string, "Assignment separator '=' not correctly used."
     assert "++bool_flag1=False" in cmd_string, "Boolean flag not correctly represented with flag-negation handling."
     assert "++bool_flag2=True" in cmd_string, (
         "Boolean flag with default True not correctly represented with flag-negation."

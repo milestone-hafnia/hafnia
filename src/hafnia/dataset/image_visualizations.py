@@ -1,13 +1,9 @@
-import shutil
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Type, Union
 
 import cv2
 import numpy as np
 import numpy.typing as npt
-from PIL import Image
 
-from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
@@ -23,12 +19,11 @@ def draw_anonymize_by_blurring(
     primitives: List[Primitive],
     inplace: bool = False,
     class_names: Union[List[str], str] = "all",
-    anonymization_settings: Optional[Dict[Type[Primitive], Dict]] = None,
+    max_resolution: int = 20,  # Use int for pixel, float for ratio of the image size
 ) -> np.ndarray:
     if not inplace:
         image = image.copy()
 
-    anonymization_settings = anonymization_settings or {}
     if isinstance(class_names, str) and class_names == "all":
         primitives = primitives
     elif isinstance(class_names, list):
@@ -36,8 +31,7 @@ def draw_anonymize_by_blurring(
     else:
         raise ValueError(f"Invalid class_names type: {type(class_names)}. Expected 'all' or a list of class names.")
     for primitive in primitives:
-        settings = anonymization_settings.get(type(primitive), {})
-        image = primitive.anonymize_by_blurring(image, inplace=True, **settings)
+        image = primitive.anonymize_by_blurring(image, max_resolution=max_resolution)
     return image
 
 
@@ -166,41 +160,3 @@ def concatenate_right(img0: np.ndarray, below_img: np.ndarray) -> np.ndarray:
 
     frame_visualized = np.concatenate([img0, text_region_resized], axis=1)
     return frame_visualized
-
-
-def save_dataset_sample_set_visualizations(
-    path_dataset: Path,
-    path_output_folder: Path,
-    max_samples: int = 10,
-    draw_settings: Optional[Dict[Type[Primitive], Dict]] = None,
-    anonymize_settings: Optional[Dict[Type[Primitive], Dict]] = None,
-) -> List[Path]:
-    from hafnia.dataset.hafnia_dataset import HafniaDataset
-
-    dataset = HafniaDataset.from_path(path_dataset)
-    shutil.rmtree(path_output_folder, ignore_errors=True)
-    path_output_folder.mkdir(parents=True)
-
-    draw_settings = draw_settings or {}
-
-    paths = []
-    dataset_shuffled = dataset.shuffle(seed=42)
-    for sample_dict in dataset_shuffled:
-        sample = Sample(**sample_dict)
-        image = sample.read_image()
-        annotations = sample.get_annotations()
-
-        if anonymize_settings:
-            image = draw_anonymize_by_blurring(image, annotations, anonymization_settings=anonymize_settings)
-        image = draw_annotations(image, annotations, draw_settings=draw_settings)
-
-        pil_image = Image.fromarray(image)
-        if sample.file_path is None:
-            raise ValueError("Sample has no file_path defined.")
-        path_image = path_output_folder / Path(sample.file_path).name
-        pil_image.save(path_image)
-        paths.append(path_image)
-
-        if len(paths) >= max_samples:
-            return paths  # Return early if we have enough samples
-    return paths

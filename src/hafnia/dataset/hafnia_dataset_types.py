@@ -210,7 +210,7 @@ class TaskInfo(BaseModel):
         # Parse all options into ClassInfo objects
         classes = []
         for option_dict in attribute_dict.get("options", []):
-            class_info = ClassInfo.from_encord_option_dict(option_dict, primitive)
+            class_info = ClassInfo.from_encord_option_dict(option_dict, parent_primitive=primitive)
             classes.append(class_info)
 
         return TaskInfo(primitive=primitive, classes=classes if classes else None, name=task_name)
