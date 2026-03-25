@@ -5,35 +5,6 @@
     "description": null,
     "tasks": [
         {
-            "primitive": "Polygon",
-            "classes": [
-                {
-                    "name": "Annotator Marking Polygon",
-                    "attributes": [
-                        {
-                            "primitive": "Classification",
-                            "classes": [
-                                {
-                                    "name": "Mask",
-                                    "attributes": null
-                                }
-                            ],
-                            "name": "Annotator Marking Polygon Type"
-                        }
-                    ]
-                },
-                {
-                    "name": "Annotator Marking Polygon.Mask",
-                    "attributes": null
-                },
-                {
-                    "name": "Vehicle Polygon",
-                    "attributes": null
-                }
-            ],
-            "name": "polygon_detection"
-        },
-        {
             "primitive": "Bbox",
             "classes": [
                 {
@@ -1269,27 +1240,31 @@
             "primitive": "Classification",
             "classes": [
                 {
-                    "name": "Sunny/Clear",
+                    "name": "Urban",
                     "attributes": null
                 },
                 {
-                    "name": "Rainy",
+                    "name": "Rural",
                     "attributes": null
                 },
                 {
-                    "name": "Snow",
+                    "name": "Forest",
                     "attributes": null
                 },
                 {
-                    "name": "Clear Night",
+                    "name": "Desert",
                     "attributes": null
                 },
                 {
-                    "name": "Cloudy",
+                    "name": "Coastal",
+                    "attributes": null
+                },
+                {
+                    "name": "Polar",
                     "attributes": null
                 }
             ],
-            "name": "Weather"
+            "name": "Geographical Context"
         },
         {
             "primitive": "Classification",
@@ -1351,31 +1326,56 @@
             "primitive": "Classification",
             "classes": [
                 {
-                    "name": "Urban",
+                    "name": "Sunny/Clear",
                     "attributes": null
                 },
                 {
-                    "name": "Rural",
+                    "name": "Rainy",
                     "attributes": null
                 },
                 {
-                    "name": "Forest",
+                    "name": "Snow",
                     "attributes": null
                 },
                 {
-                    "name": "Desert",
+                    "name": "Clear Night",
                     "attributes": null
                 },
                 {
-                    "name": "Coastal",
-                    "attributes": null
-                },
-                {
-                    "name": "Polar",
+                    "name": "Cloudy",
                     "attributes": null
                 }
             ],
-            "name": "Geographical Context"
+            "name": "Weather"
+        },
+        {
+            "primitive": "Polygon",
+            "classes": [
+                {
+                    "name": "Annotator Marking Polygon",
+                    "attributes": [
+                        {
+                            "primitive": "Classification",
+                            "classes": [
+                                {
+                                    "name": "Mask",
+                                    "attributes": null
+                                }
+                            ],
+                            "name": "Annotator Marking Polygon Type"
+                        }
+                    ]
+                },
+                {
+                    "name": "Annotator Marking Polygon.Mask",
+                    "attributes": null
+                },
+                {
+                    "name": "Vehicle Polygon",
+                    "attributes": null
+                }
+            ],
+            "name": "polygon_detection"
         }
     ],
     "reference_bibtex": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Hafnia Dataset: Tiny Dataset},\n    url = https://mdi.milestonesys.com/datasets/070b3bd5-0266-4446-a318-052c993558ef,\n    note = {Part of the Hafnia project},\n    version = {0.0.1},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}",
@@ -1383,5 +1383,5 @@
     "reference_dataset_page": null,
     "meta": {},
     "format_version": "0.3.1",
-    "updated_at": "2026-03-20T07:23:33.392270"
+    "updated_at": "2026-03-24T16:13:11.829845"
 }

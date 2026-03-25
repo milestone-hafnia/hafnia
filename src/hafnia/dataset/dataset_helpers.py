@@ -96,7 +96,7 @@ def hash_from_bytes(data: bytes) -> str:
 
 def save_image_with_hash_name(image: np.ndarray, path_folder: Path, allow_skip: bool = True) -> Path:
     pil_image = Image.fromarray(image)
-    path_image = save_pil_image_with_hash_name(pil_image, path_folder)
+    path_image = save_pil_image_with_hash_name(pil_image, path_folder, allow_skip=allow_skip)
     return path_image
 
 
@@ -135,9 +135,8 @@ def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Pat
     return path_file
 
 
-def relative_path_from_hash(hash: str, suffix: str) -> Path:
-    path_file = Path("data") / f"{hash}{suffix}"
-    return path_file
+def relative_path_from_hash(hash: str, suffix: str) -> str:
+    return f"{hash}{suffix}"
 
 
 def split_sizes_from_ratios(n_items: int, split_ratios: Dict[str, float]) -> Dict[str, int]:

@@ -43,8 +43,8 @@ def anonymize_by_resizing(blur_region: np.ndarray, max_resolution: int = 20) -> 
     """
     Removes high-frequency details from a region of an image by resizing it down and then back up.
 
-    We use downscaling to max_resolution to ensure that anonymization is handled adaptively.
-    As large objects will be filter more aggressively than small objects.
+    We use downscaling to max_resolution to ensure that anonymization is handled adaptively, so that
+    large objects are filtered more aggressively than small objects.
     This is desirable for anonymization as large objects (e.g., a face taking up a significant portion of the image)
     require more aggressive blurring to anonymize, while small objects are already less identifiable and thus
     require less blurring.

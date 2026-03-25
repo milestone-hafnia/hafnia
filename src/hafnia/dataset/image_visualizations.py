@@ -31,7 +31,7 @@ def draw_anonymize_by_blurring(
     else:
         raise ValueError(f"Invalid class_names type: {type(class_names)}. Expected 'all' or a list of class names.")
     for primitive in primitives:
-        image = primitive.anonymize_by_blurring(image, max_resolution=max_resolution)
+        image = primitive.anonymize_by_blurring(image, max_resolution=max_resolution, inplace=inplace)
     return image
 
 

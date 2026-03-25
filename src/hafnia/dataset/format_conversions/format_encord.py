@@ -107,7 +107,10 @@ def get_encord_dataset_items(
         dataset_items = [item for item in dataset_items if item.data_title in select_rows]
     if max_rows is not None:
         dataset_items = dataset_items[:max_rows]
-    bundle_size = min(100, len(dataset_items))
+    n_items = len(dataset_items)
+    if n_items == 0:
+        raise ValueError("No dataset items found for the given project and selection criteria.")
+    bundle_size = min(100, n_items)
     user_logger.info("Downloading labels from encord")
     with project.create_bundle(bundle_size=bundle_size) as bundle:
         for label_row in progress_bar(dataset_items, description="Initializing Labels"):

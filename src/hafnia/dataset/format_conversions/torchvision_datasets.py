@@ -220,7 +220,7 @@ def torchvision_basic_image_classification_dataset_as_hafnia_dataset(
             torchvision_dataset, total=n_samples_per_split, description=description
         ):
             (width, height) = image.size
-            path_image = save_pil_image_with_hash_name(image, path_hafnia_conversions)
+            path_image = save_pil_image_with_hash_name(image, path_hafnia_conversions / "data")
             sample = Sample(
                 file_path=str(path_image),
                 height=height,

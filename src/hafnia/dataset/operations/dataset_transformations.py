@@ -90,12 +90,19 @@ def transform_images(
     num_workers: int = 8,
     use_hash: bool = True,
     skip_existing: bool = True,
+    subfolder_name: str = "transformed_images",
+    select_columns: Optional[List[str]] = None,
 ) -> "HafniaDataset":
-    path_image_folder = path_output
+    path_image_folder = path_output / subfolder_name
     path_image_folder.mkdir(parents=True, exist_ok=True)
 
-    samples_list = list(dataset)
-    new_paths: List[Optional[str]] = [None] * len(samples_list)
+    samples = dataset.samples
+
+    if select_columns is not None:
+        samples = samples.select(select_columns)
+
+    n_samples = samples.height
+    new_paths: List[Optional[str]] = [None] * n_samples
 
     def _process(i: int, sample_dict: dict) -> Tuple[int, str]:
         sample = Sample(**sample_dict)
@@ -111,7 +118,7 @@ def transform_images(
             if sample.file_path is None:
                 raise ValueError(f"Sample {sample} does not have a file path.")
             filename = Path(sample.file_path).stem
-            new_path = path_image_folder / f"transformed_{filename}.png"
+            new_path = path_image_folder / f"{filename}.png"
             if not skip_existing or not new_path.exists():
                 Image.fromarray(image_transformed).save(new_path, format="PNG", compress_level=1)
         if not Path(new_path).exists():
@@ -119,8 +126,8 @@ def transform_images(
         return i, str(new_path)
 
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        futures = {executor.submit(_process, i, sd): i for i, sd in enumerate(samples_list)}
-        for future in progress_bar(as_completed(futures), total=len(samples_list), description=description):
+        futures = {executor.submit(_process, i, sd): i for i, sd in enumerate(samples.iter_rows(named=True))}
+        for future in progress_bar(as_completed(futures), total=n_samples, description=description):
             i, path = future.result()
             new_paths[i] = path
 

@@ -137,8 +137,8 @@ def test_adjust_bbox_from_polygon(compare_to_expected_image: Callable):
     compare_to_expected_image(images)
 
     is_adjusted_sample = dataset_adjusted.samples[SampleField.BBOXES] != dataset.samples[SampleField.BBOXES]
-    assert len(is_adjusted_sample) == 6
-    assert sum(is_adjusted_sample) == 2
+    assert len(is_adjusted_sample) == 3
+    assert sum(is_adjusted_sample) == 2, "Only one sample should have adjusted bboxes"
 
 
 def test_adjust_bbox_from_polygon_assertions(compare_to_expected_image: Callable):

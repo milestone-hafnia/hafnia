@@ -325,9 +325,7 @@ def test_command_args_from_form_data_simple():
     n_root_params = len(params)
     form_dataset = command_builder.simulate_form_data(some_function, update_params)
     assert len(form_dataset) == n_root_params, "Form dataset does not have the correct number of parameters."
-    import rich
 
-    rich.print(form_dataset)
     # Use case 1: Using default settings
     cmd_builder1 = CommandBuilderSchema.from_function(some_function)
     commands_args = cmd_builder1.command_args_from_form_data(form_dataset)

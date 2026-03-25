@@ -37,7 +37,9 @@ from hafnia.dataset.operations import (
     flattening_attributes,
     table_transformations,
 )
-from hafnia.dataset.operations.adjust_mask import adjust_bboxes_from_polygon_masks_dataset
+from hafnia.dataset.operations.adjust_mask import (
+    adjust_bboxes_from_polygon_masks_dataset,
+)
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
@@ -490,15 +492,23 @@ class HafniaDataset:
         aws_credentials: AwsCredentials,
         force_redownload: bool = False,
         extend_name_by_subfolder: int = 0,
+        subfolder_name: str = "data",
     ) -> HafniaDataset:
         from hafnia.platform.s5cmd_utils import fast_copy_files
 
+        path_data = path_output_folder / subfolder_name
+        path_data.mkdir(parents=True, exist_ok=True)
+
+        if extend_name_by_subfolder < 0:
+            raise ValueError(
+                f"'extend_name_by_subfolder' must be a non-negative integer. Got {extend_name_by_subfolder}."
+            )
         remote_src_paths = dataset.samples[SampleField.REMOTE_PATH].unique().to_list()
         update_rows = []
         local_dst_paths = []
         for remote_src_path in remote_src_paths:
-            path_data = path_output_folder / "data"
-            filename = "_".join(remote_src_path.split("/")[-(1 + extend_name_by_subfolder) :])
+            path_parts = remote_src_path.split("/")
+            filename = "_".join(path_parts[-(1 + extend_name_by_subfolder) :])
             local_path_str = (path_data / filename).absolute().as_posix()
             local_dst_paths.append(local_path_str)
             update_rows.append(
@@ -620,7 +630,7 @@ class HafniaDataset:
         for org_path in progress_bar(org_paths, description="- Copy images"):
             new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
                 path_source=Path(org_path),
-                path_dataset_root=path_folder,
+                path_dataset_root=path_folder / "data",
             )
             new_paths.append(str(new_path))
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
