@@ -21,7 +21,8 @@ class SplitNameAndPath:
 
 def get_splits_from_folder(path_folder: Path) -> List[SplitNameAndPath]:
     split_name_and_paths = []
-    for path_sub_folder in path_folder.iterdir():
+    # Sort to ensure deterministic order across different filesystems and OS
+    for path_sub_folder in sorted(path_folder.iterdir()):
         if not path_sub_folder.is_dir():
             continue
         folder_split_name = path_sub_folder.name
