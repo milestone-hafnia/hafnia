@@ -69,7 +69,7 @@
                 "recipe",
                 "ls"
             ]
-        },        
+        },
         {
             "name": "cmd: 'hafnia experiment [X]'",
             "type": "debugpy",
