@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 
 from hafnia.dataset.dataset_details_uploader import dataset_details_from_hafnia_dataset
-from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.primitives import Classification
 from tests import helper_testing
@@ -16,11 +15,10 @@ def test_dataset_details_from_hafnia_dataset(dataset_name: str, tmp_path: Path):
     dataset = HafniaDataset.from_path(path_dataset)
     classification_tasks = dataset.info.get_tasks_by_primitive(Classification)
     distribution_task_names = [task.name or task.primitive.default_task_name() for task in classification_tasks]
-    gallery_image_names = [dataset.samples[SampleField.FILE_PATH].str.split("/").list.last().sort()[0]]
     dataset_info = dataset_details_from_hafnia_dataset(
         dataset=dataset,
         path_gallery_images=tmp_path / "gallery_images",
-        gallery_image_names=gallery_image_names,
+        gallery_samples=dataset.samples.head(2),
         distribution_task_names=distribution_task_names,
     )
     # Check if dataset info can be serialized to JSON

@@ -279,7 +279,7 @@ def upload_dataset_details_to_platform(
     dataset: HafniaDataset,
     dataset_sample: Optional[HafniaDataset] = None,
     path_gallery_images: Optional[Path] = None,
-    gallery_image_names: Optional[List[str]] = None,
+    gallery_samples: Optional[Union[pl.DataFrame, HafniaDataset]] = None,
     distribution_task_names: Optional[List[str]] = None,
     update_platform: bool = True,
     cfg: Optional[Config] = None,
@@ -289,7 +289,7 @@ def upload_dataset_details_to_platform(
         dataset=dataset,
         dataset_sample=dataset_sample,
         path_gallery_images=path_gallery_images,
-        gallery_image_names=gallery_image_names,
+        gallery_samples=gallery_samples,
         distribution_task_names=distribution_task_names,
     )
 
@@ -364,7 +364,7 @@ def dataset_details_from_hafnia_dataset(
     dataset: HafniaDataset,
     dataset_sample: Optional[HafniaDataset] = None,
     path_gallery_images: Optional[Path] = None,
-    gallery_image_names: Optional[List[str]] = None,
+    gallery_samples: Optional[Union[pl.DataFrame, HafniaDataset]] = None,
     distribution_task_names: Optional[List[str]] = None,
 ) -> DatasetDetails:
     dataset_variants = []
@@ -373,11 +373,9 @@ def dataset_details_from_hafnia_dataset(
 
     dataset_sample = dataset_sample or dataset.create_sample_dataset()
     path_and_variant = [DatasetVariant.SAMPLE, DatasetVariant.HIDDEN]
-    gallery_images = create_gallery_images(
-        dataset=dataset_sample,
-        path_gallery_images=path_gallery_images,
-        gallery_image_names=gallery_image_names,
-    )
+
+    path_gallery_images = path_gallery_images or get_path_dataset_gallery_images(dataset.info.dataset_name)
+    gallery_images = create_gallery_images(gallery_samples=gallery_samples, path_gallery_images=path_gallery_images)
 
     for variant_type in path_and_variant:
         if variant_type == DatasetVariant.SAMPLE:
@@ -553,48 +551,42 @@ def create_reports_from_primitive(
 
 
 def create_gallery_images(
-    dataset: HafniaDataset,
-    path_gallery_images: Optional[Path],
-    gallery_image_names: Optional[List[str]],
+    gallery_samples: Optional[Union[pl.DataFrame, HafniaDataset]],
+    path_gallery_images: Path,
 ) -> Optional[List[DatasetImage]]:
-    gallery_images = None
-    if (gallery_image_names is not None) and (len(gallery_image_names) > 0):
-        if path_gallery_images is None:
-            path_gallery_images = get_path_dataset_gallery_images(dataset.info.dataset_name)
-        path_gallery_images.mkdir(parents=True, exist_ok=True)
-        COL_IMAGE_NAME = "image_name"
-        samples = dataset.samples.with_columns(
-            dataset.samples[SampleField.FILE_PATH].str.split("/").list.last().alias(COL_IMAGE_NAME)
-        )
-        gallery_samples = samples.filter(pl.col(COL_IMAGE_NAME).is_in(gallery_image_names))
+    if gallery_samples is None or not isinstance(gallery_samples, (pl.DataFrame, HafniaDataset)):
+        return None
 
-        missing_gallery_samples = set(gallery_image_names) - set(gallery_samples[COL_IMAGE_NAME])
-        if len(missing_gallery_samples):
-            potential_samples = samples[COL_IMAGE_NAME].sort().to_list()
-            formatted_samples = ", ".join([f'"{s}"' for s in potential_samples[:9]])
-            raise ValueError(
-                f"Gallery images not found in dataset: {missing_gallery_samples}. "
-                f"Consider adding this to dataset definition: \ngallery_image_names=[{formatted_samples}]"
-            )
-        gallery_images = []
-        for gallery_sample in gallery_samples.iter_rows(named=True):
-            sample = Sample(**gallery_sample)
+    if isinstance(gallery_samples, HafniaDataset):
+        gallery_samples = gallery_samples.samples
 
-            metadata = DatasetImageMetadata.from_sample(sample=sample)
-            sample.classifications = None  # To not draw classifications in gallery images
-            image = sample.draw_annotations()
+    if len(gallery_samples) == 0:
+        return None
 
-            path_gallery_image = path_gallery_images / gallery_sample[COL_IMAGE_NAME]
-            Image.fromarray(image).save(path_gallery_image)
+    path_gallery_images.mkdir(parents=True, exist_ok=True)
+    max_samples = 20
+    gallery_samples = gallery_samples.head(max_samples)  # type: ignore[union-attr]
+    gallery_images = []
+    for gallery_sample in gallery_samples.iter_rows(named=True):  # type: ignore[union-attr]
+        sample = Sample(**gallery_sample)
 
-            dataset_image_dict = {
-                "img": path_gallery_image,
-                "metadata": metadata,
-            }
-            if sample.attribution is not None:
-                sample.attribution.changes = "Annotations have been visualized"
-                dataset_image_dict.update(sample.attribution.model_dump(exclude_none=True))
-            gallery_img = DatasetImage(**dataset_image_dict)
-            gallery_img.licenses = gallery_img.licenses or []
-            gallery_images.append(gallery_img)
+        metadata = DatasetImageMetadata.from_sample(sample=sample)
+        sample.classifications = None  # To not draw classifications in gallery images
+        image = sample.draw_annotations()
+        if sample.file_path is None:
+            raise ValueError(f"Sample {sample} does not have a file path.")
+        sample_name = sample.file_path.split("/")[-1]
+        path_gallery_image = path_gallery_images / sample_name
+        Image.fromarray(image).save(path_gallery_image)
+
+        dataset_image_dict = {
+            "img": path_gallery_image,
+            "metadata": metadata,
+        }
+        if sample.attribution is not None:
+            sample.attribution.changes = "Annotations have been visualized"
+            dataset_image_dict.update(sample.attribution.model_dump(exclude_none=True))
+        gallery_img = DatasetImage(**dataset_image_dict)
+        gallery_img.licenses = gallery_img.licenses or []
+        gallery_images.append(gallery_img)
     return gallery_images

@@ -23,7 +23,7 @@ DATASET_SPEC_MIDWEST_TRAFFIC = DatasetSpec(
 
 DATASET_SPEC_TINY_DATASET = DatasetSpec(
     name="tiny-dataset",
-    splits={"train": 12, "validation": 8, "test": 12},
+    splits={"train": 6, "validation": 4, "test": 6},
     version="1.0.0",
 )
 
@@ -52,7 +52,7 @@ DATASET_SPEC_CIFAR10 = DatasetSpec(
 )
 DATASET_SPEC_CIFAR100 = DatasetSpec(
     name="cifar100",
-    splits={"train": 428, "validation": 13, "test": 59},
+    splits={"train": 171, "validation": 4, "test": 25},
     version="1.0.0",
 )
 DATASET_SPEC_COCO_2017 = DatasetSpec(

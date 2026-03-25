@@ -31,7 +31,7 @@ jobs:
           python-version-file: ${{ inputs.python-version-file }}
 
       - name: Download package artifact
-        uses: actions/download-artifact@v8.0.0
+        uses: actions/download-artifact@v8.0.1
         with:
           name: python-package
           path: dist/
@@ -54,7 +54,7 @@ jobs:
           
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2.0.2
+        uses: aws-actions/amazon-ecr-login@v2.1.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.0.0

@@ -20,7 +20,7 @@ jobs:
       make_release: ${{ steps.check_release.outputs.make_release }}
     steps:
       - name: Download package artifact
-        uses: actions/download-artifact@v8.0.0
+        uses: actions/download-artifact@v8.0.1
         with:
             name: python-package
             path: dist/

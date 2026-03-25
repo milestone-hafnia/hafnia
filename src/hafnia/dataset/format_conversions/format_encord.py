@@ -78,12 +78,14 @@ def dump_encord_project_from_id(
     encord_client: "encord.EncordUserClient",
     path_output_file: Path,
     select_rows: Optional[List[str]] = None,
+    max_rows: Optional[int] = None,
 ) -> Path:
     encord_project = encord_client.get_project(project_id)
 
     encord_data = dump_encord_data(
         encord_project=encord_project,
         select_rows=select_rows,
+        max_rows=max_rows,
     )
 
     path_output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -91,9 +93,24 @@ def dump_encord_project_from_id(
     return path_output_file
 
 
-def get_encord_dataset_items(project: "Project", select_rows: Optional[List[str]]) -> List[Dict]:
+def get_encord_dataset_items(
+    project: "Project",
+    select_rows: Optional[List[str]],
+    max_rows: Optional[int] = None,
+) -> List[Dict]:
     dataset_items = project.list_label_rows_v2()
-    bundle_size = 100
+
+    # Sorted by creation date to ensure consistent ordering even if new labels are added later.
+    dataset_items = sorted(dataset_items, key=lambda x: x.created_at)
+
+    if select_rows is not None:
+        dataset_items = [item for item in dataset_items if item.data_title in select_rows]
+    if max_rows is not None:
+        dataset_items = dataset_items[:max_rows]
+    n_items = len(dataset_items)
+    if n_items == 0:
+        raise ValueError("No dataset items found for the given project and selection criteria.")
+    bundle_size = min(100, n_items)
     user_logger.info("Downloading labels from encord")
     with project.create_bundle(bundle_size=bundle_size) as bundle:
         for label_row in progress_bar(dataset_items, description="Initializing Labels"):
@@ -117,8 +134,9 @@ def get_encord_dataset_items(project: "Project", select_rows: Optional[List[str]
 def dump_encord_data(
     encord_project: "encord.Project",
     select_rows: Optional[List[str]] = None,
+    max_rows: Optional[int] = None,
 ) -> Dict:
-    collection_items = get_encord_dataset_items(encord_project, select_rows=select_rows)
+    collection_items = get_encord_dataset_items(encord_project, select_rows=select_rows, max_rows=max_rows)
 
     encord_ontology_as_dict = encord_project.ontology_structure.to_dict()
 

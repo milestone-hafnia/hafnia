@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Callable
 
+import numpy as np
 import pytest
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, StorageFormat
@@ -390,3 +391,35 @@ def test_drop_task_by_name():
         "Task column should be dropped from samples"
     )
     assert dataset == dataset_org, "Original dataset have been mutated after operation -- it should not."
+
+
+def test_transform_image(tmp_path: Path, compare_to_expected_image: Callable) -> None:
+    dataset_name = "micro-tiny-dataset"
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+
+    def image_transform(image, sample: Sample) -> np.ndarray:
+        image[:10, :10] = 100  # Add black square to the top-left corner of the image
+        return image
+
+    dataset_transformed = dataset.transform_images(
+        transform=image_transform,
+        path_output=tmp_path / "transformed_images",
+        use_hash=False,
+        subfolder_name="transformed_data",
+        select_columns=[
+            SampleField.FILE_PATH,
+            SampleField.COLLECTION_ID,
+            SampleField.STORAGE_FORMAT,
+            SampleField.HEIGHT,
+            SampleField.WIDTH,
+            SampleField.SPLIT,
+        ],
+    )
+
+    sample = Sample(**dataset_transformed[0])
+    image = sample.read_image()
+    expected_sum = 100 * 10 * 10 * 1
+    assert image[:10, :10, 0].sum() == expected_sum, (
+        "The top-left corner of the image should be transformed to black (pixel value 0)"
+    )

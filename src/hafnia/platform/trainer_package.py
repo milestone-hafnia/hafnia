@@ -41,7 +41,7 @@ def create_trainer_package(
         "default_command": cmd,
         "file": (zip_path.name, Path(zip_path).read_bytes()),
     }
-    if len(cmd_builder_schemas) == 0:
+    if len(cmd_builder_schemas) > 0:
         data["command_builder_schemas"] = json.dumps(cmd_builder_schemas)
     user_logger.info(f"Uploading trainer package '{name}' to platform...")
     response = http.post(endpoint, headers=headers, data=data, multipart=True)

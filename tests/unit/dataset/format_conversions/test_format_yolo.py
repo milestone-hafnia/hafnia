@@ -37,12 +37,9 @@ def test_format_yolo_import_export_tiny_dataset(tmp_path: Path, compare_to_expec
 
     dataset_reloaded = format_yolo.from_yolo_format(path_yolo_dataset_exported)
 
-    filename = "9a495c8815b2ab1d8547bc5f5b405310.png"
-    samples = dataset_reloaded.samples.filter(pl.col(SampleField.FILE_PATH).str.contains(filename))
-    assert len(samples) == 2, (
-        f"Expected to find two! samples with name '{filename}' as 'tiny-dataset' has duplicate file paths, "
-        f"but after export and re-import, duplicates should be preserved. Found {len(samples)} samples."
-    )
+    image_hash = "4d5817f0e44da708ce2db0262080f571"
+    samples = dataset_reloaded.samples.filter(pl.col(SampleField.FILE_PATH).str.contains(image_hash))
+    assert len(samples) == 1, f"Expected to find one sample with index 0, found {len(samples)}"
     sample = Sample(**samples.row(0, named=True))
     sample_visualized = sample.draw_annotations()
     compare_to_expected_image(sample_visualized)

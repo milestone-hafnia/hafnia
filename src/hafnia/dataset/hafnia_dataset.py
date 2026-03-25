@@ -37,7 +37,9 @@ from hafnia.dataset.operations import (
     flattening_attributes,
     table_transformations,
 )
-from hafnia.dataset.operations.adjust_mask import adjust_bboxes_from_polygon_masks_dataset
+from hafnia.dataset.operations.adjust_mask import (
+    adjust_bboxes_from_polygon_masks_dataset,
+)
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
@@ -489,14 +491,25 @@ class HafniaDataset:
         path_output_folder: Path,
         aws_credentials: AwsCredentials,
         force_redownload: bool = False,
+        extend_name_by_subfolder: int = 0,
+        subfolder_name: str = "data",
     ) -> HafniaDataset:
         from hafnia.platform.s5cmd_utils import fast_copy_files
 
+        path_data = path_output_folder / subfolder_name
+        path_data.mkdir(parents=True, exist_ok=True)
+
+        if extend_name_by_subfolder < 0:
+            raise ValueError(
+                f"'extend_name_by_subfolder' must be a non-negative integer. Got {extend_name_by_subfolder}."
+            )
         remote_src_paths = dataset.samples[SampleField.REMOTE_PATH].unique().to_list()
         update_rows = []
         local_dst_paths = []
         for remote_src_path in remote_src_paths:
-            local_path_str = (path_output_folder / "data" / Path(remote_src_path).name).absolute().as_posix()
+            path_parts = remote_src_path.split("/")
+            filename = "_".join(path_parts[-(1 + extend_name_by_subfolder) :])
+            local_path_str = (path_data / filename).absolute().as_posix()
             local_dst_paths.append(local_path_str)
             update_rows.append(
                 {
@@ -617,7 +630,7 @@ class HafniaDataset:
         for org_path in progress_bar(org_paths, description="- Copy images"):
             new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
                 path_source=Path(org_path),
-                path_dataset_root=path_folder,
+                path_dataset_root=path_folder / "data",
             )
             new_paths.append(str(new_path))
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
@@ -673,7 +686,7 @@ class HafniaDataset:
         dataset_sample: Optional[HafniaDataset] = None,
         allow_version_overwrite: bool = False,
         interactive: bool = True,
-        gallery_images: Optional[Any] = None,
+        gallery_samples: Optional[Union[pl.DataFrame, HafniaDataset]] = None,
         distribution_task_names: Optional[List[str]] = None,
         cfg: Optional[Config] = None,
     ) -> dict:
@@ -699,10 +712,8 @@ class HafniaDataset:
                 confirmation or additional input (for example when overwriting
                 existing versions). If ``False``, the upload is performed without
                 interactive prompts.
-            gallery_images: Optional collection of image identifiers or file names
-                that should be marked or displayed as gallery images for the dataset
-                on the platform. These are forwarded as ``gallery_image_names`` to
-                the platform API.
+            gallery_samples: Optional :class:`pl.DataFrame` or :class:`HafniaDataset` containing a small set of
+                samples to be used as gallery images for the dataset on the platform.
             distribution_task_names: Optional list of task names associated with the
                 dataset that should be considered when configuring how the dataset is
                 distributed or exposed on the platform.
@@ -738,7 +749,7 @@ class HafniaDataset:
         response = upload_dataset_details_to_platform(
             dataset=dataset,
             distribution_task_names=distribution_task_names,
-            gallery_image_names=gallery_images,
+            gallery_samples=gallery_samples,
             cfg=cfg,
         )
 

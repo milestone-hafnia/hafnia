@@ -94,21 +94,27 @@ def hash_from_bytes(data: bytes) -> str:
     return hasher.hexdigest()
 
 
-def save_image_with_hash_name(image: np.ndarray, path_folder: Path) -> Path:
+def save_image_with_hash_name(image: np.ndarray, path_folder: Path, allow_skip: bool = True) -> Path:
     pil_image = Image.fromarray(image)
-    path_image = save_pil_image_with_hash_name(pil_image, path_folder)
+    path_image = save_pil_image_with_hash_name(pil_image, path_folder, allow_skip=allow_skip)
     return path_image
 
 
-def save_pil_image_with_hash_name(image: Image.Image, path_folder: Path, allow_skip: bool = True) -> Path:
+def save_pil_image_with_hash_name(
+    image: Image.Image,
+    path_folder: Path,
+    allow_skip: bool = True,
+    compress_level: int = 1,
+) -> Path:
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    hash_value = hash_from_bytes(buffer.getvalue())
+    image.save(buffer, format="PNG", compress_level=compress_level)
+    png_bytes = buffer.getvalue()
+    hash_value = hash_from_bytes(png_bytes)
     path_image = Path(path_folder) / relative_path_from_hash(hash=hash_value, suffix=".png")
     if allow_skip and path_image.exists():
         return path_image
     path_image.parent.mkdir(parents=True, exist_ok=True)
-    image.save(path_image)
+    path_image.write_bytes(png_bytes)
     return path_image
 
 
@@ -129,9 +135,8 @@ def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Pat
     return path_file
 
 
-def relative_path_from_hash(hash: str, suffix: str) -> Path:
-    path_file = Path("data") / f"{hash}{suffix}"
-    return path_file
+def relative_path_from_hash(hash: str, suffix: str) -> str:
+    return f"{hash}{suffix}"
 
 
 def split_sizes_from_ratios(n_items: int, split_ratios: Dict[str, float]) -> Dict[str, int]:
