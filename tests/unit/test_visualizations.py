@@ -13,9 +13,9 @@ def test_mask_region(compare_to_expected_image: Callable, dataset_name: str):
     sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     image = sample.read_image()
     if dataset_name == "micro-coco-2017":
-        annotations = sample.get_annotations([Bitmask])
+        annotations = sample.get_primitives([Bitmask])
     else:
-        annotations = sample.get_annotations()
+        annotations = sample.get_primitives()
     masked_image = image_visualizations.draw_masks(image, annotations)
     compare_to_expected_image(masked_image)
 
@@ -24,7 +24,7 @@ def test_mask_region(compare_to_expected_image: Callable, dataset_name: str):
 def test_draw_annotations(compare_to_expected_image: Callable, dataset_name: str):
     sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     image = sample.read_image()
-    annotations = sample.get_annotations()
+    annotations = sample.get_primitives()
     masked_image = image_visualizations.draw_annotations(image, annotations)
     compare_to_expected_image(masked_image)
 
@@ -34,9 +34,9 @@ def test_blur_anonymization(compare_to_expected_image: Callable, dataset_name: s
     sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     image = sample.read_image()
     if dataset_name == "micro-coco-2017":
-        annotations = sample.get_annotations([Bitmask])
+        annotations = sample.get_primitives([Bitmask])
     else:
-        annotations = sample.get_annotations([Bitmask, Bbox, Polygon])
+        annotations = sample.get_primitives([Bitmask, Bbox, Polygon])
 
     masked_image = image_visualizations.draw_anonymize_by_blurring(image, annotations)
     compare_to_expected_image(masked_image)
@@ -45,7 +45,7 @@ def test_blur_anonymization(compare_to_expected_image: Callable, dataset_name: s
 def test_polygon_to_bitmask_conversion(compare_to_expected_image: Callable):
     sample = helper_testing.get_sample_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
     image = sample.read_image()
-    annotations = sample.get_annotations()
+    annotations = sample.get_primitives()
     polygons = [a for a in annotations if isinstance(a, Polygon)]
 
     bitmasks = []

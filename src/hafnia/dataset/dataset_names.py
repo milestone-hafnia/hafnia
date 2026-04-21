@@ -22,6 +22,8 @@ TAG_IS_SAMPLE = "sample"
 
 OPS_REMOVE_CLASS = "__REMOVE__"
 
+TASK_NAME_PREDICTIONS_POSTFIX = "/predictions"  # The default postfix for prediction task names
+
 
 class PrimitiveField:
     CLASS_NAME: str = "class_name"  # Name of the class this primitive is associated with, e.g. "car" for Bbox

@@ -10,6 +10,7 @@ import polars as pl
 from packaging.version import Version
 
 from hafnia import utils
+from hafnia.benchmark.metrics import classification_metrics, object_detection_metrics
 from hafnia.dataset import dataset_helpers
 from hafnia.dataset.dataset_helpers import is_valid_version_string, version_from_string
 from hafnia.dataset.dataset_names import (
@@ -75,6 +76,10 @@ class HafniaDataset:
     # Function mapping: Dataset transformations
     transform_images = dataset_transformations.transform_images
     convert_to_image_storage_format = dataset_transformations.convert_to_image_storage_format
+
+    # Function mapping: Benchmark metrics
+    calculate_map = object_detection_metrics.calculate_map
+    calculate_classification_metrics = classification_metrics.calculate_classification_metrics
 
     # Import / export functions
     to_yolo_format = format_yolo.to_yolo_format

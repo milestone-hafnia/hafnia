@@ -255,6 +255,10 @@ class TaskInfo(BaseModel):
         """Get qualified name for the task: <primitive_name>:<task_name>"""
         return f"{self.primitive.__name__}:{self.name}"
 
+    def short_task_info(self) -> str:
+        """Get short string representation of the task info, without class names and attributes."""
+        return f"{TaskInfo.__name__}(primitive={self.primitive.__name__}, name={self.name})"
+
     # To get unique hash value for TaskInfo objects
     def __hash__(self) -> int:
         class_names = self.get_class_names() or []
@@ -752,7 +756,7 @@ class Sample(BaseModel):
         description="Additional metadata, e.g., camera settings, GPS data, etc.",
     )
 
-    def get_annotations(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
+    def get_primitives(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
         """
         Returns a list of all annotations (classifications, objects, bitmasks, polygons) for the sample.
         """
@@ -765,6 +769,22 @@ class Sample(BaseModel):
         )
 
         return list(annotations)
+
+    def append_primitives(self, annotations: List[Primitive]) -> None:
+        """
+        Appends annotations to the sample. The annotations are grouped by their primitive type and appended to the
+        corresponding field in the sample (e.g. classifications, bboxes, bitmasks, polygons).
+        """
+        for annotation in annotations:
+            primitive_type = type(annotation)
+            if primitive_type not in PRIMITIVE_TYPES:
+                raise ValueError(f"Unsupported annotation primitive type: {primitive_type}")
+            column_name = primitive_type.column_name()
+            current_annotations = getattr(self, column_name, None)
+            if current_annotations is None:
+                current_annotations = []
+            current_annotations.append(annotation)
+            setattr(self, column_name, current_annotations)
 
     def read_image_pillow(self) -> Image.Image:
         """
@@ -804,7 +824,7 @@ class Sample(BaseModel):
 
         if image is None:
             image = self.read_image()
-        annotations = self.get_annotations()
+        annotations = self.get_primitives()
         annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations)
         return annotations_visualized
 
@@ -852,7 +872,9 @@ class DatasetMetadataFilePaths:
         return metadata_files
 
     @staticmethod
-    def available_versions_from_files_list(files: list[str]) -> Dict[Version, "DatasetMetadataFilePaths"]:
+    def available_versions_from_files_list(
+        files: list[str],
+    ) -> Dict[Version, "DatasetMetadataFilePaths"]:
         versions_and_files: Dict[Version, Dict[str, str]] = collections.defaultdict(dict)
         for metadata_file in files:
             version_str, filename = metadata_file.split("/")[-2:]
