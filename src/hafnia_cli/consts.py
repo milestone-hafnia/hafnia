@@ -1,4 +1,4 @@
-DEFAULT_API_URL = "https://api.mdi.milestonesys.com"
+DEFAULT_API_URL = "https://api.hafnia.milestonesys.com"
 DEFAULT_PROFILE_NAME = "default"
 
 ERROR_CONFIGURE: str = "Please configure the CLI with `hafnia configure`"
