@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Dict, List, Union
+from typing import TYPE_CHECKING, Dict, List
 
 import polars as pl
 
@@ -10,35 +10,6 @@ from hafnia.dataset.primitives import Classification
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
-
-# Sentinel class name used to represent "the model produced no prediction for
-# this sample" in the confusion matrix fed to pycm.
-#
-# Background:
-#   pycm.ConfusionMatrix takes two equal-length vectors (actual, predicted) of
-#   class labels. It has no first-class representation for "prediction missing",
-#   and we cannot simply drop those samples because we want missing predictions
-#   to *penalize* recall/F1 for the ground-truth class (they are errors, not
-#   skipped evaluations).
-#
-# Trick:
-#   1. Replace every null prediction with this sentinel string.
-#   2. Register the sentinel alongside the real classes in the `classes=`
-#      argument to ConfusionMatrix. pycm then treats it as just another
-#      distinct label (this also silences pycm's CLASSES_WARNING, which fires
-#      when labels appear in the vectors but not in `classes`).
-#
-# Effect on the confusion matrix for a sample with GT=c and prediction=None:
-#   - Real class c: FN += 1  (the GT was c but no real class was predicted)
-#   - Every other real class c': TN += 1  (sample is neither GT=c' nor pred=c')
-#   - No real class gets an FP — the FP lands on the sentinel column, which we
-#     ignore when building `per_class` (we only iterate over `class_names`).
-#
-# Aggregate metrics:
-#   pycm's own overall/macro averages include the sentinel as a class, which
-#   would distort them. We therefore recompute macro/weighted averages below
-#   from our own `per_class` dict over the real classes only.
-_PRED_MISSING_ = "__NO_PREDICTION__"
 
 
 @dataclass
@@ -123,16 +94,6 @@ def _extract_class_names_for_task(
     ).to_series()
 
 
-def _safe_float(value: Union[float, None, str]) -> float:
-    """Convert a pycm metric value to float, treating ``"None"`` / None as 0.0."""
-    if value is None or value == "None":
-        return 0.0
-    if isinstance(value, float):
-        return value
-
-    raise ValueError(f"Unexpected metric value: {value} (type {type(value)})")
-
-
 def _compute_metrics_from_pairs(
     gt_classes: pl.Series,
     pred_classes: pl.Series,
@@ -140,31 +101,25 @@ def _compute_metrics_from_pairs(
 ) -> ClassificationMetrics:
     """Compute classification metrics from paired ground-truth / prediction class name series.
 
-    Delegates metric computation to `pycm.ConfusionMatrix`.
-
     Null handling:
       - GT null:   sample has no ground truth — dropped (counted as ``n_gt_missing``).
       - Pred null:  model failed to predict — treated as an error that penalizes
         recall / F1 for the ground-truth class (counted as ``n_pred_missing``).
     """
-    from pycm import ConfusionMatrix
-
     pairs = pl.DataFrame({"gt": gt_classes, "pred": pred_classes})
 
     # Samples with no ground truth — drop, count
     n_gt_missing = int(pairs.select(pl.col("gt").is_null().sum()).item())
     pairs = pairs.filter(pl.col("gt").is_not_null())
 
-    # Samples with GT but no prediction — count, then fill with the
-    # _PRED_MISSING_ sentinel so pycm sees a valid (non-null) label. See the
-    # comment on `_PRED_MISSING_` at the top of this module for why this
-    # produces the correct TP/FP/FN/TN counts.
+    # Samples with GT but no prediction — counted but kept in `pairs` so they
+    # contribute an FN to their GT class. (FN is derived as support - TP below,
+    # which naturally includes null-pred rows without special-casing.)
     n_pred_missing = int(pairs.select(pl.col("pred").is_null().sum()).item())
-    pairs = pairs.with_columns(pl.col("pred").fill_null(_PRED_MISSING_))
 
-    n_cls = len(class_names)
+    total_evaluated = len(pairs)
 
-    if len(pairs) == 0:
+    if total_evaluated == 0:
         return ClassificationMetrics(
             accuracy=0.0,
             precision_macro=0.0,
@@ -178,31 +133,39 @@ def _compute_metrics_from_pairs(
             per_class={name: PerClassClassificationMetrics.empty() for name in class_names},
         )
 
-    gt_list = pairs["gt"].to_list()
-    pred_list = pairs["pred"].to_list()
-    # The sentinel is registered as a "class" so pycm accepts the filled-in
-    # labels without warning. It is intentionally excluded from `class_names`
-    # everywhere downstream.
-    class_names_with_missing = class_names + [_PRED_MISSING_]
-    cm = ConfusionMatrix(actual_vector=gt_list, predict_vector=pred_list, classes=class_names_with_missing)
+    # Confusion counts in long form: one row per observed (gt, pred) pair.
+    # A null prediction forms its own group; it never matches any real class in
+    # the TP/FP filters below, so it neither contributes a TP nor an FP to any
+    # real class — which is exactly what we want.
+    cm_long = pairs.group_by(["gt", "pred"]).agg(pl.len().alias("count"))
 
-    # --- Per-class metrics (PPV = precision, TPR = recall) ---
-    # cm.P gives the number of actual positives (support) per class
-    support_map: Dict[str, int] = cm.P
+    # Per-class TP / FP / FN / TN.
+    #   support[c] = rows where gt == c
+    #   TP[c]      = rows where gt == c AND pred == c
+    #   FP[c]      = rows where gt != c AND pred == c
+    #   FN[c]      = support[c] - TP[c]
+    #   TN[c]      = total_evaluated - TP - FP - FN
+    #
+    # FN is derived from support (not `pred != c`) because polars uses
+    # three-valued logic: `null != c` evaluates to null, which `.filter()`
+    # treats as false and drops — that would silently miss null-pred rows.
     per_class: Dict[str, PerClassClassificationMetrics] = {}
-    for class_name in class_names:
-        per_class[class_name] = PerClassClassificationMetrics(
-            accuracy=_safe_float(cm.ACC.get(class_name)),
-            precision=_safe_float(cm.PPV.get(class_name)),
-            recall=_safe_float(cm.TPR.get(class_name)),
-            f1=_safe_float(cm.F1.get(class_name)),
-            support=support_map.get(class_name, 0),
-        )
+    total_correct = 0
+    for c in class_names:
+        support = int(cm_long.filter(pl.col("gt") == c)["count"].sum())
+        tp = int(cm_long.filter((pl.col("gt") == c) & (pl.col("pred") == c))["count"].sum())
+        fp = int(cm_long.filter((pl.col("gt") != c) & (pl.col("pred") == c))["count"].sum())
+        fn = support - tp
+        tn = total_evaluated - tp - fp - fn
+        per_class[c] = PerClassClassificationMetrics.from_confusion(TP=tp, FP=fp, FN=fn, TN=tn)
+        total_correct += tp
 
-    # --- Aggregate metrics ---
-    # Recomputed from `per_class` (real classes only) rather than read from
-    # pycm's own averages, because pycm would include the _PRED_MISSING_
-    # sentinel class in its macro/weighted averages and distort them.
+    # Overall accuracy. In a single-label problem each sample is a TP for at
+    # most one class, so the sum of per-class TPs equals the number of correct
+    # predictions.
+    accuracy = total_correct / total_evaluated
+
+    # Macro / weighted averages over real classes.
     n_cls = len(class_names)
     precisions = [per_class[c].precision for c in class_names]
     recalls = [per_class[c].recall for c in class_names]
@@ -224,7 +187,7 @@ def _compute_metrics_from_pairs(
         f1_weighted = 0.0
 
     return ClassificationMetrics(
-        accuracy=_safe_float(cm.Overall_ACC),
+        accuracy=accuracy,
         precision_macro=precision_macro,
         recall_macro=recall_macro,
         f1_macro=f1_macro,
