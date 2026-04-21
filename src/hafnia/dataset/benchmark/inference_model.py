@@ -2,13 +2,12 @@ from abc import ABC, abstractmethod
 from typing import List, Union
 
 import numpy as np
-import torch
 from PIL import Image
 
 from hafnia.dataset.hafnia_dataset_types import TaskInfo
 from hafnia.dataset.primitives import Primitive
 
-ImageType = Union[str, Image.Image, np.ndarray, torch.Tensor]
+ImageType = Union[str, Image.Image, np.ndarray]
 
 
 class InferenceModel(ABC):

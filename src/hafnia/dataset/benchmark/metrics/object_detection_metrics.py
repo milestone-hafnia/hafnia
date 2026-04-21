@@ -219,7 +219,12 @@ def calculate_map(
             "Only Bbox ('bbox') and Bitmask ('segm') are supported."
         )
 
-    class_names = task_info.get_class_names() or []
+    class_names = task_info.get_class_names()
+    if class_names is None:
+        raise ValueError(
+            f"Ground-truth task '{task_name_ground_truth}' does not define any class names. "
+            "mAP calculation requires at least one class name to build COCO categories."
+        )
     id_offset = 1  # COCO doesn't work nicely with 0-indexing so we start at 1.
     categories = [
         {"id": i, "name": name, "supercategory": "object"} for i, name in enumerate(class_names, start=id_offset)
@@ -249,9 +254,8 @@ def calculate_map(
     pred_coco = gt_coco.loadRes(pred_list)
 
     coco_eval = COCOeval(gt_coco, pred_coco, eval_type)
-    with redirect_stdout(io.StringIO()):
+    with redirect_stdout(io.StringIO()):  # Suppress COCOeval print output
         coco_eval.evaluate()
         coco_eval.accumulate()
-
-    coco_eval.summarize()  # This is required to fill populate 'coco_eval.stats' with the 12 metrics.
+        coco_eval.summarize()
     return MapMetrics.from_coco_stats(list(coco_eval.stats))

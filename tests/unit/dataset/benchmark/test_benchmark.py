@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from hafnia.dataset.benchmark.benchmark import run_benchmark
@@ -9,7 +7,7 @@ from tests.helper_testing_benchmark import FakeInferenceModel
 
 
 @pytest.mark.parametrize("dataset_name", helper_testing.MICRO_DATASETS)
-def test_benchmark(dataset_name: str, tmp_path: Path):
+def test_benchmark(dataset_name: str):
     path_dataset = helper_testing.get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
 
     gt_dataset = HafniaDataset.from_path(path_dataset)
