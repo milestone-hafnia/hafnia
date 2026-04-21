@@ -28,7 +28,7 @@ def main(ctx: click.Context) -> None:
 def configure(cfg: Config) -> None:
     """Configure Hafnia CLI settings."""
 
-    profile_name = click.prompt("Profile Name", type=str, default=consts.DEFAULT_PROFILE_NAME)
+    profile_name = click.prompt("Alias", type=str, default=consts.DEFAULT_PROFILE_NAME)
     profile_name = profile_name.strip()
 
     cfg.check_profile_name(profile_name)
