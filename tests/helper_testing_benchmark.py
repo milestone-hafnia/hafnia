@@ -1,4 +1,4 @@
-from hafnia.benchmark.inference_model import InferenceModel
+from hafnia.dataset.benchmark.inference_model import InferenceModel
 from hafnia.dataset.hafnia_dataset_types import Sample, TaskInfo
 from hafnia.dataset.primitives import Primitive
 

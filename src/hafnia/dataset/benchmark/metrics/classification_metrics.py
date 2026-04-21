@@ -11,6 +11,33 @@ from hafnia.dataset.primitives import Classification
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
+# Sentinel class name used to represent "the model produced no prediction for
+# this sample" in the confusion matrix fed to pycm.
+#
+# Background:
+#   pycm.ConfusionMatrix takes two equal-length vectors (actual, predicted) of
+#   class labels. It has no first-class representation for "prediction missing",
+#   and we cannot simply drop those samples because we want missing predictions
+#   to *penalize* recall/F1 for the ground-truth class (they are errors, not
+#   skipped evaluations).
+#
+# Trick:
+#   1. Replace every null prediction with this sentinel string.
+#   2. Register the sentinel alongside the real classes in the `classes=`
+#      argument to ConfusionMatrix. pycm then treats it as just another
+#      distinct label (this also silences pycm's CLASSES_WARNING, which fires
+#      when labels appear in the vectors but not in `classes`).
+#
+# Effect on the confusion matrix for a sample with GT=c and prediction=None:
+#   - Real class c: FN += 1  (the GT was c but no real class was predicted)
+#   - Every other real class c': TN += 1  (sample is neither GT=c' nor pred=c')
+#   - No real class gets an FP — the FP lands on the sentinel column, which we
+#     ignore when building `per_class` (we only iterate over `class_names`).
+#
+# Aggregate metrics:
+#   pycm's own overall/macro averages include the sentinel as a class, which
+#   would distort them. We therefore recompute macro/weighted averages below
+#   from our own `per_class` dict over the real classes only.
 _PRED_MISSING_ = "__NO_PREDICTION__"
 
 
@@ -128,8 +155,10 @@ def _compute_metrics_from_pairs(
     n_gt_missing = int(pairs.select(pl.col("gt").is_null().sum()).item())
     pairs = pairs.filter(pl.col("gt").is_not_null())
 
-    # Samples with GT but no prediction — count, then fill sentinel so they
-    # count as wrong for every class (FN for their GT class, FP for none).
+    # Samples with GT but no prediction — count, then fill with the
+    # _PRED_MISSING_ sentinel so pycm sees a valid (non-null) label. See the
+    # comment on `_PRED_MISSING_` at the top of this module for why this
+    # produces the correct TP/FP/FN/TN counts.
     n_pred_missing = int(pairs.select(pl.col("pred").is_null().sum()).item())
     pairs = pairs.with_columns(pl.col("pred").fill_null(_PRED_MISSING_))
 
@@ -151,6 +180,9 @@ def _compute_metrics_from_pairs(
 
     gt_list = pairs["gt"].to_list()
     pred_list = pairs["pred"].to_list()
+    # The sentinel is registered as a "class" so pycm accepts the filled-in
+    # labels without warning. It is intentionally excluded from `class_names`
+    # everywhere downstream.
     class_names_with_missing = class_names + [_PRED_MISSING_]
     cm = ConfusionMatrix(actual_vector=gt_list, predict_vector=pred_list, classes=class_names_with_missing)
 
@@ -168,8 +200,9 @@ def _compute_metrics_from_pairs(
         )
 
     # --- Aggregate metrics ---
-    # Computed from our own per_class dict (over real classes only) to avoid
-    # pycm's synthetic ~other~ class influencing averages in single-class problems.
+    # Recomputed from `per_class` (real classes only) rather than read from
+    # pycm's own averages, because pycm would include the _PRED_MISSING_
+    # sentinel class in its macro/weighted averages and distort them.
     n_cls = len(class_names)
     precisions = [per_class[c].precision for c in class_names]
     recalls = [per_class[c].recall for c in class_names]
@@ -261,7 +294,7 @@ def calculate_classification_metrics(
             f"'{prediction_task.primitive.__name__}', expected 'Classification'."
         )
     prediction_class_names = prediction_task.get_class_names() or []
-    if prediction_class_names != class_names:
+    if prediction_class_names != class_names:  # Compare lists directly to also ensure order matches
         raise ValueError(
             f"Class names between ground-truth and prediction tasks do not match "
             f"Prediction task '{task_name_predictions}' has class names "

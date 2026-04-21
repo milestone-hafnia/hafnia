@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from hafnia.benchmark.benchmark import run_benchmark
+from hafnia.dataset.benchmark.benchmark import run_benchmark
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from tests import helper_testing
 from tests.helper_testing_benchmark import FakeInferenceModel

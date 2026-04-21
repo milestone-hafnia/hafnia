@@ -13,7 +13,7 @@ class MetricsCalculator(BaseModel):
         return {}
 
 
-class BboxMetricCalculator(MetricsCalculator):
+class BboxMetricsCalculator(MetricsCalculator):
     task_ground_truth: str
     task_predictions: str
 
@@ -25,16 +25,8 @@ class BboxMetricCalculator(MetricsCalculator):
         return metrics.as_dict(upper=True)
 
 
-class BitmaskMetricsCalculator(MetricsCalculator):
-    task_ground_truth: str
-    task_predictions: str
-
-    def __call__(self, dataset: HafniaDataset) -> Dict[str, float]:
-        metrics = dataset.calculate_map(
-            task_name_predictions=self.task_predictions,
-            task_name_ground_truth=self.task_ground_truth,
-        )
-        return metrics.as_dict(upper=True)
+class BitmaskMetricsCalculator(BboxMetricsCalculator):  # Same metrics as bbox, just different primitive type
+    pass
 
 
 class ClassificationMetricsCalculator(MetricsCalculator):
@@ -103,19 +95,19 @@ def auto_derive_metric_calculators(
             )
             continue
 
-        primitive_type_name = primitive_type.__name__
+        metric_name = task_name_ground_truth  # Using task name as metric group name.
         if primitive_type == primitives.Bbox:
-            metric_calculators[primitive_type_name] = BboxMetricCalculator(
+            metric_calculators[metric_name] = BboxMetricsCalculator(
                 task_ground_truth=task_name_ground_truth,
                 task_predictions=prediction_task.name,
             )
         elif primitive_type == primitives.Bitmask:
-            metric_calculators[primitive_type_name] = BitmaskMetricsCalculator(
+            metric_calculators[metric_name] = BitmaskMetricsCalculator(
                 task_ground_truth=task_name_ground_truth,
                 task_predictions=prediction_task.name,
             )
         elif primitive_type == primitives.Classification:
-            metric_calculators[primitive_type_name] = ClassificationMetricsCalculator(
+            metric_calculators[metric_name] = ClassificationMetricsCalculator(
                 task_ground_truth=task_name_ground_truth,
                 task_predictions=prediction_task.name,
             )

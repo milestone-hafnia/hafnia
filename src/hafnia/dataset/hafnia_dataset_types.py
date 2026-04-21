@@ -255,10 +255,6 @@ class TaskInfo(BaseModel):
         """Get qualified name for the task: <primitive_name>:<task_name>"""
         return f"{self.primitive.__name__}:{self.name}"
 
-    def short_task_info(self) -> str:
-        """Get short string representation of the task info, without class names and attributes."""
-        return f"{TaskInfo.__name__}(primitive={self.primitive.__name__}, name={self.name})"
-
     # To get unique hash value for TaskInfo objects
     def __hash__(self) -> int:
         class_names = self.get_class_names() or []

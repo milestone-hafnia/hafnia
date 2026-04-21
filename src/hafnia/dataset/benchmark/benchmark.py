@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from hafnia.benchmark.inference_model import InferenceModel
-from hafnia.benchmark.metrics_calculator import MetricsCalculator, metric_calculations
+from hafnia.dataset.benchmark.inference_model import InferenceModel
+from hafnia.dataset.benchmark.metrics_calculator import MetricsCalculator, metric_calculations
 from hafnia.dataset.dataset_names import TASK_NAME_PREDICTIONS_POSTFIX
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Optional
+from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar

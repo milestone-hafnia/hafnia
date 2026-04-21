@@ -10,8 +10,8 @@ import polars as pl
 from packaging.version import Version
 
 from hafnia import utils
-from hafnia.benchmark.metrics import classification_metrics, object_detection_metrics
 from hafnia.dataset import dataset_helpers
+from hafnia.dataset.benchmark.metrics import classification_metrics, object_detection_metrics
 from hafnia.dataset.dataset_helpers import is_valid_version_string, version_from_string
 from hafnia.dataset.dataset_names import (
     TAG_IS_SAMPLE,

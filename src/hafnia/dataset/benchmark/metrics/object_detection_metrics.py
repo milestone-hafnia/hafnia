@@ -252,6 +252,6 @@ def calculate_map(
     with redirect_stdout(io.StringIO()):
         coco_eval.evaluate()
         coco_eval.accumulate()
-    coco_eval.summarize()
 
+    coco_eval.summarize()  # This is required to fill populate 'coco_eval.stats' with the 12 metrics.
     return MapMetrics.from_coco_stats(list(coco_eval.stats))

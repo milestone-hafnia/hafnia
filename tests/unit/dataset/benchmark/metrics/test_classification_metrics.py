@@ -2,7 +2,7 @@ from typing import List, Union
 
 import pytest
 
-from hafnia.benchmark.metrics.classification_metrics import PerClassClassificationMetrics
+from hafnia.dataset.benchmark.metrics.classification_metrics import PerClassClassificationMetrics
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Classification

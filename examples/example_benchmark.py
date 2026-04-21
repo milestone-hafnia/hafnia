@@ -7,8 +7,8 @@ from PIL import Image
 from rich import print as rprint
 from torchvision.models.detection import ssdlite
 
-from hafnia.benchmark.benchmark import run_benchmark
-from hafnia.benchmark.inference_model import ImageType, InferenceModel
+from hafnia.dataset.benchmark.benchmark import run_benchmark
+from hafnia.dataset.benchmark.inference_model import ImageType, InferenceModel
 from hafnia.dataset.dataset_recipe.recipe_transforms import ClassMapper
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample, TaskInfo
