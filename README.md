@@ -56,9 +56,9 @@ To get started with Hafnia:
    hafnia configure
 
    # You are then prompted:
-   Profile Name [default]:   # Press [Enter] or select an optional name
+   Alias:   # Press [Enter] to skip — personal label only, not tied to your Hafnia account
    Hafnia API Key:  # Pass your HAFNIA API key
-   Hafnia Platform URL [https://api.mdi.milestonesys.com]:  # Press [Enter]
+   Hafnia Platform URL [default https://api.hafnia.milestonesys.com]:  # Press [Enter] to use the default
    ```
 
 1. Download `mnist` from terminal to verify that your configuration is working.
