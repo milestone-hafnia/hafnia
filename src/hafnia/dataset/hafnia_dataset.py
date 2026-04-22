@@ -637,7 +637,7 @@ class HafniaDataset:
                 path_source=Path(org_path),
                 path_dataset_root=path_folder / "data",
             )
-            new_paths.append(str(new_path))
+            new_paths.append(new_path.as_posix())
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
         hafnia_dataset.write_annotations(path_folder=path_folder, drop_null_cols=drop_null_cols)
 

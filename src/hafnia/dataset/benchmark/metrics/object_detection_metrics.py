@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import io
-from contextlib import redirect_stdout
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Type
 
@@ -248,14 +246,13 @@ def calculate_map(
     gt_dict.update({"info": {}})
     gt_coco = COCO()
     gt_coco.dataset = gt_dict
-    with redirect_stdout(io.StringIO()):
-        gt_coco.createIndex()
+
+    gt_coco.createIndex()
 
     pred_coco = gt_coco.loadRes(pred_list)
 
     coco_eval = COCOeval(gt_coco, pred_coco, eval_type)
-    with redirect_stdout(io.StringIO()):  # Suppress COCOeval print output
-        coco_eval.evaluate()
-        coco_eval.accumulate()
-        coco_eval.summarize()
+    coco_eval.evaluate()
+    coco_eval.accumulate()
+    coco_eval.summarize()
     return MapMetrics.from_coco_stats(list(coco_eval.stats))
