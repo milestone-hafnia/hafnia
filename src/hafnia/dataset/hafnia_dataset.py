@@ -590,7 +590,6 @@ class HafniaDataset:
 
     def update_samples(self, table: pl.DataFrame) -> "HafniaDataset":
         dataset = HafniaDataset(info=self.info.model_copy(deep=True), samples=table)
-        dataset.check_dataset_tasks()
         return dataset
 
     def has_primitive(dataset: HafniaDataset, PrimitiveType: Type[Primitive]) -> bool:
