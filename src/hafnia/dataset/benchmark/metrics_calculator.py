@@ -18,7 +18,7 @@ class BboxMetricsCalculator(MetricsCalculator):
     task_predictions: str
 
     def __call__(self, dataset: HafniaDataset) -> Dict[str, float]:
-        metrics = dataset.calculate_map(
+        metrics = dataset.calculate_mean_average_precision(
             task_name_predictions=self.task_predictions,
             task_name_ground_truth=self.task_ground_truth,
         )

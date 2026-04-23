@@ -78,7 +78,7 @@ class HafniaDataset:
     convert_to_image_storage_format = dataset_transformations.convert_to_image_storage_format
 
     # Function mapping: Benchmark metrics
-    calculate_map = object_detection_metrics.calculate_map
+    calculate_mean_average_precision = object_detection_metrics.calculate_mean_average_precision
     calculate_classification_metrics = classification_metrics.calculate_classification_metrics
 
     # Import / export functions

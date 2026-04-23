@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Dict, List
 
 import polars as pl
+from pydantic import BaseModel, Field
+from rich.console import Console
+from rich.table import Table
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.primitives import Classification
@@ -12,13 +14,14 @@ if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 
-@dataclass
-class PerClassClassificationMetrics:
-    accuracy: float
-    precision: float
-    recall: float
-    f1: float
-    support: int
+class PerClassClassificationMetrics(BaseModel):
+    """Classification metrics for a single class."""
+
+    accuracy: float = Field(description="(TP + TN) / (TP + FP + FN + TN)")
+    precision: float = Field(description="TP / (TP + FP) — fraction of predictions for this class that are correct")
+    recall: float = Field(description="TP / (TP + FN) — fraction of ground-truth samples of this class recovered")
+    f1: float = Field(description="Harmonic mean of precision and recall: 2·TP / (2·TP + FP + FN)")
+    support: int = Field(description="Number of ground-truth samples for this class (TP + FN)")
 
     @staticmethod
     def empty() -> "PerClassClassificationMetrics":
@@ -36,31 +39,50 @@ class PerClassClassificationMetrics:
         )
 
     def as_dict(self) -> Dict[str, float]:
-        return asdict(self)
+        return self.model_dump()
+
+    def report(self, class_name: str = "") -> str:
+        """Return a formatted, human-readable report of the per-class metrics."""
+        header = f"Per-Class Classification Metrics{f' ({class_name})' if class_name else ''}"
+        separator = "=" * len(header)
+        fields = type(self).model_fields
+        name_width = max(len(name) for name in fields)
+        lines = [header, separator]
+        for name, field_info in fields.items():
+            value = getattr(self, name)
+            description = field_info.description or ""
+            value_str = f"{value:6d}" if isinstance(value, int) else f"{value:6.3f}"
+            lines.append(f"  {name:<{name_width}} = {value_str}   {description}")
+        return "\n".join(lines)
+
+    def print_report(self, class_name: str = "") -> None:
+        """Print the formatted per-class metrics report to stdout."""
+        print(self.report(class_name=class_name))
 
 
-@dataclass
-class ClassificationMetrics:
+class ClassificationMetrics(BaseModel):
     """Classification metrics for a single-label classification task.
 
     Metrics are computed per-class from a confusion matrix and aggregated
     using macro and weighted averaging.
     """
 
-    accuracy: float
-    precision_macro: float
-    recall_macro: float
-    f1_macro: float
-    precision_weighted: float
-    recall_weighted: float
-    f1_weighted: float
-    n_gt_missing: int
-    n_pred_missing: int
-    per_class: Dict[str, PerClassClassificationMetrics]
+    accuracy: float = Field(description="Overall accuracy: fraction of evaluated samples predicted correctly")
+    precision_macro: float = Field(description="Unweighted mean of per-class precision (treats classes equally)")
+    recall_macro: float = Field(description="Unweighted mean of per-class recall (treats classes equally)")
+    f1_macro: float = Field(description="Unweighted mean of per-class F1 (treats classes equally)")
+    precision_weighted: float = Field(description="Per-class precision weighted by class support")
+    recall_weighted: float = Field(description="Per-class recall weighted by class support")
+    f1_weighted: float = Field(description="Per-class F1 weighted by class support")
+    n_gt_missing: int = Field(description="Number of samples with no ground truth (dropped from evaluation)")
+    n_pred_missing: int = Field(
+        description="Number of samples with ground truth but no prediction (counted as errors against their GT class)"
+    )
+    per_class: Dict[str, PerClassClassificationMetrics] = Field(description="Per-class metrics, keyed by class name")
 
     def as_dict(self) -> Dict[str, float]:
         """Return flat scalar metrics dict (excludes per_class and confusion_matrix)."""
-        d = asdict(self)
+        d = self.model_dump()
         per_class = d.pop("per_class")
         per_class_flatten = {
             f"{class_name}.{metric_name}": metric_value
@@ -69,6 +91,42 @@ class ClassificationMetrics:
         }
         d.update(per_class_flatten)
         return d
+
+    def report(self) -> str:
+        """Return a formatted, human-readable report of the metrics."""
+        header = "Classification Metrics"
+        separator = "=" * len(header)
+        fields = {name: info for name, info in type(self).model_fields.items() if name != "per_class"}
+        name_width = max(len(name) for name in fields)
+        lines = [header, separator]
+        for name, field_info in fields.items():
+            value = getattr(self, name)
+            description = field_info.description or ""
+            value_str = f"{value:6d}" if isinstance(value, int) else f"{value:6.3f}"
+            lines.append(f"  {name:<{name_width}} = {value_str}   {description}")
+
+        if self.per_class:
+            lines.append("")
+            lines.append("Per-class metrics:")
+            table = Table(show_header=True, header_style=None)
+            table.add_column("class")
+            for field_name in PerClassClassificationMetrics.model_fields:
+                table.add_column(field_name, justify="right")
+            for class_name, metrics in self.per_class.items():
+                row = [class_name]
+                for field_name in PerClassClassificationMetrics.model_fields:
+                    value = getattr(metrics, field_name)
+                    row.append(str(value) if isinstance(value, int) else f"{value:.3f}")
+                table.add_row(*row)
+            console = Console(record=True, width=120)
+            with console.capture() as capture:
+                console.print(table)
+            lines.append(capture.get().rstrip())
+        return "\n".join(lines)
+
+    def print_report(self) -> None:
+        """Print the formatted metrics report to stdout."""
+        print(self.report())
 
 
 def _extract_class_names_for_task(

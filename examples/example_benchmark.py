@@ -111,7 +111,7 @@ dataset_predictions = dataset_predictions.class_mapper(
 )
 
 # 5) Calculate specific metrics
-map_metrics = dataset_predictions.calculate_map(
+map_metrics = dataset_predictions.calculate_mean_average_precision(
     task_name_ground_truth=model_task.name, task_name_predictions=prediction_task_name
 )
 

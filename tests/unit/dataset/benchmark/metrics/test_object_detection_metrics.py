@@ -1,4 +1,6 @@
+import textwrap
 from pathlib import Path
+from typing import Any
 
 import pytest
 from PIL import Image
@@ -12,7 +14,7 @@ from tests import helper_testing
 from tests.helper_testing_benchmark import FakeInferenceModel
 
 
-def test_calculate_map_perfect_predictions(tmp_path: Path):
+def test_calculate_mean_average_precision_perfect_predictions(tmp_path: Path):
     class_names = ["cat", "dog"]
     # run_inference_on_dataset reads each image from disk, so we materialize
     # small black JPEGs in a temporary directory rather than referencing
@@ -43,18 +45,93 @@ def test_calculate_map_perfect_predictions(tmp_path: Path):
     )
     gt_task_name = Bbox.default_task_name()
     pred_task_name = f"{gt_task_name}{TASK_NAME_PREDICTIONS_POSTFIX}"
-    metrics = dataset_with_predictions.calculate_map(
+    metrics = dataset_with_predictions.calculate_mean_average_precision(
         task_name_predictions=pred_task_name,
         task_name_ground_truth=gt_task_name,
     )
 
-    assert metrics.ap == pytest.approx(1.0), f"Expected AP=1.0, got {metrics.ap}"
-    assert metrics.ap50 == pytest.approx(1.0), f"Expected AP50=1.0, got {metrics.ap50}"
-    assert metrics.ar100 == pytest.approx(1.0), f"Expected AR100=1.0, got {metrics.ar100}"
+    assert metrics.mAP == pytest.approx(1.0), f"Expected mAP=1.0, got {metrics.mAP}"
+    assert metrics.mAP_50 == pytest.approx(1.0), f"Expected mAP_50=1.0, got {metrics.mAP_50}"
+    assert metrics.AR_100 == pytest.approx(1.0), f"Expected AR_100=1.0, got {metrics.AR_100}"
+
+
+def test_calculate_mean_average_precision_imperfect_predictions(tmp_path: Path):
+    class_names = ["cat", "dog", "bird"]
+    gt_task_name = Bbox.default_task_name()
+    pred_task_name = f"{gt_task_name}{TASK_NAME_PREDICTIONS_POSTFIX}"
+
+    def pred(**kwargs: Any) -> Bbox:
+        return Bbox(ground_truth=False, task_name=pred_task_name, **kwargs)
+
+    # Shifting a 0.4x0.4 box by 0.1 (normalized) yields IoU ≈ 0.6, so the shifted
+    # predictions match at IoU=0.50 but fail at IoU=0.75.
+    shift = 0.1
+    samples = []
+    for i in range(3):
+        image_path = tmp_path / f"synthetic_img_{i}.jpg"
+        Image.new("RGB", (500, 500), color=(0, 0, 0)).save(image_path)
+        gt_bboxes = [
+            Bbox(top_left_x=0.0, top_left_y=0.0, width=0.4, height=0.4, class_name="cat"),
+            Bbox(top_left_x=0.6, top_left_y=0.6, width=0.4, height=0.4, class_name="dog"),
+            Bbox(top_left_x=0.0, top_left_y=0.6, width=0.3, height=0.3, class_name="bird"),
+            Bbox(top_left_x=0.6, top_left_y=0.0, width=0.3, height=0.3, class_name="bird"),
+        ]
+        pred_bboxes = [
+            # Shifted cat prediction → IoU ≈ 0.6 (true positive at IoU=0.50, miss at IoU=0.75)
+            pred(top_left_x=shift, top_left_y=0.0, width=0.4, height=0.4, class_name="cat", confidence=0.95),
+            # Perfect dog prediction
+            pred(top_left_x=0.6, top_left_y=0.6, width=0.4, height=0.4, class_name="dog", confidence=0.9),
+            # Only one of the two bird GT boxes detected (false negative on the other)
+            pred(top_left_x=0.0, top_left_y=0.6, width=0.3, height=0.3, class_name="bird", confidence=0.8),
+            # Spurious low-confidence false positive in empty region
+            pred(top_left_x=0.4, top_left_y=0.4, width=0.15, height=0.15, class_name="cat", confidence=0.3),
+            # Misclassified dog: right location but wrong class
+            pred(top_left_x=0.6, top_left_y=0.0, width=0.3, height=0.3, class_name="dog", confidence=0.5),
+        ]
+        samples.append(
+            Sample(
+                file_path=str(image_path),
+                split="train",
+                height=500,
+                width=500,
+                bboxes=gt_bboxes + pred_bboxes,
+            )
+        )
+
+    info = DatasetInfo(
+        dataset_name="test_map_imperfect",
+        tasks=[TaskInfo.from_class_names(primitive=Bbox, class_names=class_names)],
+    )
+    dataset = HafniaDataset.from_samples_list(samples, info=info)
+
+    metrics = dataset.calculate_mean_average_precision(
+        task_name_predictions=pred_task_name,
+        task_name_ground_truth=gt_task_name,
+    )
+
+    # This test uses the metric report to make a readable and numerically stable assertion on metrics
+    actual_report = metrics.report()
+    print(actual_report)
+    expected_report = textwrap.dedent("""\
+Object Detection Metrics (COCO mAP)
+===================================
+  mAP    =  0.602   AP at IoU=0.50:0.05:0.95 (primary challenge metric)
+  mAP_50 =  0.835   AP at IoU=0.50 (PASCAL VOC metric)
+  mAP_75 =  0.502   AP at IoU=0.75 (strict metric)
+  mAP_s  = -1.000   AP for small objects (area < 32² px)
+  mAP_m  = -1.000   AP for medium objects (32² < area < 96² px)
+  mAP_l  =  0.602   AP for large objects (area > 96² px)
+  AR_1   =  0.600   AR given 1 detection per image
+  AR_10  =  0.600   AR given 10 detections per image
+  AR_100 =  0.600   AR given 100 detections per image
+  AR_s   = -1.000   AR for small objects (area < 32² px)
+  AR_m   = -1.000   AR for medium objects (32² < area < 96² px)
+  AR_l   =  0.600   AR for large objects (area > 96² px)""")
+    assert actual_report == expected_report
 
 
 @pytest.mark.parametrize("dataset_name", helper_testing.MICRO_DATASETS)
-def test_calculate_map(dataset_name: str):
+def test_calculate_mean_average_precision(dataset_name: str):
     path_dataset = helper_testing.get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
     gt_dataset = HafniaDataset.from_path(path_dataset)
 
@@ -72,11 +149,13 @@ def test_calculate_map(dataset_name: str):
         dataset_with_pred = run_inference_on_dataset(dataset=gt_dataset, model=model)
 
         pred_task_name = f"{model_task.name}{TASK_NAME_PREDICTIONS_POSTFIX}"
-        metrics = dataset_with_pred.calculate_map(
+        metrics = dataset_with_pred.calculate_mean_average_precision(
             task_name_predictions=pred_task_name,
             task_name_ground_truth=model_task.name,
         )
-        assert metrics.ap == pytest.approx(1.0), (
-            f"Expected AP=1.0 for task '{model_task.name}' on dataset '{dataset_name}', "
-            f"got {metrics.ap}. Ground Truth is directly used as predictions, so AP should be perfect."
+        assert metrics.mAP == pytest.approx(1.0), (
+            f"Expected mAP=1.0 for task '{model_task.name}' on dataset '{dataset_name}', "
+            f"got {metrics.mAP}. Ground Truth is directly used as predictions, so mAP should be perfect."
         )
+
+        metrics.print_report()

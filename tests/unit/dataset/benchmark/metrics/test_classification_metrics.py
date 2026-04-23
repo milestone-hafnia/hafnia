@@ -24,13 +24,7 @@ def _make_dataset(gt_labels: List[Union[None, str]], pred_labels: List[Union[Non
                 Classification(class_name=pred_label, task_name=pred_task_name, confidence=0.9, ground_truth=False)
             )
         samples.append(
-            Sample(
-                file_path="/tmp/fake.jpg",
-                split="test",
-                height=100,
-                width=100,
-                classifications=classifications,
-            )
+            Sample(file_path="/tmp/fake.jpg", split="test", height=100, width=100, classifications=classifications)
         )
 
     info = DatasetInfo(
@@ -66,6 +60,16 @@ def test_perfect_predictions():
     expected = PerClassClassificationMetrics.from_confusion(TP=2, FP=0, FN=0, TN=4)
     for cls in class_names:
         assert metrics.per_class[cls] == expected
+
+    # Smoke test the report formatting (exact content tested in other cases)
+    metrics.print_report()
+
+    # Smoke test per class
+    for cls in class_names:
+        print(f"Metrics for class '{cls}':")
+        metrics.per_class[cls].print_report()
+
+    print("Done")
 
 
 def test_partial_correctness():

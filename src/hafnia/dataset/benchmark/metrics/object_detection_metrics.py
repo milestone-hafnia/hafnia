@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Type
 
 import numpy as np
+from pydantic import BaseModel, Field
 
 from hafnia.dataset.primitives import Bbox, Bitmask, Primitive
 from hafnia.utils import progress_bar
@@ -12,47 +12,63 @@ if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 
-@dataclass
-class MapMetrics:
+class ObjectDetectionMetrics(BaseModel):
     """Standard COCO mAP metrics (12 metrics from COCOeval.summarize)."""
 
-    ap: float  # AP @ IoU=0.50:0.95 (primary metric)
-    ap50: float  # AP @ IoU=0.50
-    ap75: float  # AP @ IoU=0.75
-    ap_s: float  # AP for small objects  (area < 32² px)
-    ap_m: float  # AP for medium objects (32² < area < 96² px)
-    ap_l: float  # AP for large objects  (area > 96² px)
-    ar1: float  # AR with max 1 detection per image
-    ar10: float  # AR with max 10 detections per image
-    ar100: float  # AR with max 100 detections per image
-    ar_s: float  # AR for small objects
-    ar_m: float  # AR for medium objects
-    ar_l: float  # AR for large objects
+    mAP: float = Field(description="AP at IoU=0.50:0.05:0.95 (primary challenge metric)")
+    mAP_50: float = Field(description="AP at IoU=0.50 (PASCAL VOC metric)")
+    mAP_75: float = Field(description="AP at IoU=0.75 (strict metric)")
+    mAP_s: float = Field(description="AP for small objects (area < 32² px)")
+    mAP_m: float = Field(description="AP for medium objects (32² < area < 96² px)")
+    mAP_l: float = Field(description="AP for large objects (area > 96² px)")
+    AR_1: float = Field(description="AR given 1 detection per image")
+    AR_10: float = Field(description="AR given 10 detections per image")
+    AR_100: float = Field(description="AR given 100 detections per image")
+    AR_s: float = Field(description="AR for small objects (area < 32² px)")
+    AR_m: float = Field(description="AR for medium objects (32² < area < 96² px)")
+    AR_l: float = Field(description="AR for large objects (area > 96² px)")
 
     @staticmethod
-    def from_coco_stats(stats: List[np.float64]) -> "MapMetrics":
-        stats_as_native_float = [s.item() for s in stats]  # Converts from numpy.float64 to native float
-        return MapMetrics(
-            ap=stats_as_native_float[0],
-            ap50=stats_as_native_float[1],
-            ap75=stats_as_native_float[2],
-            ap_s=stats_as_native_float[3],
-            ap_m=stats_as_native_float[4],
-            ap_l=stats_as_native_float[5],
-            ar1=stats_as_native_float[6],
-            ar10=stats_as_native_float[7],
-            ar100=stats_as_native_float[8],
-            ar_s=stats_as_native_float[9],
-            ar_m=stats_as_native_float[10],
-            ar_l=stats_as_native_float[11],
+    def from_coco_stats(stats: np.ndarray) -> "ObjectDetectionMetrics":
+        stats_as_list = stats.tolist()  # Converts from numpy.float64 to native float
+        return ObjectDetectionMetrics(
+            mAP=stats_as_list[0],
+            mAP_50=stats_as_list[1],
+            mAP_75=stats_as_list[2],
+            mAP_s=stats_as_list[3],
+            mAP_m=stats_as_list[4],
+            mAP_l=stats_as_list[5],
+            AR_1=stats_as_list[6],
+            AR_10=stats_as_list[7],
+            AR_100=stats_as_list[8],
+            AR_s=stats_as_list[9],
+            AR_m=stats_as_list[10],
+            AR_l=stats_as_list[11],
         )
 
     def as_dict(self, upper: bool = False) -> Dict[str, float]:
         """Return metrics as a dictionary."""
-        metrics_dict = asdict(self)
+        metrics_dict = self.model_dump()
         if upper:
             metrics_dict = {key.upper(): value for key, value in metrics_dict.items()}
         return metrics_dict
+
+    def report(self) -> str:
+        """Return a formatted, human-readable report of the metrics."""
+        header = "Object Detection Metrics (COCO mAP)"
+        separator = "=" * len(header)
+        fields = type(self).model_fields
+        name_width = max(len(name) for name in fields)
+        lines = [header, separator]
+        for name, field_info in fields.items():
+            value = getattr(self, name)
+            description = field_info.description or ""
+            lines.append(f"  {name:<{name_width}} = {value:6.3f}   {description}")
+        return "\n".join(lines)
+
+    def print_report(self) -> None:
+        """Print the formatted metrics report to stdout."""
+        print(self.report())
 
 
 def _build_coco_data(
@@ -170,11 +186,11 @@ def _build_coco_data(
     return gt_dict, predictions
 
 
-def calculate_map(
+def calculate_mean_average_precision(
     dataset: "HafniaDataset",
     task_name_predictions: str,
     task_name_ground_truth: str,
-) -> MapMetrics:
+) -> ObjectDetectionMetrics:
     """Calculate mean average precision (mAP) using the COCO evaluation protocol.
 
     Both ground-truth and prediction annotations must be stored in the same
@@ -185,7 +201,7 @@ def calculate_map(
 
     Typical usage::
 
-        metrics = dataset_with_predictions.calculate_map(
+        metrics = dataset_with_predictions.calculate_mean_average_precision(
             task_name_predictions="predictions",
             task_name_ground_truth=Bbox.default_task_name(),
         )
@@ -196,7 +212,7 @@ def calculate_map(
         task_name_ground_truth: Task name that identifies ground-truth annotations.
 
     Returns:
-        A :class:`MapMetrics` dataclass with the 12 standard COCO metrics.
+        A :class:`ObjectDetectionMetrics` dataclass with the 12 standard COCO metrics.
     """
     # import faster_coco_eval
     # faster_coco_eval.init_as_pycocotools()
@@ -255,4 +271,4 @@ def calculate_map(
     coco_eval.evaluate()
     coco_eval.accumulate()
     coco_eval.summarize()
-    return MapMetrics.from_coco_stats(list(coco_eval.stats))
+    return ObjectDetectionMetrics.from_coco_stats(coco_eval.stats)
