@@ -94,18 +94,17 @@ dataset = HafniaDataset.from_name("coco-2017", version=COCO_VERSION).select_samp
 model = TorchvisionSSDLite(box_score_thresh=0.001)
 
 # 3) Run model inference on the dataset
-task_name_prediction_postfix = "/predictions"
 dataset_predictions = benchmark.run_inference_on_dataset(
     dataset=dataset,
     model=model,
-    task_name_prediction_postfix=task_name_prediction_postfix,
+    task_name_prediction_postfix="/predictions",
 )
 
 # 4) Remap model predictions to match dataset class names.
 dataset_class_names = dataset.info.get_task_by_primitive(Bbox).get_class_names()
 model_task = model.get_model_tasks()[0]
 class_mapping = {name: name for name in model_task.get_class_names() if name in dataset_class_names}
-prediction_task_name = f"{model_task.name}{task_name_prediction_postfix}"
+prediction_task_name = f"{model_task.name}/predictions"
 dataset_predictions = dataset_predictions.class_mapper(
     class_mapping=class_mapping, method="remove_undefined", task_name=prediction_task_name
 )
@@ -114,11 +113,13 @@ dataset_predictions = dataset_predictions.class_mapper(
 map_metrics = dataset_predictions.calculate_mean_average_precision(
     task_name_ground_truth=model_task.name, task_name_predictions=prediction_task_name
 )
+map_metrics.print_report()
 
-# 6) Calculate all metrics - Relevant metrics are automatically derived.
+
+# 6) Calculate all metrics - Relevant metric to be calculated are automatically derived.
 metrics = benchmark.metric_calculations(
     prediction_dataset=dataset_predictions,
-    prediction_task_name_postfix=task_name_prediction_postfix,
+    prediction_task_name_postfix="/predictions",
 )
 
 # 7) Or run everything in one go benchmark in a single go

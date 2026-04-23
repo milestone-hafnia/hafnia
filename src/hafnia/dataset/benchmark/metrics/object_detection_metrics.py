@@ -46,11 +46,9 @@ class ObjectDetectionMetrics(BaseModel):
             AR_l=stats_as_list[11],
         )
 
-    def as_dict(self, upper: bool = False) -> Dict[str, float]:
+    def as_dict(self) -> Dict[str, float]:
         """Return metrics as a dictionary."""
         metrics_dict = self.model_dump()
-        if upper:
-            metrics_dict = {key.upper(): value for key, value in metrics_dict.items()}
         return metrics_dict
 
     def report(self) -> str:
@@ -214,6 +212,7 @@ def calculate_mean_average_precision(
     Returns:
         A :class:`ObjectDetectionMetrics` dataclass with the 12 standard COCO metrics.
     """
+    # Consider adding faster_coco_eval for faster evaluation. It is a drop in-replacement.
     # import faster_coco_eval
     # faster_coco_eval.init_as_pycocotools()
 

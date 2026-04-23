@@ -22,7 +22,7 @@ class BboxMetricsCalculator(MetricsCalculator):
             task_name_predictions=self.task_predictions,
             task_name_ground_truth=self.task_ground_truth,
         )
-        return metrics.as_dict(upper=True)
+        return metrics.as_dict()
 
 
 class BitmaskMetricsCalculator(BboxMetricsCalculator):  # Same metrics as bbox, just different primitive type
