@@ -183,7 +183,7 @@ def print_basic_stats(dataset: HafniaDataset) -> None:
     """
     Prints basic statistics about the dataset, including dataset name, version, and number of samples.
     """
-    table = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
+    table = Table(title="Dataset Statistics", box=rich.box.SIMPLE)
     table.add_column("Property", style="cyan")
     table.add_column("Value")
     table.add_row("Dataset Name", dataset.info.dataset_name)
@@ -246,7 +246,7 @@ def print_sample_and_task_counts(dataset: HafniaDataset) -> None:
     in total and for each split (train, val, test).
     """
     rows = calculate_split_counts_extended(dataset)
-    rich_table = Table(title="Dataset Statistics", show_lines=True, box=rich.box.SIMPLE)
+    rich_table = Table(title="Dataset Statistics", box=rich.box.SIMPLE)
     for i_row, row in enumerate(rows):
         if i_row == 0:
             for column_name in row.keys():

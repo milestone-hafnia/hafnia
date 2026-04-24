@@ -11,6 +11,7 @@ from packaging.version import Version
 
 from hafnia import utils
 from hafnia.dataset import dataset_helpers
+from hafnia.dataset.benchmark.metrics import classification_metrics, object_detection_metrics
 from hafnia.dataset.dataset_helpers import is_valid_version_string, version_from_string
 from hafnia.dataset.dataset_names import (
     TAG_IS_SAMPLE,
@@ -75,6 +76,10 @@ class HafniaDataset:
     # Function mapping: Dataset transformations
     transform_images = dataset_transformations.transform_images
     convert_to_image_storage_format = dataset_transformations.convert_to_image_storage_format
+
+    # Function mapping: Benchmark metrics
+    calculate_mean_average_precision = object_detection_metrics.calculate_mean_average_precision
+    calculate_classification_metrics = classification_metrics.calculate_classification_metrics
 
     # Import / export functions
     to_yolo_format = format_yolo.to_yolo_format
@@ -585,7 +590,6 @@ class HafniaDataset:
 
     def update_samples(self, table: pl.DataFrame) -> "HafniaDataset":
         dataset = HafniaDataset(info=self.info.model_copy(deep=True), samples=table)
-        dataset.check_dataset_tasks()
         return dataset
 
     def has_primitive(dataset: HafniaDataset, PrimitiveType: Type[Primitive]) -> bool:
@@ -632,7 +636,7 @@ class HafniaDataset:
                 path_source=Path(org_path),
                 path_dataset_root=path_folder / "data",
             )
-            new_paths.append(str(new_path))
+            new_paths.append(new_path.as_posix())
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
         hafnia_dataset.write_annotations(path_folder=path_folder, drop_null_cols=drop_null_cols)
 
