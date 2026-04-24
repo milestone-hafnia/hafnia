@@ -4,7 +4,7 @@ from typing import List, Union
 import numpy as np
 from PIL import Image
 
-from hafnia.dataset.hafnia_dataset_types import TaskInfo
+from hafnia.dataset.hafnia_dataset_types import ModelInfo
 from hafnia.dataset.primitives import Primitive
 
 ImageType = Union[str, Image.Image, np.ndarray]
@@ -32,7 +32,7 @@ class InferenceModel(ABC):
         pass
 
     @abstractmethod
-    def get_model_tasks(self) -> List[TaskInfo]:
+    def get_model_info(self) -> ModelInfo:
         """
         Get the tasks that this model can perform.
 

@@ -36,9 +36,9 @@ def test_calculate_mean_average_precision_perfect_predictions(tmp_path: Path):
     gt_dataset = HafniaDataset.from_samples_list(samples, info=info)
 
     model = FakeInferenceModel(fake_model_tasks=gt_dataset.info.tasks)
-    model_task_names_before = [t.name for t in model.get_model_tasks()]
+    model_task_names_before = [t.name for t in model.get_model_info()]
     dataset_with_predictions = run_inference_on_dataset(dataset=gt_dataset, model=model)
-    model_task_names_after = [t.name for t in model.get_model_tasks()]
+    model_task_names_after = [t.name for t in model.get_model_info()]
     assert model_task_names_before == model_task_names_after, (
         f"Model task names should not be modified by run_inference_on_dataset, "
         f"expected {model_task_names_before}, got {model_task_names_after}"

@@ -9,9 +9,8 @@ from torchvision.models.detection import ssdlite
 
 from hafnia.dataset.benchmark import benchmark
 from hafnia.dataset.benchmark.inference_model import ImageType, InferenceModel
-from hafnia.dataset.dataset_recipe.recipe_transforms import ClassMapper
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.hafnia_dataset_types import Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset_types import ModelInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Bbox, Primitive
 
 COCO_VERSION = "1.0.0"
@@ -34,18 +33,20 @@ class TorchvisionSSDLite(InferenceModel):
         self.model = ssdlite.ssdlite320_mobilenet_v3_large(weights=weights, score_thresh=box_score_thresh)
         self.model.eval()
         self.preprocess = weights.transforms()
-        self.class_names: List[str] = list(weights.meta["categories"])
+        self.class_names_org: List[str] = list(weights.meta["categories"])
 
-    def get_model_tasks(self) -> List[TaskInfo]:
+    def get_model_info(self) -> ModelInfo:
         # Converts self.class_names to TaskInfo. We convert any "N/A" class names to "unused_{i}"
         # to not have class name duplications.
         class_names = []
-        for i_class, class_name in enumerate(self.class_names):
-            if class_name == "N/A":
-                class_name = f"unused_{i_class}"
-            class_names.append(class_name)
+        for i_class, class_name in enumerate(self.class_names_org):
+            if class_name in ("__background__", "N/A"):
+                # class_name = f"unused_{i_class}"
+                continue
 
-        return [TaskInfo.from_class_names(primitive=Bbox, class_names=class_names)]
+            class_names.append(class_name)
+        tasks = [TaskInfo.from_class_names(primitive=Bbox, class_names=class_names)]
+        return ModelInfo(name="SSDLite320_MobileNet_V3_Large", tasks=tasks)
 
     def predict(
         self,
@@ -78,7 +79,7 @@ class TorchvisionSSDLite(InferenceModel):
                     top_left_y=ymin / image_height,
                     width=(xmax - xmin) / image_width,
                     height=(ymax - ymin) / image_height,
-                    class_name=self.class_names[label_idx],
+                    class_name=self.class_names_org[label_idx],
                     confidence=float(score),
                     ground_truth=False,
                 )
@@ -88,50 +89,35 @@ class TorchvisionSSDLite(InferenceModel):
 
 # 1. Load the COCO dataset sample
 dataset = HafniaDataset.from_name("coco-2017", version=COCO_VERSION).select_samples(n_samples=3, seed=42)
+dataset.print_basic_stats()
 
 # 2. Instantiate the inference model. Threshold is set very low as we want all model predictions
 # for metric calculations.
 model = TorchvisionSSDLite(box_score_thresh=0.001)
 
 # 3) Run model inference on the dataset
-dataset_predictions = benchmark.run_inference_on_dataset(
-    dataset=dataset,
-    model=model,
-    task_name_prediction_postfix="/predictions",
-)
+dataset_predictions = benchmark.run_inference_on_dataset(dataset=dataset, model=model)
 
-# 4) Remap model predictions to match dataset class names.
-dataset_class_names = dataset.info.get_task_by_primitive(Bbox).get_class_names()
-model_task = model.get_model_tasks()[0]
-class_mapping = {name: name for name in model_task.get_class_names() if name in dataset_class_names}
-prediction_task_name = f"{model_task.name}/predictions"
-dataset_predictions = dataset_predictions.class_mapper(
-    class_mapping=class_mapping, method="remove_undefined", task_name=prediction_task_name
-)
+# Predictions are added as a new task 'object_detection/predictions'
+dataset.print_basic_stats()
 
-# 5) Calculate specific metrics
+
+# 4) Calculate specific metrics
 map_metrics = dataset_predictions.calculate_mean_average_precision(
-    task_name_ground_truth=model_task.name, task_name_predictions=prediction_task_name
+    task_name_ground_truth="object_detection",  # The original ground truth task in the dataset
+    task_name_predictions="object_detection/predictions",
 )
 map_metrics.print_report()
 
 
-# 6) Calculate all metrics - Relevant metric to be calculated are automatically derived.
-metrics = benchmark.metric_calculations(
-    prediction_dataset=dataset_predictions,
-    prediction_task_name_postfix="/predictions",
-)
+# 5) Calculate all metrics - Relevant metric to be calculated are automatically derived.
+metrics = benchmark.metric_calculations(prediction_dataset=dataset_predictions)
 
-# 7) Or run everything in one go benchmark in a single go
-class_mapper = ClassMapper(class_mapping=class_mapping, method="remove_undefined", task_name=prediction_task_name)
-metrics, dataset_predictions = benchmark.run_benchmark(dataset=dataset, model=model, recipe_transforms=[class_mapper])
+# 6) Or run everything in one go benchmark in a single go
+metrics, dataset_predictions = benchmark.run_benchmark(dataset=dataset, model=model)
 
 # 8) Inspect the resulting metrics
 rprint(metrics)
-
-# The prediction dataset contains both the original ground-truth tasks and the new
-# '/predictions' tasks - useful if you want to inspect predictions sample-by-sample.
-rprint([task.name for task in dataset_predictions.info.tasks])
 
 # 9) Visualize ground truth + predictions for the first sample.
 visualize_threshold = 0.2

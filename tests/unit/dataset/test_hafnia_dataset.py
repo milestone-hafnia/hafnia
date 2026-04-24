@@ -161,7 +161,7 @@ def test_dataset_info_replace_task():
 
 def test_dataset_version_validation():
     # Valid version
-    DatasetInfo(dataset_name="test_dataset", version="1.0.0")
+    DatasetInfo(dataset_name="test_dataset", version="1.0.0", tasks=[])
 
     # Invalid version
     with pytest.raises(ValueError, match="Invalid version string"):
@@ -170,16 +170,16 @@ def test_dataset_version_validation():
 
 def test_dataset_format_version_validation():
     # Valid dataset format version
-    dataset_info = DatasetInfo(dataset_name="test_dataset")
+    dataset_info = DatasetInfo(dataset_name="test_dataset", tasks=[])
     assert dataset_info.format_version == hafnia.__dataset_format_version__
 
     # Explicitly set valid version
-    dataset_info = DatasetInfo(dataset_name="test_dataset", format_version=hafnia.__dataset_format_version__)
+    dataset_info = DatasetInfo(dataset_name="test_dataset", format_version=hafnia.__dataset_format_version__, tasks=[])
     assert dataset_info.format_version == hafnia.__dataset_format_version__
 
     # Invalid version
     with pytest.raises(ValueError, match="Invalid version string"):
-        DatasetInfo(dataset_name="test_dataset", format_version="invalid_version")
+        DatasetInfo(dataset_name="test_dataset", format_version="invalid_version", tasks=[])
 
 
 def test_dataset_format_version_is_newer_warning():
@@ -190,7 +190,7 @@ def test_dataset_format_version_is_newer_warning():
 
     # Check warning is logged to the user logger. Because caplog/pytest.raises doesn't work with 'user_logger'
     with patch("hafnia.log.user_logger.warning") as mock_warning:
-        DatasetInfo(dataset_name="test_dataset", format_version=n_format_version)
+        DatasetInfo(dataset_name="test_dataset", format_version=n_format_version, tasks=[])
         mock_warning.assert_called_once()
         call_args = mock_warning.call_args[0][0]  # Get the first argument (message)
         assert "Please consider updating Hafnia package" in call_args

@@ -1,5 +1,5 @@
 from hafnia.dataset.benchmark.inference_model import InferenceModel
-from hafnia.dataset.hafnia_dataset_types import Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset_types import ModelInfo, Sample, TaskInfo
 from hafnia.dataset.primitives import Primitive
 
 
@@ -24,5 +24,5 @@ class FakeInferenceModel(InferenceModel):
             predictions.append(pred_ann)
         return predictions
 
-    def get_model_tasks(self) -> list[TaskInfo]:
-        return self.fake_model_tasks
+    def get_model_info(self) -> ModelInfo:
+        return ModelInfo(name="FakeModel", tasks=self.fake_model_tasks)
