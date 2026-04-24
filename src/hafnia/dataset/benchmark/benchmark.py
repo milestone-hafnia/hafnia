@@ -42,7 +42,7 @@ def run_inference_on_dataset(
     model: InferenceModel,
     task_name_prediction_postfix: str = TASK_NAME_PREDICTIONS_POSTFIX,
 ) -> HafniaDataset:
-    model_tasks = [m.model_copy() for m in model.get_model_info()]
+    model_tasks = [m.model_copy() for m in model.get_model_info().tasks]
 
     new_task_names = [f"{task.name}{task_name_prediction_postfix}" for task in model_tasks]
     user_logger.info(

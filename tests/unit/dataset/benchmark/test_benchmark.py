@@ -22,7 +22,7 @@ def test_benchmark(dataset_name: str):
     dataset_prediction_tasks = {t.name for t in dataset_predictions.info.tasks}
     assert len(metrics) > 0, "Expected at least one metric to be calculated"
     assert len(dataset_predictions) == len(gt_dataset)
-    for model_task in model.get_model_info():
+    for model_task in model.get_model_info().tasks:
         assert model_task.name is not None, "Model task names cannot be None"
         prediction_task_name = model_task.name + task_name_prediction_postfix
         assert prediction_task_name in dataset_prediction_tasks
