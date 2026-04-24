@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type
 import numpy as np
 from pydantic import BaseModel, Field
 
+from hafnia.dataset.benchmark.metrics.metric_helpers import validate_matching_tasks
 from hafnia.dataset.primitives import Bbox, Bitmask, Primitive
 from hafnia.utils import progress_bar
 
@@ -219,28 +220,18 @@ def calculate_mean_average_precision(
     from pycocotools.coco import COCO
     from pycocotools.cocoeval import COCOeval
 
-    task_info = dataset.info.get_task_by_name(task_name_ground_truth)
-    primitive = task_info.primitive
+    gt_task_info, _, gt_class_names = validate_matching_tasks(
+        dataset=dataset,
+        task_name_ground_truth=task_name_ground_truth,
+        task_name_predictions=task_name_predictions,
+        expected_primitives=(Bbox, Bitmask),
+    )
+    primitive = gt_task_info.primitive
+    eval_type = "bbox" if primitive is Bbox else "segm"
 
-    if primitive is Bbox:
-        eval_type = "bbox"
-    elif primitive is Bitmask:
-        eval_type = "segm"
-    else:
-        raise ValueError(
-            f"Unsupported primitive type for mAP calculation: {primitive}. "
-            "Only Bbox ('bbox') and Bitmask ('segm') are supported."
-        )
-
-    class_names = task_info.get_class_names()
-    if class_names is None:
-        raise ValueError(
-            f"Ground-truth task '{task_name_ground_truth}' does not define any class names. "
-            "mAP calculation requires at least one class name to build COCO categories."
-        )
     id_offset = 1  # COCO doesn't work nicely with 0-indexing so we start at 1.
     categories = [
-        {"id": i, "name": name, "supercategory": "object"} for i, name in enumerate(class_names, start=id_offset)
+        {"id": i, "name": name, "supercategory": "object"} for i, name in enumerate(gt_class_names, start=id_offset)
     ]
     category_mapping = {str(cat["name"]): cat["id"] for cat in categories}
 

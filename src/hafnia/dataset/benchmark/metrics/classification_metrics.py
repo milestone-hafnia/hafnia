@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.table import Table
 
+from hafnia.dataset.benchmark.metrics.metric_helpers import validate_matching_tasks
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.primitives import Classification
 
@@ -294,34 +295,12 @@ def calculate_classification_metrics(
             f"Dataset does not contain a '{SampleField.CLASSIFICATIONS}' column. Cannot compute classification metrics."
         )
 
-    ground_truth_task = dataset.info.get_task_by_name(task_name_ground_truth)
-    if ground_truth_task.primitive is not Classification:
-        raise ValueError(
-            f"Ground-truth task '{task_name_ground_truth}' has primitive "
-            f"'{ground_truth_task.primitive.__name__}', expected 'Classification'."
-        )
-    class_names = ground_truth_task.get_class_names() or []
-
-    if not class_names:
-        raise ValueError(
-            f"No class names found for ground-truth task '{task_name_ground_truth}'. "
-            "Provide class_names explicitly or ensure the task has classes defined."
-        )
-
-    prediction_task = dataset.info.get_task_by_name(task_name_predictions)
-    if prediction_task.primitive is not Classification:
-        raise ValueError(
-            f"Prediction task '{task_name_predictions}' has primitive "
-            f"'{prediction_task.primitive.__name__}', expected 'Classification'."
-        )
-    prediction_class_names = prediction_task.get_class_names() or []
-    if prediction_class_names != class_names:  # Compare lists directly to also ensure order matches
-        raise ValueError(
-            f"Class names between ground-truth and prediction tasks do not match "
-            f"Prediction task '{task_name_predictions}' has class names "
-            f"'{prediction_class_names}', which do not match ground-truth class names "
-            f"in task '{task_name_ground_truth}': '{class_names}'. "
-        )
+    _, _, class_names = validate_matching_tasks(
+        dataset=dataset,
+        task_name_ground_truth=task_name_ground_truth,
+        task_name_predictions=task_name_predictions,
+        expected_primitives=(Classification,),
+    )
 
     gt_classes = _extract_class_names_for_task(dataset.samples, task_name_ground_truth)
     pred_classes = _extract_class_names_for_task(dataset.samples, task_name_predictions)

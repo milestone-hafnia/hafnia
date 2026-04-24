@@ -9,7 +9,7 @@ from hafnia.dataset.benchmark.benchmark import run_inference_on_dataset
 from hafnia.dataset.dataset_names import TASK_NAME_PREDICTIONS_POSTFIX
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
-from hafnia.dataset.primitives import Bbox, Bitmask
+from hafnia.dataset.primitives import Bbox, Bitmask, Classification
 from tests import helper_testing
 from tests.helper_testing_benchmark import FakeInferenceModel
 
@@ -100,7 +100,10 @@ def test_calculate_mean_average_precision_imperfect_predictions(tmp_path: Path):
 
     info = DatasetInfo(
         dataset_name="test_map_imperfect",
-        tasks=[TaskInfo.from_class_names(primitive=Bbox, class_names=class_names)],
+        tasks=[
+            TaskInfo.from_class_names(primitive=Bbox, class_names=class_names, name=gt_task_name),
+            TaskInfo.from_class_names(primitive=Bbox, class_names=class_names, name=pred_task_name),
+        ],
     )
     dataset = HafniaDataset.from_samples_list(samples, info=info)
 
@@ -128,6 +131,70 @@ Object Detection Metrics (COCO mAP)
   AR_m   = -1.000   AR for medium objects (32² < area < 96² px)
   AR_l   =  0.600   AR for large objects (area > 96² px)""")
     assert actual_report == expected_report
+
+
+def test_calculate_mean_average_precision_invalid_tasks():
+    """
+    Tests that calculate_mean_average_precision raises informative errors when the prediction and ground-truth
+    tasks are non-matching or invalid in various ways.
+    """
+    sample = Sample(file_path="some-path", split="train", height=100, width=100)
+    gt_task_name = Bbox.default_task_name()
+    pred_task_name = f"{gt_task_name}{TASK_NAME_PREDICTIONS_POSTFIX}"
+
+    # Stage 1: ground-truth task uses an unsupported primitive (Classification).
+    info = DatasetInfo(
+        dataset_name="test_map_raises",
+        tasks=[TaskInfo.from_class_names(primitive=Classification, class_names=["a"], name=gt_task_name)],
+    )
+    dataset = HafniaDataset.from_samples_list([sample], info=info)
+    with pytest.raises(ValueError, match="Unsupported primitive type"):
+        dataset.calculate_mean_average_precision(
+            task_name_predictions=pred_task_name,
+            task_name_ground_truth=gt_task_name,
+        )
+
+    # Stage 2: ground-truth primitive is fixed (Bbox), but GT task has no class names.
+    info = DatasetInfo(
+        dataset_name="test_map_raises",
+        tasks=[TaskInfo(primitive=Bbox, classes=None, name=gt_task_name)],
+    )
+    dataset = HafniaDataset.from_samples_list([sample], info=info)
+    with pytest.raises(ValueError, match=f"Ground-truth task '{gt_task_name}' does not define any class names"):
+        dataset.calculate_mean_average_precision(
+            task_name_predictions=pred_task_name,
+            task_name_ground_truth=gt_task_name,
+        )
+
+    # Stage 3: GT has class names, but the prediction task has no class names.
+    info = DatasetInfo(
+        dataset_name="test_map_raises",
+        tasks=[
+            TaskInfo.from_class_names(primitive=Bbox, class_names=["cat"], name=gt_task_name),
+            TaskInfo(primitive=Bbox, classes=None, name=pred_task_name),
+        ],
+    )
+    dataset = HafniaDataset.from_samples_list([sample], info=info)
+    with pytest.raises(ValueError, match=f"Prediction task '{pred_task_name}' does not define any class names"):
+        dataset.calculate_mean_average_precision(
+            task_name_predictions=pred_task_name,
+            task_name_ground_truth=gt_task_name,
+        )
+
+    # Stage 4: both tasks have class names, but they do not match.
+    info = DatasetInfo(
+        dataset_name="test_map_raises",
+        tasks=[
+            TaskInfo.from_class_names(primitive=Bbox, class_names=["cat"], name=gt_task_name),
+            TaskInfo.from_class_names(primitive=Bbox, class_names=["dog"], name=pred_task_name),
+        ],
+    )
+    dataset = HafniaDataset.from_samples_list([sample], info=info)
+    with pytest.raises(ValueError, match="do not match"):
+        dataset.calculate_mean_average_precision(
+            task_name_predictions=pred_task_name,
+            task_name_ground_truth=gt_task_name,
+        )
 
 
 @pytest.mark.parametrize("dataset_name", helper_testing.MICRO_DATASETS)
