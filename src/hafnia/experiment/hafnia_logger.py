@@ -18,7 +18,7 @@ from hafnia.utils import is_hafnia_cloud_job, now_as_str
 try:
     import mlflow
     import mlflow.tracking
-    import sagemaker_mlflow  # noqa: F401
+    #    import sagemaker_mlflow  # noqa: F401
 
     MLFLOW_AVAILABLE = True
 except ImportError:
