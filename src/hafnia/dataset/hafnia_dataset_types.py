@@ -266,39 +266,8 @@ class TaskInfo(BaseModel):
         return self.name == other.name and self.primitive == other.primitive and self.classes == other.classes
 
 
-class DatasetInfo(BaseModel):
-    dataset_name: str = Field(description="Name of the dataset, e.g. 'coco'")
-    version: str = Field(default="0.0.0", description="Version of the dataset")
-    dataset_title: Optional[str] = Field(default=None, description="Optional, human-readable title of the dataset")
-    description: Optional[str] = Field(default=None, description="Optional, description of the dataset")
+class TasksInfo(BaseModel):
     tasks: List[TaskInfo] = Field(default=None, description="List of tasks in the dataset")
-    reference_bibtex: Optional[str] = Field(
-        default=None,
-        description="Optional, BibTeX reference to dataset publication",
-    )
-    reference_paper_url: Optional[str] = Field(
-        default=None,
-        description="Optional, URL to dataset publication",
-    )
-    reference_dataset_page: Optional[str] = Field(
-        default=None,
-        description="Optional, URL to the dataset page",
-    )
-    meta: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the dataset")
-    format_version: str = Field(
-        default=hafnia.__dataset_format_version__,
-        description="Version of the Hafnia dataset format. You should not set this manually.",
-    )
-    updated_at: datetime = Field(
-        default_factory=datetime.now,
-        description="Timestamp of the last update to the dataset info. You should not set this manually.",
-    )
-
-    def overwrite_inplace(self, overwrite_info: "DatasetInfo") -> None:
-        """Override the fields of the current DatasetInfo with the non-None fields of the provided overwrite_info."""
-        for field_name, value in overwrite_info.model_dump().items():
-            if value is not None:
-                setattr(self, field_name, value)
 
     @field_validator("tasks", mode="after")
     @classmethod
@@ -313,107 +282,8 @@ class DatasetInfo(BaseModel):
             )
         return tasks
 
-    @field_validator("format_version")
-    @classmethod
-    def _validate_format_version(cls, format_version: str) -> str:
-        version_casted: Version = dataset_helpers.version_from_string(format_version, raise_error=True)
-
-        if version_casted > Version(hafnia.__dataset_format_version__):
-            user_logger.warning(
-                f"The loaded dataset format version '{format_version}' is newer than the format version "
-                f"'{hafnia.__dataset_format_version__}' used in your version of Hafnia. Please consider "
-                f"updating Hafnia package."
-            )
-        return str(version_casted)
-
-    @field_validator("version")
-    @classmethod
-    def _validate_version(cls, dataset_version: Optional[str]) -> Optional[str]:
-        version_casted: Version = dataset_helpers.version_from_string(dataset_version, raise_error=True)
-        return str(version_casted)
-
     def check_for_duplicate_task_names(self) -> List[TaskInfo]:
         return self._validate_check_for_duplicate_tasks(self.tasks)
-
-    def write_json(self, path: Path, indent: Optional[int] = 4) -> None:
-        json_str = self.model_dump_json(indent=indent)
-        path.write_text(json_str)
-
-    @staticmethod
-    def from_json_file(path: Path) -> "DatasetInfo":
-        json_str = path.read_text()
-
-        # TODO: Deprecated support for old dataset info without format_version
-        # Below 4 lines can be replaced by 'dataset_info = DatasetInfo.model_validate_json(json_str)'
-        # when all datasets include a 'format_version' field
-        json_dict = json.loads(json_str)
-        if "format_version" not in json_dict:
-            json_dict["format_version"] = "0.0.0"
-
-        if Version(json_dict["format_version"]) <= Version("0.2.0"):
-            old_convention = any("class_names" in task for task in json_dict["tasks"])
-            if "tasks" in json_dict and old_convention:
-                new_tasks = []
-                for task_dict in json_dict["tasks"]:
-                    task_dict_new = TaskInfo.from_class_names(**task_dict).model_dump(mode="dict")
-                    new_tasks.append(task_dict_new)
-                json_dict["tasks"] = new_tasks
-        if "updated_at" not in json_dict:
-            json_dict["updated_at"] = datetime.min.isoformat()
-
-        dataset_info = DatasetInfo.model_validate(json_dict)
-
-        return dataset_info
-
-    @staticmethod
-    def merge(info0: "DatasetInfo", info1: "DatasetInfo") -> "DatasetInfo":
-        """
-        Merges two DatasetInfo objects into one and validates if they are compatible.
-        """
-        for task_ds0 in info0.tasks:
-            for task_ds1 in info1.tasks:
-                same_name = task_ds0.name == task_ds1.name
-                same_primitive = task_ds0.primitive == task_ds1.primitive
-                same_name_different_primitive = same_name and not same_primitive
-                if same_name_different_primitive:
-                    raise ValueError(
-                        f"Cannot merge datasets with different primitives for the same task name: "
-                        f"'{task_ds0.name}' has primitive '{task_ds0.primitive}' in dataset0 and "
-                        f"'{task_ds1.primitive}' in dataset1."
-                    )
-
-                is_same_name_and_primitive = same_name and same_primitive
-                if is_same_name_and_primitive:
-                    task_ds0_class_names = task_ds0.get_class_names() or []
-                    task_ds1_class_names = task_ds1.get_class_names() or []
-                    if task_ds0_class_names != task_ds1_class_names:
-                        raise ValueError(
-                            f"Cannot merge datasets with different class names for the same task name and primitive: "
-                            f"'{task_ds0.name}' with primitive '{task_ds0.primitive}' has class names "
-                            f"{task_ds0_class_names} in dataset0 and {task_ds1_class_names} in dataset1."
-                        )
-
-        if info1.format_version != info0.format_version:
-            user_logger.warning(
-                "Dataset format version of the two datasets do not match. "
-                f"'{info1.format_version}' vs '{info0.format_version}'."
-            )
-        dataset_format_version = info0.format_version
-        if hafnia.__dataset_format_version__ != dataset_format_version:
-            user_logger.warning(
-                f"Dataset format version '{dataset_format_version}' does not match the current "
-                f"Hafnia format version '{hafnia.__dataset_format_version__}'."
-            )
-        unique_tasks = set(info0.tasks + info1.tasks)
-        meta = (info0.meta or {}).copy()
-        meta.update(info1.meta or {})
-        return DatasetInfo(
-            dataset_name=info0.dataset_name + "+" + info1.dataset_name,
-            version="0.0.0",
-            tasks=list(unique_tasks),
-            meta=meta,
-            format_version=dataset_format_version,
-        )
 
     def get_task_by_name(self, task_name: Optional[str]) -> TaskInfo:
         """
@@ -509,6 +379,161 @@ class DatasetInfo(BaseModel):
 
         dataset_info.tasks = new_tasks
         return dataset_info
+
+
+class DatasetInfo(TasksInfo):
+    dataset_name: str = Field(description="Name of the dataset, e.g. 'coco'")
+    version: str = Field(default="0.0.0", description="Version of the dataset")
+    dataset_title: Optional[str] = Field(default=None, description="Optional, human-readable title of the dataset")
+    description: Optional[str] = Field(default=None, description="Optional, description of the dataset")
+
+    reference_bibtex: Optional[str] = Field(
+        default=None,
+        description="Optional, BibTeX reference to dataset publication",
+    )
+    reference_paper_url: Optional[str] = Field(
+        default=None,
+        description="Optional, URL to dataset publication",
+    )
+    reference_dataset_page: Optional[str] = Field(
+        default=None,
+        description="Optional, URL to the dataset page",
+    )
+    meta: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the dataset")
+    format_version: str = Field(
+        default=hafnia.__dataset_format_version__,
+        description="Version of the Hafnia dataset format. You should not set this manually.",
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        description="Timestamp of the last update to the dataset info. You should not set this manually.",
+    )
+
+    def overwrite_inplace(self, overwrite_info: "DatasetInfo") -> None:
+        """Override the fields of the current DatasetInfo with the non-None fields of the provided overwrite_info."""
+        for field_name, value in overwrite_info.model_dump().items():
+            if value is not None:
+                setattr(self, field_name, value)
+
+    @field_validator("format_version")
+    @classmethod
+    def _validate_format_version(cls, format_version: str) -> str:
+        version_casted: Version = dataset_helpers.version_from_string(format_version, raise_error=True)
+
+        if version_casted > Version(hafnia.__dataset_format_version__):
+            user_logger.warning(
+                f"The loaded dataset format version '{format_version}' is newer than the format version "
+                f"'{hafnia.__dataset_format_version__}' used in your version of Hafnia. Please consider "
+                f"updating Hafnia package."
+            )
+        return str(version_casted)
+
+    @field_validator("version")
+    @classmethod
+    def _validate_version(cls, dataset_version: Optional[str]) -> Optional[str]:
+        version_casted: Version = dataset_helpers.version_from_string(dataset_version, raise_error=True)
+        return str(version_casted)
+
+    def write_json(self, path: Path, indent: Optional[int] = 4) -> None:
+        json_str = self.model_dump_json(indent=indent)
+        path.write_text(json_str)
+
+    @staticmethod
+    def from_json_file(path: Path) -> "DatasetInfo":
+        json_str = path.read_text()
+
+        # TODO: Deprecated support for old dataset info without format_version
+        # Below 4 lines can be replaced by 'dataset_info = DatasetInfo.model_validate_json(json_str)'
+        # when all datasets include a 'format_version' field
+        json_dict = json.loads(json_str)
+        if "format_version" not in json_dict:
+            json_dict["format_version"] = "0.0.0"
+
+        if Version(json_dict["format_version"]) <= Version("0.2.0"):
+            old_convention = any("class_names" in task for task in json_dict["tasks"])
+            if "tasks" in json_dict and old_convention:
+                new_tasks = []
+                for task_dict in json_dict["tasks"]:
+                    task_dict_new = TaskInfo.from_class_names(**task_dict).model_dump(mode="dict")
+                    new_tasks.append(task_dict_new)
+                json_dict["tasks"] = new_tasks
+        if "updated_at" not in json_dict:
+            json_dict["updated_at"] = datetime.min.isoformat()
+
+        dataset_info = DatasetInfo.model_validate(json_dict)
+
+        return dataset_info
+
+    @staticmethod
+    def merge(info0: "DatasetInfo", info1: "DatasetInfo") -> "DatasetInfo":
+        """
+        Merges two DatasetInfo objects into one and validates if they are compatible.
+        """
+        for task_ds0 in info0.tasks:
+            for task_ds1 in info1.tasks:
+                same_name = task_ds0.name == task_ds1.name
+                same_primitive = task_ds0.primitive == task_ds1.primitive
+                same_name_different_primitive = same_name and not same_primitive
+                if same_name_different_primitive:
+                    raise ValueError(
+                        f"Cannot merge datasets with different primitives for the same task name: "
+                        f"'{task_ds0.name}' has primitive '{task_ds0.primitive}' in dataset0 and "
+                        f"'{task_ds1.primitive}' in dataset1."
+                    )
+
+                is_same_name_and_primitive = same_name and same_primitive
+                if is_same_name_and_primitive:
+                    task_ds0_class_names = task_ds0.get_class_names() or []
+                    task_ds1_class_names = task_ds1.get_class_names() or []
+                    if task_ds0_class_names != task_ds1_class_names:
+                        raise ValueError(
+                            f"Cannot merge datasets with different class names for the same task name and primitive: "
+                            f"'{task_ds0.name}' with primitive '{task_ds0.primitive}' has class names "
+                            f"{task_ds0_class_names} in dataset0 and {task_ds1_class_names} in dataset1."
+                        )
+
+        if info1.format_version != info0.format_version:
+            user_logger.warning(
+                "Dataset format version of the two datasets do not match. "
+                f"'{info1.format_version}' vs '{info0.format_version}'."
+            )
+        dataset_format_version = info0.format_version
+        if hafnia.__dataset_format_version__ != dataset_format_version:
+            user_logger.warning(
+                f"Dataset format version '{dataset_format_version}' does not match the current "
+                f"Hafnia format version '{hafnia.__dataset_format_version__}'."
+            )
+        unique_tasks = set(info0.tasks + info1.tasks)
+        meta = (info0.meta or {}).copy()
+        meta.update(info1.meta or {})
+        return DatasetInfo(
+            dataset_name=info0.dataset_name + "+" + info1.dataset_name,
+            version="0.0.0",
+            tasks=list(unique_tasks),
+            meta=meta,
+            format_version=dataset_format_version,
+        )
+
+
+class ModelInfo(TasksInfo):
+    """Information about the model used for inference on the dataset"""
+
+    name: str = Field(description="Name of the model, e.g. 'yolov8m.pt'")
+    version: Optional[str] = Field(default=None, description="Version of the model")
+    description: Optional[str] = Field(default=None, description="Optional, description of the model")
+    reference_bibtex: Optional[str] = Field(
+        default=None,
+        description="Optional, BibTeX reference to model publication",
+    )
+    reference_paper_url: Optional[str] = Field(
+        default=None,
+        description="Optional, URL to model publication",
+    )
+    reference_model_page: Optional[str] = Field(
+        default=None,
+        description="Optional, URL to the model page",
+    )
+    meta: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata about the model")
 
 
 class License(BaseModel):
@@ -752,7 +777,7 @@ class Sample(BaseModel):
         description="Additional metadata, e.g., camera settings, GPS data, etc.",
     )
 
-    def get_annotations(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
+    def get_primitives(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
         """
         Returns a list of all annotations (classifications, objects, bitmasks, polygons) for the sample.
         """
@@ -765,6 +790,22 @@ class Sample(BaseModel):
         )
 
         return list(annotations)
+
+    def append_primitives(self, annotations: List[Primitive]) -> None:
+        """
+        Appends annotations to the sample. The annotations are grouped by their primitive type and appended to the
+        corresponding field in the sample (e.g. classifications, bboxes, bitmasks, polygons).
+        """
+        for annotation in annotations:
+            primitive_type = type(annotation)
+            if primitive_type not in PRIMITIVE_TYPES:
+                raise ValueError(f"Unsupported annotation primitive type: {primitive_type}")
+            column_name = primitive_type.column_name()
+            current_annotations = getattr(self, column_name, None)
+            if current_annotations is None:
+                current_annotations = []
+            current_annotations.append(annotation)
+            setattr(self, column_name, current_annotations)
 
     def read_image_pillow(self) -> Image.Image:
         """
@@ -804,7 +845,7 @@ class Sample(BaseModel):
 
         if image is None:
             image = self.read_image()
-        annotations = self.get_annotations()
+        annotations = self.get_primitives()
         annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations)
         return annotations_visualized
 
@@ -852,7 +893,9 @@ class DatasetMetadataFilePaths:
         return metadata_files
 
     @staticmethod
-    def available_versions_from_files_list(files: list[str]) -> Dict[Version, "DatasetMetadataFilePaths"]:
+    def available_versions_from_files_list(
+        files: list[str],
+    ) -> Dict[Version, "DatasetMetadataFilePaths"]:
         versions_and_files: Dict[Version, Dict[str, str]] = collections.defaultdict(dict)
         for metadata_file in files:
             version_str, filename = metadata_file.split("/")[-2:]
