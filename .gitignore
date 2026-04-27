@@ -166,6 +166,5 @@ cython_debug/
 /trainer.zip
 
 # Local tooling
-.vscode/
 .claude/
 state.json
