@@ -70,3 +70,38 @@ def get_exp_environment_id(name: str, cfg: Optional[Config] = None) -> str:
     available_envs = [env["name"] for env in envs]
 
     raise ValueError(f"Environment '{name}' not found. Available environments are: {available_envs}")
+
+
+@timed("Fetching experiment list.")
+def get_experiments(
+    cfg: Optional[Config] = None,
+    ordering: str = "-created_at",
+    limit: int = 1000,
+    search: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    """List available experiments on the Hafnia platform."""
+    cfg = cfg or Config()
+    endpoint = cfg.get_platform_endpoint("experiments")
+    params = {"page_size": limit, "ordering": ordering}
+    if search:
+        params["search"] = search
+
+    headers = {"Authorization": cfg.api_key}
+    response: Dict = http.fetch(endpoint, headers=headers, params=params)
+    experiments = response.get("data", [])
+    return experiments
+
+
+def pretty_print_experiments(experiments: List[Dict]) -> None:
+    EXPERIMENT_FIELDS = {
+        "ID": "id",
+        "Name": "name",
+        "State": "state",
+        "Created At": "created_at",
+        "Description": "description",
+    }
+    pretty_print_list_as_table(
+        table_title="Available Experiments (most recent first)",
+        dict_items=experiments,
+        column_name_to_key_mapping=EXPERIMENT_FIELDS,
+    )

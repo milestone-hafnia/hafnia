@@ -19,6 +19,24 @@ def experiment() -> None:
     pass
 
 
+@experiment.command(name="ls")
+@click.option("-l", "--limit", type=int, default=1000, help="Limit number of listed experiments.")
+@click.option(
+    "--ordering",
+    type=click.Choice(["created_at", "-created_at", "name", "-name"], case_sensitive=False),
+    default="-created_at",
+    help="Ordering of listed experiments.",
+)
+@click.option("-s", "--search", type=str, default=None, help="Search term to filter experiments by name.")
+@click.pass_obj
+def cmd_list_experiments(cfg: Config, limit: int, ordering: str, search: Optional[str] = None) -> None:
+    """List available experiments on the Hafnia platform."""
+    from hafnia.platform.experiment import get_experiments, pretty_print_experiments
+
+    experiments = get_experiments(cfg=cfg, limit=limit, ordering=ordering, search=search)
+    pretty_print_experiments(experiments)
+
+
 @experiment.command(name="environments")
 @click.pass_obj
 def cmd_view_environments(cfg: Config):

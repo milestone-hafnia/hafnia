@@ -85,6 +85,7 @@ def test_cli_integration_test():
 
     # Experiment commands
     CMD_EXPERIMENT = "experiment"
+    hafnia_cli(args=[CMD_EXPERIMENT, "ls"], standalone_mode=False)
     hafnia_cli(args=[CMD_EXPERIMENT, "environments"], standalone_mode=False)
     with pytest.raises(NoArgsIsHelpError):
         hafnia_cli(args=[CMD_EXPERIMENT], standalone_mode=False)

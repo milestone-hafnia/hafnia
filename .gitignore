@@ -164,3 +164,7 @@ cython_debug/
 /packaging/
 .data/
 /trainer.zip
+
+# Local tooling
+.claude/
+state.json
