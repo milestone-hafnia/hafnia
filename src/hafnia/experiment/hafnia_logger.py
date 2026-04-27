@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import platform
@@ -17,13 +18,15 @@ from hafnia.utils import is_hafnia_cloud_job, now_as_str
 
 try:
     import mlflow
-    import mlflow.tracking
-    #    import sagemaker_mlflow  # noqa: F401
 
     MLFLOW_AVAILABLE = True
 except ImportError:
     user_logger.warning("MLFlow is not available")
     MLFLOW_AVAILABLE = False
+
+SYSTEM_METRICS_AVAILABLE = importlib.util.find_spec("psutil") is not None
+if not SYSTEM_METRICS_AVAILABLE:
+    user_logger.warning("System monitoring is not available. Install 'psutil'")
 
 
 class EntityType(Enum):
@@ -136,7 +139,7 @@ class HafniaLogger:
             if created_by:
                 tags["created_by"] = created_by
 
-            mlflow.start_run(run_name=run_name, tags=tags, log_system_metrics=True)
+            mlflow.start_run(run_name=run_name, tags=tags, log_system_metrics=SYSTEM_METRICS_AVAILABLE)
             self._mlflow_initialized = True
             user_logger.info("MLflow run started successfully")
 
