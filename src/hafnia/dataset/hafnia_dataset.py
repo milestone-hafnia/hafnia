@@ -111,7 +111,6 @@ class HafniaDataset:
 
         dataset_info = DatasetInfo.from_json_file(Path(metadata_file_paths.dataset_info))
         samples = metadata_file_paths.read_samples()
-        samples = samples.with_columns(pl.col(SampleField.FILE_PATH).str.replace_all("\\\\", "/"))
         samples, dataset_info = _dataset_corrections(samples, dataset_info)
 
         # Convert from relative paths to absolute paths
