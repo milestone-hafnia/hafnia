@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+from typing import Optional, Tuple
 
 import numpy as np
 from pydantic import BaseModel
@@ -36,7 +37,12 @@ class Primitive(BaseModel, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def mask(self, image: np.ndarray, inplace: bool = False) -> np.ndarray:
+    def mask(
+        self,
+        image: np.ndarray,
+        inplace: bool = False,
+        color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None,
+    ) -> np.ndarray:
         pass
 
     @abstractmethod

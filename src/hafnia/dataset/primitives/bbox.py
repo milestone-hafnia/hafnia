@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import cv2
@@ -41,10 +42,11 @@ class Bbox(Primitive):
     object_id: Optional[str] = Field(default=None, description="Unique identifier for the object, e.g. '12345123'")
     confidence: float = Field(default=1.0, description="Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox")
     ground_truth: bool = Field(default=True, description="Whether this is ground truth or a prediction")
-
     task_name: str = Field(
         default="", description="Task name to support multiple Bbox tasks in the same dataset. '' defaults to 'bboxes'"
     )
+    created_at: Optional[datetime] = Field(default=None, description="Date when the primitive was created")
+    updated_at: Optional[datetime] = Field(default=None, description="Date when the primitive was last updated")
     meta: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the annotation")
 
     # Attributes - allow nesting of any primitive type including itself
