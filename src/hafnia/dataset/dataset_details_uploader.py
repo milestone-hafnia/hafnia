@@ -33,8 +33,6 @@ from hafnia.platform.datasets import upload_dataset_details
 from hafnia.utils import get_path_dataset_gallery_images
 from hafnia_cli.config import Config
 
-MORE_META_DATA = True
-
 
 class DatasetDetails(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
@@ -506,14 +504,12 @@ def recent_annotation_date(dataset: HafniaDataset, primitive_field: str) -> Opti
         inner = dtype.inner if isinstance(dtype, pl.List) else dtype
         return isinstance(inner, pl.Struct) and any(f.name == field_name for f in inner.fields)
 
-    has_created_at_columns = [
+    columns_with_field = [
         col for col in PRIMITIVE_COLUMN_NAMES if has_primitive_field(dataset.samples, col, primitive_field)
     ]
-    if len(has_created_at_columns) == 0:
+    if len(columns_with_field) == 0:
         return None
-    exprs = [
-        pl.col(col).list.eval(pl.element().struct.field(primitive_field)).list.max() for col in has_created_at_columns
-    ]
+    exprs = [pl.col(col).list.eval(pl.element().struct.field(primitive_field)).list.max() for col in columns_with_field]
     annotation_date = dataset.samples.select(pl.max_horizontal(exprs).max()).item()
     return annotation_date
 
