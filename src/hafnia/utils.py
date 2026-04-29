@@ -316,5 +316,23 @@ def title_to_name(title: str) -> str:
     return name
 
 
+def name_to_title(name: str) -> str:
+    """
+    Convert a machine-friendly name to a human-readable title.
+
+    Replaces underscores and hyphens with spaces, and capitalizes the first letter of each word.
+
+    Examples::
+
+        >>> name_to_title("dataset_title")
+        'Dataset Title'
+        >>> name_to_title("my__dataset__v2")
+        'My  Dataset  V2'
+    """
+    title = name.replace("_", " ").replace("-", " ")
+    title = title.title()  # Capitalize the first letter of each word
+    return title
+
+
 def get_git_revision_hash() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()

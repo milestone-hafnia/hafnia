@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
@@ -5,6 +6,7 @@ import pytest
 
 from hafnia import utils
 from hafnia.dataset import primitives
+from hafnia.dataset.format_conversions.format_encord import parse_encord_date_field
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample, TaskInfo
 from tests import helper_testing
@@ -99,6 +101,29 @@ def test_from_encord_zip_format(encord_dataset_tiny: HafniaDataset):
     assert len(sample.classifications or []) > 0, "Expected to find classifications in the sample"
 
     encord_dataset_tiny.check_dataset(check_splits=False)
+
+
+def test_parse_encord_date_field():
+    date_time = parse_encord_date_field(obj_annotation={"date_str": "asdf"}, date_field="Missing")
+    assert date_time is None
+
+    date_time = parse_encord_date_field(obj_annotation={"date_str": None}, date_field="date_str")
+    assert date_time is None
+
+    dit_obj = {
+        "date1": "Wed, 27 Sep 2023 14:48:00",
+        "date2": "Wed, 27 Sep 2023 14:48:00 UTC",
+    }
+
+    date_time1 = parse_encord_date_field(obj_annotation=dit_obj, date_field="date1")
+    assert date_time1 is not None, "Expected to parse valid date string"
+    assert date_time1 == datetime(2023, 9, 27, 14, 48, 0), "Expected to parse date string to correct datetime object"
+
+    date_time2 = parse_encord_date_field(obj_annotation=dit_obj, date_field="date2")
+    assert date_time2 is not None, "Expected to parse valid date string with UTC"
+    assert date_time2 == datetime(2023, 9, 27, 14, 48, 0), (
+        "Expected to parse date string with UTC to correct datetime object"
+    )
 
 
 def test_flattening_specification_image_based():

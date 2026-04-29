@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 import cv2
@@ -8,7 +9,7 @@ from pydantic import Field
 
 from hafnia.dataset.primitives.point import Point
 from hafnia.dataset.primitives.primitive import Primitive
-from hafnia.dataset.primitives.utils import class_color_by_name, get_class_name
+from hafnia.dataset.primitives.utils import anonymize_by_resizing, class_color_by_name, get_class_name
 
 if TYPE_CHECKING:
     from hafnia.dataset.primitives import Bbox, Bitmask, Classification
@@ -27,6 +28,8 @@ class Polygon(Primitive):
     task_name: str = Field(
         default="", description="Task name to support multiple Polygon tasks in the same dataset. Defaults to 'polygon'"
     )
+    created_at: Optional[datetime] = Field(default=None, description="Date when the primitive was created")
+    updated_at: Optional[datetime] = Field(default=None, description="Date when the primitive was last updated")
     meta: Optional[Dict[str, Any]] = Field(
         default=None, description="This can be used to store additional information about the polygon"
     )
@@ -99,17 +102,23 @@ class Polygon(Primitive):
         return image
 
     def anonymize_by_blurring(self, image: np.ndarray, inplace: bool = False, max_resolution: int = 20) -> np.ndarray:
-        from hafnia.dataset.primitives import Bitmask
-
         if not inplace:
             image = image.copy()
         points = np.array(self.to_pixel_coordinates(image_shape=image.shape[:2]))
         mask = np.zeros(image.shape[:2], dtype=np.uint8)
         mask = cv2.fillPoly(mask, [points], color=255).astype(bool)
-        bitmask = Bitmask.from_mask(mask=mask, top=0, left=0)
-        image = bitmask.anonymize_by_blurring(image=image, inplace=inplace, max_resolution=max_resolution)
+        xy_min = points.min(axis=0)
+        xy_max = points.max(axis=0)
 
-        return image
+        region_image = image[xy_min[1] : xy_max[1], xy_min[0] : xy_max[0]].copy()
+        region_mask = mask[xy_min[1] : xy_max[1], xy_min[0] : xy_max[0]]
+
+        region_image_blurred = anonymize_by_resizing(blur_region=region_image, max_resolution=max_resolution)
+        region_image[region_mask] = region_image_blurred[region_mask]
+
+        image_after = np.array(image)
+        image_after[xy_min[1] : xy_max[1], xy_min[0] : xy_max[0]] = region_image
+        return image_after
 
     def to_mask(self, img_height: int, img_width: int, use_coco_utils=False) -> np.ndarray:
         if use_coco_utils:
@@ -152,7 +161,10 @@ class Polygon(Primitive):
         )
 
     def mask(
-        self, image: np.ndarray, inplace: bool = False, color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None
+        self,
+        image: np.ndarray,
+        inplace: bool = False,
+        color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None,
     ) -> np.ndarray:
         if not inplace:
             image = image.copy()

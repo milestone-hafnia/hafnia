@@ -32,6 +32,8 @@ class PrimitiveField:
     CONFIDENCE: str = "confidence"  # Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
 
     META: str = "meta"  # Contains metadata about each primitive, e.g. attributes color, occluded, iscrowd, etc.
+    CREATED_AT: str = "created_at"  # Date when the annotation/prediction was created
+    UPDATED_AT: str = "updated_at"  # Date when the annotation/prediction was last updated
     TASK_NAME: str = "task_name"  # Name of the task this primitive is associated with, e.g. "bboxes" for Bbox
 
     @staticmethod
@@ -45,6 +47,8 @@ class PrimitiveField:
             PrimitiveField.OBJECT_ID,
             PrimitiveField.CONFIDENCE,
             PrimitiveField.META,
+            PrimitiveField.CREATED_AT,
+            PrimitiveField.UPDATED_AT,
             PrimitiveField.TASK_NAME,
         ]
 

@@ -35,12 +35,17 @@ def draw_anonymize_by_blurring(
     return image
 
 
-def draw_masks(image: np.ndarray, primitives: List[Primitive], inplace: bool = False) -> np.ndarray:
+def draw_masks(
+    image: np.ndarray,
+    primitives: List[Primitive],
+    inplace: bool = False,
+    color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None,
+) -> np.ndarray:
     if not inplace:
         image = image.copy()
 
     for primitive in primitives:
-        primitive.mask(image, inplace=True)
+        primitive.mask(image, inplace=True, color=color)
     return image
 
 

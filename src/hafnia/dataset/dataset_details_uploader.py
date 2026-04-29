@@ -18,9 +18,10 @@ from hafnia.dataset.dataset_names import (
     SplitName,
 )
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.hafnia_dataset_types import Attribution, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset_types import Attribution, License, Sample, TaskInfo
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.primitives import (
+    PRIMITIVE_COLUMN_NAMES,
     Bbox,
     Bitmask,
     Classification,
@@ -35,9 +36,11 @@ from hafnia_cli.config import Config
 
 class DatasetDetails(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     model_config = ConfigDict(use_enum_values=True)  # To parse Enum values as strings
-    name: str
+    name: Optional[str] = None
     title: Optional[str] = None
     overview: Optional[str] = None
+    purpose: Optional[str] = None
+    licenses: Optional[List[License]] = None
     data_captured_start: Optional[datetime] = None
     data_captured_end: Optional[datetime] = None
     data_received_start: Optional[datetime] = None
@@ -45,14 +48,27 @@ class DatasetDetails(BaseModel, validate_assignment=True):  # type: ignore[call-
     dataset_updated_at: Optional[datetime] = None
     license_citation: Optional[str] = None
     version: Optional[str] = None
-    s3_bucket_name: Optional[str] = None
     dataset_format_version: Optional[str] = None
     annotation_date: Optional[datetime] = None
     annotation_project_id: Optional[str] = None
     annotation_dataset_id: Optional[str] = None
     annotation_ontology: Optional[str] = None
+    annotation_format: Optional[NamedModel] = None
+    annotation_provider: Optional[NamedModel] = None
+    annotation_reviewer: Optional[NamedModel] = None
+    language: Optional[str] = None
+    tags: Optional[List[NamedModel]] = None
+    data_types: Optional[List[NamedModel]] = None
+    use_cases: Optional[List[NamedModel]] = None
+    industries: Optional[List[NamedModel]] = None
+    # categories: Optional[List[NamedModel]] = None # Not used
+    # labeling_model: Optional[List[NamedModel]] = None # Not used
+    annotation_methods: Optional[List[NamedModel]] = None
+    annotation_types: Optional[List[NamedModel]] = None
     dataset_variants: Optional[List[DbDatasetVariant]] = None
     split_annotations_reports: Optional[List[DbSplitAnnotationsReport]] = None
+    sensitivity: Optional[int] = None
+    sensitivity_reason: Optional[str] = None
     imgs: Optional[List[DatasetImage]] = None
 
 
@@ -142,6 +158,18 @@ class DbDistributionCategory(BaseModel, validate_assignment=True):  # type: igno
 
 class DbAnnotationType(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
     name: str
+
+
+class NamedModel(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
+    name: str
+
+    @classmethod
+    def from_name(cls, name: str) -> "NamedModel":
+        return cls(name=name)
+
+    @classmethod
+    def from_names(cls, names: List[str]) -> List["NamedModel"]:
+        return [cls.from_name(name) for name in names]
 
 
 class DbResolution(BaseModel, validate_assignment=True):  # type: ignore[call-arg]
@@ -282,6 +310,7 @@ def upload_dataset_details_to_platform(
     gallery_samples: Optional[Union[pl.DataFrame, HafniaDataset]] = None,
     distribution_task_names: Optional[List[str]] = None,
     update_platform: bool = True,
+    extra_dataset_details: Optional[DatasetDetails] = None,
     cfg: Optional[Config] = None,
 ) -> dict:
     cfg = cfg or Config()
@@ -291,6 +320,7 @@ def upload_dataset_details_to_platform(
         path_gallery_images=path_gallery_images,
         gallery_samples=gallery_samples,
         distribution_task_names=distribution_task_names,
+        extra_dataset_details=extra_dataset_details,
     )
 
     if update_platform:
@@ -366,10 +396,10 @@ def dataset_details_from_hafnia_dataset(
     path_gallery_images: Optional[Path] = None,
     gallery_samples: Optional[Union[pl.DataFrame, HafniaDataset]] = None,
     distribution_task_names: Optional[List[str]] = None,
+    extra_dataset_details: Optional[DatasetDetails] = None,
 ) -> DatasetDetails:
     dataset_variants = []
     dataset_reports = []
-    dataset_meta_info = dataset.info.meta or {}
 
     dataset_sample = dataset_sample or dataset.create_sample_dataset()
     path_and_variant = [DatasetVariant.SAMPLE, DatasetVariant.HIDDEN]
@@ -431,9 +461,11 @@ def dataset_details_from_hafnia_dataset(
             dataset_reports.append(report)
 
     video_stats = dataset.calculate_video_stats()
-
     dataset_name = dataset.info.dataset_name
-    dataset_info = DatasetDetails(
+    annotation_types = [NamedModel.from_name(task.primitive.__name__) for task in dataset.info.tasks]
+    annotation_date = recent_annotation_date(dataset, PrimitiveField.UPDATED_AT)
+
+    dataset_details = DatasetDetails(
         name=dataset_name,
         title=dataset.info.dataset_title,
         overview=dataset.info.description,
@@ -443,16 +475,43 @@ def dataset_details_from_hafnia_dataset(
         dataset_updated_at=dataset.info.updated_at,
         dataset_format_version=dataset.info.format_version,
         license_citation=dataset.info.reference_bibtex,
+        annotation_date=annotation_date,
         data_captured_start=video_stats.get("data_captured_start", None),
         data_captured_end=video_stats.get("data_captured_end", None),
         data_received_start=video_stats.get("data_received_start", None),
         data_received_end=video_stats.get("data_received_end", None),
-        annotation_project_id=dataset_meta_info.get("annotation_project_id", None),
-        annotation_dataset_id=dataset_meta_info.get("annotation_dataset_id", None),
+        annotation_types=annotation_types,
         imgs=gallery_images,
     )
 
-    return dataset_info
+    if extra_dataset_details is not None:
+        # Update dataset_details with any additional fields provided in extra_dataset_details
+        # This will overwrite all explicitly provided fields in 'extra_dataset_details' including
+        # 'None' values. This allows users to explicitly set fields to 'None' if they want to
+        # remove certain information from the dataset details.
+        dataset_details = dataset_details.model_copy(
+            update={field: getattr(extra_dataset_details, field) for field in extra_dataset_details.model_fields_set}
+        )
+
+    return dataset_details
+
+
+def recent_annotation_date(dataset: HafniaDataset, primitive_field: str) -> Optional[datetime]:
+    def has_primitive_field(df: pl.DataFrame, col_name: str, field_name: str) -> bool:
+        if col_name not in df.columns:
+            return False
+        dtype = df[col_name].dtype
+        inner = dtype.inner if isinstance(dtype, pl.List) else dtype
+        return isinstance(inner, pl.Struct) and any(f.name == field_name for f in inner.fields)
+
+    columns_with_field = [
+        col for col in PRIMITIVE_COLUMN_NAMES if has_primitive_field(dataset.samples, col, primitive_field)
+    ]
+    if len(columns_with_field) == 0:
+        return None
+    exprs = [pl.col(col).list.eval(pl.element().struct.field(primitive_field)).list.max() for col in columns_with_field]
+    annotation_date = dataset.samples.select(pl.max_horizontal(exprs).max()).item()
+    return annotation_date
 
 
 def create_reports_from_primitive(

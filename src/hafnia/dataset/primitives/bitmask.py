@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import cv2
@@ -40,6 +41,8 @@ class Bitmask(Primitive):
     task_name: str = Field(
         default="", description="Task name to support multiple Bitmask tasks in the same dataset. Defaults to 'bitmask'"
     )
+    created_at: Optional[datetime] = Field(default=None, description="Date when the primitive was created")
+    updated_at: Optional[datetime] = Field(default=None, description="Date when the primitive was last updated")
     meta: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the annotation")
 
     # Attributes - allow nesting of any primitive type including itself
