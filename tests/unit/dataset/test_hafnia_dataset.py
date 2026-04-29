@@ -80,7 +80,13 @@ def test_write_annotations_stores_posix_paths(tmp_path: Path):
     path_file.parent.mkdir(parents=True, exist_ok=True)
     path_file.write_text("")
 
-    sample = Sample(file_path=str(path_file), height=10, width=10, split="train", classifications=[Classification(class_name="Class A", class_idx=0)])
+    sample = Sample(
+        file_path=str(path_file),
+        height=10,
+        width=10,
+        split="train",
+        classifications=[Classification(class_name="Class A", class_idx=0)],
+    )
     dataset = HafniaDataset.from_samples_list(samples_list=[sample], info=dataset_info)
     dataset.write_annotations(path_folder=path_dataset)
 
