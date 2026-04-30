@@ -3,7 +3,6 @@ import subprocess
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Optional
 
 import click
 
@@ -27,7 +26,7 @@ def runc():
 )
 @click.option(
     "--image_name",
-    type=Optional[str],
+    type=str,
     default=None,
     help=(
         "Docker image name to use for the launch. "
@@ -40,7 +39,7 @@ def launch_local(cfg: Config, exec_cmd: str, dataset: str, image_name: str) -> N
     """Launch a job within the image."""
     from hafnia.dataset.hafnia_dataset import download_or_get_dataset_path
 
-    is_local_dataset = "/" in dataset
+    is_local_dataset = Path(dataset).exists()
     if is_local_dataset:
         click.echo(f"Using local dataset: {dataset}")
         path_dataset = Path(dataset)
@@ -70,7 +69,7 @@ def launch_local(cfg: Config, exec_cmd: str, dataset: str, image_name: str) -> N
         "run",
         "--rm",
         "-v",
-        f"{path_dataset.absolute()}:/opt/ml/input/data/training",
+        f"{path_dataset.absolute().as_posix()}:/opt/ml/input/data/training",
         "-e",
         "HAFNIA_CLOUD=true",
         "-e",

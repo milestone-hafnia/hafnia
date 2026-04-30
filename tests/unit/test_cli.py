@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from typing import Dict
 
@@ -6,6 +7,7 @@ from click.testing import CliRunner
 
 import hafnia_cli.__main__ as cli
 import hafnia_cli.consts as consts
+import hafnia_cli.runc_cmds as runc_cmds
 from hafnia_cli.config import Config, ConfigFileSchema, ConfigSchema
 
 
@@ -212,3 +214,66 @@ def test_setting_environment_variables(tmp_path: Path):
         config = Config()
         assert config.api_key == env["HAFNIA_API_KEY"]
         assert config.platform_url == env["HAFNIA_PLATFORM_URL"]
+
+
+class TestRuncLaunchLocal:
+    def test_local_dataset_detected_by_path_existence(
+        self, cli_runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A local filesystem path must be detected as local even if it contains no '/'."""
+        path_dataset = tmp_path / "my_dataset"
+        path_dataset.mkdir()
+
+        monkeypatch.setattr(runc_cmds.subprocess, "run", lambda *a, **kw: subprocess.CompletedProcess(a, 0))
+
+        result = cli_runner.invoke(
+            cli.main,
+            [
+                "runc",
+                "launch-local",
+                "--dataset",
+                str(path_dataset),
+                "--image_name",
+                "test-image:latest",
+                "python train.py",
+            ],
+        )
+        assert "Using local dataset" in result.output, (
+            f"Local path not detected as local dataset. Output: {result.output}"
+        )
+        assert "Using Hafnia dataset" not in result.output
+
+    def test_docker_volume_mount_uses_forward_slashes(
+        self, cli_runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Docker -v argument must use forward slashes so it is valid on Linux."""
+        path_dataset = tmp_path / "my_dataset"
+        path_dataset.mkdir()
+
+        captured: list = []
+
+        def mock_run(args, **_):
+            captured.append(args)
+            return subprocess.CompletedProcess(args, 0)
+
+        monkeypatch.setattr(runc_cmds.subprocess, "run", mock_run)
+
+        cli_runner.invoke(
+            cli.main,
+            [
+                "runc",
+                "launch-local",
+                "--dataset",
+                str(path_dataset),
+                "--image_name",
+                "test-image:latest",
+                "python train.py",
+            ],
+        )
+
+        assert captured, "subprocess.run was never called"
+        docker_args = captured[0]
+        v_idx = docker_args.index("-v")
+        volume_mount = docker_args[v_idx + 1]
+        assert chr(92) not in volume_mount, f"Backslash in Docker volume mount: {volume_mount!r}"
+        assert ":/opt/ml/input/data/training" in volume_mount
