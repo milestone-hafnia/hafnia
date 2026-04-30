@@ -106,6 +106,27 @@ def test_title_to_name(title: str, expected_name: str) -> None:
     assert title_to_name(title) == expected_name
 
 
+_name_to_title_cases = [
+    ("my_dataset", "My Dataset"),
+    ("my-dataset", "My Dataset"),
+    ("dataset_title", "Dataset Title"),
+    ("my__dataset__v2", "My  Dataset  V2"),
+    ("mixed-case_title", "Mixed Case Title"),
+    ("single", "Single"),
+]
+
+
+@pytest.mark.parametrize(
+    "name, expected_title",
+    _name_to_title_cases,
+    ids=[f"{tc[0]} -> {tc[1]}" for tc in _name_to_title_cases],
+)
+def test_name_to_title(name: str, expected_title: str) -> None:
+    from hafnia.utils import name_to_title
+
+    assert name_to_title(name) == expected_title
+
+
 def test_zip_entry_names_use_forward_slashes(tmp_path: Path, project_with_files_default: Tuple) -> None:
     """Zip entry names must use forward slashes so Linux can extract the directory structure correctly.
     On Windows, pathspec.match_tree() returns backslash paths -- this test catches that regression."""

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -21,6 +22,8 @@ class Classification(Primitive):
         default="",
         description="To support multiple Classification tasks in the same dataset. '' defaults to 'classification'",
     )
+    created_at: Optional[datetime] = Field(default=None, description="Date when the primitive was created")
+    updated_at: Optional[datetime] = Field(default=None, description="Date when the primitive was last updated")
     meta: Optional[Dict[str, Any]] = Field(
         default=None, description="This can be used to store additional information about the classification"
     )

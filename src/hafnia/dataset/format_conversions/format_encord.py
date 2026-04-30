@@ -299,6 +299,10 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
                 )  # To avoid mixing float and int values
                 object_hash = obj_annotation["objectHash"]
                 encord_primitive_shape = obj_annotation.pop("shape")
+
+                created_at = parse_encord_date_field(obj_annotation, "createdAt")
+                updated_at = parse_encord_date_field(obj_annotation, "lastEditedAt")
+
                 Primitive = primitive_from_encord_shape_name(encord_primitive_shape)
                 task_info: TaskInfo = object_tasks[Primitive]
 
@@ -327,6 +331,8 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
                             class_idx=class_idx,
                             meta=obj_annotation,
                             classifications=primitive_attributes,
+                            created_at=created_at,
+                            updated_at=updated_at,
                         )
                     )
                 elif Primitive == Polygon:
@@ -345,6 +351,8 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
                             class_idx=class_idx,
                             meta=obj_annotation,
                             classifications=primitive_attributes,
+                            created_at=created_at,
+                            updated_at=updated_at,
                         )
                     )
                 elif Primitive == Bitmask:
@@ -365,6 +373,8 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
                         class_idx=class_idx,
                         meta=obj_annotation,
                         classifications=primitive_attributes,
+                        created_at=created_at,
+                        updated_at=updated_at,
                     )
 
                     sample.bitmasks.append(tmp_bitmask)
@@ -388,6 +398,19 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
         samples.append(sample)
 
     return samples
+
+
+def parse_encord_date_field(obj_annotation: dict, date_field: str) -> Optional[datetime]:
+    if date_field not in obj_annotation:
+        return None
+
+    if obj_annotation[date_field] is None:
+        return None
+
+    encord_dateformat = "%a, %d %b %Y %H:%M:%S"  # E.g. "Wed, 27 Sep 2023 14:48:00" or "Wed, 27 Sep 2023 14:48:00 UTC"
+    created_at_str = obj_annotation.pop(date_field).strip().removesuffix("UTC").strip()
+    created_at = datetime.strptime(created_at_str, encord_dateformat)
+    return created_at
 
 
 def from_encord_bitmask_to_coco_rle_string(encord_bitmask_dict: Dict) -> Dict:

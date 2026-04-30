@@ -91,6 +91,14 @@ $defs:
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
         title: Confidence
         type: number
+      created_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was created
+        title: Created At
       ground_truth:
         default: true
         description: Whether this is ground truth or a prediction
@@ -140,6 +148,14 @@ $defs:
           edge) as a fraction of image height
         title: Top Left Y
         type: number
+      updated_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was last updated
+        title: Updated At
       width:
         description: Normalized width of the bounding box (0.0=no width, 1.0=full
           image width) as a fraction of image width
@@ -204,6 +220,14 @@ $defs:
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
         title: Confidence
         type: number
+      created_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was created
+        title: Created At
       ground_truth:
         default: true
         description: Whether this is ground truth or a prediction
@@ -255,6 +279,14 @@ $defs:
         description: 'Bitmask top coordinate in pixels '
         title: Top
         type: integer
+      updated_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was last updated
+        title: Updated At
       width:
         description: Bitmask width of the bounding box in pixels
         title: Width
@@ -296,6 +328,14 @@ $defs:
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Classification
         title: Confidence
         type: number
+      created_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was created
+        title: Created At
       ground_truth:
         default: true
         description: Whether this is ground truth or a prediction
@@ -322,6 +362,14 @@ $defs:
           '' defaults to 'classification'
         title: Task Name
         type: string
+      updated_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was last updated
+        title: Updated At
     title: Classification
     type: object
   Point:
@@ -393,6 +441,14 @@ $defs:
         description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Bbox
         title: Confidence
         type: number
+      created_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was created
+        title: Created At
       ground_truth:
         default: true
         description: Whether this is ground truth or a prediction
@@ -433,6 +489,14 @@ $defs:
           Defaults to 'polygon'
         title: Task Name
         type: string
+      updated_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was last updated
+        title: Updated At
     required:
     - points
     title: Polygon

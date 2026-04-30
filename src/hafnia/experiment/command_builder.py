@@ -42,6 +42,8 @@ from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
+from hafnia import utils
+
 DEFAULT_N_POSITIONAL_ARGS: int = 0
 DEFAULT_CASE_CONVERSION: Literal["none", "kebab"] = "none"
 DEFAULT_PARAMETER_PREFIX: str = "--"
@@ -77,6 +79,7 @@ def auto_save_command_builder_schema(
     ```python
     function_schema = schema_from_cli_function(main_cli_function)
     command_builder = CommandBuilderSchema(
+        name="Trainer",
         cmd="python scripts/train.py",
         json_schema=function_schema,
         case_conversion="kebab",
@@ -120,6 +123,11 @@ class CommandBuilderSchema(BaseModel):
     'from_function(...)' method.
 
     """
+
+    name: str = Field(
+        ...,
+        description=("The name of the command builder schema."),
+    )
 
     cmd: str = Field(
         ...,
@@ -262,6 +270,7 @@ class CommandBuilderSchema(BaseModel):
             handle_union_types=handle_union_types,
         )
         return CommandBuilderSchema(
+            name=utils.name_to_title(cli_function.__name__),
             cmd=cmd,
             json_schema=function_schema,
             case_conversion=set_case_conversion,
