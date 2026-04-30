@@ -634,7 +634,7 @@ def create_gallery_images(
         image = sample.draw_annotations()
         if sample.file_path is None:
             raise ValueError(f"Sample {sample} does not have a file path.")
-        sample_name = Path(sample.file_path).name
+        sample_name = PurePosixPath(sample.file_path.replace("\\", "/")).name
         path_gallery_image = path_gallery_images / sample_name
         Image.fromarray(image).save(path_gallery_image)
 
