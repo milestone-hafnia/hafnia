@@ -135,7 +135,7 @@ def archive_dir(
     with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
         for str_filepath in include_files_generator:
             full_path = recipe_path / str_filepath
-            zip_ref.write(full_path, str_filepath)
+            zip_ref.write(full_path, Path(str_filepath).as_posix())
             included_files.append(full_path)
     show_trainer_package_content(recipe_zip_path)
 

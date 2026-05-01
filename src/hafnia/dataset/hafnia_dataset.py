@@ -659,7 +659,7 @@ class HafniaDataset:
         # Store only relative paths in the annotations files
         if SampleField.FILE_PATH in samples.columns:  # We drop column for remote datasets
             absolute_paths = samples[SampleField.FILE_PATH].to_list()
-            relative_paths = [str(Path(path).relative_to(path_folder)) for path in absolute_paths]
+            relative_paths = [Path(path).relative_to(path_folder).as_posix() for path in absolute_paths]
             samples = samples.with_columns(pl.Series(relative_paths).alias(SampleField.FILE_PATH))
         else:
             samples = samples.with_columns(pl.lit("").alias(SampleField.FILE_PATH))

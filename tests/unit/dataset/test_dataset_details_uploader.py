@@ -1,10 +1,18 @@
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+import polars as pl
 import pytest
 
-from hafnia.dataset.dataset_details_uploader import dataset_details_from_hafnia_dataset
+from hafnia.dataset.dataset_details_uploader import (
+    DatasetImageMetadata,
+    create_gallery_images,
+    dataset_details_from_hafnia_dataset,
+)
+from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import Classification
 from tests import helper_testing
 
@@ -75,3 +83,58 @@ def test_dataset_details_extraction():
     assert isinstance(variant_hidden.resolutions, list) and len(variant_hidden.resolutions) > 0, (
         "Expected resolutions to be a list"
     )
+
+
+@pytest.mark.parametrize(
+    "file_path, expected",
+    [
+        ("C:\\Users\\data\\images\\file.jpg", "data/images/file.jpg"),  # Windows absolute
+        ("/opt/ml/input/data/training/file.jpg", "data/training/file.jpg"),  # Linux absolute
+        ("data/subdir/file.jpg", "data/subdir/file.jpg"),  # Posix relative
+    ],
+    ids=["windows", "linux", "posix-relative"],
+)
+def test_dataset_image_metadata_normalizes_file_path(file_path: str, expected: str) -> None:
+    """DatasetImageMetadata.from_sample must produce a forward-slash path of the last 3 parts."""
+    sample = Sample(
+        file_path=file_path,
+        height=10,
+        width=10,
+        split="train",
+        classifications=[Classification(class_name="A", class_idx=0)],
+    )
+    metadata = DatasetImageMetadata.from_sample(sample)
+    assert metadata.meta is not None
+    stored_path = metadata.meta[SampleField.FILE_PATH]
+    assert "\\" not in stored_path, f"Backslash survived normalisation: {stored_path!r}"
+    assert stored_path == expected, f"Unexpected path: {stored_path!r}"
+
+
+@pytest.mark.parametrize(
+    "file_path",
+    [
+        "C:\\Users\\data\\images\\file.jpg",  # Windows absolute
+        "/opt/ml/input/data/training/file.jpg",  # Linux absolute
+        "data/subdir/file.jpg",  # Posix relative
+    ],
+    ids=["windows", "linux", "posix-relative"],
+)
+def test_create_gallery_images_uses_filename_only(
+    file_path: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Gallery images must be saved using only the filename regardless of path style."""
+    monkeypatch.setattr(Sample, "draw_annotations", lambda _: np.zeros((10, 10, 3), dtype=np.uint8))
+
+    samples = pl.DataFrame(
+        {
+            SampleField.FILE_PATH: [file_path],
+            SampleField.HEIGHT: [10],
+            SampleField.WIDTH: [10],
+            SampleField.SPLIT: ["train"],
+        }
+    )
+
+    path_gallery = tmp_path / "gallery"
+    create_gallery_images(gallery_samples=samples, path_gallery_images=path_gallery)
+
+    assert (path_gallery / "file.jpg").exists(), f"Gallery image not saved with correct filename for path {file_path!r}"

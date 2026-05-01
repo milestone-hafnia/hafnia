@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional, Type, Union
 
 import boto3
@@ -226,7 +226,7 @@ class DatasetImageMetadata(BaseModel):
         sample = sample.model_copy(deep=True)
         if sample.file_path is None:
             raise ValueError("Sample has no file_path defined.")
-        sample.file_path = "/".join(Path(sample.file_path).parts[-3:])
+        sample.file_path = "/".join(PurePosixPath(sample.file_path.replace("\\", "/")).parts[-3:])
         metadata = {}
         metadata_field_names = [
             SampleField.FILE_PATH,
@@ -634,7 +634,7 @@ def create_gallery_images(
         image = sample.draw_annotations()
         if sample.file_path is None:
             raise ValueError(f"Sample {sample} does not have a file path.")
-        sample_name = sample.file_path.split("/")[-1]
+        sample_name = PurePosixPath(sample.file_path.replace("\\", "/")).name
         path_gallery_image = path_gallery_images / sample_name
         Image.fromarray(image).save(path_gallery_image)
 

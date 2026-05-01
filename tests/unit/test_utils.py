@@ -125,3 +125,14 @@ def test_name_to_title(name: str, expected_title: str) -> None:
     from hafnia.utils import name_to_title
 
     assert name_to_title(name) == expected_title
+
+
+def test_zip_entry_names_use_forward_slashes(tmp_path: Path, project_with_files_default: Tuple) -> None:
+    """Zip entry names must use forward slashes so Linux can extract the directory structure correctly.
+    On Windows, pathspec.match_tree() returns backslash paths -- this test catches that regression."""
+    path_source_code, _, _ = project_with_files_default
+    path_zipped_trainer = tmp_path / "trainer.zip"
+    path_zipped_trainer, _ = archive_dir(path_source_code, path_zipped_trainer)
+    zipped_files = ZipFile(path_zipped_trainer).namelist()
+    backslash_entries = [e for e in zipped_files if "\\" in e]
+    assert not backslash_entries, f"Backslash found in zip entry names: {backslash_entries}"

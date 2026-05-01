@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -5,7 +6,7 @@ import pytest
 from packaging.version import Version
 
 import hafnia
-from hafnia.dataset.dataset_names import SampleField
+from hafnia.dataset.dataset_names import FILENAME_ANNOTATIONS_JSONL, SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 # from data_management import utils
@@ -67,6 +68,31 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
     table_expected = dataset.samples.drop(SampleField.FILE_PATH)
     table_actual = dataset_reloaded.samples.drop(SampleField.FILE_PATH)
     assert table_expected.equals(table_actual), "The samples tables do not match after reloading the dataset."
+
+
+def test_write_annotations_stores_posix_paths(tmp_path: Path):
+    task_info = TaskInfo.from_class_names(
+        name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification
+    )
+    dataset_info = DatasetInfo(dataset_name="Sample Dataset", version="1.0.0", tasks=[task_info])
+    path_dataset = tmp_path / "test_hafnia_dataset"
+    path_file = path_dataset / "data" / "img.png"
+    path_file.parent.mkdir(parents=True, exist_ok=True)
+    path_file.write_text("")
+
+    sample = Sample(
+        file_path=str(path_file),
+        height=10,
+        width=10,
+        split="train",
+        classifications=[Classification(class_name="Class A", class_idx=0)],
+    )
+    dataset = HafniaDataset.from_samples_list(samples_list=[sample], info=dataset_info)
+    dataset.write_annotations(path_folder=path_dataset)
+
+    with open(path_dataset / FILENAME_ANNOTATIONS_JSONL) as f:
+        stored_path = json.loads(f.readline())[SampleField.FILE_PATH]
+    assert "\\" not in stored_path, f"Backslash found in stored path: {stored_path!r}"
 
 
 @pytest.mark.parametrize("function_name", get_hafnia_functions_from_module(dataset_transformations))
