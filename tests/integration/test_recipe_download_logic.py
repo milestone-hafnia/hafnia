@@ -13,10 +13,14 @@ def test_recipe_download_files_with_write(tmp_path):
     """
     Verifies the logic used in the "fetching data" step. The main idea is to save resources by
     only downloading files that are used in the final recipe (after merging and filtering) and
-    also avoiding unnecessary copy and hashing of files. We do this by combining
+    also avoiding unnecessary copy and hashing of files.
 
-    First skipping download with `download_files=False`, downloading to a specific path with `download_files(path)`
-    and then writing the dataset to a specific path with `allow_skip=True` and `rename_by_hash=False` to avoid
+
+    We do this by combining the following steps:
+    1) Skipping initial download of dataset images/videos with `download_files=False`. Causing only
+       annotations / metadata to be downloaded.
+    2) Downloading images/videos to a specific path with `download_files(path)`
+    3) Writing the dataset to a specific path with `allow_skip=True` and `rename_by_hash=False` to avoid
     unnecessary copying and hashing of files that are already in the right place with the right name.
 
     # Code snippet to be used in "fetching data" step in the recipe build logic:
@@ -46,7 +50,7 @@ def test_recipe_download_files_with_write(tmp_path):
         assert Path(path).exists(), f"Expected downloaded file to exist: {path}"
 
     assert len(list(path_write.iterdir())) == 1, "Expect only 'data' folder in the download path"
-    dataset.write(path_write, rename_by_hash=False, allow_skip=False)
+    dataset.write(path_write, rename_by_hash=False, allow_skip=True)
     assert len(list(path_write.iterdir())) == 4, "Expect remaining files"
 
     # Written files should preserve original filenames
