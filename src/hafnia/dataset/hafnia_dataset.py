@@ -524,8 +524,12 @@ class HafniaDataset:
         # Update dataset with new paths after download
         dataset.samples = dataset.samples.update(download_df, on=[SampleField.REMOTE_PATH])
 
-        # Extend 'download_df' with dataset name
-        download_samples = download_df.join(dataset.samples, on=SampleField.REMOTE_PATH, how="left")
+        # Extend 'download_df' with dataset name - but keep only unique remote paths to avoid duplicate downloads
+        download_samples = download_df.join(
+            dataset.samples.select([SampleField.REMOTE_PATH, SampleField.DATASET_NAME]),
+            on=SampleField.REMOTE_PATH,
+            how="left",
+        ).unique(subset=SampleField.REMOTE_PATH, keep="first")
         missing_samples = download_samples.filter(pl.col(MISSING_LOCALLY_COLUMN))
         existing_samples = download_samples.filter(pl.col(MISSING_LOCALLY_COLUMN) == False)  # noqa: E712
 
