@@ -12,21 +12,14 @@ from tests.helper_testing_datasets import DATASET_SPEC_MNIST
 def test_recipe_download_files_with_write(tmp_path):
     """
     Verifies the logic used in the "fetching data" step. The main idea is to save resources by
-    only downloading files that are used in the final recipe (after merging and filtering) and
-    also avoiding unnecessary copy and hashing of files.
+    only downloading files that are used in the final recipe (after merging and filtering) and also
+    avoids  hashing and coping of files by downloading files by saving only annotations to the same path.
 
-
-    We do this by combining the following steps:
-    1) Skipping initial download of dataset images/videos with `download_files=False`. Causing only
-       annotations / metadata to be downloaded.
-    2) Downloading images/videos to a specific path with `download_files(path)`
-    3) Writing the dataset to a specific path with `allow_skip=True` and `rename_by_hash=False` to avoid
-    unnecessary copying and hashing of files that are already in the right place with the right name.
 
     # Code snippet to be used in "fetching data" step in the recipe build logic:
     dataset: HafniaDataset = recipe.build(download_files=False)
     dataset = dataset.download_files(path_write)
-    dataset.write(path_write, rename_by_hash=False, allow_skip=True)
+    dataset.write_annotations(path_write)
     """
     if not is_hafnia_configured():
         pytest.skip("Hafnia platform not configured. Skipping recipe download logic test.")
@@ -50,7 +43,7 @@ def test_recipe_download_files_with_write(tmp_path):
         assert Path(path).exists(), f"Expected downloaded file to exist: {path}"
 
     assert len(list(path_write.iterdir())) == 1, "Expect only 'data' folder in the download path"
-    dataset.write(path_write, rename_by_hash=False, allow_skip=True)
+    dataset.write_annotations(path_write)
     assert len(list(path_write.iterdir())) == 4, "Expect remaining files"
 
     # Written files should preserve original filenames
@@ -59,3 +52,6 @@ def test_recipe_download_files_with_write(tmp_path):
     assert len(written_paths) == len(file_paths)
     for written_path in written_paths:
         assert Path(written_path).exists(), f"Expected written file to exist: {written_path}"
+
+    dataset_new = HafniaDataset.from_path(path_write)
+    dataset_new.check_dataset()

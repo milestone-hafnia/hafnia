@@ -639,13 +639,7 @@ class HafniaDataset:
             keep_sample_data=keep_sample_data,
         )
 
-    def write(
-        self,
-        path_folder: Path,
-        drop_null_cols: bool = True,
-        rename_by_hash: bool = True,  ## Use only rename_by_hash=False, when sample file names are unique.
-        allow_skip: bool = True,
-    ) -> None:
+    def write(self, path_folder: Path, drop_null_cols: bool = True) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         path_folder = path_folder.absolute()
         if not path_folder.exists():
@@ -653,21 +647,11 @@ class HafniaDataset:
         hafnia_dataset = self.copy()  # To avoid inplace modifications
         new_paths = []
         org_paths = hafnia_dataset.samples[SampleField.FILE_PATH].to_list()
-        path_dataset_root = path_folder / "data"
-        path_dataset_root.mkdir(parents=True, exist_ok=True)
         for org_path in progress_bar(org_paths, description="- Copy images"):
-            if rename_by_hash:
-                new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
-                    path_source=Path(org_path),
-                    path_dataset_root=path_dataset_root,
-                    allow_skip=allow_skip,
-                )
-            else:
-                new_path = dataset_helpers.copy_file_to_folder(
-                    path_src_file=Path(org_path),
-                    path_dst_folder=path_dataset_root,
-                    allow_skip=allow_skip,
-                )
+            new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
+                path_source=Path(org_path),
+                path_dataset_root=path_folder / "data",
+            )
             new_paths.append(new_path.as_posix())
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
         hafnia_dataset.write_annotations(path_folder=path_folder, drop_null_cols=drop_null_cols)
