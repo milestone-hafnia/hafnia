@@ -118,7 +118,11 @@ def save_pil_image_with_hash_name(
     return path_image
 
 
-def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Path) -> Path:
+def copy_and_rename_file_to_hash_value(
+    path_source: Path,
+    path_dataset_root: Path,
+    allow_skip: bool = True,
+) -> Path:
     """
     Copies a file to a dataset root directory with a hash-based name and sub-directory structure.
     """
@@ -129,8 +133,11 @@ def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Pat
     hash_value = hash_file_xxhash(path_source)
     path_file = path_dataset_root / relative_path_from_hash(hash=hash_value, suffix=path_source.suffix)
     path_file.parent.mkdir(parents=True, exist_ok=True)
-    if not path_file.exists():
-        shutil.copy2(path_source, path_file)
+
+    if allow_skip and path_file.exists():
+        return path_file
+
+    shutil.copy2(path_source, path_file)
 
     return path_file
 

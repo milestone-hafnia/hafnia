@@ -196,6 +196,7 @@ def test_command_builder_schema(tmp_path: Path):
     cli_function_example = example_advanced_cli_example()
     path_schema_json = tmp_path / "command_schema.json"
     auto_save_command_builder_schema(
+        name="Trainer",
         n_positional_args=0,
         cli_function=cli_function_example,
         path_schema=path_schema_json,
@@ -205,6 +206,7 @@ def test_command_builder_schema(tmp_path: Path):
 
     schema = CommandBuilderSchema.from_json_file(path_schema_json)
     schema.model_dump(mode="json")
+    assert schema.name == "Trainer"
 
 
 def test_command_builder_from_function():
