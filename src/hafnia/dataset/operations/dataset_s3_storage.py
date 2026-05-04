@@ -188,6 +188,10 @@ def sync_dataset_files_to_platform_from_resource_credentials(
         else:
             dataset_variant = dataset
 
+        dataset_variant.samples = dataset_variant.samples.with_columns(
+            pl.lit(dataset.info.dataset_name).alias(SampleField.DATASET_NAME)
+        )
+
         sync_hafnia_dataset_to_s3(
             dataset=dataset_variant,
             bucket_prefix=f"s3://{bucket_name}/{dataset_variant_type.value}",

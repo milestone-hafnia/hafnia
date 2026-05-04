@@ -45,7 +45,7 @@ from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
 from hafnia.platform.datasets import get_read_credentials_by_name
-from hafnia.platform.s5cmd_utils import AwsCredentials, ResourceCredentials
+from hafnia.platform.s5cmd_utils import ResourceCredentials, fast_copy_files
 from hafnia.utils import progress_bar
 from hafnia_cli.config import Config
 
@@ -491,16 +491,14 @@ class HafniaDataset:
 
         return HafniaDataset(info=merged_info, samples=merged_samples)
 
-    def download_files_aws(
+    def download_files(
         dataset: HafniaDataset,
         path_output_folder: Path,
-        aws_credentials: AwsCredentials,
         force_redownload: bool = False,
         extend_name_by_subfolder: int = 0,
         subfolder_name: str = "data",
+        cfg: Optional[Config] = None,
     ) -> HafniaDataset:
-        from hafnia.platform.s5cmd_utils import fast_copy_files
-
         path_data = path_output_folder / subfolder_name
         path_data.mkdir(parents=True, exist_ok=True)
 
@@ -508,48 +506,62 @@ class HafniaDataset:
             raise ValueError(
                 f"'extend_name_by_subfolder' must be a non-negative integer. Got {extend_name_by_subfolder}."
             )
-        remote_src_paths = dataset.samples[SampleField.REMOTE_PATH].unique().to_list()
+        MISSING_LOCALLY_COLUMN = "MissingLocally"
         update_rows = []
-        local_dst_paths = []
-        for remote_src_path in remote_src_paths:
+        for remote_src_path in dataset.samples[SampleField.REMOTE_PATH].unique().to_list():
             path_parts = remote_src_path.split("/")
             filename = "_".join(path_parts[-(1 + extend_name_by_subfolder) :])
             local_path_str = (path_data / filename).absolute().as_posix()
-            local_dst_paths.append(local_path_str)
             update_rows.append(
                 {
                     SampleField.REMOTE_PATH: remote_src_path,
                     SampleField.FILE_PATH: local_path_str,
+                    MISSING_LOCALLY_COLUMN: not Path(local_path_str).exists(),
                 }
             )
-        update_df = pl.DataFrame(update_rows)
-        samples = dataset.samples.update(update_df, on=[SampleField.REMOTE_PATH])
-        dataset = dataset.update_samples(samples)
+        download_df = pl.DataFrame(update_rows)
 
-        if not force_redownload:
-            download_indices = [idx for idx, local_path in enumerate(local_dst_paths) if not Path(local_path).exists()]
-            n_files = len(local_dst_paths)
-            skip_files = n_files - len(download_indices)
-            if skip_files > 0:
-                user_logger.info(
-                    f"Found {skip_files}/{n_files} files already exists. Downloading {len(download_indices)} files."
-                )
-            remote_src_paths = [remote_src_paths[idx] for idx in download_indices]
-            local_dst_paths = [local_dst_paths[idx] for idx in download_indices]
+        # Update dataset with new paths after download
+        dataset.samples = dataset.samples.update(download_df, on=[SampleField.REMOTE_PATH])
 
-        if len(remote_src_paths) == 0:
+        # Extend 'download_df' with dataset name
+        download_samples = download_df.join(dataset.samples, on=SampleField.REMOTE_PATH, how="left")
+        missing_samples = download_samples.filter(pl.col(MISSING_LOCALLY_COLUMN))
+        existing_samples = download_samples.filter(pl.col(MISSING_LOCALLY_COLUMN) == False)  # noqa: E712
+
+        if not force_redownload and len(missing_samples) == 0:
             user_logger.info(
                 "All files already exist locally. Skipping download. Set 'force_redownload=True' to re-download."
             )
             return dataset
 
-        environment_vars = aws_credentials.aws_credentials()
-        fast_copy_files(
-            src_paths=remote_src_paths,
-            dst_paths=local_dst_paths,
-            append_envs=environment_vars,
-            description="Downloading images",
-        )
+        if force_redownload:
+            missing_samples = download_samples
+        else:
+            if len(existing_samples) > 0:
+                user_logger.info(
+                    f"Found {len(existing_samples)}/{len(download_samples)} files already exists. "
+                    f"Downloading {len(missing_samples)} files."
+                )
+
+        cfg = cfg or Config()
+        for (dataset_name,), dataset_group in missing_samples.group_by(SampleField.DATASET_NAME):
+            if dataset_name is None:
+                user_logger.warning(
+                    "Dataset name is missing in the samples. Cannot download files without dataset name."
+                )
+                continue
+            user_logger.info(f"Downloading files for dataset '{dataset_name}'...")
+            remote_src_paths = dataset_group[SampleField.REMOTE_PATH].to_list()
+            local_dst_paths = dataset_group[SampleField.FILE_PATH].to_list()
+            resource_credentials: ResourceCredentials = get_read_credentials_by_name(dataset_name=dataset_name, cfg=cfg)
+            environment_vars = resource_credentials.aws_credentials()
+            fast_copy_files(
+                src_paths=remote_src_paths,
+                dst_paths=local_dst_paths,
+                append_envs=environment_vars,
+                description="Downloading images",
+            )
         return dataset
 
     def to_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
@@ -623,7 +635,13 @@ class HafniaDataset:
             keep_sample_data=keep_sample_data,
         )
 
-    def write(self, path_folder: Path, drop_null_cols: bool = True) -> None:
+    def write(
+        self,
+        path_folder: Path,
+        drop_null_cols: bool = True,
+        rename_by_hash: bool = True,
+        allow_skip: bool = True,
+    ) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
         path_folder = path_folder.absolute()
         if not path_folder.exists():
@@ -631,11 +649,19 @@ class HafniaDataset:
         hafnia_dataset = self.copy()  # To avoid inplace modifications
         new_paths = []
         org_paths = hafnia_dataset.samples[SampleField.FILE_PATH].to_list()
+        path_dataset_root = path_folder / "data"
+        path_dataset_root.mkdir(parents=True, exist_ok=True)
         for org_path in progress_bar(org_paths, description="- Copy images"):
-            new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
-                path_source=Path(org_path),
-                path_dataset_root=path_folder / "data",
-            )
+            if rename_by_hash:
+                new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
+                    path_source=Path(org_path),
+                    path_dataset_root=path_dataset_root,
+                    allow_skip=allow_skip,
+                )
+            else:
+                new_path = dataset_helpers.copy_file_to_folder(
+                    path_src_file=Path(org_path), path_dst_folder=path_dataset_root, allow_skip=allow_skip
+                )
             new_paths.append(new_path.as_posix())
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
         hafnia_dataset.write_annotations(path_folder=path_folder, drop_null_cols=drop_null_cols)
@@ -917,6 +943,6 @@ def download_or_get_dataset_path(
         return path_dataset
 
     dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
-    dataset = dataset.download_files_aws(path_dataset, aws_credentials=resource_credentials, force_redownload=True)
+    dataset = dataset.download_files(path_dataset, force_redownload=True)
     dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
     return path_dataset

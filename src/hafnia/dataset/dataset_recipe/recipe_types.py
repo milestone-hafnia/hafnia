@@ -112,14 +112,14 @@ class RecipeCreation(Serializable):
     def get_dataset_names(self) -> List[str]:
         pass
 
-    def build(self) -> "HafniaDataset":
+    def build(self, download_files: bool = True) -> "HafniaDataset":
         from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 
         kwargs = dict(self)
         kwargs_recipes_as_datasets = {}
         for key, value in kwargs.items():
             if isinstance(value, DatasetRecipe):
-                value = value.build()
+                value = value.build(download_files=download_files)
                 key = key.replace("recipe", "dataset")
             kwargs_recipes_as_datasets[key] = value
         return self.get_function()(**kwargs_recipes_as_datasets)

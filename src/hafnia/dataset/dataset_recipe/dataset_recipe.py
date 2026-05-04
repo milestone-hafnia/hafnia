@@ -33,8 +33,10 @@ class DatasetRecipe(Serializable):
     creation: RecipeCreation
     operations: Optional[List[RecipeTransform]] = None
 
-    def build(self) -> HafniaDataset:
-        dataset = self.creation.build()
+    def build(self, download_files: bool = True) -> HafniaDataset:
+        if hasattr(self.creation, "download_files"):
+            self.creation.download_files = download_files
+        dataset = self.creation.build(download_files=download_files)
         if self.operations:
             for operation in self.operations:
                 dataset = operation.build(dataset)
@@ -431,9 +433,9 @@ class FromMerge(RecipeCreation):
 class FromMerger(RecipeCreation):
     recipes: List[DatasetRecipe]
 
-    def build(self) -> HafniaDataset:
+    def build(self, download_files: bool = True) -> HafniaDataset:
         """Build the dataset from the merged recipes."""
-        datasets = [recipe.build() for recipe in self.recipes]
+        datasets = [recipe.build(download_files=download_files) for recipe in self.recipes]
         return self.get_function()(datasets=datasets)
 
     @staticmethod

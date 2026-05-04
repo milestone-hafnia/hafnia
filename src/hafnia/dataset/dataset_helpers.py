@@ -118,7 +118,11 @@ def save_pil_image_with_hash_name(
     return path_image
 
 
-def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Path) -> Path:
+def copy_and_rename_file_to_hash_value(
+    path_source: Path,
+    path_dataset_root: Path,
+    allow_skip: bool = True,
+) -> Path:
     """
     Copies a file to a dataset root directory with a hash-based name and sub-directory structure.
     """
@@ -129,10 +133,36 @@ def copy_and_rename_file_to_hash_value(path_source: Path, path_dataset_root: Pat
     hash_value = hash_file_xxhash(path_source)
     path_file = path_dataset_root / relative_path_from_hash(hash=hash_value, suffix=path_source.suffix)
     path_file.parent.mkdir(parents=True, exist_ok=True)
-    if not path_file.exists():
-        shutil.copy2(path_source, path_file)
+
+    if allow_skip and path_file.exists():
+        return path_file
+
+    shutil.copy2(path_source, path_file)
 
     return path_file
+
+
+def copy_file_to_folder(
+    path_src_file: Path,
+    path_dst_folder: Path,
+    allow_skip: bool = True,
+) -> Path:
+    """
+    Copies a file to a dataset root directory preserving its original filename.
+    """
+    if not path_src_file.exists():
+        raise FileNotFoundError(f"Source file {path_src_file} does not exist.")
+
+    path_dst_file = path_dst_folder / path_src_file.name
+    path_dst_file.parent.mkdir(parents=True, exist_ok=True)
+
+    if allow_skip and path_dst_file.exists():
+        return path_dst_file
+
+    if path_src_file == path_dst_file:
+        return path_dst_file
+    shutil.copy2(path_src_file, path_dst_file)
+    return path_dst_file
 
 
 def relative_path_from_hash(hash: str, suffix: str) -> str:
