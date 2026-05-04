@@ -643,7 +643,7 @@ class HafniaDataset:
         self,
         path_folder: Path,
         drop_null_cols: bool = True,
-        rename_by_hash: bool = True,
+        rename_by_hash: bool = True,  ## Use only rename_by_hash=False, when sample file names are unique.
         allow_skip: bool = True,
     ) -> None:
         user_logger.info(f"Writing dataset to {path_folder}...")
@@ -664,7 +664,9 @@ class HafniaDataset:
                 )
             else:
                 new_path = dataset_helpers.copy_file_to_folder(
-                    path_src_file=Path(org_path), path_dst_folder=path_dataset_root, allow_skip=allow_skip
+                    path_src_file=Path(org_path),
+                    path_dst_folder=path_dataset_root,
+                    allow_skip=allow_skip,
                 )
             new_paths.append(new_path.as_posix())
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
