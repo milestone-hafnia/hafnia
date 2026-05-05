@@ -167,7 +167,7 @@ def upload_dataset_to_s3(
 
     sync_dataset_files_to_s3(
         dataset=dataset,
-        bucket_prefix=resource_credentials.s3_uri(),
+        bucket_prefix=resource_credentials.s3_path(),
         interactive=interactive,
         allow_version_overwrite=allow_version_overwrite,
         envs=envs,
@@ -182,7 +182,8 @@ def sync_dataset_files_to_s3(
     envs: Optional[Dict[str, str]] = None,
 ) -> None:
     t0 = time.time()
-    # bucket_prefix e.g. 's3://bucket-name/sample'
+    # bucket_prefix e.g. 'bucket-name/sample' (no scheme)
+    s3_uri_prefix = f"s3://{bucket_prefix}"
     remote_paths = []
     for file_str in progress_bar(dataset.samples[SampleField.FILE_PATH], description="Hashing data files"):
         path_file = Path(file_str)
@@ -192,13 +193,13 @@ def sync_dataset_files_to_s3(
         relative_path = s3_prefix_from_hash(hash=file_hash, suffix=path_file.suffix)
 
         # Remote path in S3 bucket e.g. 's3://bucket-name/sample/data/e2/b0/e2b000ac47b19a999bee5456a6addb88.png'
-        remote_path = f"{bucket_prefix}/{relative_path}"
+        remote_path = f"{s3_uri_prefix}/{relative_path}"
         remote_paths.append(remote_path)
 
     dataset.samples = dataset.samples.with_columns(pl.Series(remote_paths).alias(SampleField.REMOTE_PATH))
 
-    user_logger.info(f"Syncing dataset to S3 bucket '{bucket_prefix}'")
-    files_in_s3 = set(s5cmd_utils.list_bucket(bucket_prefix=bucket_prefix, append_envs=envs))
+    user_logger.info(f"Syncing dataset to S3 bucket '{s3_uri_prefix}'")
+    files_in_s3 = set(s5cmd_utils.list_bucket(bucket_prefix=s3_uri_prefix, append_envs=envs))
 
     # Discover data files (images, videos, etc.) missing in s3
     data_files_missing = dataset.samples.filter(~pl.col(SampleField.REMOTE_PATH).is_in(files_in_s3))
@@ -214,14 +215,14 @@ def sync_dataset_files_to_s3(
         metadata_files_local = []
         metadata_files_s3 = []
         for filename in path_temp.iterdir():
-            metadata_files_s3.append(f"{bucket_prefix}/versions/{dataset.info.version}/{filename.name}")
+            metadata_files_s3.append(f"{s3_uri_prefix}/versions/{dataset.info.version}/{filename.name}")
             metadata_files_local.append(filename.as_posix())
 
         overwrite_metadata_files = files_in_s3.intersection(set(metadata_files_s3))
         will_overwrite_metadata_files = len(overwrite_metadata_files) > 0
 
         n_files_already_in_s3 = len(files_already_in_s3)
-        user_logger.info(f"Sync dataset to {bucket_prefix}")
+        user_logger.info(f"Sync dataset to {s3_uri_prefix}")
         user_logger.info(
             f"- Found that {n_files_already_in_s3} / {len(dataset.samples)} data files already exist. "
             f"Meaning {len(data_files_missing)} data files will be uploaded. \n"
@@ -301,7 +302,7 @@ def sync_dataset_files_to_platform_from_resource_credentials(
 
         sync_dataset_files_to_s3(
             dataset=dataset_variant,
-            bucket_prefix=f"s3://{bucket_name}/{dataset_variant_type.value}",
+            bucket_prefix=f"{bucket_name}/{dataset_variant_type.value}",
             interactive=interactive,
             allow_version_overwrite=allow_version_overwrite,
             envs=envs,
@@ -353,9 +354,20 @@ def sync_files_from_platform(
     subfolder_name: str = "data",
     cfg: Optional[Config] = None,
 ) -> HafniaDataset:
-    """
-    This function is used for
+    """Download data files referenced by ``dataset`` from the Hafnia platform.
 
+    Resolves a local destination under ``path_output_folder / subfolder_name``,
+    fetches read credentials per dataset name, and copies the files via s5cmd.
+    The returned dataset has ``FILE_PATH`` rewritten to the local locations.
+
+    Args:
+        dataset: Dataset whose ``REMOTE_PATH`` column points at platform-managed S3 objects.
+        path_output_folder: Local folder to download into.
+        force_redownload: If ``True``, re-download files that already exist locally.
+        extend_name_by_subfolder: Number of trailing remote path segments to fold
+            into the local filename (useful when remote paths share a basename).
+        subfolder_name: Subfolder under ``path_output_folder`` to write data into.
+        cfg: Optional Hafnia CLI config; defaults to a fresh ``Config()``.
     """
     dataset, download_df = _resolve_local_download_paths(
         dataset=dataset,
