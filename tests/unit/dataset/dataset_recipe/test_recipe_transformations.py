@@ -11,6 +11,7 @@ from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe, FromName
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
     ClassMapper,
     DefineSampleSetBySize,
+    DropSamplesByClassName,
     RenameTask,
     SelectSamples,
     SelectSamplesByClassName,
@@ -80,6 +81,13 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             recipe_transform=SelectSamplesByClassName(name=["Person"], task_name=None, primitive=None),
             as_python_code="select_samples_by_class_name(name=['Person'], task_name=None, primitive=None)",
             short_name="SelectSamplesByClassName",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=DropSamplesByClassName(
+                name=["Person"], task_name=None, primitive=None, drop_classes_from_task_info=False
+            ),
+            as_python_code="drop_samples_by_class_name(name=['Person'], task_name=None, primitive=None, drop_classes_from_task_info=False)",  # noqa: E501
+            short_name="DropSamplesByClassName",
         ),
     ]
 

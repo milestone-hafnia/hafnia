@@ -301,6 +301,22 @@ class DatasetRecipe(Serializable):
         recipe.append_operation(operation)
         return recipe
 
+    def drop_samples_by_class_name(
+        recipe: DatasetRecipe,
+        name: Union[List[str], str],
+        task_name: Optional[str] = None,
+        primitive: Optional[Type[Primitive]] = None,
+        drop_classes_from_task_info: bool = True,
+    ) -> DatasetRecipe:
+        operation = recipe_transforms.DropSamplesByClassName(
+            name=name,
+            task_name=task_name,
+            primitive=primitive,
+            drop_classes_from_task_info=drop_classes_from_task_info,
+        )
+        recipe.append_operation(operation)
+        return recipe
+
     ### Helper methods ###
     def get_dataset_names(self) -> List[str]:
         """

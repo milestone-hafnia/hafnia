@@ -254,6 +254,37 @@ def test_select_samples_by_class_name():
         dataset_updated = dataset.select_samples_by_class_name(name="Vehicle.Car", task_name="Weather")
 
 
+def test_drop_samples_by_class_name():
+    dataset_name = "micro-tiny-dataset"
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name=dataset_name, force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+
+    selected = dataset.select_samples_by_class_name(name="Vehicle.Car")
+    dropped = dataset.drop_samples_by_class_name(name="Vehicle.Car")
+    assert len(dropped) == len(dataset) - len(selected), (
+        "Expected drop and select to be complementary on the same class name"
+    )
+
+    bbox_task = dropped.info.get_task_by_primitive(Bbox)
+    bboxes = dropped.samples[bbox_task.primitive.column_name()].explode().struct.unnest()
+    bbox_names = bboxes.filter(bboxes[PrimitiveField.TASK_NAME] == bbox_task.name)[PrimitiveField.CLASS_NAME]
+    assert "Vehicle.Car" not in set(bbox_names), "Dropped class should not appear in any remaining annotation"
+
+    # drop_classes_from_task_info=True removes the class from TaskInfo and re-indexes
+    dropped_with_info = dataset.drop_samples_by_class_name(name="Vehicle.Car", drop_classes_from_task_info=True)
+    new_bbox_task = dropped_with_info.info.get_task_by_primitive(Bbox)
+    assert "Vehicle.Car" not in (new_bbox_task.get_class_names() or [])
+    new_class_names = new_bbox_task.get_class_names() or []
+    new_bboxes = dropped_with_info.samples[new_bbox_task.primitive.column_name()].explode().struct.unnest()
+    new_bboxes = new_bboxes.filter(new_bboxes[PrimitiveField.TASK_NAME] == new_bbox_task.name)
+    for cls_name, cls_idx in zip(new_bboxes[PrimitiveField.CLASS_NAME], new_bboxes[PrimitiveField.CLASS_IDX]):
+        assert new_class_names.index(cls_name) == cls_idx, "Class indices should match the new task class ordering"
+
+    # Wrong class name (not found in any task)
+    with pytest.raises(ValueError, match="The specified names"):
+        dataset.drop_samples_by_class_name(name="NonExistingClass", primitive=Bbox)
+
+
 def test_get_task_info_from_task_name_and_primitive():
     task_class = TaskInfo.from_class_names(primitive="Classification", class_names=["cat", "dog"])
     task_bbox = TaskInfo.from_class_names(primitive="Bbox", class_names=["car", "bus"])

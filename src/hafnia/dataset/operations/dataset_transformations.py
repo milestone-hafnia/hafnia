@@ -469,6 +469,43 @@ def select_samples_by_class_name(
     return dataset_updated
 
 
+def drop_samples_by_class_name(
+    dataset: "HafniaDataset",
+    name: Union[List[str], str],
+    task_name: Optional[str] = None,
+    primitive: Optional[Type[Primitive]] = None,
+    drop_classes_from_task_info: bool = True,
+) -> "HafniaDataset":
+    from hafnia.dataset.hafnia_dataset import HafniaDataset
+
+    task, class_names = _validate_inputs_select_samples_by_class_name(
+        dataset=dataset,
+        name=name,
+        task_name=task_name,
+        primitive=primitive,
+    )
+
+    contains_dropped_class = (
+        pl.col(task.primitive.column_name())
+        .list.eval(
+            pl.element().struct.field(PrimitiveField.CLASS_NAME).is_in(class_names)
+            & (pl.element().struct.field(PrimitiveField.TASK_NAME) == task.name)
+        )
+        .list.any()
+    )
+    samples = dataset.samples.filter(~contains_dropped_class)
+
+    if not drop_classes_from_task_info:
+        return dataset.update_samples(samples)
+
+    new_classes = [c for c in (task.classes or []) if c.name not in class_names]
+    new_task = TaskInfo(primitive=task.primitive, name=task.name, classes=new_classes)
+    dataset_info = dataset.info.replace_task(old_task=task, new_task=new_task)
+    if new_classes:
+        samples = update_class_indices(samples, new_task)
+    return HafniaDataset(info=dataset_info, samples=samples)
+
+
 def _validate_inputs_select_samples_by_class_name(
     dataset: "HafniaDataset",
     name: Union[List[str], str],
