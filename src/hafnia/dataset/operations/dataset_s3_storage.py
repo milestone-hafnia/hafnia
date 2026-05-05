@@ -1,20 +1,22 @@
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
+import boto3
 import polars as pl
+from botocore.exceptions import ClientError
 
 from hafnia.dataset.dataset_helpers import hash_file_xxhash
 from hafnia.dataset.dataset_names import (
     DatasetVariant,
     SampleField,
 )
-from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset import HafniaDataset, download_meta_dataset_files_from_version
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
-from hafnia.platform.datasets import get_upload_credentials
-from hafnia.platform.s5cmd_utils import ResourceCredentials
+from hafnia.platform.datasets import get_read_credentials_by_name, get_upload_credentials
+from hafnia.platform.s5cmd_utils import AwsCredentials, ResourceCredentials, fast_copy_files
 from hafnia.utils import progress_bar
 from hafnia_cli.config import Config
 
@@ -67,7 +69,112 @@ def delete_hafnia_dataset_files_from_resource_credentials(
     return True
 
 
-def sync_hafnia_dataset_to_s3(
+def _ensure_s3_bucket_exists(session: boto3.Session, bucket_name: str) -> None:
+    """Create ``bucket_name`` if it does not already exist.
+
+    A successful ``head_bucket`` call (200) is treated as "exists, nothing to
+    do". A 404 triggers creation in the session's region. Any other error
+    (e.g. 403 Forbidden — bucket exists but is owned by someone else) is
+    re-raised so the caller does not silently overwrite or proceed.
+    """
+    s3_client = session.client("s3")
+    try:
+        s3_client.head_bucket(Bucket=bucket_name)
+        return
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code")
+        if error_code not in ("404", "NoSuchBucket"):
+            raise
+
+    region = session.region_name
+    create_kwargs: Dict[str, Any] = {"Bucket": bucket_name}
+    # us-east-1 must NOT include LocationConstraint; every other region must.
+    if region and region != "us-east-1":
+        create_kwargs["CreateBucketConfiguration"] = {"LocationConstraint": region}
+    s3_client.create_bucket(**create_kwargs)
+    user_logger.info(f"Created S3 bucket '{bucket_name}' in region '{region or 'us-east-1'}'.")
+
+
+def download_dataset_from_s3(
+    bucket_prefix: str,
+    path_local: Path,
+    session: boto3.Session,
+    version: Optional[str] = None,
+    force_redownload: bool = False,
+) -> HafniaDataset:
+    """Download a Hafnia dataset from a user-controlled S3 bucket.
+
+    Downloads the metadata files for the requested ``version`` (or latest if
+    ``None``), then syncs the data files referenced by the dataset to
+    ``path_local``. The returned dataset has ``FILE_PATH`` columns rewritten
+    to the local file paths and the annotation files on disk are updated to
+    match.
+
+    Args:
+        bucket_prefix: S3 location without scheme, e.g. ``"my-bucket/sample"``.
+        path_local: Local folder to download into.
+        session: Boto3 session used to obtain credentials.
+        version: Dataset version string (e.g. ``"0.1.0"``) or ``None`` for latest.
+        force_redownload: If ``True``, re-download data files that already
+            exist locally.
+    """
+    resource_credentials = AwsCredentials.from_session(session=session).to_resource_credentials(bucket_prefix)
+
+    download_meta_dataset_files_from_version(
+        resource_credentials=resource_credentials, version=version, path_dataset=path_local
+    )
+
+    dataset = HafniaDataset.from_path(path_local, check_for_images=False)
+    dataset = sync_dataset_files_from_s3(
+        dataset,
+        path_local,
+        aws_credentials=resource_credentials,
+        force_redownload=force_redownload,
+    )
+    dataset.write_annotations(path_folder=path_local)  # Overwrite annotations as files have been re-downloaded
+    return dataset
+
+
+def upload_dataset_to_s3(
+    dataset: HafniaDataset,
+    bucket_prefix: str,
+    session: boto3.Session,
+    allow_version_overwrite: bool = False,
+    create_bucket_if_missing: bool = True,
+    interactive: bool = True,
+) -> None:
+    """Upload a Hafnia dataset to a user-controlled S3 bucket.
+
+    Args:
+        dataset: Dataset to upload.
+        bucket_prefix: S3 location without scheme, e.g. ``"my-bucket"`` or
+            ``"my-bucket/sample"``. The leading segment is treated as the
+            bucket name for the optional create step.
+        session: Boto3 session used to obtain credentials and (optionally)
+            create the bucket.
+        allow_version_overwrite: If ``True``, overwrite metadata files for an
+            existing version in S3. Otherwise the upload aborts when a
+            version collision is detected.
+        create_bucket_if_missing: If ``True`` and the target bucket does not
+            exist, create it in the session's region before uploading.
+        interactive: If ``True``, prompt for confirmation before uploading.
+    """
+    resource_credentials = AwsCredentials.from_session(session=session).to_resource_credentials(bucket_prefix)
+    envs = resource_credentials.aws_credentials()
+
+    if create_bucket_if_missing:
+        _ensure_s3_bucket_exists(session=session, bucket_name=resource_credentials.bucket_name())
+
+    sync_dataset_files_to_s3(
+        dataset=dataset,
+        bucket_prefix=resource_credentials.s3_path(),
+        interactive=interactive,
+        allow_version_overwrite=allow_version_overwrite,
+        envs=envs,
+    )
+
+
+def sync_dataset_files_to_s3(
     dataset: HafniaDataset,
     bucket_prefix: str,
     allow_version_overwrite: bool = False,
@@ -75,7 +182,8 @@ def sync_hafnia_dataset_to_s3(
     envs: Optional[Dict[str, str]] = None,
 ) -> None:
     t0 = time.time()
-    # bucket_prefix e.g. 's3://bucket-name/sample'
+    # bucket_prefix e.g. 'bucket-name/sample' (no scheme)
+    s3_uri_prefix = f"s3://{bucket_prefix}"
     remote_paths = []
     for file_str in progress_bar(dataset.samples[SampleField.FILE_PATH], description="Hashing data files"):
         path_file = Path(file_str)
@@ -85,13 +193,13 @@ def sync_hafnia_dataset_to_s3(
         relative_path = s3_prefix_from_hash(hash=file_hash, suffix=path_file.suffix)
 
         # Remote path in S3 bucket e.g. 's3://bucket-name/sample/data/e2/b0/e2b000ac47b19a999bee5456a6addb88.png'
-        remote_path = f"{bucket_prefix}/{relative_path}"
+        remote_path = f"{s3_uri_prefix}/{relative_path}"
         remote_paths.append(remote_path)
 
     dataset.samples = dataset.samples.with_columns(pl.Series(remote_paths).alias(SampleField.REMOTE_PATH))
 
-    user_logger.info(f"Syncing dataset to S3 bucket '{bucket_prefix}'")
-    files_in_s3 = set(s5cmd_utils.list_bucket(bucket_prefix=bucket_prefix, append_envs=envs))
+    user_logger.info(f"Syncing dataset to S3 bucket '{s3_uri_prefix}'")
+    files_in_s3 = set(s5cmd_utils.list_bucket(bucket_prefix=s3_uri_prefix, append_envs=envs))
 
     # Discover data files (images, videos, etc.) missing in s3
     data_files_missing = dataset.samples.filter(~pl.col(SampleField.REMOTE_PATH).is_in(files_in_s3))
@@ -107,14 +215,14 @@ def sync_hafnia_dataset_to_s3(
         metadata_files_local = []
         metadata_files_s3 = []
         for filename in path_temp.iterdir():
-            metadata_files_s3.append(f"{bucket_prefix}/versions/{dataset.info.version}/{filename.name}")
+            metadata_files_s3.append(f"{s3_uri_prefix}/versions/{dataset.info.version}/{filename.name}")
             metadata_files_local.append(filename.as_posix())
 
         overwrite_metadata_files = files_in_s3.intersection(set(metadata_files_s3))
         will_overwrite_metadata_files = len(overwrite_metadata_files) > 0
 
         n_files_already_in_s3 = len(files_already_in_s3)
-        user_logger.info(f"Sync dataset to {bucket_prefix}")
+        user_logger.info(f"Sync dataset to {s3_uri_prefix}")
         user_logger.info(
             f"- Found that {n_files_already_in_s3} / {len(dataset.samples)} data files already exist. "
             f"Meaning {len(data_files_missing)} data files will be uploaded. \n"
@@ -192,13 +300,166 @@ def sync_dataset_files_to_platform_from_resource_credentials(
             pl.lit(dataset.info.dataset_name).alias(SampleField.DATASET_NAME)
         )
 
-        sync_hafnia_dataset_to_s3(
+        sync_dataset_files_to_s3(
             dataset=dataset_variant,
-            bucket_prefix=f"s3://{bucket_name}/{dataset_variant_type.value}",
+            bucket_prefix=f"{bucket_name}/{dataset_variant_type.value}",
             interactive=interactive,
             allow_version_overwrite=allow_version_overwrite,
             envs=envs,
         )
+
+
+MISSING_LOCALLY_COLUMN = "MissingLocally"
+
+
+def _resolve_local_download_paths(
+    dataset: HafniaDataset,
+    path_output_folder: Path,
+    extend_name_by_subfolder: int,
+    subfolder_name: str,
+) -> Tuple[HafniaDataset, pl.DataFrame]:
+    if extend_name_by_subfolder < 0:
+        raise ValueError(f"'extend_name_by_subfolder' must be a non-negative integer. Got {extend_name_by_subfolder}.")
+
+    path_data = path_output_folder / subfolder_name
+    path_data.mkdir(parents=True, exist_ok=True)
+
+    update_rows = []
+    for remote_src_path in dataset.samples[SampleField.REMOTE_PATH].unique().to_list():
+        path_parts = remote_src_path.split("/")
+        filename = "_".join(path_parts[-(1 + extend_name_by_subfolder) :])
+        local_path_str = (path_data / filename).absolute().as_posix()
+        update_rows.append(
+            {
+                SampleField.REMOTE_PATH: remote_src_path,
+                SampleField.FILE_PATH: local_path_str,
+                MISSING_LOCALLY_COLUMN: not Path(local_path_str).exists(),
+            }
+        )
+    download_df = pl.DataFrame(update_rows)
+
+    samples = dataset.samples.update(
+        download_df.select([SampleField.REMOTE_PATH, SampleField.FILE_PATH]),
+        on=[SampleField.REMOTE_PATH],
+    )
+    dataset = dataset.update_samples(samples)
+    return dataset, download_df
+
+
+def sync_files_from_platform(
+    dataset: HafniaDataset,
+    path_output_folder: Path,
+    force_redownload: bool = False,
+    extend_name_by_subfolder: int = 0,
+    subfolder_name: str = "data",
+    cfg: Optional[Config] = None,
+) -> HafniaDataset:
+    """Download data files referenced by ``dataset`` from the Hafnia platform.
+
+    Resolves a local destination under ``path_output_folder / subfolder_name``,
+    fetches read credentials per dataset name, and copies the files via s5cmd.
+    The returned dataset has ``FILE_PATH`` rewritten to the local locations.
+
+    Args:
+        dataset: Dataset whose ``REMOTE_PATH`` column points at platform-managed S3 objects.
+        path_output_folder: Local folder to download into.
+        force_redownload: If ``True``, re-download files that already exist locally.
+        extend_name_by_subfolder: Number of trailing remote path segments to fold
+            into the local filename (useful when remote paths share a basename).
+        subfolder_name: Subfolder under ``path_output_folder`` to write data into.
+        cfg: Optional Hafnia CLI config; defaults to a fresh ``Config()``.
+    """
+    dataset, download_df = _resolve_local_download_paths(
+        dataset=dataset,
+        path_output_folder=path_output_folder,
+        extend_name_by_subfolder=extend_name_by_subfolder,
+        subfolder_name=subfolder_name,
+    )
+
+    # Extend 'download_df' with dataset name - but keep only unique remote paths to avoid duplicate downloads
+    download_samples = download_df.join(
+        dataset.samples.select([SampleField.REMOTE_PATH, SampleField.DATASET_NAME]),
+        on=SampleField.REMOTE_PATH,
+        how="left",
+    ).unique(subset=SampleField.REMOTE_PATH, keep="first")
+    missing_samples = download_samples.filter(pl.col(MISSING_LOCALLY_COLUMN))
+    existing_samples = download_samples.filter(pl.col(MISSING_LOCALLY_COLUMN) == False)  # noqa: E712
+
+    if not force_redownload and len(missing_samples) == 0:
+        user_logger.info(
+            "All files already exist locally. Skipping download. Set 'force_redownload=True' to re-download."
+        )
+        return dataset
+
+    if force_redownload:
+        missing_samples = download_samples
+    else:
+        if len(existing_samples) > 0:
+            user_logger.info(
+                f"Found {len(existing_samples)}/{len(download_samples)} files already exists. "
+                f"Downloading {len(missing_samples)} files."
+            )
+
+    cfg = cfg or Config()
+    for (dataset_name,), dataset_group in missing_samples.group_by(SampleField.DATASET_NAME):
+        if dataset_name is None:
+            user_logger.warning("Dataset name is missing in the samples. Cannot download files without dataset name.")
+            continue
+        user_logger.info(f"Downloading files for dataset '{dataset_name}'...")
+        remote_src_paths = dataset_group[SampleField.REMOTE_PATH].to_list()
+        local_dst_paths = dataset_group[SampleField.FILE_PATH].to_list()
+        resource_credentials: ResourceCredentials = get_read_credentials_by_name(dataset_name=dataset_name, cfg=cfg)
+        environment_vars = resource_credentials.aws_credentials()
+        fast_copy_files(
+            src_paths=remote_src_paths,
+            dst_paths=local_dst_paths,
+            append_envs=environment_vars,
+            description="Downloading images",
+        )
+    return dataset
+
+
+def sync_dataset_files_from_s3(
+    dataset: HafniaDataset,
+    path_output_folder: Path,
+    aws_credentials: AwsCredentials,
+    force_redownload: bool = False,
+    extend_name_by_subfolder: int = 0,
+    subfolder_name: str = "data",
+) -> HafniaDataset:
+    dataset, download_df = _resolve_local_download_paths(
+        dataset=dataset,
+        path_output_folder=path_output_folder,
+        extend_name_by_subfolder=extend_name_by_subfolder,
+        subfolder_name=subfolder_name,
+    )
+
+    if force_redownload:
+        download_samples = download_df
+    else:
+        download_samples = download_df.filter(pl.col(MISSING_LOCALLY_COLUMN))
+        skip_files = len(download_df) - len(download_samples)
+        if skip_files > 0:
+            user_logger.info(
+                f"Found {skip_files}/{len(download_df)} files already exists. "
+                f"Downloading {len(download_samples)} files."
+            )
+
+    if len(download_samples) == 0:
+        user_logger.info(
+            "All files already exist locally. Skipping download. Set 'force_redownload=True' to re-download."
+        )
+        return dataset
+
+    environment_vars = aws_credentials.aws_credentials()
+    fast_copy_files(
+        src_paths=download_samples[SampleField.REMOTE_PATH].to_list(),
+        dst_paths=download_samples[SampleField.FILE_PATH].to_list(),
+        append_envs=environment_vars,
+        description="Downloading images",
+    )
+
+    return dataset
 
 
 def s3_prefix_from_hash(hash: str, suffix: str) -> str:

@@ -4,7 +4,7 @@ import copy
 from dataclasses import dataclass
 from pathlib import Path
 from random import Random
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 import polars as pl
 from packaging.version import Version
@@ -45,9 +45,12 @@ from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
 from hafnia.platform.datasets import get_read_credentials_by_name
-from hafnia.platform.s5cmd_utils import ResourceCredentials, fast_copy_files
+from hafnia.platform.s5cmd_utils import ResourceCredentials
 from hafnia.utils import progress_bar
 from hafnia_cli.config import Config
+
+if TYPE_CHECKING:
+    import boto3
 
 
 @dataclass
@@ -143,6 +146,66 @@ class HafniaDataset:
             download_files=download_files,
         )
         return HafniaDataset.from_path(dataset_path, check_for_images=download_files)
+
+    @staticmethod
+    def from_s3(
+        bucket_prefix: str,
+        path_local: Path,
+        session: "boto3.Session",
+        version: Optional[str] = None,
+        force_redownload: bool = False,
+    ) -> "HafniaDataset":
+        """Download a Hafnia dataset from a user-controlled S3 bucket.
+
+        Args:
+            bucket_prefix: S3 location without scheme, e.g. ``"my-bucket/sample"``.
+            path_local: Local folder to download into.
+            session: Boto3 session used to obtain credentials.
+            version: Dataset version string (e.g. ``"0.1.0"``) or ``None`` for latest.
+            force_redownload: If ``True``, re-download data files that already exist locally.
+        """
+        from hafnia.dataset.operations.dataset_s3_storage import download_dataset_from_s3
+
+        return download_dataset_from_s3(
+            bucket_prefix=bucket_prefix,
+            path_local=path_local,
+            session=session,
+            version=version,
+            force_redownload=force_redownload,
+        )
+
+    def to_s3(
+        self,
+        bucket_prefix: str,
+        session: "boto3.Session",
+        allow_version_overwrite: bool = False,
+        create_bucket_if_missing: bool = True,
+        interactive: bool = True,
+    ) -> None:
+        """Upload this dataset to a user-controlled S3 bucket.
+
+        Args:
+            bucket_prefix: S3 location without scheme, e.g. ``"my-bucket"`` or
+                ``"my-bucket/sample"``. The leading segment is treated as the
+                bucket name for the optional create step.
+            session: Boto3 session used to obtain credentials and (optionally)
+                create the bucket.
+            allow_version_overwrite: If ``True``, overwrite metadata files for an
+                existing version in S3.
+            create_bucket_if_missing: If ``True`` and the target bucket does not
+                exist, create it in the session's region before uploading.
+            interactive: If ``True``, prompt for confirmation before uploading.
+        """
+        from hafnia.dataset.operations.dataset_s3_storage import upload_dataset_to_s3
+
+        upload_dataset_to_s3(
+            dataset=self,
+            bucket_prefix=bucket_prefix,
+            session=session,
+            allow_version_overwrite=allow_version_overwrite,
+            create_bucket_if_missing=create_bucket_if_missing,
+            interactive=interactive,
+        )
 
     @staticmethod
     def from_samples_list(samples_list: List, info: DatasetInfo) -> "HafniaDataset":
@@ -469,6 +532,27 @@ class HafniaDataset:
             dataset=dataset, name=name, task_name=task_name, primitive=primitive
         )
 
+    def drop_samples_by_class_name(
+        dataset: HafniaDataset,
+        name: Union[List[str], str],
+        task_name: Optional[str] = None,
+        primitive: Optional[Type[Primitive]] = None,
+        drop_classes_from_task_info: bool = True,
+    ) -> HafniaDataset:
+        """
+        Drop samples that contain at least one annotation with the specified class name(s).
+        If 'task_name' and 'primitive' are not provided, the function will attempt to infer the task.
+        When 'drop_classes_from_task_info' is True, the specified class names are also removed
+        from the matching task in 'dataset.info.tasks' and class indices are re-assigned.
+        """
+        return dataset_transformations.drop_samples_by_class_name(
+            dataset=dataset,
+            name=name,
+            task_name=task_name,
+            primitive=primitive,
+            drop_classes_from_task_info=drop_classes_from_task_info,
+        )
+
     def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
         """
         Merges two Hafnia datasets by concatenating their samples and updating the split names.
@@ -490,83 +574,6 @@ class HafniaDataset:
                 merged_info = merged_info.replace_task(old_task=task, new_task=None)
 
         return HafniaDataset(info=merged_info, samples=merged_samples)
-
-    def download_files(
-        dataset: HafniaDataset,
-        path_output_folder: Path,
-        force_redownload: bool = False,
-        extend_name_by_subfolder: int = 0,
-        subfolder_name: str = "data",
-        cfg: Optional[Config] = None,
-    ) -> HafniaDataset:
-        path_data = path_output_folder / subfolder_name
-        path_data.mkdir(parents=True, exist_ok=True)
-
-        if extend_name_by_subfolder < 0:
-            raise ValueError(
-                f"'extend_name_by_subfolder' must be a non-negative integer. Got {extend_name_by_subfolder}."
-            )
-        MISSING_LOCALLY_COLUMN = "MissingLocally"
-        update_rows = []
-        for remote_src_path in dataset.samples[SampleField.REMOTE_PATH].unique().to_list():
-            path_parts = remote_src_path.split("/")
-            filename = "_".join(path_parts[-(1 + extend_name_by_subfolder) :])
-            local_path_str = (path_data / filename).absolute().as_posix()
-            update_rows.append(
-                {
-                    SampleField.REMOTE_PATH: remote_src_path,
-                    SampleField.FILE_PATH: local_path_str,
-                    MISSING_LOCALLY_COLUMN: not Path(local_path_str).exists(),
-                }
-            )
-        download_df = pl.DataFrame(update_rows)
-
-        # Update dataset with new paths after download
-        dataset.samples = dataset.samples.update(download_df, on=[SampleField.REMOTE_PATH])
-
-        # Extend 'download_df' with dataset name - but keep only unique remote paths to avoid duplicate downloads
-        download_samples = download_df.join(
-            dataset.samples.select([SampleField.REMOTE_PATH, SampleField.DATASET_NAME]),
-            on=SampleField.REMOTE_PATH,
-            how="left",
-        ).unique(subset=SampleField.REMOTE_PATH, keep="first")
-        missing_samples = download_samples.filter(pl.col(MISSING_LOCALLY_COLUMN))
-        existing_samples = download_samples.filter(pl.col(MISSING_LOCALLY_COLUMN) == False)  # noqa: E712
-
-        if not force_redownload and len(missing_samples) == 0:
-            user_logger.info(
-                "All files already exist locally. Skipping download. Set 'force_redownload=True' to re-download."
-            )
-            return dataset
-
-        if force_redownload:
-            missing_samples = download_samples
-        else:
-            if len(existing_samples) > 0:
-                user_logger.info(
-                    f"Found {len(existing_samples)}/{len(download_samples)} files already exists. "
-                    f"Downloading {len(missing_samples)} files."
-                )
-
-        cfg = cfg or Config()
-        for (dataset_name,), dataset_group in missing_samples.group_by(SampleField.DATASET_NAME):
-            if dataset_name is None:
-                user_logger.warning(
-                    "Dataset name is missing in the samples. Cannot download files without dataset name."
-                )
-                continue
-            user_logger.info(f"Downloading files for dataset '{dataset_name}'...")
-            remote_src_paths = dataset_group[SampleField.REMOTE_PATH].to_list()
-            local_dst_paths = dataset_group[SampleField.FILE_PATH].to_list()
-            resource_credentials: ResourceCredentials = get_read_credentials_by_name(dataset_name=dataset_name, cfg=cfg)
-            environment_vars = resource_credentials.aws_credentials()
-            fast_copy_files(
-                src_paths=remote_src_paths,
-                dst_paths=local_dst_paths,
-                append_envs=environment_vars,
-                description="Downloading images",
-            )
-        return dataset
 
     def to_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
         """
@@ -902,6 +909,7 @@ def download_or_get_dataset_path(
     download_files: bool = True,
 ) -> Path:
     """Download or get the path of the dataset."""
+    from hafnia.dataset.operations.dataset_s3_storage import sync_files_from_platform
 
     path_datasets = path_datasets_folder or utils.PATH_DATASETS
     path_dataset = Path(path_datasets) / dataset_name
@@ -933,6 +941,6 @@ def download_or_get_dataset_path(
         return path_dataset
 
     dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
-    dataset = dataset.download_files(path_dataset, force_redownload=True)
+    dataset = sync_files_from_platform(dataset, path_dataset, force_redownload=True)
     dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
     return path_dataset

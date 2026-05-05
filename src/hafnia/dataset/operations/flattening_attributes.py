@@ -68,6 +68,10 @@ def _expand_class_info(
         return [class_info]
 
     other_attrs = [a for a in attrs if a.name != attr_name]
+    base_class = ClassInfo(
+        name=class_info.name,
+        attributes=other_attrs if other_attrs else None,
+    )
     result: List[ClassInfo] = []
     for sub_class in matching_attr.classes or []:
         for expanded in _expand_class_info(sub_class, remaining, separator):
@@ -78,7 +82,7 @@ def _expand_class_info(
                     attributes=merged_attrs if merged_attrs else None,
                 )
             )
-    return [class_info] + result
+    return [base_class] + result
 
 
 def flatten_class_names(

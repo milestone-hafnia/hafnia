@@ -208,6 +208,18 @@ def test_flattening_specification(encord_dataset_tiny: HafniaDataset):
     class_name_counts = dataset_flat.calculate_class_counts()
     class_names = [cn["Class Name"] for cn in class_name_counts]
 
+    # Test to verify that "Vehicle Color" attributes is removed after flattening
+    bb_task = dataset_flat.info.get_task_by_primitive(primitives.Bbox)
+    class_vehicle_base = bb_task.get_class_by_name("Vehicle")
+    vehicle_attributes = class_vehicle_base.attributes or []  # type: ignore
+    has_color_attribute = any(attr.name == "Vehicle Color" for attr in vehicle_attributes)
+    assert not has_color_attribute, "Color attribute should be flattened into class name and removed from attributes"
+
+    class_vehicle_gray = bb_task.get_class_by_name("Vehicle.Gray")
+    vehicle_gray_attributes = class_vehicle_gray.attributes or []  # type: ignore
+    has_color_attribute = any(attr.name == "Vehicle Color" for attr in vehicle_gray_attributes)
+    assert not has_color_attribute, "Color attribute should be flattened into class name and removed from attributes"
+
     assert len([cn for cn in class_names if cn == "Vehicle"]) == 1, "Expected base class after flattening"
     assert len([cn for cn in class_names if cn == "Vehicle.Gray"]) == 1, "Expected base class after flattening"
     assert len([cn for cn in class_names if cn == "Sunrise/Sunset"]) == 1, "Expected base class after flattening"
