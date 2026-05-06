@@ -64,6 +64,50 @@ def auto_discover_cmd_builder_schemas(package_files: List[Path]) -> List[Dict]:
     return cmd_builder_schemas
 
 
+@timed("Updating trainer package.")
+def update_trainer_package(
+    id: str,
+    source_dir: Optional[Path] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    cmd: Optional[str] = None,
+    cfg: Optional[Config] = None,
+) -> Dict:
+    if source_dir is None and name is None and description is None and cmd is None:
+        raise ValueError("Provide at least one of source_dir, name, description, or cmd to update.")
+
+    cfg = cfg or Config()
+    endpoint = f"{cfg.get_platform_endpoint('trainers')}/{id}"
+    headers = {"Authorization": cfg.api_key, "accept": "application/json"}
+
+    fields: Dict = {}
+    if name is not None:
+        fields["name"] = name
+    if description is not None:
+        fields["description"] = description
+    if cmd is not None:
+        fields["default_command"] = cmd
+
+    if source_dir is not None:
+        source_dir = Path(source_dir).resolve()
+        path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
+        zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
+        user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
+
+        cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
+        if len(cmd_builder_schemas) > 0:
+            fields["command_builder_schemas"] = json.dumps(cmd_builder_schemas)
+        fields["file"] = (zip_path.name, Path(zip_path).read_bytes())
+        user_logger.info(f"Updating trainer package '{id}' on platform...")
+        response = http.patch(endpoint, headers=headers, data=fields, multipart=True)
+    else:
+        user_logger.info(f"Updating trainer package '{id}' metadata on platform...")
+        response = http.patch(endpoint, headers=headers, data=fields)
+
+    user_logger.info(f"Trainer package '{response.get('id', id)}' updated successfully")
+    return response
+
+
 @timed("Get trainer package.")
 def get_trainer_package_by_id(id: str, cfg: Optional[Config] = None) -> Dict:
     cfg = cfg or Config()

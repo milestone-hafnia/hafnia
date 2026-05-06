@@ -1,3 +1,4 @@
+import click
 import pytest
 from click.exceptions import MissingParameter, NoArgsIsHelpError
 
@@ -83,6 +84,13 @@ def test_cli_integration_test():
         hafnia_cli(args=[CMD_TRAINER_PACKAGE, "create-zip", str(path_trainer)], standalone_mode=False)
         hafnia_cli(args=[CMD_TRAINER_PACKAGE, "view-zip", "--path", "trainer.zip"], standalone_mode=False)
 
+    # Trainer update: surface checks (run regardless of whether a real trainer is available)
+    hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update", "--help"], standalone_mode=False)
+    with pytest.raises(MissingParameter):
+        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update"], standalone_mode=False)
+    with pytest.raises(click.UsageError):
+        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update", "non-existent-id"], standalone_mode=False)
+
     # Experiment commands
     CMD_EXPERIMENT = "experiment"
     hafnia_cli(args=[CMD_EXPERIMENT, "ls"], standalone_mode=False)
@@ -99,7 +107,7 @@ def test_cli_integration_test():
                 "create",
                 str(path_trainer),
                 "--name",
-                f"integration_test_trainer_package_{utils.now_as_str()}",
+                f"IntegrationTestTrainer{utils.now_as_str()}",
                 "--description",
                 "Integration test trainer package created by CLI integration test.",
             ],
@@ -108,6 +116,23 @@ def test_cli_integration_test():
         assert trainer_response is not None
         assert isinstance(trainer_response, dict)
         assert "id" in trainer_response
+
+        update_response = hafnia_cli(
+            args=[
+                CMD_TRAINER_PACKAGE,
+                "update",
+                trainer_response["id"],
+                "--name",
+                f"{trainer_response['name']} (updated)",
+                "--description",
+                f"Updated by integration test at {utils.now_as_str()}.",
+                "--path",
+                str(path_trainer),
+            ],
+            standalone_mode=False,
+        )
+        assert isinstance(update_response, dict)
+        assert update_response.get("id") == trainer_response["id"]
 
         hafnia_cli(
             args=[

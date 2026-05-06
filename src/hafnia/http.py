@@ -84,6 +84,41 @@ def post(endpoint: str, headers: Dict, data: Union[Path, Dict, bytes, str], mult
         http.clear()
 
 
+def patch(endpoint: str, headers: Dict, data: Union[Dict, bytes, str], multipart: bool = False) -> Dict:
+    """Sends a PATCH request to the specified endpoint.
+
+    Mirrors `post`: supports JSON dict/str/bytes payloads or multipart/form-data.
+    """
+    http = urllib3.PoolManager(retries=urllib3.Retry(3))
+    try:
+        if multipart:
+            headers.pop("Content-Type", None)
+            response = http.request(
+                "PATCH",
+                endpoint,
+                fields=data if isinstance(data, dict) else {"file": data},
+                headers=headers,
+            )
+        else:
+            if isinstance(data, dict):
+                data = json.dumps(data)
+            if isinstance(data, str):
+                headers["Content-Type"] = "application/json"
+                response = http.request("PATCH", endpoint, body=data, headers=headers)
+            elif isinstance(data, bytes):
+                response = http.request("PATCH", endpoint, body=data, headers=headers)
+            else:
+                raise ValueError(f"Unsupported data type: {type(data)}")
+
+        if response.status not in (200, 202):
+            error_details = response.data.decode("utf-8")
+            raise urllib3.exceptions.HTTPError(f"Request failed with status {response.status}: {error_details}")
+
+        return json.loads(response.data.decode("utf-8"))
+    finally:
+        http.clear()
+
+
 def delete(endpoint: str, headers: Dict) -> Dict:
     """Sends a DELETE request to the specified endpoint."""
     http = urllib3.PoolManager(retries=urllib3.Retry(3))
