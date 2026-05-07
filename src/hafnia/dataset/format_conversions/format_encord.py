@@ -59,6 +59,16 @@ MAPPING_GET_ENCORD_NAME_FROM_PRIMITIVE = {item.primitive: item.encord_name for i
 
 
 def from_encord_zip_format(path_compressed_data: Path, max_samples: Optional[int] = None) -> "HafniaDataset":
+    """Import an Encord project export (compressed JSON) as a `HafniaDataset`.
+
+    Reads the Encord ontology, label rows and project info from the export and converts them
+    into Hafnia primitives (`Bbox`, `Polygon`, `Bitmask`, `Classification`, ...) and tasks.
+
+    Args:
+        path_compressed_data: Path to the Encord export (typically produced by
+            `dump_encord_project_from_id`).
+        max_samples: Optional cap on the number of samples to import.
+    """
     metadata_dict = utils.read_compressed_json(path_compressed_data)
     encord_info = metadata_dict["encord_info"]
     encord_labels = metadata_dict["labels"]

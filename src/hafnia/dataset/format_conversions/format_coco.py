@@ -43,6 +43,18 @@ def from_coco_format(
     max_samples: Optional[int] = None,
     dataset_name: str = "coco-2017",
 ):
+    """Import a COCO-formatted dataset as a `HafniaDataset`.
+
+    Resolves split-level image folders and `instances.json` files according to the chosen layout
+    and merges them into one dataset. Currently supports the Roboflow on-disk layout (one
+    subfolder per split, each containing a `_annotations.coco.json` instances file).
+
+    Args:
+        path_dataset: Root folder containing the COCO splits.
+        coco_format_type: Layout type; only ``"roboflow"`` is currently supported.
+        max_samples: Optional cap on the total number of samples (split evenly across splits).
+        dataset_name: Name to assign to the resulting dataset.
+    """
     split_definitions = get_split_paths_for_coco_dataset_formats(
         path_dataset=path_dataset, coco_format_type=coco_format_type
     )
@@ -315,6 +327,22 @@ def to_coco_format(
     task_name: Optional[str] = None,
     coco_format_type: str = "roboflow",
 ) -> List[CocoSplitPaths]:
+    """Export a `HafniaDataset` to COCO format on disk and return the paths of each split.
+
+    Writes one `instances.json` per split, plus the corresponding image folder layout. If the
+    dataset has both `Bitmask` and `Bbox` tasks and `task_name` is omitted, segmentation masks are
+    preferred over bounding boxes.
+
+    Args:
+        dataset: Dataset to export.
+        path_output: Output root folder; one subfolder per split is created beneath it.
+        task_name: Specific task to export. If None, a single eligible task is auto-selected
+            (Bitmask first, then Bbox).
+        coco_format_type: Output layout. Currently only ``"roboflow"`` is supported.
+
+    Returns:
+        A list of `CocoSplitPaths` describing the files written for each split.
+    """
     samples_modified_all = dataset.samples.with_row_index("id")
 
     if SampleField.ATTRIBUTION in samples_modified_all.columns:
