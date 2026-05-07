@@ -45,6 +45,17 @@ def from_yolo_format(
     filename_class_names: str = FILENAME_YOLO_CLASS_NAMES,
     filename_images_txt: str = FILENAME_YOLO_IMAGES_TXT,
 ) -> "HafniaDataset":
+    """Import a YOLO (Darknet) formatted dataset directory as a `HafniaDataset`.
+
+    Discovers split subfolders under `path_dataset`, reads the shared class-names file and a
+    per-split image list, and assembles them into a single `HafniaDataset` with a `Bbox` task.
+
+    Args:
+        path_dataset: Root folder containing one subfolder per split.
+        dataset_name: Name to assign to the resulting dataset.
+        filename_class_names: Filename of the class-names file at the dataset root.
+        filename_images_txt: Filename of the images list inside each split folder.
+    """
     per_split_paths: List[YoloSplitPaths] = get_split_definitions_for_coco_dataset_formats(
         path_dataset=path_dataset,
         filename_class_names=filename_class_names,
@@ -176,7 +187,21 @@ def to_yolo_format(
     filename_images_txt: str = FILENAME_YOLO_IMAGES_TXT,
     filename_class_names: str = FILENAME_YOLO_CLASS_NAMES,
 ) -> List[YoloSplitPaths]:
-    """Exports a HafniaDataset as YOLO (Darknet) format."""
+    """Export a `HafniaDataset` to the YOLO (Darknet) on-disk format.
+
+    Writes one subfolder per split under `path_output`, each containing the YOLO-style label
+    text files and an `images.txt` listing, plus a shared class-names file at the dataset root.
+
+    Args:
+        dataset: Dataset to export. Must contain a `Bbox` task.
+        path_output: Output root folder; one subfolder per split is created beneath it.
+        task_name: Optional task name disambiguation when the dataset has multiple `Bbox` tasks.
+        filename_images_txt: Filename of the per-split image listing.
+        filename_class_names: Filename of the shared class-names file at the dataset root.
+
+    Returns:
+        A list of `YoloSplitPaths` describing the files written for each split.
+    """
 
     split_names = dataset.samples[SampleField.SPLIT].unique().to_list()
 

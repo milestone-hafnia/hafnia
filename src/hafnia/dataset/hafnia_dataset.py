@@ -108,6 +108,16 @@ class HafniaDataset:
 
     @staticmethod
     def from_path(path_folder: Path, check_for_images: bool = True) -> "HafniaDataset":
+        """Load a `HafniaDataset` from a local folder previously written with `HafniaDataset.write`.
+
+        Reads `dataset_info.json` plus the annotations file (Parquet preferred, JSONL fallback) from
+        `path_folder`, rewrites sample file paths as absolute paths rooted at the folder, and
+        optionally verifies that every referenced image exists.
+
+        Args:
+            path_folder: Local directory containing the dataset metadata and (optionally) images.
+            check_for_images: If True, raise if any sample's image file is missing on disk.
+        """
         path_folder = Path(path_folder)
         metadata_file_paths = DatasetMetadataFilePaths.from_path(path_folder)
         metadata_file_paths.exists(raise_error=True)
@@ -130,8 +140,21 @@ class HafniaDataset:
         force_redownload: bool = False,
         download_files: bool = True,
     ) -> "HafniaDataset":
-        """
-        Load a dataset by its name. The dataset must be registered in the Hafnia platform.
+        """Load a dataset by name from the Hafnia platform.
+
+        Returns the **sample dataset** locally and the **full dataset** when running under
+        Training-aaS, so the same call works in both environments. The sample dataset is cached
+        under `.data/datasets/<name>/` and only re-downloaded when `force_redownload=True` or when
+        `version` is ``None``/``"latest"`` (which always re-resolves the latest version).
+
+        Args:
+            name: Dataset name as registered on the platform. The ``"name:version"`` shorthand is
+                **not** accepted — pass `version` separately.
+            version: Specific dataset version (e.g. ``"1.0.0"``), ``"latest"``, or ``None``. If
+                ``None``, the function raises with the list of available versions.
+            force_redownload: If True, re-download even if a cached copy is present.
+            download_files: If True, download image files alongside the annotations. Set to False
+                when only annotations are needed (e.g. for stats or filtering).
         """
         if ":" in name:
             name, version = dataset_helpers.dataset_name_and_version_from_string(name)
@@ -209,6 +232,15 @@ class HafniaDataset:
 
     @staticmethod
     def from_samples_list(samples_list: List, info: DatasetInfo) -> "HafniaDataset":
+        """Create a `HafniaDataset` from a list of `Sample` objects (or sample dicts) and a `DatasetInfo`.
+
+        Used when constructing datasets from custom data — see `examples/example_custom_dataset.py`.
+        Adds a sample index and fills in the dataset name on the resulting samples table.
+
+        Args:
+            samples_list: List of `Sample` instances or dicts matching the `Sample` schema.
+            info: Dataset-level metadata (name, version, tasks, ...).
+        """
         sample = samples_list[0]
         if isinstance(sample, Sample):
             json_samples = [sample.model_dump(mode="json") for sample in samples_list]
@@ -230,6 +262,10 @@ class HafniaDataset:
 
     @staticmethod
     def from_merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
+        """Merge two datasets into one. Thin wrapper around `HafniaDataset.merge`.
+
+        See `merge` for compatibility checks and the handling of incompatible primitives.
+        """
         return HafniaDataset.merge(dataset0, dataset1)
 
     @staticmethod
@@ -238,9 +274,17 @@ class HafniaDataset:
         force_redownload: bool = False,
         path_datasets: Optional[Union[Path, str]] = None,
     ) -> "HafniaDataset":
-        """
-        Loads a dataset from a recipe and caches it to disk.
-        If the dataset is already cached, it will be loaded from the cache.
+        """Build a dataset from a `DatasetRecipe` with on-disk caching keyed by the recipe contents.
+
+        The first call materializes the recipe and writes the resulting dataset to a cache folder
+        named after the recipe's stable hash; subsequent calls with the same recipe load from the
+        cache without re-running operations.
+
+        Args:
+            dataset_recipe: A `DatasetRecipe` instance describing how to construct the dataset.
+            force_redownload: If True, ignore the cache and rebuild from scratch.
+            path_datasets: Optional override for the cache root. Defaults to the standard datasets
+                folder used by `HafniaDataset.from_name`.
         """
 
         from hafnia.dataset.dataset_recipe.dataset_recipe import (
@@ -258,8 +302,14 @@ class HafniaDataset:
     def from_merger(
         datasets: List[HafniaDataset],
     ) -> "HafniaDataset":
-        """
-        Merges multiple Hafnia datasets into one.
+        """Merge a list of `HafniaDataset` instances into one by repeatedly applying `merge`.
+
+        Tasks and primitive columns shared across all inputs are preserved; tasks/primitives that
+        appear in only some of the inputs are dropped during the merge with a warning. Returns the
+        single dataset unchanged if the list has length one.
+
+        Args:
+            datasets: Non-empty list of datasets to merge.
         """
         if len(datasets) == 0:
             raise ValueError("No datasets to merge. Please provide at least one dataset.")
@@ -279,6 +329,17 @@ class HafniaDataset:
         force_redownload: bool = False,
         n_samples: Optional[int] = None,
     ) -> HafniaDataset:
+        """Load a public dataset (e.g. one of the supported torchvision datasets) as a `HafniaDataset`.
+
+        Unlike `from_name`, this does not require platform credentials — the dataset is fetched
+        from its public source and converted into the Hafnia format.
+
+        Args:
+            name: Public dataset identifier. Use `torchvision_to_hafnia_converters()` to list the
+                supported names.
+            force_redownload: If True, re-download even if a local copy is already present.
+            n_samples: Optional cap on the number of samples to materialize.
+        """
         from hafnia.dataset.format_conversions.torchvision_datasets import (
             torchvision_to_hafnia_converters,
         )
@@ -296,6 +357,12 @@ class HafniaDataset:
         )
 
     def shuffle(dataset: HafniaDataset, seed: int = 42) -> HafniaDataset:
+        """Return a new dataset with samples shuffled deterministically.
+
+        Args:
+            seed: Random seed controlling the shuffle order. The same seed always produces the
+                same ordering for a given input dataset.
+        """
         table = dataset.samples.sample(n=len(dataset), with_replacement=False, seed=seed, shuffle=True)
         return dataset.update_samples(table)
 
@@ -306,8 +373,15 @@ class HafniaDataset:
         seed: int = 42,
         with_replacement: bool = False,
     ) -> "HafniaDataset":
-        """
-        Create a new dataset with a subset of samples.
+        """Return a new dataset containing a random subset of `n_samples` samples.
+
+        Args:
+            n_samples: Number of samples to draw. When `with_replacement=False`, this is capped
+                to the dataset size.
+            shuffle: If True, the drawn samples are shuffled in the returned dataset.
+            seed: Random seed for deterministic sampling.
+            with_replacement: If True, samples may be drawn more than once (useful for upsampling
+                small datasets).
         """
         if not with_replacement:
             n_samples = min(n_samples, len(dataset))
@@ -363,8 +437,16 @@ class HafniaDataset:
         return dataset_new
 
     def define_sample_set_by_size(dataset: "HafniaDataset", n_samples: int, seed: int = 42) -> "HafniaDataset":
-        """
-        Defines a sample set randomly by selecting 'n_samples' samples from the dataset.
+        """Tag `n_samples` randomly chosen samples as the dataset's "sample" subset.
+
+        Adds the `sample` tag to the selected rows and removes any pre-existing `sample` tag from
+        the others. The resulting dataset can then be reduced to the sample subset via
+        `create_sample_dataset`. Used to define the small, anonymized sample dataset that ships
+        with full datasets on the platform.
+
+        Args:
+            n_samples: Number of samples to mark.
+            seed: Random seed for deterministic selection.
         """
         samples = dataset.samples
 
@@ -430,6 +512,17 @@ class HafniaDataset:
         dataset: "HafniaDataset",
         flattening_specification: Dict[TaskInfo, List[List[str]]],
     ) -> "HafniaDataset":
+        """Flatten hierarchical class names for one or more tasks according to a specification.
+
+        For each task in `flattening_specification`, applies the listed flatten-types in order to
+        collapse hierarchical class names (e.g. ``Vehicle.Car`` → ``Vehicle``) and updates the
+        corresponding `TaskInfo`. Raises if the spec references a task that does not exist on this
+        dataset.
+
+        Args:
+            flattening_specification: Mapping from `TaskInfo` (matched by task name and primitive)
+                to a list of flatten-type lists to apply sequentially.
+        """
         updated_tasks = []
         samples = dataset.samples
         for task, flatten_types in flattening_specification.items():
@@ -464,8 +557,11 @@ class HafniaDataset:
         old_task_name: str,
         new_task_name: str,
     ) -> "HafniaDataset":
-        """
-        Rename a task in the dataset.
+        """Rename a task in `dataset.info` and propagate the new name to every annotation row.
+
+        Args:
+            old_task_name: Existing task name to rename. Raises if no task with this name exists.
+            new_task_name: New task name to assign.
         """
         return dataset_transformations.rename_task(
             dataset=dataset, old_task_name=old_task_name, new_task_name=new_task_name
@@ -475,9 +571,14 @@ class HafniaDataset:
         dataset: "HafniaDataset",
         task_name: str,
     ) -> "HafniaDataset":
-        """
-        Drop a task from the dataset.
-        If 'task_name' and 'primitive' are not provided, the function will attempt to infer the task.
+        """Drop a single task from the dataset.
+
+        If the task is the only task using its primitive type (e.g. the only `Bbox` task), the
+        primitive column is dropped entirely; otherwise only the matching rows are filtered out
+        of the primitive's `List[Struct]` column. The dataset's `info` is updated accordingly.
+
+        Args:
+            task_name: Name of the task to drop. Raises if no task with this name exists.
         """
         dataset = copy.copy(dataset)  # To avoid mutating the original dataset. Shallow copy is sufficient
         drop_task = dataset.info.get_task_by_name(task_name=task_name)
@@ -506,8 +607,14 @@ class HafniaDataset:
         dataset: "HafniaDataset",
         primitive: Type[Primitive],
     ) -> "HafniaDataset":
-        """
-        Drop a primitive from the dataset.
+        """Drop every task that uses the given primitive and remove its column from the samples.
+
+        Use this to fully remove a primitive type (e.g. drop all polygons from a dataset). To drop
+        a single task while preserving others of the same primitive type, use `drop_task`.
+
+        Args:
+            primitive: Primitive class to remove (e.g. `Bbox`, `Polygon`, `Bitmask`,
+                `Classification`).
         """
         dataset = copy.copy(dataset)  # To avoid mutating the original dataset. Shallow copy is sufficient
         tasks_to_drop = dataset.info.get_tasks_by_primitive(primitive=primitive)
@@ -524,9 +631,16 @@ class HafniaDataset:
         task_name: Optional[str] = None,
         primitive: Optional[Type[Primitive]] = None,
     ) -> HafniaDataset:
-        """
-        Select samples that contain at least one annotation with the specified class name(s).
-        If 'task_name' and 'primitive' are not provided, the function will attempt to infer the task.
+        """Keep only samples containing at least one annotation with the specified class name(s).
+
+        If neither `task_name` nor `primitive` is provided, the function attempts to infer the
+        unique task that contains the given class names; ambiguity raises an error.
+
+        Args:
+            name: A class name or list of class names to filter on.
+            task_name: Optional task to look up the class names in. Use this to disambiguate when
+                the same class name exists across multiple tasks.
+            primitive: Optional primitive type to constrain the lookup (e.g. `Bbox`).
         """
         return dataset_transformations.select_samples_by_class_name(
             dataset=dataset, name=name, task_name=task_name, primitive=primitive
@@ -539,11 +653,19 @@ class HafniaDataset:
         primitive: Optional[Type[Primitive]] = None,
         drop_classes_from_task_info: bool = True,
     ) -> HafniaDataset:
-        """
-        Drop samples that contain at least one annotation with the specified class name(s).
-        If 'task_name' and 'primitive' are not provided, the function will attempt to infer the task.
-        When 'drop_classes_from_task_info' is True, the specified class names are also removed
-        from the matching task in 'dataset.info.tasks' and class indices are re-assigned.
+        """Drop samples containing any annotation with the specified class name(s).
+
+        If neither `task_name` nor `primitive` is provided, the function attempts to infer the
+        unique task that contains the given class names; ambiguity raises an error.
+
+        Args:
+            name: A class name or list of class names whose samples should be removed.
+            task_name: Optional task to look up the class names in.
+            primitive: Optional primitive type to constrain the lookup.
+            drop_classes_from_task_info: If True (default), also remove the class names from the
+                matching task's `class_names` list in `dataset.info` and re-assign class indices
+                so they remain contiguous. Set to False to keep the task's class definitions
+                intact while only filtering samples.
         """
         return dataset_transformations.drop_samples_by_class_name(
             dataset=dataset,
@@ -554,8 +676,16 @@ class HafniaDataset:
         )
 
     def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
-        """
-        Merges two Hafnia datasets by concatenating their samples and updating the split names.
+        """Merge two `HafniaDataset` instances by concatenating samples and combining their `info`.
+
+        Validates that the two datasets are compatible (e.g. same `format_version`) before
+        merging. Tasks and primitive columns shared by both inputs are kept; tasks/primitives that
+        appear in only one input are dropped from the merged result with a warning logged through
+        `user_logger` — when this matters, align the inputs first via `drop_task`/`drop_primitive`.
+
+        Args:
+            dataset0: First dataset.
+            dataset1: Second dataset.
         """
 
         # Merges dataset info and checks for compatibility
@@ -576,9 +706,14 @@ class HafniaDataset:
         return HafniaDataset(info=merged_info, samples=merged_samples)
 
     def to_dict_dataset_splits(self) -> Dict[str, "HafniaDataset"]:
-        """
-        Splits the dataset into multiple datasets based on the 'split' column.
-        Returns a dictionary with split names as keys and HafniaDataset objects as values.
+        """Return a dict mapping each valid split name to a per-split `HafniaDataset`.
+
+        Iterates over `SplitName.valid_splits()` (typically `train`, `val`, `test`) and produces
+        one entry per split using `create_split_dataset`. Splits with no samples are still
+        included as empty datasets.
+
+        Raises:
+            ValueError: If the dataset's samples table has no `split` column.
         """
         if SampleField.SPLIT not in self.samples.columns:
             raise ValueError(f"Dataset must contain a '{SampleField.SPLIT}' column.")
@@ -590,6 +725,11 @@ class HafniaDataset:
         return splits
 
     def create_sample_dataset(self) -> "HafniaDataset":
+        """Return a new dataset containing only the samples tagged as part of the **sample** subset.
+
+        Samples are tagged via `define_sample_set_by_size`. The returned dataset preserves the
+        original `info` and only filters the samples table.
+        """
         if SampleField.TAGS not in self.samples.columns:
             raise ValueError(f"Dataset must contain an '{SampleField.TAGS}' column.")
 
@@ -599,6 +739,12 @@ class HafniaDataset:
         return self.update_samples(table)
 
     def create_split_dataset(self, split_name: Union[str | List[str]]) -> "HafniaDataset":
+        """Return a new dataset containing only samples whose `split` matches `split_name`.
+
+        Args:
+            split_name: A single split name (e.g. ``"train"``) or a list of names. Each must be one
+                of the values in `SplitName.all_split_names()`; otherwise a `ValueError` is raised.
+        """
         if isinstance(split_name, str):
             split_names = [split_name]
         elif isinstance(split_name, list):
@@ -612,14 +758,21 @@ class HafniaDataset:
         return self.update_samples(filtered_dataset)
 
     def update_samples(self, table: pl.DataFrame) -> "HafniaDataset":
+        """Return a new `HafniaDataset` with the samples replaced by `table` and a deep-copied `info`.
+
+        Used by transformation methods to produce immutable, dataset-shaped results without
+        mutating the original.
+        """
         dataset = HafniaDataset(info=self.info.model_copy(deep=True), samples=table)
         return dataset
 
     def has_primitive(dataset: HafniaDataset, PrimitiveType: Type[Primitive]) -> bool:
+        """Return True if the dataset contains at least one annotation of the given primitive type."""
         table = dataset.samples if isinstance(dataset, HafniaDataset) else dataset
         return table_transformations.has_primitive(table, PrimitiveType)
 
     def copy(self) -> "HafniaDataset":
+        """Return a deep copy of the dataset (info is deep-copied, samples DataFrame is cloned)."""
         return HafniaDataset(info=self.info.model_copy(deep=True), samples=self.samples.clone())
 
     def adjust_bboxes_from_polygon_masks(
@@ -627,6 +780,16 @@ class HafniaDataset:
         polygon_class_names: List[str],
         run_checks: bool = True,
     ) -> "HafniaDataset":
+        """Tighten bounding boxes around the polygon masks of the listed classes.
+
+        For samples that have both `Bbox` and `Polygon` annotations on the same object, this
+        replaces each `Bbox` with the tight axis-aligned box around the matching polygon for the
+        given class names.
+
+        Args:
+            polygon_class_names: Class names whose polygons drive the bbox adjustment.
+            run_checks: If True, run consistency checks before/after the adjustment.
+        """
         return adjust_bboxes_from_polygon_masks_dataset(
             dataset=self,
             polygon_class_names=polygon_class_names,
@@ -639,6 +802,21 @@ class HafniaDataset:
         task_name: Optional[str] = None,
         keep_sample_data: bool = False,
     ) -> Optional[pl.DataFrame]:
+        """Explode the dataset's samples into one row per primitive annotation of the given type.
+
+        Useful for per-annotation analysis (e.g. computing class distributions, per-bbox statistics).
+
+        Args:
+            primitive: Primitive class to extract (e.g. `Bbox`, `Classification`, `Polygon`).
+            task_name: Optional task name to filter on; if omitted, all annotations of the primitive
+                type are returned regardless of task.
+            keep_sample_data: If True, retain the per-sample columns (file path, split, ...) on the
+                exploded rows. Defaults to False to keep the table compact.
+
+        Returns:
+            A Polars DataFrame with one row per matching annotation, or None if the primitive is
+            absent from the dataset.
+        """
         return table_transformations.create_primitive_table(
             samples_table=self.samples,
             PrimitiveType=primitive,
@@ -647,6 +825,17 @@ class HafniaDataset:
         )
 
     def write(self, path_folder: Path, drop_null_cols: bool = True) -> None:
+        """Write the dataset to disk: copies all images into `path_folder/data/` and writes annotations
+        to `path_folder`.
+
+        Image files are renamed by content hash so that duplicates are de-duplicated. After copying,
+        annotations are written via `write_annotations` (both Parquet and JSONL) and `dataset_info.json`.
+
+        Args:
+            path_folder: Destination folder. Created if it does not exist.
+            drop_null_cols: If True, drop fully-null columns from the annotations files to keep them
+                compact.
+        """
         user_logger.info(f"Writing dataset to {path_folder}...")
         path_folder = path_folder.absolute()
         if not path_folder.exists():
@@ -664,8 +853,16 @@ class HafniaDataset:
         hafnia_dataset.write_annotations(path_folder=path_folder, drop_null_cols=drop_null_cols)
 
     def write_annotations(dataset: HafniaDataset, path_folder: Path, drop_null_cols: bool = True) -> None:
-        """
-        Writes only the annotations files (JSONL and Parquet) to the specified folder.
+        """Write `dataset_info.json` and the annotations files (JSONL and Parquet) to disk.
+
+        Unlike `write`, this does **not** copy image files — it only persists the metadata. Sample
+        file paths are converted to paths relative to `path_folder` if the `file_path` column is
+        present (or replaced with empty strings for remote datasets).
+
+        Args:
+            path_folder: Destination folder. Created if it does not exist.
+            drop_null_cols: If True (default), drop fully-null columns to keep the on-disk files
+                compact.
         """
 
         user_logger.info(f"Writing dataset annotations to {path_folder}...")

@@ -20,8 +20,10 @@ if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type
 
 
 def calculate_split_counts(dataset: HafniaDataset) -> Dict[str, int]:
-    """
-    Returns a dictionary with the counts of samples in each split of the dataset.
+    """Return the number of samples per split as a `{split_name: count}` mapping.
+
+    Splits with zero samples are not included; only splits actually present in
+    `dataset.samples["split"]` appear as keys.
     """
     return dict(dataset.samples[SampleField.SPLIT].value_counts().iter_rows())
 
@@ -104,6 +106,12 @@ def calculate_class_counts(dataset: HafniaDataset) -> List[Dict[str, Any]]:
 
 
 def calculate_primitive_counts(dataset: HafniaDataset) -> Dict[str, int]:
+    """Count the total number of annotations per task across the whole dataset.
+
+    Each task contributes one entry, keyed by the primitive class name (and task name if it differs
+    from the primitive's default), with the value being the total number of annotations of that
+    type in the dataset.
+    """
     annotation_counts = {}
     for task in dataset.info.tasks:
         objects = dataset.create_primitive_table(task.primitive, task_name=task.name)
@@ -116,6 +124,12 @@ def calculate_primitive_counts(dataset: HafniaDataset) -> Dict[str, int]:
 
 
 def calculate_split_counts_extended(dataset: HafniaDataset) -> List[Dict[str, Any]]:
+    """Return per-split sample counts plus per-task primitive counts, one row per split.
+
+    The returned list contains rows for "All", "Train", "Validation" and "Test", each with a
+    sample count and counts for every primitive task in the dataset. Used by
+    `print_sample_and_task_counts` to render the dataset overview table.
+    """
     splits_sets = {
         "All": SplitName.valid_splits(),
         "Train": [SplitName.TRAIN],
@@ -138,6 +152,13 @@ def calculate_split_counts_extended(dataset: HafniaDataset) -> List[Dict[str, An
 
 
 def calculate_video_stats(dataset: HafniaDataset) -> Dict[str, Any]:
+    """Aggregate per-video and per-camera statistics for video-derived datasets.
+
+    When the dataset has `video_info` and/or `camera_info` columns, this returns a dictionary with
+    the number of unique videos, total/average duration, average frame rate and bit rate, the
+    earliest and latest capture/download dates, and the number of unique cameras — depending on
+    which fields are populated. Returns an empty dict for datasets without video/camera metadata.
+    """
     stats = {}
     samples = dataset.samples
 
@@ -180,8 +201,10 @@ def calculate_video_stats(dataset: HafniaDataset) -> Dict[str, Any]:
 
 
 def print_basic_stats(dataset: HafniaDataset) -> None:
-    """
-    Prints basic statistics about the dataset, including dataset name, version, and number of samples.
+    """Print a small `rich` table summarizing dataset name, version, sample count, and per-task class counts.
+
+    Side-effecting only — no return value. Use `print_stats` for a full breakdown including
+    per-split sample counts and class distributions.
     """
     table = Table(title="Dataset Statistics", box=rich.box.SIMPLE)
     table.add_column("Property", style="cyan")
@@ -199,9 +222,10 @@ def print_basic_stats(dataset: HafniaDataset) -> None:
 
 
 def print_stats(dataset: HafniaDataset) -> None:
-    """
-    Prints verbose statistics about the dataset, including dataset name, version,
-    number of samples, and detailed counts of samples and tasks.
+    """Print the full dataset overview: basic info, per-split sample/task counts, and per-task class distributions.
+
+    Composes `print_basic_stats`, `print_sample_and_task_counts` and `print_class_distribution`
+    into a single call. Side-effecting only — output goes to stdout via `rich`.
     """
     print_basic_stats(dataset)
     print_sample_and_task_counts(dataset)
@@ -213,9 +237,15 @@ def print_class_distribution(
     primitive: Optional[Type[Primitive]] = None,
     task_name: Optional[str] = None,
 ) -> None:
-    """
-    Prints the class distribution for each task in the dataset. Filter by primitive type
-    and/or task name can be applied.
+    """Print one `rich` table per task showing class name, class index and annotation count.
+
+    By default iterates over every task in the dataset; pass `primitive` and/or `task_name` to
+    restrict the output to specific tasks. Raises if a task selected by the filter has no class
+    names defined.
+
+    Args:
+        primitive: Optional primitive type to filter on (e.g. `Bbox`).
+        task_name: Optional task name to filter on.
     """
     tasks = dataset.info.get_tasks_by_task_name_and_primitive(task_name=task_name, primitive=primitive)
     for task in tasks:
@@ -241,9 +271,10 @@ def print_class_distribution(
 
 
 def print_sample_and_task_counts(dataset: HafniaDataset) -> None:
-    """
-    Prints a table with sample counts and task counts for each primitive type
-    in total and for each split (train, val, test).
+    """Print a `rich` table with sample counts and per-task primitive counts, one row per split.
+
+    The rows are: total ("All"), train, validation and test. Backed by
+    `calculate_split_counts_extended`.
     """
     rows = calculate_split_counts_extended(dataset)
     rich_table = Table(title="Dataset Statistics", box=rich.box.SIMPLE)
@@ -256,9 +287,17 @@ def print_sample_and_task_counts(dataset: HafniaDataset) -> None:
 
 
 def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
-    """
-    Performs various checks on the dataset to ensure its integrity and consistency.
-    Raises errors if any issues are found.
+    """Run integrity checks on a dataset and raise on the first violation found.
+
+    Verifies that the dataset name is non-empty, that `info.tasks` is consistent with the
+    primitive columns in `samples` (delegates to `check_dataset_tasks`), and — when
+    `check_splits=True` — that a sample subset exists and that every required split is present.
+    Each `Sample` is also instantiated as a sanity check on the row schema.
+
+    Args:
+        check_splits: If True, additionally require a non-empty sample subset and the presence of
+            every split in `SplitName.valid_splits()`. Disable for partial datasets that
+            intentionally lack one or more splits.
     """
 
     user_logger.info("Checking Hafnia dataset...")
@@ -302,8 +341,12 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
 
 
 def check_dataset_tasks(dataset: HafniaDataset):
-    """
-    Checks that the tasks defined in 'dataset.info.tasks' are consistent with the data in 'dataset.samples'.
+    """Verify that every task in `dataset.info.tasks` is consistent with the rows in `dataset.samples`.
+
+    For each task, the corresponding primitive column must exist in the samples table, contain at
+    least one annotation matching the task's name (for non-empty datasets), and use only class
+    names that are subsets of `task.class_names` with matching class indices. Also rejects
+    duplicate task names. Raises `ValueError` on the first violation found.
     """
     dataset.info.check_for_duplicate_task_names()
 

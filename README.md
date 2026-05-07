@@ -5,10 +5,10 @@ the [Hafnia Platform](https://hafnia.milestonesys.com/).
 
 The package includes the following interfaces:
 
-- `cli`: A Command Line Interface (CLI) to 1) configure/connect to Hafnia's [Training-aaS](https://hafnia.readme.io/docs/training-as-a-service) and 2) create and
-  launch trainer packages.
-- `hafnia`: A python package including `HafniaDataset` to manage datasets and `HafniaLogger` to do
-  experiment tracking.
+- `cli`: A Command Line Interface (CLI) to 1) configure/connect to Hafnia's [Training-aaS](https://hafnia.readme.io/docs/training-as-a-service),
+  2) manage datasets, dataset recipes and trainer packages, and 3) build and launch trainer packages locally.
+- `hafnia`: A python package including `HafniaDataset` to manage datasets, `DatasetRecipe` to compose
+  reproducible dataset transformations and `HafniaLogger` for experiment tracking.
 
 ## The Concept: Training as a Service (Training-aaS)
 
@@ -19,8 +19,8 @@ training, but are not available for download or direct access.
 This is a key for the Hafnia platform, as a hidden dataset ensures data
 privacy, and allow models to be trained compliantly and ethically by third parties (you).
 
-The `script2model` approach is a Training-aaS concept, where you package your custom training
-project or script as a _trainer package_ and use the package to train models on the hidden datasets.
+The Training-aaS concept involves packaging your custom training
+project as a _trainer package_ and using the package to train models on the hidden datasets.
 
 To support local development of a trainer package, we have introduced a **sample dataset**
 for each dataset available in the Hafnia [data library](https://hafnia.milestonesys.com/training-aas/datasets). The sample dataset is a small
@@ -31,25 +31,51 @@ Locally, you can create, validate and debug your trainer package. The trainer pa
 launched with Training-aaS, where the package runs on the full dataset and can be scaled to run on
 multiple GPUs and instances if needed.
 
-## Getting started: Configuration
+## Quick Start: No-Code Model Training
 
-To get started with Hafnia:
+To demonstrate the concept of Training-aaS, we will first show how to launch model training using the Hafnia Training-aaS platform - without writing any code - using a pre-built public trainer package.
+
+### Steps:
+
+1. **Sign in**  
+   To sign in to the [Hafnia Platform](https://hafnia.milestonesys.com/).
+1. **Access the Dashboard**  
+   Go do the dashboard, select [Training-aaS](https://hafnia.milestonesys.com/dashboard/training-aas/experiments) and click "Create Experiment"
+
+1. **Select Dataset**  
+   Choose your target dataset (e.g., `coco-2017` or `midwest-vehicle-detection`)
+
+1. **Select Trainer Package**  
+   Use the public trainer package provided by Hafnia. Select the "Public Trainers" tab and choose the "Object Detection Trainer" package. *You may also upload your own trainer package, but we will describe that later.*
+
+1. **Configure Training**  
+   - **Training command:** `python scripts/train.py`
+   - **Configuration:** Select "Free Tier" or "Professional" based on your needs
+
+1. **Launch & Monitor**  
+   Click "Create Experiment" and monitor progress in the dashboard
+
+That's it! You have successfully launched an object detection model training experiment using the Hafnia Training-aaS platform.
+
+For default training parameters, the trainer package converges in approximately 4 hours on the `midwest-vehicle-detection` dataset using the "Free Tier" configuration.
+
+## Installation and Configuration
+
+To use the CLI for managing datasets and trainer packages — and to load datasets locally with the
+Python SDK — install `hafnia` and configure it with your API key.
 
 1. Install `hafnia` with your favorite python package manager:
 
    ```bash
    # With uv package manager
    uv add hafnia
-
-   # With pip
-   pip install hafnia
    ```
 
-1. Sign in to the [Hafnia Platform](https://hafnia.milestonesys.com/).
-1. Create an API KEY for Training aaS. For more instructions, follow this
+2. Sign in to the [Hafnia Platform](https://hafnia.milestonesys.com/).
+3. Create an API KEY for Training aaS. For more instructions, follow this
    [guide](https://hafnia.readme.io/docs/create-an-api-key).
    Copy the key and save it for later use.
-1. From terminal, configure your machine to access Hafnia:
+4. From terminal, configure your machine to access Hafnia:
 
    ```
    # Start configuration with
@@ -61,245 +87,180 @@ To get started with Hafnia:
    Hafnia Platform URL [default https://api.hafnia.milestonesys.com]:  # Press [Enter] to use the default
    ```
 
-1. Download `mnist` from terminal to verify that your configuration is working.
+5. Download `mnist` from terminal to verify that your configuration is working.
 
    ```bash
    hafnia dataset download mnist --force
    ```
 
-## Getting started: Loading datasets samples
+### CLI command surface
 
-With Hafnia configured on your local machine, it is now possible to download
-and explore the dataset sample with a python script:
-
-```python
-from hafnia.dataset.hafnia_dataset import HafniaDataset
-
-dataset = HafniaDataset.from_name("midwest-vehicle-detection")
-```
-
-This will download the dataset sample `midwest-vehicle-detection` to the local `.data/datasets/` folder
-in a human readable format.
-
-Images are stored in the `data` folder, general dataset information is stored in `dataset_info.json`  
-and annotations are stored as both `annotations.jsonl`(jsonl) and `annotations.parquet`.
+Once configured, the `hafnia` CLI exposes the following command groups. Each group has a `--help`
+flag that shows the available subcommands and options:
 
 ```bash
-$ cd .data/datasets/
-$ tree midwest-vehicle-detection
-midwest-vehicle-detection
-└── sample
-    ├── annotations.jsonl
-    ├── annotations.parquet
-    ├── data
-    │   ├── video_0026a86b-2f43-49f2-a17c-59244d10a585_1fps_mp4_frame_00000.png
-    │   ....
-    │   ├── video_ff17d777-e783-44e2-9bff-a4adac73de4b_1fps_mp4_frame_00000.png
-    │   └── video_ff17d777-e783-44e2-9bff-a4adac73de4b_1fps_mp4_frame_00100.png
-    └── dataset_info.json
+hafnia configure                       Interactive first-time setup (profile name, API key, URL)
+hafnia clear                           Remove all stored configuration
 
-3 directories, 217 files
+hafnia profile     ls | active | use | rm | create               # Manage local profiles
+hafnia dataset     ls | download | delete                        # Manage datasets on the platform
+hafnia recipe      ls | create | rm                              # Manage dataset recipes on the platform
+hafnia trainer     ls | create | update | create-zip | view-zip  # Manage trainer packages
+hafnia experiment  ls | create | environments                    # Launch and inspect experiments
+hafnia runc        build | build-local | launch-local            # Build and run trainer packages locally
 ```
 
-We provide the `HafniaDataset` format for loading/saving, managing and interacting with the dataset.
+Run `hafnia <group> --help` (and `hafnia <group> <subcommand> --help`) to see the full set of
+options for any command.
 
-We recommend the example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py)
-for a quick introduction on the `HafniaDataset`.
+## Trainer Packages: Bring Your Own Training Code
 
-Below is a short introduction to the `HafniaDataset` class.
+When the public trainer packages are not enough — for example because you want a different model
+architecture, a custom training loop, or your own evaluation metrics — you can package your own
+training script as a _trainer package_ and launch it on Training-aaS just like the public ones.
+
+We provide two reference trainer packages that serve as templates for creating
+and structuring your own trainers:
+
+- [trainer-classification](https://github.com/milestone-hafnia/trainer-classification) — image classification.
+- [trainer-object-detection](https://github.com/milestone-hafnia/trainer-object-detection) — object detection.
+
+Each repository contains additional information on how to structure your trainer package, use the
+`HafniaLogger`, load a dataset and launch the trainer on the Hafnia platform.
+
+### Managing trainer packages from the CLI
+
+Trainer packages can be created and updated on the platform directly from the CLI:
+
+```bash
+hafnia trainer ls                                                # list trainer packages on the platform
+hafnia trainer create   ../trainer-classification                # upload a new trainer package
+hafnia trainer update   <trainer-id>  ../trainer-classification  # push a new version
+hafnia trainer view-zip trainer.zip                              # inspect the contents of a trainer.zip
+```
+
+To get a better understanding we advice to visit the trainer package repositories above
+
+### Build and run a `trainer.zip` locally
+
+To test trainer-package compatibility with Hafnia cloud before uploading, build and run the job locally:
+
+```bash
+# Create 'trainer.zip' from the root folder of your trainer project (e.g. '../trainer-classification')
+hafnia trainer create-zip ../trainer-classification
+
+# Build the docker image locally from a 'trainer.zip' file
+hafnia runc build-local trainer.zip
+
+# Execute the docker image locally with a desired dataset
+hafnia runc launch-local --dataset mnist  "python scripts/train.py"
+```
+
+## The `hafnia` Python Package
+
+The `hafnia` Python package provides everything needed to build trainer packages: dataset loading
+and manipulation, custom-dataset construction, recipe-based dataset composition, torch integration,
+experiment tracking and inference benchmarking. Each feature has a runnable script under
+[examples/](examples/).
+
+### Loading datasets with `HafniaDataset`
+
+`HafniaDataset` is the main entry point for loading and manipulating datasets. The same
+`HafniaDataset.from_name` call returns the **sample dataset** locally and the **full dataset** when
+running under Training-aaS — so a training script does not need to change between the two
+environments.
 
 ```python
 from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
 
-# Load dataset from path
-dataset = HafniaDataset.from_path(path_dataset)
+# Load by name (downloads to .data/datasets/ on first call)
+dataset = HafniaDataset.from_name("midwest-vehicle-detection", version="1.0.0")
 
-# Or get dataset directly by name
-dataset = HafniaDataset.from_name("midwest-vehicle-detection")
+# Or load from a local path
+# dataset = HafniaDataset.from_path(path_dataset)
 
-# Print dataset information
 dataset.print_stats()
-
-# Create a dataset split for training
 dataset_train = dataset.create_split_dataset("train")
-```
 
-The `HafniaDataset` object provides a convenient way to interact with the dataset, including methods for
-creating splits, accessing samples, printing statistics, saving to and loading from disk.
-
-In essence, the `HafniaDataset` class contains `dataset.info` with dataset information
-and `dataset.samples` with annotations as a polars DataFrame
-
-```python
-# Annotations are stored in a polars DataFrame
-print(dataset.samples.head(2))
-shape: (2, 14)
-┌──────────────┬─────────────────────────────────┬────────┬───────┬───┬─────────────────────────────────┬──────────┬──────────┬─────────────────────────────────┐
-│ sample_index ┆ file_name                       ┆ height ┆ width ┆ … ┆ bboxes                          ┆ bitmasks ┆ polygons ┆ meta                            │
-│ ---          ┆ ---                             ┆ ---    ┆ ---   ┆   ┆ ---                             ┆ ---      ┆ ---      ┆ ---                             │
-│ u32          ┆ str                             ┆ i64    ┆ i64   ┆   ┆ list[struct[11]]                ┆ null     ┆ null     ┆ struct[5]                       │
-╞══════════════╪═════════════════════════════════╪════════╪═══════╪═══╪═════════════════════════════════╪══════════╪══════════╪═════════════════════════════════╡
-│ 0            ┆ /home/ubuntu/code/hafnia/.data… ┆ 1080   ┆ 1920  ┆ … ┆ [{0.0492,0.0357,0.2083,0.23,"V… ┆ null     ┆ null     ┆ {120.0,1.0,"2024-07-10T18:30:0… │
-│ 100          ┆ /home/ubuntu/code/hafnia/.data… ┆ 1080   ┆ 1920  ┆ … ┆ [{0.146382,0.078704,0.42963,0.… ┆ null     ┆ null     ┆ {120.0,1.0,"2024-07-10T18:30:0… │
-└──────────────┴─────────────────────────────────┴────────┴───────┴───┴─────────────────────────────────┴──────────┴──────────┴─────────────────────────────────┘
-```
-
-```python
-# General dataset information is stored in `dataset.info`
-rich.print(dataset.info)
-DatasetInfo(
-    dataset_name='midwest-vehicle-detection',
-    version='1.0.0',
-    tasks=[
-        TaskInfo(
-            primitive=<class 'hafnia.dataset.primitives.Bbox'>,
-            class_names=[
-                'Person',
-                'Vehicle.Bicycle',
-                'Vehicle.Motorcycle',
-                'Vehicle.Car',
-                'Vehicle.Van',
-                'Vehicle.RV',
-                'Vehicle.Single_Truck',
-                'Vehicle.Combo_Truck',
-                'Vehicle.Pickup_Truck',
-                'Vehicle.Trailer',
-                'Vehicle.Emergency_Vehicle',
-                'Vehicle.Bus',
-                'Vehicle.Heavy_Duty_Vehicle'
-            ],
-            name='bboxes'
-        ),
-        TaskInfo(primitive=<class 'hafnia.dataset.primitives.Classification'>, class_names=['Clear', 'Foggy'], name='Weather'),
-        TaskInfo(primitive=<class 'hafnia.dataset.primitives.Classification'>, class_names=['Dry', 'Wet'], name='Surface Conditions')
-    ],
-    meta={
-        'n_videos': 109,
-        'n_cameras': 20,
-        'duration': 13080.0,
-        'duration_average': 120.0,
-        ...
-    }
-    "format_version": "0.0.2",
-    "updated_at": "2025-09-24T21:50:20.231263"
-)
-```
-
-You can iterate and access samples in the dataset using the `HafniaDataset` object.
-Each sample contain image and annotations information.
-
-```python
-from hafnia.dataset.hafnia_dataset import HafniaDataset, Sample
-# Access the first sample in the dataset either by index or by iterating over the dataset
-sample_dict = dataset[0]
-
+# Iterate samples
 for sample_dict in dataset:
     sample = Sample(**sample_dict)
-    print(sample.sample_id, sample.bboxes)
+    image = sample.read_image()
+    print(sample.sample_index, sample.bboxes)
     break
 ```
 
-Not that it is possible to create a `Sample` object from the sample dictionary.
-This is useful for accessing the image and annotations in a structured way.
+`dataset.info` carries the dataset metadata (`DatasetInfo` with `TaskInfo` per task) and
+`dataset.samples` is a Polars DataFrame whose primitive columns (`classifications`, `bboxes`,
+`bitmasks`, `polygons`) mirror the corresponding `Sample` fields.
+
+Available datasets (and their sample variants) are listed in the
+[data library](https://hafnia.milestonesys.com/training-aas/datasets) including metadata and a
+description for each dataset.
+
+For a deeper walkthrough of `HafniaDataset`, see
+[examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py).
+
+### Composing datasets with `DatasetRecipe`
+
+A `DatasetRecipe` is a serializable specification of a dataset and the operations applied to it
+(shuffle, select, merge, split, filter, remove classes, ...). Recipes are not executed when defined
+— call `.build()` to materialize a `HafniaDataset`. This makes recipes ideal for sharing a dataset
+configuration across local development and Training-aaS, and for combining multiple sources into a
+single training dataset.
 
 ```python
-# By unpacking the sample dictionary, you can create a `Sample` object.
-sample = Sample(**sample_dict)
+from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
 
-# Use the `Sample` object to easily read image and draw annotations
-image = sample.read_image()
-image_annotations = sample.draw_annotations()
+recipe = DatasetRecipe.from_name(name="mnist", version="1.0.0").shuffle().select_samples(n_samples=20)
+dataset = recipe.build()
+
+# Use thus function to upload the recipe and make it available for Training-aaS experiments
+recipe.as_platform_recipe(recipe_name="example-mnist-recipe", overwrite=True)
 ```
 
-Note that the `Sample` object contains all information about the sample, including image and metadata.
-It also contain annotations as primitive types such as `Bbox`, `Classification`.
+Recipes can also be managed on the platform via the CLI: `hafnia recipe ls | create | rm`.
+
+See [examples/example_dataset_recipe.py](examples/example_dataset_recipe.py) for a full walkthrough
+including merging datasets and class-level operations.
+
+### Bringing your own data: custom `HafniaDataset`
+
+If you have data that is not yet on the Hafnia platform, you can construct a `HafniaDataset`
+directly from images and annotations. See
+[examples/example_custom_dataset.py](examples/example_custom_dataset.py) for an end-to-end example
+that builds a `HafniaDataset` from a YOLO-formatted directory using `Sample`, `Bbox` and
+`DatasetInfo`. Built-in importers such as `HafniaDataset.from_yolo_format` are also available for
+common formats.
+
+### Torch dataloader
+
+For `torch`-based training scripts, a dataset is typically used together with a dataloader that
+performs augmentation and batching.
+[examples/example_torchvision_dataloader.py](examples/example_torchvision_dataloader.py) shows how
+to load a dataset, apply augmentations using `torchvision.transforms.v2`, visualize samples with
+`torch_helpers.draw_image_and_targets` and combine `TorchvisionDataset` with `TorchVisionCollateFn`
+in a `torch.utils.data.DataLoader`:
 
 ```python
-rich.print(sample)
-Sample(
-    sample_index=120,
-    file_name='/home/ubuntu/code/hafnia/.data/datasets/midwest-vehicle-detection/data/343403325f27e390.png',
-    height=1080,
-    width=1920,
-    split='train',
-    tags=["sample"],
-    collection_index=None,
-    collection_id=None,
-    remote_path='s3://mdi-production-midwest-vehicle-detection/sample/data/343403325f27e390.png',
-    classifications=[
-        Classification(
-            class_name='Clear',
-            class_idx=0,
-            object_id=None,
-            confidence=None,
-            ground_truth=True,
-            task_name='Weather',
-            meta=None
-        ),
-        Classification(
-            class_name='Day',
-            class_idx=3,
-            object_id=None,
-            confidence=None,
-            ground_truth=True,
-            task_name='Time of Day',
-            meta=None
-        ),
-        ...
-    ],
-    objects=[
-        Bbox(
-            height=0.0492,
-            width=0.0357,
-            top_left_x=0.2083,
-            top_left_y=0.23,
-            class_name='Vehicle.Car',
-            class_idx=3,
-            object_id='cXT4NRVu',
-            confidence=None,
-            ground_truth=True,
-            task_name='bboxes',
-            meta=None
-        ),
-        Bbox(
-            height=0.0457,
-            width=0.0408,
-            top_left_x=0.2521,
-            top_left_y=0.2153,
-            class_name='Vehicle.Car',
-            class_idx=3,
-            object_id='MelbIIDU',
-            confidence=None,
-            ground_truth=True,
-            task_name='bboxes',
-            meta=None
-        ),
-        ...
-    ],
-    bitmasks=None,  # Optional a list of Bitmask objects List[Bitmask]
-    polygons=None,  # Optional a list of Polygon objects List[Polygon]
-    meta={
-        'video.data_duration': 120.0,
-        'video.data_fps': 1.0,
-        ...
-    }
-)
+# Load HafniaDataset (sample dataset locally, full dataset under Training-aaS)
+dataset = HafniaDataset.from_name("midwest-vehicle-detection", version="1.0.0")
+dataset_train = dataset.create_split_dataset("train")
+dataset_test = dataset.create_split_dataset("test")
+
+train_transforms = v2.Compose([
+    v2.RandomResizedCrop(size=(224, 224), antialias=True),
+    v2.RandomHorizontalFlip(p=0.5),
+    v2.ToDtype(torch.float32, scale=True),
+    v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+train_dataset = torch_helpers.TorchvisionDataset(dataset_train, transforms=train_transforms)
+collate_fn = torch_helpers.TorchVisionCollateFn()
+train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
 ```
 
-To learn more, we recommend the `HafniaDataset` example script [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py).
-
-### Dataset Locally vs. Training-aaS
-
-An important feature of `HafniaDataset.from_name` is that it will return the full dataset
-when loaded with Training-aaS on the Hafnia platform.
-
-This enables seamlessly switching between running/validating a training script
-locally (on the sample dataset) and running full model trainings with Training-aaS (on the full dataset).
-without changing code or configurations for the training script.
-
-Available datasets with corresponding sample datasets can be found in [data library](https://hafnia.milestonesys.com/training-aas/datasets) including metadata and description for each dataset.
-
-## Getting started: Experiment Tracking with HafniaLogger
+### Experiment tracking with `HafniaLogger`
 
 The `HafniaLogger` is an important part of the trainer and enables you to track, log and
 reproduce your experiments.
@@ -311,126 +272,36 @@ When integrated into your training script, the `HafniaLogger` is responsible for
 - **Experiment Configurations**: Hyperparameters and other settings used in your experiment
 - **Training/Evaluation Metrics**: Performance data such as loss values, accuracy, and custom metrics
 
-### Basic Implementation Example
-
-Here's how to integrate the `HafniaLogger` into your training script:
-
 ```python
 from hafnia.experiment import HafniaLogger
 
-batch_size = 128
-learning_rate = 0.001
-
-# Initialize Hafnia logger
 logger = HafniaLogger(project_name="my_classification_project")
-
-# Log experiment parameters
 logger.log_configuration({"batch_size": 128, "learning_rate": 0.001})
 
-# Store checkpoints in this path
-ckpt_dir = logger.path_model_checkpoints()
+ckpt_dir = logger.path_model_checkpoints()  # store checkpoints here
+model_dir = logger.path_model()             # store the trained model here
 
-# Store the trained model in this path
-model_dir = logger.path_model()
-
-# Log scalar and metric values during training and validation
 logger.log_scalar("train/loss", value=0.1, step=100)
 logger.log_metric("train/accuracy", value=0.98, step=100)
-
 logger.log_scalar("validation/loss", value=0.1, step=100)
 logger.log_metric("validation/accuracy", value=0.95, step=100)
 ```
 
 The tracker behaves differently when running locally or in the cloud.
 Locally, experiment data is stored in a local folder `.data/experiments/{DATE_TIME}`.
-
 In the cloud, the experiment data will be available in the Hafnia platform under
 [experiments](https://hafnia.milestonesys.com/training-aas/experiments).
 
-## Example: Torch Dataloader
+See [examples/example_logger.py](examples/example_logger.py) for the runnable version.  
+See also [trainer-classification](https://github.com/milestone-hafnia/trainer-classification) on how
+to use it in a real training script.
 
-Commonly for `torch`-based training scripts, a dataset is used in combination
-with a dataloader that performs data augmentations and batching of the dataset as torch tensors.
+### Benchmarking models on a `HafniaDataset`
 
-To support this, we have provided a torch dataloader example script
-[example_torchvision_dataloader.py](./examples/example_torchvision_dataloader.py).
-
-The script demonstrates how to load a dataset sample, apply data augmentations using
-`torchvision.transforms.v2`, and visualize the dataset with `torch_helpers.draw_image_and_targets`.
-
-Note also how `torch_helpers.TorchVisionCollateFn` is used in combination with the `DataLoader` from
-`torch.utils.data` to handle the dataset's collate function.
-
-The dataloader and visualization function supports computer vision tasks
-and datasets available in the data library.
-
-```python
-# Load Hugging Face dataset
-dataset_splits = HafniaDataset.from_name("midwest-vehicle-detection")
-
-# Define transforms
-train_transforms = v2.Compose(
-    [
-        v2.RandomResizedCrop(size=(224, 224), antialias=True),
-        v2.RandomHorizontalFlip(p=0.5),
-        v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ]
-)
-test_transforms = v2.Compose(
-    [
-        v2.Resize(size=(224, 224), antialias=True),
-        v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ]
-)
-
-keep_metadata = True
-train_dataset = torch_helpers.TorchvisionDataset(
-    dataset_splits["train"], transforms=train_transforms, keep_metadata=keep_metadata
-)
-test_dataset = torch_helpers.TorchvisionDataset(
-    dataset_splits["test"], transforms=test_transforms, keep_metadata=keep_metadata
-)
-
-# Visualize sample
-image, targets = train_dataset[0]
-visualize_image = torch_helpers.draw_image_and_targets(image=image, targets=targets)
-pil_image = torchvision.transforms.functional.to_pil_image(visualize_image)
-pil_image.save("visualized_labels.png")
-
-# Create DataLoaders - using TorchVisionCollateFn
-collate_fn = torch_helpers.TorchVisionCollateFn(
-    skip_stacking=["bboxes.bbox", "bboxes.class_idx"]
-)
-train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, collate_fn=collate_fn)
-```
-
-## Example: Training-aaS
-
-By combining logging and dataset loading, we can now construct our model trainer package.
-
-To demonstrate this, we have provided a trainer package project that serves as a template for creating and structuring trainers. The example repo is called
-[trainer-classification](https://github.com/milestone-hafnia/trainer-classification)
-
-The project also contains additional information on how to structure your trainer package, use the `HafniaLogger`, loading a dataset and different approach for launching
-the trainer on the Hafnia platform.
-
-## Create, Build and Run `trainer.zip` locally
-
-In order to test trainer package compatibility with Hafnia cloud use the following command to build and
-start the job locally.
-
-```bash
-    # Create 'trainer.zip' in the root folder of your training trainer project '../trainer/classification'
-    hafnia trainer create-zip ../trainer-classification
-
-    # Build the docker image locally from a 'trainer.zip' file
-    hafnia runc build-local trainer.zip
-
-    # Execute the docker image locally with a desired dataset
-    hafnia runc launch-local --dataset mnist  "python scripts/train.py"
-```
+The benchmark utilities run an `InferenceModel` over a dataset, store the predictions as a new
+dataset and compute metrics (e.g. object-detection mAP) against the ground truth. See
+[examples/example_benchmark.py](examples/example_benchmark.py) for a runnable example wrapping a
+torchvision SSDLite detector.
 
 ## Detailed Documentation
 

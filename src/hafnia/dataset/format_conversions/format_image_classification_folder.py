@@ -24,6 +24,18 @@ def from_image_classification_folder(
     n_samples: Optional[int] = None,
     dataset_name: str = DEFAULT_DATASET_NAME,
 ) -> "HafniaDataset":
+    """Import an ImageFolder-style classification dataset as a `HafniaDataset`.
+
+    Expects `path_folder` to contain one subfolder per split (e.g. `train/`, `val/`, `test/`),
+    each of which contains one subfolder per class with images inside. Class names are unioned
+    across splits and assigned consistent indices.
+
+    Args:
+        path_folder: Root folder with split-named subfolders.
+        n_samples: Optional cap on the total number of samples; samples are interleaved across
+            classes so the cap stays balanced across classes.
+        dataset_name: Name to assign to the resulting dataset.
+    """
     list_split_name_and_path = get_splits_from_folder(path_folder)
 
     dataset = from_image_classification_folder_by_split_paths(
@@ -125,6 +137,21 @@ def to_image_classification_folder(
     task_name: Optional[str] = None,
     clean_folder: bool = False,
 ) -> List[Path]:
+    """Export a classification `HafniaDataset` to the ImageFolder layout (one folder per class).
+
+    Creates `path_output/<split>/<class_name>/` and copies each sample's image to the matching
+    folder. Requires a `Classification` task in the dataset.
+
+    Args:
+        dataset: Dataset to export. Must contain a `Classification` task.
+        path_output: Output root folder; one subfolder per split is created beneath it.
+        task_name: Optional task name disambiguation when the dataset has multiple
+            `Classification` tasks.
+        clean_folder: If True, delete the contents of each split folder before writing.
+
+    Returns:
+        The list of split-level output folders that were written.
+    """
     task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=Classification)
 
     split_names = dataset.samples[SampleField.SPLIT].unique().to_list()

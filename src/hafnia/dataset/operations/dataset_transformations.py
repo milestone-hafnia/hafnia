@@ -93,6 +93,26 @@ def transform_images(
     subfolder_name: str = "transformed_images",
     select_columns: Optional[List[str]] = None,
 ) -> "HafniaDataset":
+    """Apply an image transform to every sample in parallel and return a new dataset pointing at the outputs.
+
+    Each sample's image is loaded, transformed via `transform(image, sample)`, written to
+    `path_output/subfolder_name/`, and the dataset's `file_path` column is updated to the new path.
+    The returned dataset shares `info` with the input.
+
+    Args:
+        transform: Callable that takes the raw image array and the corresponding `Sample` and
+            returns the transformed image array.
+        path_output: Output root folder; transformed images are written under
+            `path_output/subfolder_name/`.
+        description: Label shown on the progress bar.
+        num_workers: Number of threads in the pool used to apply the transform.
+        use_hash: If True, name output files by content hash for deterministic, deduplicated names.
+            If False, reuse the input filename stem with a `.png` extension.
+        skip_existing: If True, do not overwrite files that already exist on disk.
+        subfolder_name: Subfolder under `path_output` to write images into.
+        select_columns: Optional list of columns to keep on the resulting dataset's samples table
+            (the rest are dropped before processing).
+    """
     path_image_folder = path_output / subfolder_name
     path_image_folder.mkdir(parents=True, exist_ok=True)
 
@@ -142,9 +162,21 @@ def convert_to_image_storage_format(
     image_format: str = "png",
     append_transform: Optional[Callable[[np.ndarray, Sample], np.ndarray]] = None,
 ) -> "HafniaDataset":
-    """
-    Convert a video-based dataset ("storage_format" == "video", FieldName.STORAGE_FORMAT == StorageFormat.VIDEO)
-    to an image-based dataset by extracting frames.
+    """Convert a video-based dataset to an image-based dataset by extracting referenced frames.
+
+    For each sample with `storage_format == StorageFormat.VIDEO`, decodes the matching frame from
+    the video file, optionally runs `append_transform(frame, sample)` to post-process it, writes
+    the frame to disk in `image_format`, and rewrites the sample's `file_path` to point at the
+    new image. Image-based samples are passed through unchanged. Returns the original dataset
+    unchanged when no video-based samples are present.
+
+    Args:
+        path_output_folder: Output root; extracted frames are written under
+            `path_output_folder/data/`.
+        reextract_frames: If True, overwrite existing extracted frames; otherwise reuse on-disk
+            frames whose paths already exist.
+        image_format: Image extension to use for extracted frames (e.g. ``"png"``, ``"jpg"``).
+        append_transform: Optional post-processing callable applied to each extracted frame.
     """
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
