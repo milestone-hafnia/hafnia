@@ -110,7 +110,7 @@ hafnia experiment create [OPTIONS]
 |---|---|---|
 | `-n, --name` | `run-[DATETIME]` | Experiment name |
 | `-c, --cmd` | `python scripts/train.py` | Command to run |
-| `-e, --environment` | `Free Tier` | Training environment name (see `hafnia experiment environments`) |
+| `-e, --environment` | `Lite` | Training environment name (see `hafnia experiment environments`) |
 | `-d, --dataset` | | Dataset name (e.g. `mnist`) |
 | `-r, --recipe` | | Dataset recipe name |
 | `--recipe-id` | | Dataset recipe ID |
@@ -232,7 +232,7 @@ hafnia experiment create \
   --recipe my-recipe \
   --trainer-id 5e454c0d-fdf1-4d1f-9732-771d7fecd28e \
   --name "My Experiment" \
-  --environment "Free Tier"
+  --environment "Lite"
 
 # List available datasets
 hafnia dataset ls --search coco --ordering -traceability_score

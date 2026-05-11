@@ -36,7 +36,14 @@ def get_environments(cfg: Optional[Config] = None) -> List[Dict]:
     cfg = cfg or Config()
     endpoint = cfg.get_platform_endpoint("experiment_environments")
     headers = {"Authorization": cfg.api_key}
-    envs: List[Dict] = http.fetch(endpoint, headers=headers)  # type: ignore[assignment]
+    envs: List[Dict] = http.fetch(endpoint, headers=headers)  # type: ignore
+
+    if not isinstance(envs, list):
+        raise ValueError(f"Expected list of environments from API, got: {envs}")
+
+    # Endpoint does not support sorting; sort client-side by the platform-provided 'order' field
+    # so callers can rely on a stable, intentional ordering (e.g. the first entry is the default).
+    envs.sort(key=lambda env: env.get("order") if env.get("order") is not None else float("inf"))  # type: ignore
     return envs
 
 
@@ -58,7 +65,7 @@ def pretty_print_training_environments(envs: List[Dict]) -> None:
     )
 
 
-def get_exp_environment_id(name: str, cfg: Optional[Config] = None) -> str:
+def get_exp_environment_id_from_name(name: str, cfg: Optional[Config] = None) -> str:
     envs = get_environments(cfg=cfg)
 
     for env in envs:

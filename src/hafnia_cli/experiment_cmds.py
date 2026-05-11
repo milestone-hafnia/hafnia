@@ -112,9 +112,11 @@ def default_experiment_run_name():
     "-e",
     "--environment",
     type=str,
-    default="Free Tier",
-    show_default=True,
-    help="Experiment environment name. View available environments with 'hafnia experiment environments'",
+    default=None,
+    help=(
+        "Experiment environment name. View available environments with 'hafnia experiment environments'. "
+        "Defaults to the first environment returned by the platform (sorted by 'order')."
+    ),
 )
 @click.pass_obj
 def cmd_create_experiment(
@@ -126,7 +128,7 @@ def cmd_create_experiment(
     dataset: Optional[str],
     recipe: Optional[str],
     recipe_id: Optional[str],
-    environment: str,
+    environment: Optional[str],
 ) -> None:
     """
     Create and launch a new experiment run
@@ -146,9 +148,10 @@ def cmd_create_experiment(
 
     \b
     # Show available options:
-    hafnia experiment create --name "My Experiment" -d mnist --cmd "python scripts/train.py" -e "Free Tier" -p ../trainer-classification
+    hafnia experiment create --name "My Experiment" -d mnist --cmd "python scripts/train.py" -e "Lite" -p ../trainer-classification
     """
-    from hafnia.platform import create_experiment, get_exp_environment_id
+    from hafnia.platform import create_experiment, get_exp_environment_id_from_name
+    from hafnia.platform.experiment import get_environments
 
     dataset_recipe_response = get_dataset_recipe_by_identifiers(
         cfg=cfg,
@@ -159,7 +162,16 @@ def cmd_create_experiment(
     recipe_id = dataset_recipe_response["id"]
 
     trainer_id = get_trainer_package_by_identifiers(cfg=cfg, trainer_path=trainer_path, trainer_id=trainer_id)
-    env_id = get_exp_environment_id(environment, cfg=cfg)
+
+    if environment is None:
+        envs = get_environments(cfg=cfg)
+        if not envs:
+            raise click.ClickException("No experiment environments available on the platform.")
+        # Pick the first environment (defined by the order-field provided by the platform)
+        # as the default if no environment is specified
+        env_id = envs[0]["id"]
+    else:
+        env_id = get_exp_environment_id_from_name(name=environment, cfg=cfg)
 
     experiment = create_experiment(
         experiment_name=name,
