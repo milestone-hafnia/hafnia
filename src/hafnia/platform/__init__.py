@@ -7,7 +7,7 @@ from hafnia.platform.download import (
 from hafnia.platform.experiment import (
     create_experiment,
     get_environments,
-    get_exp_environment_id,
+    get_exp_environment_id_from_name,
     get_experiments,
     pretty_print_experiments,
     pretty_print_training_environments,
@@ -19,7 +19,7 @@ __all__ = [
     "create_trainer_package",
     "get_trainer_packages",
     "get_trainer_package_by_id",
-    "get_exp_environment_id",
+    "get_exp_environment_id_from_name",
     "get_experiments",
     "pretty_print_experiments",
     "create_experiment",

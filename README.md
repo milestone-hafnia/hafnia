@@ -50,14 +50,14 @@ To demonstrate the concept of Training-aaS, we will first show how to launch mod
 
 1. **Configure Training**  
    - **Training command:** `python scripts/train.py`
-   - **Configuration:** Select "Free Tier" or "Professional" based on your needs
+   - **Configuration:** Select "Lite", "Pro" or "Scale" based on your needs
 
 1. **Launch & Monitor**  
    Click "Create Experiment" and monitor progress in the dashboard
 
 That's it! You have successfully launched an object detection model training experiment using the Hafnia Training-aaS platform.
 
-For default training parameters, the trainer package converges in approximately 4 hours on the `midwest-vehicle-detection` dataset using the "Free Tier" configuration.
+For default training parameters, the trainer package converges in approximately 4 hours on the `midwest-vehicle-detection` dataset using the "Lite" configuration.
 
 ## Installation and Configuration
 
