@@ -113,6 +113,18 @@ hafnia runc        build | build-local | launch-local            # Build and run
 Run `hafnia <group> --help` (and `hafnia <group> <subcommand> --help`) to see the full set of
 options for any command.
 
+## Detailed Documentation
+
+For more information, go to our [documentation page](https://hafnia.readme.io/docs/welcome-to-hafnia)
+or use the topic guides below. The rest of this README links into them from each relevant section.
+
+- [CLI](docs/cli.md) — Detailed guide for the Hafnia command-line interface.
+- [Hafnia Dataset Format](docs/dataset.md) — The `HafniaDataset` in-memory format, annotation primitives and operations.
+- [Dataset Recipes](docs/dataset_recipe.md) — Composing reproducible datasets with `DatasetRecipe`.
+- [Custom Datasets](docs/custom_dataset.md) — Building a `HafniaDataset` from your own images and annotations.
+- [Benchmarking](docs/benchmark.md) — Running models against a dataset and computing metrics.
+- [Release lifecycle](docs/release.md) — Details about the package release lifecycle.
+
 ## Trainer Packages: Bring Your Own Training Code
 
 When the public trainer packages are not enough — for example because you want a different model
@@ -198,7 +210,8 @@ Available datasets (and their sample variants) are listed in the
 [data library](https://hafnia.milestonesys.com/training-aas/datasets) including metadata and a
 description for each dataset.
 
-For a deeper walkthrough of `HafniaDataset`, see
+For a deeper walkthrough of `HafniaDataset`, see the
+[Hafnia Dataset Format](docs/dataset.md) guide and the runnable
 [examples/example_hafnia_dataset.py](examples/example_hafnia_dataset.py).
 
 ### Composing datasets with `DatasetRecipe`
@@ -221,17 +234,22 @@ recipe.as_platform_recipe(recipe_name="example-mnist-recipe", overwrite=True)
 
 Recipes can also be managed on the platform via the CLI: `hafnia recipe ls | create | rm`.
 
-See [examples/example_dataset_recipe.py](examples/example_dataset_recipe.py) for a full walkthrough
-including merging datasets and class-level operations.
+For a deeper walkthrough — including the recipe lifecycle, supported operations, merging and
+platform upload — see the [Dataset Recipes](docs/dataset_recipe.md) guide and the runnable
+[examples/example_dataset_recipe.py](examples/example_dataset_recipe.py).
 
 ### Bringing your own data: custom `HafniaDataset`
 
 If you have data that is not yet on the Hafnia platform, you can construct a `HafniaDataset`
-directly from images and annotations. See
-[examples/example_custom_dataset.py](examples/example_custom_dataset.py) for an end-to-end example
-that builds a `HafniaDataset` from a YOLO-formatted directory using `Sample`, `Bbox` and
-`DatasetInfo`. Built-in importers such as `HafniaDataset.from_yolo_format` are also available for
+directly from images and annotations using `Sample`, the annotation primitives (`Bbox`, `Bitmask`,
+`Polygon`, `Classification`) and `DatasetInfo`. Built-in importers such as
+`HafniaDataset.from_yolo_format` and `HafniaDataset.from_coco_format` are also available for
 common formats.
+
+For a walkthrough of the building blocks and gotchas, see the
+[Custom Datasets](docs/custom_dataset.md) guide and the runnable
+[examples/example_custom_dataset.py](examples/example_custom_dataset.py), which builds a
+`HafniaDataset` from a YOLO-formatted directory end-to-end.
 
 ### Torch dataloader
 
@@ -299,17 +317,11 @@ to use it in a real training script.
 ### Benchmarking models on a `HafniaDataset`
 
 The benchmark utilities run an `InferenceModel` over a dataset, store the predictions as a new
-dataset and compute metrics (e.g. object-detection mAP) against the ground truth. See
-[examples/example_benchmark.py](examples/example_benchmark.py) for a runnable example wrapping a
-torchvision SSDLite detector.
-
-## Detailed Documentation
-
-For more information, go to our [documentation page](https://hafnia.readme.io/docs/welcome-to-hafnia)
-or in below markdown pages.
-
-- [CLI](docs/cli.md) - Detailed guide for the Hafnia command-line interface
-- [Release lifecycle](docs/release.md) - Details about package release lifecycle.
+task on a copy of the dataset and compute metrics (e.g. object-detection mAP) against the ground
+truth. For the `InferenceModel` interface, available metrics and the full flow, see the
+[Benchmarking](docs/benchmark.md) guide and the runnable
+[examples/example_benchmark.py](examples/example_benchmark.py), which wraps a torchvision
+SSDLite detector.
 
 ## Development
 
