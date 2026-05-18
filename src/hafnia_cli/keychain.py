@@ -32,7 +32,7 @@ def store_api_key(profile_name: str, api_key: str) -> bool:
         return False
 
     try:
-        keyring.set_password(KEYRING_SERVICE_NAME, profile_name, api_key)
+        keyring.set_password(KEYRING_SERVICE_NAME, profile_name, api_key[:])
         sys_logger.debug(f"Stored API key for profile '{profile_name}' in keychain")
         return True
     except Exception as e:

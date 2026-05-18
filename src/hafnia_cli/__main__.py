@@ -41,7 +41,6 @@ def configure(cfg: Config) -> None:
 
     cfg_profile = ConfigSchema(platform_url=platform_url, api_key=api_key, use_keychain=use_keychain)
     cfg.add_profile(profile_name, cfg_profile, set_active=True)
-    cfg.save_config()
     profile_cmds.profile_show(cfg)
 
 
