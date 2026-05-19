@@ -190,8 +190,14 @@ class Config:
             if profile_data.get("use_keychain", False):
                 api_key = profile_data.get("api_key")
                 if api_key:
-                    keychain.store_api_key(profile_name, api_key)
-                profile_data["api_key"] = None
+                    if keychain.store_api_key(profile_name, api_key):
+                        profile_data["api_key"] = None
+                    else:
+                        sys_logger.warning(
+                            f"Keychain storage failed for profile '{profile_name}', API key stored in config file as fallback"
+                        )
+                else:
+                    profile_data["api_key"] = None
 
         with open(self.config_path, "w") as f:
             json.dump(config_to_save, f, indent=4)
