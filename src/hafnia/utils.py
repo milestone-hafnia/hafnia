@@ -166,7 +166,7 @@ def show_trainer_package_content(recipe_path: Path, style: str = "emoji", depth_
     recipe = seedir.FakeDir("recipe")
     scan(recipe, zipfile.Path(recipe_path))
     rprint(recipe.seedir(sort=True, first="folders", style=style, printout=False))
-    user_logger.info(f"Recipe size: {size_human_readable(os.path.getsize(recipe_path))}. Max size 800 MiB")
+    user_logger.info(f"Recipe size: {size_human_readable(os.path.getsize(recipe_path))}. Max size 2 GiB")
 
 
 def get_dataset_path_in_hafnia_cloud() -> Path:
