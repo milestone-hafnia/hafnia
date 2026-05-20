@@ -179,9 +179,10 @@ def download_dataset_from_s3(
         path_local: Local folder to download into.
         session: Boto3 session used to obtain credentials.
         version: Dataset version string (e.g. ``"0.1.0"``) or ``None`` for latest.
-        download_files: If ``False``, to only download metadata files. ``True`` by default to also download dataset images/videos.
         force_redownload: If ``True``, re-download data files that already
             exist locally.
+        download_files: If ``False``, to only download metadata files. ``True`` by default to also download
+            dataset images/videos.
     """
     resource_credentials = AwsCredentials.from_session(session=session).to_resource_credentials(bucket_prefix)
 
@@ -417,7 +418,7 @@ def local_path_from_remote_path(
     hash_part = hashlib.sha1(filename.encode()).hexdigest()
     shortened_path_str = (path_data / hash_part).with_suffix(suffix).absolute().as_posix()
 
-    user_logger.warning(
+    user_logger.debug(
         f"Generated filename '{filename}' exceeds MAX_PATH_LENGTH={MAX_PATH_LENGTH}. "
         f"Shortened to '{shortened_path_str}'."
     )

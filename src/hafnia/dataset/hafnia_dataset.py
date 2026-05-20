@@ -179,8 +179,8 @@ class HafniaDataset:
         path_local: Path,
         session: "boto3.Session",
         version: Optional[str] = None,
-        download_files: bool = True,
         force_redownload: bool = False,
+        download_files: bool = True,
     ) -> "HafniaDataset":
         """Download a Hafnia dataset from a user-controlled S3 bucket.
 
@@ -189,8 +189,8 @@ class HafniaDataset:
             path_local: Local folder to download into.
             session: Boto3 session used to obtain credentials.
             version: Dataset version string (e.g. ``"0.1.0"``) or ``None`` for latest.
-            download_files: If ``False``, to only download metadata files. ``True`` by default to also download dataset images/videos.
             force_redownload: If ``True``, re-download data files that already exist locally.
+            download_files: If ``False``, to only download metadata files. ``True`` by default to also download dataset images/videos.
         """
         from hafnia.dataset.operations.dataset_s3_storage import download_dataset_from_s3
 
@@ -199,8 +199,8 @@ class HafniaDataset:
             path_local=path_local,
             session=session,
             version=version,
-            download_files=download_files,
             force_redownload=force_redownload,
+            download_files=download_files,
         )
 
     def to_s3(

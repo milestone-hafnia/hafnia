@@ -513,8 +513,10 @@ def recent_annotation_date(dataset: HafniaDataset, primitive_field: str) -> Opti
         exploded = dataset.samples[col].explode().drop_nulls()
         if exploded.is_empty():
             continue
-        values = exploded.struct.field(primitive_field).drop_nulls().to_list()
-        candidates.extend(v for v in values if v is not None)
+        values = exploded.struct.field(primitive_field).drop_nulls()
+        if values.is_empty():
+            continue
+        candidates.append(values.max())
     if len(candidates) == 0:
         return None
     return max(candidates)
