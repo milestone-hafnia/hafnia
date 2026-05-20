@@ -1,3 +1,6 @@
+import hashlib
+import ipaddress
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -12,11 +15,21 @@ from hafnia.dataset.dataset_names import (
     DatasetVariant,
     SampleField,
 )
-from hafnia.dataset.hafnia_dataset import HafniaDataset, download_meta_dataset_files_from_version
+from hafnia.dataset.hafnia_dataset import (
+    HafniaDataset,
+    download_meta_dataset_files_from_version,
+)
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
-from hafnia.platform.datasets import get_read_credentials_by_name, get_upload_credentials
-from hafnia.platform.s5cmd_utils import AwsCredentials, ResourceCredentials, fast_copy_files
+from hafnia.platform.datasets import (
+    get_read_credentials_by_name,
+    get_upload_credentials,
+)
+from hafnia.platform.s5cmd_utils import (
+    AwsCredentials,
+    ResourceCredentials,
+    fast_copy_files,
+)
 from hafnia.utils import progress_bar
 from hafnia_cli.config import Config
 
@@ -69,6 +82,55 @@ def delete_hafnia_dataset_files_from_resource_credentials(
     return True
 
 
+def validate_bucket_name_by_s3_rules(bucket_name: str) -> None:
+    """Validate ``bucket_name`` against AWS S3 general-purpose bucket naming rules.
+
+    This is a pure string check — it cannot detect global-uniqueness conflicts
+    or ownership issues, only names that S3 will reject outright. Raises
+    ``ValueError`` describing the first violated rule.
+
+    See: https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
+
+    # Thank you Claude!
+    """
+    if not isinstance(bucket_name, str):
+        raise ValueError(f"Bucket name must be a string, got {type(bucket_name).__name__}.")
+
+    n = len(bucket_name)
+    if n < 3 or n > 63:
+        raise ValueError(f"Bucket name must be 3-63 characters long, got {n}: {bucket_name!r}.")
+
+    _BUCKET_NAME_CHARSET = re.compile(r"^[a-z0-9.\-]+$")
+    if not _BUCKET_NAME_CHARSET.match(bucket_name):
+        raise ValueError(
+            f"Bucket name {bucket_name!r} contains invalid characters. "
+            "Only lowercase letters, numbers, dots (.) and hyphens (-) are allowed."
+        )
+
+    if not (bucket_name[0].isalnum() and bucket_name[-1].isalnum()):
+        raise ValueError(f"Bucket name {bucket_name!r} must begin and end with a lowercase letter or number.")
+
+    if ".." in bucket_name:
+        raise ValueError(f"Bucket name {bucket_name!r} must not contain two adjacent periods.")
+
+    try:
+        ipaddress.IPv4Address(bucket_name)
+    except ipaddress.AddressValueError:
+        pass
+    else:
+        raise ValueError(f"Bucket name {bucket_name!r} must not be formatted as an IPv4 address.")
+
+    forbidden_prefixes = ("xn--", "sthree-", "amzn-s3-demo-")
+    for prefix in forbidden_prefixes:
+        if bucket_name.startswith(prefix):
+            raise ValueError(f"Bucket name {bucket_name!r} must not start with the reserved prefix {prefix!r}.")
+
+    forbidden_suffixes = ("-s3alias", "--ol-s3", ".mrap", "--x-s3", "--table-s3")
+    for suffix in forbidden_suffixes:
+        if bucket_name.endswith(suffix):
+            raise ValueError(f"Bucket name {bucket_name!r} must not end with the reserved suffix {suffix!r}.")
+
+
 def _ensure_s3_bucket_exists(session: boto3.Session, bucket_name: str) -> None:
     """Create ``bucket_name`` if it does not already exist.
 
@@ -77,6 +139,7 @@ def _ensure_s3_bucket_exists(session: boto3.Session, bucket_name: str) -> None:
     (e.g. 403 Forbidden — bucket exists but is owned by someone else) is
     re-raised so the caller does not silently overwrite or proceed.
     """
+    validate_bucket_name_by_s3_rules(bucket_name)
     s3_client = session.client("s3")
     try:
         s3_client.head_bucket(Bucket=bucket_name)
@@ -101,6 +164,7 @@ def download_dataset_from_s3(
     session: boto3.Session,
     version: Optional[str] = None,
     force_redownload: bool = False,
+    download_files: bool = True,
 ) -> HafniaDataset:
     """Download a Hafnia dataset from a user-controlled S3 bucket.
 
@@ -115,16 +179,23 @@ def download_dataset_from_s3(
         path_local: Local folder to download into.
         session: Boto3 session used to obtain credentials.
         version: Dataset version string (e.g. ``"0.1.0"``) or ``None`` for latest.
+        download_files: If ``False``, to only download metadata files. ``True`` by default to also download dataset images/videos.
         force_redownload: If ``True``, re-download data files that already
             exist locally.
     """
     resource_credentials = AwsCredentials.from_session(session=session).to_resource_credentials(bucket_prefix)
 
     download_meta_dataset_files_from_version(
-        resource_credentials=resource_credentials, version=version, path_dataset=path_local
+        resource_credentials=resource_credentials,
+        version=version,
+        path_dataset=path_local,
     )
 
     dataset = HafniaDataset.from_path(path_local, check_for_images=False)
+
+    if not download_files:
+        return dataset
+
     dataset = sync_dataset_files_from_s3(
         dataset,
         path_local,
@@ -312,23 +383,68 @@ def sync_dataset_files_to_platform_from_resource_credentials(
 MISSING_LOCALLY_COLUMN = "MissingLocally"
 
 
+MAX_PATH_LENGTH = 255
+
+
+def local_path_from_remote_path(
+    remote_src_path: str,
+    path_data: Path,
+    extend_name_by_subfolder: Optional[int],
+) -> str:
+    """Build the local download path for a remote S3 source path.
+
+    The remote path is flattened into a single filename under ``path_data`` by
+    joining its parts with ``-``. If the resulting absolute path would exceed
+    ``MAX_PATH_LENGTH``, the filename is replaced with a short sha1-derived
+    hash of itself (keeping the original suffix) so the path fits on common
+    filesystems.
+    """
+    if extend_name_by_subfolder is not None and extend_name_by_subfolder < 0:
+        raise ValueError(f"'extend_name_by_subfolder' must be a non-negative integer. Got {extend_name_by_subfolder}.")
+
+    path_parts_all = remote_src_path.split("/")
+    if extend_name_by_subfolder is None:
+        path_parts = path_parts_all[2:]  # Drops "s3://" prefix
+    else:
+        path_parts = path_parts_all[-(extend_name_by_subfolder + 1) :]
+
+    filename = "-".join(path_parts)
+    local_path_str = (path_data / filename).absolute().as_posix()
+    if len(local_path_str) <= MAX_PATH_LENGTH:
+        return local_path_str
+
+    suffix = Path(filename).suffix
+    hash_part = hashlib.sha1(filename.encode()).hexdigest()
+    shortened_path_str = (path_data / hash_part).with_suffix(suffix).absolute().as_posix()
+
+    user_logger.warning(
+        f"Generated filename '{filename}' exceeds MAX_PATH_LENGTH={MAX_PATH_LENGTH}. "
+        f"Shortened to '{shortened_path_str}'."
+    )
+    if len(shortened_path_str) > MAX_PATH_LENGTH:
+        raise ValueError(
+            f"Even after shortening, local path '{shortened_path_str}' exceeds MAX_PATH_LENGTH={MAX_PATH_LENGTH}. "
+            "Consider storing the dataset in a folder with a shorter path."
+        )
+    return shortened_path_str
+
+
 def _resolve_local_download_paths(
     dataset: HafniaDataset,
     path_output_folder: Path,
-    extend_name_by_subfolder: int,
+    extend_name_by_subfolder: Optional[int],
     subfolder_name: str,
 ) -> Tuple[HafniaDataset, pl.DataFrame]:
-    if extend_name_by_subfolder < 0:
-        raise ValueError(f"'extend_name_by_subfolder' must be a non-negative integer. Got {extend_name_by_subfolder}.")
-
     path_data = path_output_folder / subfolder_name
     path_data.mkdir(parents=True, exist_ok=True)
 
     update_rows = []
     for remote_src_path in dataset.samples[SampleField.REMOTE_PATH].unique().to_list():
-        path_parts = remote_src_path.split("/")
-        filename = "_".join(path_parts[-(1 + extend_name_by_subfolder) :])
-        local_path_str = (path_data / filename).absolute().as_posix()
+        local_path_str = local_path_from_remote_path(
+            remote_src_path=remote_src_path,
+            path_data=path_data,
+            extend_name_by_subfolder=extend_name_by_subfolder,
+        )
         update_rows.append(
             {
                 SampleField.REMOTE_PATH: remote_src_path,
@@ -350,7 +466,7 @@ def sync_files_from_platform(
     dataset: HafniaDataset,
     path_output_folder: Path,
     force_redownload: bool = False,
-    extend_name_by_subfolder: int = 0,
+    extend_name_by_subfolder: Optional[int] = None,
     subfolder_name: str = "data",
     cfg: Optional[Config] = None,
 ) -> HafniaDataset:
@@ -366,6 +482,10 @@ def sync_files_from_platform(
         force_redownload: If ``True``, re-download files that already exist locally.
         extend_name_by_subfolder: Number of trailing remote path segments to fold
             into the local filename (useful when remote paths share a basename).
+            Default ``None`` uses the full remote path minus the leading "s3://" prefix
+            and replaces "/" with "-" to create the local filename.
+            E.g for remote path "s3://bucket-name/sample/data/e2/b0/e2b000ac47b19a999bee5456a6addb88.png"
+            -> filename "data-e2-b0-e2b000ac47b19a999bee5456a6addb88.png" with ``extend_name_by_subfolder=None``
         subfolder_name: Subfolder under ``path_output_folder`` to write data into.
         cfg: Optional Hafnia CLI config; defaults to a fresh ``Config()``.
     """
@@ -424,7 +544,7 @@ def sync_dataset_files_from_s3(
     path_output_folder: Path,
     aws_credentials: AwsCredentials,
     force_redownload: bool = False,
-    extend_name_by_subfolder: int = 0,
+    extend_name_by_subfolder: Optional[int] = None,
     subfolder_name: str = "data",
 ) -> HafniaDataset:
     dataset, download_df = _resolve_local_download_paths(
