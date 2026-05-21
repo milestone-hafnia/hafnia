@@ -507,11 +507,19 @@ def recent_annotation_date(dataset: HafniaDataset, primitive_field: str) -> Opti
     columns_with_field = [
         col for col in PRIMITIVE_COLUMN_NAMES if has_primitive_field(dataset.samples, col, primitive_field)
     ]
-    if len(columns_with_field) == 0:
+
+    candidates: List[datetime] = []
+    for col in columns_with_field:
+        exploded = dataset.samples[col].explode().drop_nulls()
+        if exploded.is_empty():
+            continue
+        values = exploded.struct.field(primitive_field).drop_nulls()
+        if values.is_empty():
+            continue
+        candidates.append(values.max())
+    if len(candidates) == 0:
         return None
-    exprs = [pl.col(col).list.eval(pl.element().struct.field(primitive_field)).list.max() for col in columns_with_field]
-    annotation_date = dataset.samples.select(pl.max_horizontal(exprs).max()).item()
-    return annotation_date
+    return max(candidates)
 
 
 def create_reports_from_primitive(

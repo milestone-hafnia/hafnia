@@ -11,7 +11,10 @@ from packaging.version import Version
 
 from hafnia import utils
 from hafnia.dataset import dataset_helpers
-from hafnia.dataset.benchmark.metrics import classification_metrics, object_detection_metrics
+from hafnia.dataset.benchmark.metrics import (
+    classification_metrics,
+    object_detection_metrics,
+)
 from hafnia.dataset.dataset_helpers import is_valid_version_string, version_from_string
 from hafnia.dataset.dataset_names import (
     TAG_IS_SAMPLE,
@@ -177,6 +180,7 @@ class HafniaDataset:
         session: "boto3.Session",
         version: Optional[str] = None,
         force_redownload: bool = False,
+        download_files: bool = True,
     ) -> "HafniaDataset":
         """Download a Hafnia dataset from a user-controlled S3 bucket.
 
@@ -186,6 +190,7 @@ class HafniaDataset:
             session: Boto3 session used to obtain credentials.
             version: Dataset version string (e.g. ``"0.1.0"``) or ``None`` for latest.
             force_redownload: If ``True``, re-download data files that already exist locally.
+            download_files: If ``False``, to only download metadata files. ``True`` by default to also download dataset images/videos.
         """
         from hafnia.dataset.operations.dataset_s3_storage import download_dataset_from_s3
 
@@ -195,6 +200,7 @@ class HafniaDataset:
             session=session,
             version=version,
             force_redownload=force_redownload,
+            download_files=download_files,
         )
 
     def to_s3(
