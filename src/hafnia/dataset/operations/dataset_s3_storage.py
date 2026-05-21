@@ -82,6 +82,9 @@ def delete_hafnia_dataset_files_from_resource_credentials(
     return True
 
 
+_BUCKET_NAME_CHARSET = re.compile(r"^[a-z0-9.\-]+$")
+
+
 def validate_bucket_name_by_s3_rules(bucket_name: str) -> None:
     """Validate ``bucket_name`` against AWS S3 general-purpose bucket naming rules.
 
@@ -100,7 +103,6 @@ def validate_bucket_name_by_s3_rules(bucket_name: str) -> None:
     if n < 3 or n > 63:
         raise ValueError(f"Bucket name must be 3-63 characters long, got {n}: {bucket_name!r}.")
 
-    _BUCKET_NAME_CHARSET = re.compile(r"^[a-z0-9.\-]+$")
     if not _BUCKET_NAME_CHARSET.match(bucket_name):
         raise ValueError(
             f"Bucket name {bucket_name!r} contains invalid characters. "
