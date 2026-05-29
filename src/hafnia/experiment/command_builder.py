@@ -276,7 +276,7 @@ class CommandBuilderSchema(BaseModel):
         )
         set_assignment_separator = assignment_separator or set_assignment_separator or DEFAULT_ASSIGNMENT_SEPARATOR
         set_bool_handling = bool_handling or set_bool_handling or DEFAULT_BOOL_HANDLING
-        set_order = order or DEFAULT_ORDER
+        set_order = DEFAULT_ORDER if order is None else order
         function_schema = schema_from_cli_function(
             cli_function,
             ignore_params=ignore_params,

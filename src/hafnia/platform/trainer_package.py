@@ -29,7 +29,7 @@ def create_trainer_package(
 
     path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
     name = name or path_trainer.stem
-    zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
+    zip_path, _ = archive_dir(source_dir, output_path=path_trainer)
     user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
 
     cmd_builder_schemas = auto_discover_cmd_builder_schemas(source_dir)
@@ -106,7 +106,7 @@ def update_trainer_package(
     if source_dir is not None:
         source_dir = Path(source_dir).resolve()
         path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
-        zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
+        zip_path, _ = archive_dir(source_dir, output_path=path_trainer)
         user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
 
         cmd_builder_schemas = auto_discover_cmd_builder_schemas(source_dir)
