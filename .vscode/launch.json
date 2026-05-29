@@ -96,11 +96,16 @@
             "args": [
                 "trainer",
                 "create",
-                "${workspaceFolder}/../trainer-classification",
+                // "${workspaceFolder}/../trainer-classification",
+                // "--name",
+                // "Classification Trainer Package Launched in debug mode from vc-code",
+                // "--description",
+                // "A trainer package for image classification tasks launched in debug mode."
+                "${workspaceFolder}/../trainer-object-detection",
                 "--name",
-                "Classification Trainer Package Launched in debug mode from vc-code",
+                "Object Detection Trainer Package Launched in debug mode from vc-code",
                 "--description",
-                "A trainer package for image classification tasks launched in debug mode."
+                "A trainer package for object detection tasks launched in debug mode."
             ]
         },
         {

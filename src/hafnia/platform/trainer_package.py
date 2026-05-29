@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from hafnia import http
+from hafnia.experiment.command_builder import DEFAULT_ORDER
 from hafnia.log import user_logger
 from hafnia.utils import (
     archive_dir,
@@ -31,7 +32,7 @@ def create_trainer_package(
     zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
     user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
 
-    cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
+    cmd_builder_schemas = auto_discover_cmd_builder_schemas(source_dir)
     cmd = cmd or "python scripts/train.py"
     description = description or f"Trainer package for '{name}'. Created with Hafnia SDK Cli."
     headers = {"Authorization": cfg.api_key, "accept": "application/json"}
@@ -49,18 +50,32 @@ def create_trainer_package(
     return response
 
 
-def auto_discover_cmd_builder_schemas(package_files: List[Path]) -> List[Dict]:
+def auto_discover_cmd_builder_schemas(path_source: Path) -> List[Dict]:
     """
     Auto-discover command builder schema files in the trainer package files.
     Looks for files ending with '.schema.json' and loads their content as JSON.
     """
-    cmd_builder_schema_files = [file for file in package_files if file.name.endswith(".schema.json")]
+    # Filter for '.schema.json' files, but drop '.schema.json' files in '.venv' directories as we have found that
+    # some python packages also use this suffix for their own config files
+    cmd_builder_schema_files = [f for f in path_source.rglob("*.schema.json") if ".venv" not in f.parts]
     cmd_builder_schemas = []
     for cmd_builder_schema_file in cmd_builder_schema_files:
         cmd_builder_schema = json.loads(cmd_builder_schema_file.read_text())
-        cmd_entrypoint = cmd_builder_schema.get("cmd", None)
+        required_fields = ["cmd", "json_schema"]
+        missing_field = next((field for field in required_fields if field not in cmd_builder_schema), None)
+        if missing_field is not None:
+            user_logger.warning(
+                f"One of the discovered command builder schema '{cmd_builder_schema_file}' is not considered "
+                f"a command builder schema because it is missing the '{missing_field}' field. "
+                "Skipping this file.",
+            )
+            continue
+        cmd_entrypoint = cmd_builder_schema["cmd"]
         user_logger.info(f"Found command builder schema file for entry point '{cmd_entrypoint}'")
         cmd_builder_schemas.append(cmd_builder_schema)
+
+    # Sort the schemas by the 'order' field, with missing 'order' treated as DEFAULT_ORDER
+    cmd_builder_schemas.sort(key=lambda s: s.get("order", DEFAULT_ORDER))
     return cmd_builder_schemas
 
 
@@ -94,7 +109,7 @@ def update_trainer_package(
         zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
         user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
 
-        cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
+        cmd_builder_schemas = auto_discover_cmd_builder_schemas(source_dir)
         if len(cmd_builder_schemas) > 0:
             fields["command_builder_schemas"] = json.dumps(cmd_builder_schemas)
         fields["file"] = (zip_path.name, Path(zip_path).read_bytes())

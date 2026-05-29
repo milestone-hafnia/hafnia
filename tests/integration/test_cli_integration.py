@@ -89,7 +89,7 @@ def test_cli_integration_test():
     with pytest.raises(MissingParameter):
         hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update"], standalone_mode=False)
     with pytest.raises(click.UsageError):
-        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update", "non-existent-id"], standalone_mode=False)
+        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update", "non-existent-id", "--name", "Blah"], standalone_mode=False)
 
     # Experiment commands
     CMD_EXPERIMENT = "experiment"

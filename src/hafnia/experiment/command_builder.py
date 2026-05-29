@@ -48,6 +48,7 @@ DEFAULT_PARAMETER_PREFIX: str = "--"
 DEFAULT_NESTED_PARAMETER_HANDLING: Literal["dot", "not-supported"] = "dot"
 DEFAULT_ASSIGNMENT_SEPARATOR: Literal["space", "equals"] = "space"
 DEFAULT_BOOL_HANDLING: Literal["none", "flag-negation"] = "none"
+DEFAULT_ORDER: int = 100
 
 
 def auto_save_command_builder_schema(
@@ -64,6 +65,7 @@ def auto_save_command_builder_schema(
     nested_parameter_handling: Optional[Literal["dot", "not-supported"]] = None,
     assignment_separator: Optional[Literal["space", "equals"]] = None,
     bool_handling: Optional[Literal["none", "flag-negation"]] = None,
+    order: Optional[int] = None,
 ) -> Path:
     """
     Magic function to create and save CommandBuilderSchema as JSON file from a CLI function.
@@ -105,6 +107,7 @@ def auto_save_command_builder_schema(
         nested_parameter_handling=nested_parameter_handling,
         assignment_separator=assignment_separator,
         bool_handling=bool_handling,
+        order=order,
     )
 
     path_schema = path_schema or path_of_function(cli_function).with_suffix(".schema.json")
@@ -192,6 +195,13 @@ class CommandBuilderSchema(BaseModel):
         ),
     )
 
+    order: int = Field(
+        100,  # Default order is 100, but can be set to a lower value to be displayed higher in the UI
+        description=(
+            "The order of the command builder in the UI. Command builders with lower order are displayed first. "
+        ),
+    )
+
     def to_json_file(self, path: Path) -> Path:
         """Write the launcher schema to a JSON file.
 
@@ -239,6 +249,7 @@ class CommandBuilderSchema(BaseModel):
         nested_parameter_handling: Optional[Literal["dot", "not-supported"]] = None,
         assignment_separator: Optional[Literal["space", "equals"]] = None,
         bool_handling: Optional[Literal["none", "flag-negation"]] = None,
+        order: Optional[int] = None,
     ) -> "CommandBuilderSchema":
         cmd = cmd or f"python {path_of_function(cli_function).as_posix()}"
         if cli_tool == "cyclopts":
@@ -265,7 +276,7 @@ class CommandBuilderSchema(BaseModel):
         )
         set_assignment_separator = assignment_separator or set_assignment_separator or DEFAULT_ASSIGNMENT_SEPARATOR
         set_bool_handling = bool_handling or set_bool_handling or DEFAULT_BOOL_HANDLING
-
+        set_order = order or DEFAULT_ORDER
         function_schema = schema_from_cli_function(
             cli_function,
             ignore_params=ignore_params,
@@ -281,6 +292,7 @@ class CommandBuilderSchema(BaseModel):
             assignment_separator=set_assignment_separator,
             bool_handling=set_bool_handling,
             n_positional_args=n_positional_args,
+            order=set_order,
         )
 
     def command_args_from_form_data(self, form_data: Dict[str, Any], include_cmd: bool = True) -> List[str]:

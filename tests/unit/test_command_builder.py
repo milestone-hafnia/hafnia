@@ -485,3 +485,54 @@ def test_enum_not_supported():
 
     with pytest.raises(TypeError, match="'Enum' CLI argument types are not supported yet"):
         command_builder.schema_from_cli_function(enum_parameter_example)
+
+
+def _write_schema(path: Path, name: str, schema: dict) -> Path:
+    schema_file = path / f"{name}.schema.json"
+    schema_file.write_text(json.dumps(schema))
+    return schema_file
+
+
+def test_auto_discover_cmd_builder_schemas_ordering(tmp_path: Path):
+    """Schemas are returned sorted by their 'order' field, missing 'order' treated as DEFAULT_ORDER."""
+    from hafnia.experiment.command_builder import DEFAULT_ORDER
+    from hafnia.platform.trainer_package import auto_discover_cmd_builder_schemas
+
+    _write_schema(tmp_path, "third", {"cmd": "third", "json_schema": {}, "order": 30})
+    _write_schema(tmp_path, "first", {"cmd": "first", "json_schema": {}, "order": 10})
+    _write_schema(tmp_path, "second", {"cmd": "second", "json_schema": {}, "order": 20})
+    # No 'order' field -> treated as DEFAULT_ORDER (100), so it sorts last here.
+    _write_schema(tmp_path, "no_order", {"cmd": "no_order", "json_schema": {}})
+
+    schemas = auto_discover_cmd_builder_schemas(tmp_path)
+
+    assert [s["cmd"] for s in schemas] == ["first", "second", "third", "no_order"]
+    assert DEFAULT_ORDER > 30  # sanity check that 'no_order' is expected to sort after the explicit orders
+
+
+def test_auto_discover_cmd_builder_schemas_skips_invalid(tmp_path: Path):
+    """Schemas missing a required field ('cmd' or 'json_schema') are skipped, valid ones are kept."""
+    from hafnia.platform.trainer_package import auto_discover_cmd_builder_schemas
+
+    _write_schema(tmp_path, "valid", {"cmd": "valid", "json_schema": {}})
+    _write_schema(tmp_path, "missing_cmd", {"json_schema": {}})
+    _write_schema(tmp_path, "missing_json_schema", {"cmd": "missing_json_schema"})
+    _write_schema(tmp_path, "empty", {})
+
+    schemas = auto_discover_cmd_builder_schemas(tmp_path)
+
+    assert [s["cmd"] for s in schemas] == ["valid"]
+
+
+def test_auto_discover_cmd_builder_schemas_ignores_venv(tmp_path: Path):
+    """'.schema.json' files inside a '.venv' directory are ignored."""
+    from hafnia.platform.trainer_package import auto_discover_cmd_builder_schemas
+
+    _write_schema(tmp_path, "valid", {"cmd": "valid", "json_schema": {}})
+    venv_dir = tmp_path / ".venv" / "some_package"
+    venv_dir.mkdir(parents=True)
+    _write_schema(venv_dir, "package_config", {"cmd": "package_config", "json_schema": {}})
+
+    schemas = auto_discover_cmd_builder_schemas(tmp_path)
+
+    assert [s["cmd"] for s in schemas] == ["valid"]
