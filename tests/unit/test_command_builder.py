@@ -197,7 +197,7 @@ def test_command_builder_schema(tmp_path: Path):
     path_schema_json = tmp_path / "command_schema.json"
     auto_save_command_builder_schema(
         name="Trainer",
-        n_positional_args=0,
+        positional_args=[],
         cli_function=cli_function_example,
         path_schema=path_schema_json,
     )
@@ -332,16 +332,16 @@ def test_command_args_from_form_data_simple():
     cmd_builder1 = CommandBuilderSchema.from_function(some_function)
     commands_args = cmd_builder1.command_args_from_form_data(form_dataset)
     cmd_string = " ".join(commands_args)
-    assert cmd_string.count(" --") == n_root_params - cmd_builder1.n_positional_args
+    assert cmd_string.count(" --") == n_root_params - len(cmd_builder1.positional_args)
     assert "nested.name" in cmd_string, "Nested parameter not correctly represented. Expected '.' separator."
     assert "param-value1" in cmd_string, "Parameter value was not converted to kebab-case."
     assert "--no-bool-flag1" in cmd_string, "Boolean flag not correctly represented with default settings."
     assert "--bool-flag2" in cmd_string, "Boolean flag with default True not correctly represented."
 
-    # Use case 2: Custom settings
+    # Use case 2: Custom settings, with 'param_value1' declared as a positional argument
     cmd_builder2 = CommandBuilderSchema.from_function(
         some_function,
-        n_positional_args=1,
+        positional_args=["param_value1"],
         parameter_prefix="++",
         nested_parameter_handling="dot",
         case_conversion="none",
@@ -351,7 +351,8 @@ def test_command_args_from_form_data_simple():
 
     commands_args = cmd_builder2.command_args_from_form_data(form_dataset)
     cmd_string = " ".join(commands_args)
-    assert cmd_string.count(" ++") == n_root_params - cmd_builder2.n_positional_args
+    assert cmd_builder2.positional_args == ["param_value1"], "Positional args not stored on the schema."
+    assert cmd_string.count(" ++") == n_root_params - len(cmd_builder2.positional_args)
     assert "nested.name" in cmd_string, "Nested parameter not correctly represented. Expected '.' separator."
     assert "param_value2" in cmd_string, "Parameter value was incorrectly converted to kebab-case."
     assert "++nested.name='some name'" in cmd_string, "Assignment separator '=' not correctly used."
@@ -359,6 +360,21 @@ def test_command_args_from_form_data_simple():
     assert "++bool_flag2=True" in cmd_string, (
         "Boolean flag with default True not correctly represented with flag-negation."
     )
+    # The positional argument is emitted first - as a bare value, before any '++' option.
+    assert commands_args[len(cmd_builder2.cmd.split(" "))] == "'custom_value'", (
+        "Positional argument should be emitted first as a bare value."
+    )
+    assert "++param_value1" not in cmd_string, "Positional argument should not be emitted as a named option."
+
+
+def test_positional_args_unknown_name_raises():
+    """A name in 'positional' that is not a parameter of the function must raise a ValueError."""
+
+    def some_function(param_value1: str, param_value2: int = 10) -> None:
+        return None
+
+    with pytest.raises(ValueError, match="positional_args"):
+        CommandBuilderSchema.from_function(some_function, positional_args=["does_not_exist"])
 
 
 def test_cyclopts_cmdline():

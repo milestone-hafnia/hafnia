@@ -60,7 +60,11 @@ def auto_discover_cmd_builder_schemas(path_source: Path) -> List[Dict]:
     cmd_builder_schema_files = [f for f in path_source.rglob("*.schema.json") if ".venv" not in f.parts]
     cmd_builder_schemas = []
     for cmd_builder_schema_file in cmd_builder_schema_files:
-        cmd_builder_schema = json.loads(cmd_builder_schema_file.read_text())
+        try:
+            cmd_builder_schema = json.loads(cmd_builder_schema_file.read_text())
+        except json.JSONDecodeError:
+            user_logger.warning(f"Could not parse'{cmd_builder_schema_file}' as JSON. Skipping.")
+            continue
         required_fields = ["cmd", "json_schema"]
         missing_field = next((field for field in required_fields if field not in cmd_builder_schema), None)
         if missing_field is not None:
