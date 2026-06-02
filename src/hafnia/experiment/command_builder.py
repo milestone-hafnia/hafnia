@@ -42,18 +42,18 @@ from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-DEFAULT_N_POSITIONAL_ARGS: int = 0
 DEFAULT_CASE_CONVERSION: Literal["none", "kebab"] = "none"
 DEFAULT_PARAMETER_PREFIX: str = "--"
 DEFAULT_NESTED_PARAMETER_HANDLING: Literal["dot", "not-supported"] = "dot"
 DEFAULT_ASSIGNMENT_SEPARATOR: Literal["space", "equals"] = "space"
 DEFAULT_BOOL_HANDLING: Literal["none", "flag-negation"] = "none"
+DEFAULT_ORDER: int = 100
 
 
 def auto_save_command_builder_schema(
     cli_function: Callable[..., Any],
     name: Optional[str] = None,
-    n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
+    positional_args: Optional[List[str]] = None,
     cli_tool: Optional[str] = "cyclopts",
     ignore_params: tuple[str, ...] = (),
     handle_union_types: bool = True,
@@ -64,6 +64,7 @@ def auto_save_command_builder_schema(
     nested_parameter_handling: Optional[Literal["dot", "not-supported"]] = None,
     assignment_separator: Optional[Literal["space", "equals"]] = None,
     bool_handling: Optional[Literal["none", "flag-negation"]] = None,
+    order: int = DEFAULT_ORDER,
 ) -> Path:
     """
     Magic function to create and save CommandBuilderSchema as JSON file from a CLI function.
@@ -85,26 +86,26 @@ def auto_save_command_builder_schema(
         parameter_prefix="--",
         nested_parameter_handling="dot",
         assignment_separator="space",
-        n_positional_args=0,
         bool_handling="flag-negation",
     )
     command_builder.to_json_file(Path("scripts/train.json"))
 
     """
 
-    launch_schema = CommandBuilderSchema.from_function(
+    launch_schema: CommandBuilderSchema = CommandBuilderSchema.from_function(
         cli_function,
         name=name,
         cli_tool=cli_tool,
         ignore_params=ignore_params,
         handle_union_types=handle_union_types,
         cmd=cmd,
-        n_positional_args=n_positional_args,
+        positional_args=positional_args,
         case_conversion=case_conversion,
         parameter_prefix=parameter_prefix,
         nested_parameter_handling=nested_parameter_handling,
         assignment_separator=assignment_separator,
         bool_handling=bool_handling,
+        order=order,
     )
 
     path_schema = path_schema or path_of_function(cli_function).with_suffix(".schema.json")
@@ -140,16 +141,6 @@ class CommandBuilderSchema(BaseModel):
     json_schema: Dict[str, Any] = Field(
         default_factory=dict,
         description="JSON schema representing the command parameters. ",
-    )
-
-    n_positional_args: int = Field(
-        DEFAULT_N_POSITIONAL_ARGS,
-        description=(
-            "Number of positional arguments in the command. To handle that some CLI tools "
-            "accept positional arguments before options, this specifies how many positional arguments are expected. "
-            "These will be filled in order before any named arguments. "
-            "E.g. for 'python train.py data/train --batch-size 32', n_positional_args would be 1 ('data/train')."
-        ),
     )
 
     # Below defines how the specified parameters/arguments are formatted as command line arguments
@@ -192,6 +183,18 @@ class CommandBuilderSchema(BaseModel):
         ),
     )
 
+    order: int = Field(
+        DEFAULT_ORDER,
+        description=(
+            "The order of the command builder in the UI. Command builders with lower order are displayed first. "
+        ),
+    )
+
+    @property
+    def positional_args(self) -> List[str]:
+        """Names of parameters (from 'json_schema') that are passed as positional command line arguments."""
+        return list(self.json_schema.get("positional_args", []))
+
     def to_json_file(self, path: Path) -> Path:
         """Write the launcher schema to a JSON file.
 
@@ -218,6 +221,15 @@ class CommandBuilderSchema(BaseModel):
                 "Either remove nested parameters from the schema or change "
                 "'nested_parameter_handling' to support nested parameters."
             )
+
+        # Every name listed in 'positional_args' must refer to an actual parameter in 'properties'.
+        properties = self.json_schema.get("properties", {})
+        unknown_positional = [name for name in self.positional_args if name not in properties]
+        if unknown_positional:
+            raise ValueError(
+                f"The 'positional_args' contain names that are not parameters in the 'json_schema' "
+                f"properties: {unknown_positional}. Available parameters: {list(properties)}."
+            )
         return self
 
     @staticmethod
@@ -233,12 +245,13 @@ class CommandBuilderSchema(BaseModel):
         ignore_params: tuple[str, ...] = (),
         cmd: Optional[str] = None,
         handle_union_types: bool = True,
-        n_positional_args: int = DEFAULT_N_POSITIONAL_ARGS,
+        positional_args: Optional[List[str]] = None,
         case_conversion: Optional[Literal["none", "kebab"]] = None,
         parameter_prefix: Optional[str] = None,
         nested_parameter_handling: Optional[Literal["dot", "not-supported"]] = None,
         assignment_separator: Optional[Literal["space", "equals"]] = None,
         bool_handling: Optional[Literal["none", "flag-negation"]] = None,
+        order: int = DEFAULT_ORDER,
     ) -> "CommandBuilderSchema":
         cmd = cmd or f"python {path_of_function(cli_function).as_posix()}"
         if cli_tool == "cyclopts":
@@ -265,12 +278,15 @@ class CommandBuilderSchema(BaseModel):
         )
         set_assignment_separator = assignment_separator or set_assignment_separator or DEFAULT_ASSIGNMENT_SEPARATOR
         set_bool_handling = bool_handling or set_bool_handling or DEFAULT_BOOL_HANDLING
-
         function_schema = schema_from_cli_function(
             cli_function,
             ignore_params=ignore_params,
             handle_union_types=handle_union_types,
         )
+        # Store the positional arguments inside the json_schema so the information travels with the schema.
+        # This is not a standard JSON schema field, but it is used by our Command Builder implementation to
+        # determine which arguments are positional.
+        function_schema["positional_args"] = positional_args or []
         return CommandBuilderSchema(
             name=name,
             cmd=cmd,
@@ -280,7 +296,7 @@ class CommandBuilderSchema(BaseModel):
             nested_parameter_handling=set_nested_parameter_handling,
             assignment_separator=set_assignment_separator,
             bool_handling=set_bool_handling,
-            n_positional_args=n_positional_args,
+            order=order,
         )
 
     def command_args_from_form_data(self, form_data: Dict[str, Any], include_cmd: bool = True) -> List[str]:
@@ -313,11 +329,15 @@ class CommandBuilderSchema(BaseModel):
         if include_cmd:
             cmd_args.extend(self.cmd.split(" "))
 
-        for position, (name, value) in enumerate(form_data.items()):
-            is_positional = position < self.n_positional_args
+        # Emit positional arguments first - in the order listed in 'positional_args' - then the remaining named
+        # arguments in form-data order. Positional names not present in the form data are skipped.
+        positional_names = [name for name in self.positional_args if name in form_data]
+        named_names = [name for name in form_data if name not in positional_names]
+        for name in [*positional_names, *named_names]:
+            is_positional = name in positional_names
             arg_parts = name_and_value_as_command_line_arguments(
                 name=name,
-                value=value,
+                value=form_data[name],
                 is_positional=is_positional,
                 case_conversion=self.case_conversion,
                 parameter_prefix=self.parameter_prefix,

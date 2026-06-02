@@ -1,6 +1,6 @@
-import click
 import pytest
 from click.exceptions import MissingParameter, NoArgsIsHelpError
+from urllib3.exceptions import HTTPError
 
 from hafnia import utils
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe
@@ -88,8 +88,8 @@ def test_cli_integration_test():
     hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update", "--help"], standalone_mode=False)
     with pytest.raises(MissingParameter):
         hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update"], standalone_mode=False)
-    with pytest.raises(click.UsageError):
-        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update", "non-existent-id"], standalone_mode=False)
+    with pytest.raises(HTTPError, match="Not found"):
+        hafnia_cli(args=[CMD_TRAINER_PACKAGE, "update", "non-existent-id", "--name", "Blah"], standalone_mode=False)
 
     # Experiment commands
     CMD_EXPERIMENT = "experiment"

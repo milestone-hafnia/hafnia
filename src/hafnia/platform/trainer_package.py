@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from hafnia import http
+from hafnia.experiment.command_builder import DEFAULT_ORDER
 from hafnia.log import user_logger
 from hafnia.utils import (
     archive_dir,
@@ -53,14 +54,33 @@ def auto_discover_cmd_builder_schemas(package_files: List[Path]) -> List[Dict]:
     """
     Auto-discover command builder schema files in the trainer package files.
     Looks for files ending with '.schema.json' and loads their content as JSON.
+
+    Only files that are part of the trainer package are considered, so '.schema.json' files excluded by
+    '.hafniaignore' (e.g. in '.venv' or other ignored directories) are not picked up.
     """
     cmd_builder_schema_files = [file for file in package_files if file.name.endswith(".schema.json")]
     cmd_builder_schemas = []
     for cmd_builder_schema_file in cmd_builder_schema_files:
-        cmd_builder_schema = json.loads(cmd_builder_schema_file.read_text())
-        cmd_entrypoint = cmd_builder_schema.get("cmd", None)
+        try:
+            cmd_builder_schema = json.loads(cmd_builder_schema_file.read_text())
+        except json.JSONDecodeError:
+            user_logger.warning(f"Could not parse '{cmd_builder_schema_file}' as JSON. Skipping.")
+            continue
+        required_fields = ["cmd", "json_schema"]
+        missing_field = next((field for field in required_fields if field not in cmd_builder_schema), None)
+        if missing_field is not None:
+            user_logger.warning(
+                f"One of the discovered command builder schema '{cmd_builder_schema_file}' is not considered "
+                f"a command builder schema because it is missing the '{missing_field}' field. "
+                "Skipping this file.",
+            )
+            continue
+        cmd_entrypoint = cmd_builder_schema["cmd"]
         user_logger.info(f"Found command builder schema file for entry point '{cmd_entrypoint}'")
         cmd_builder_schemas.append(cmd_builder_schema)
+
+    # Sort the schemas by the 'order' field, with missing 'order' treated as DEFAULT_ORDER
+    cmd_builder_schemas.sort(key=lambda s: s.get("order", DEFAULT_ORDER))
     return cmd_builder_schemas
 
 
