@@ -29,10 +29,10 @@ def create_trainer_package(
 
     path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
     name = name or path_trainer.stem
-    zip_path, _ = archive_dir(source_dir, output_path=path_trainer)
+    zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
     user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
 
-    cmd_builder_schemas = auto_discover_cmd_builder_schemas(source_dir)
+    cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
     cmd = cmd or "python scripts/train.py"
     description = description or f"Trainer package for '{name}'. Created with Hafnia SDK Cli."
     headers = {"Authorization": cfg.api_key, "accept": "application/json"}
@@ -50,20 +50,21 @@ def create_trainer_package(
     return response
 
 
-def auto_discover_cmd_builder_schemas(path_source: Path) -> List[Dict]:
+def auto_discover_cmd_builder_schemas(package_files: List[Path]) -> List[Dict]:
     """
     Auto-discover command builder schema files in the trainer package files.
     Looks for files ending with '.schema.json' and loads their content as JSON.
+
+    Only files that are part of the trainer package are considered, so '.schema.json' files excluded by
+    '.hafniaignore' (e.g. in '.venv' or other ignored directories) are not picked up.
     """
-    # Filter for '.schema.json' files, but drop '.schema.json' files in '.venv' directories as we have found that
-    # some python packages also use this suffix for their own config files
-    cmd_builder_schema_files = [f for f in path_source.rglob("*.schema.json") if ".venv" not in f.parts]
+    cmd_builder_schema_files = [file for file in package_files if file.name.endswith(".schema.json")]
     cmd_builder_schemas = []
     for cmd_builder_schema_file in cmd_builder_schema_files:
         try:
             cmd_builder_schema = json.loads(cmd_builder_schema_file.read_text())
         except json.JSONDecodeError:
-            user_logger.warning(f"Could not parse'{cmd_builder_schema_file}' as JSON. Skipping.")
+            user_logger.warning(f"Could not parse '{cmd_builder_schema_file}' as JSON. Skipping.")
             continue
         required_fields = ["cmd", "json_schema"]
         missing_field = next((field for field in required_fields if field not in cmd_builder_schema), None)
@@ -110,10 +111,10 @@ def update_trainer_package(
     if source_dir is not None:
         source_dir = Path(source_dir).resolve()
         path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
-        zip_path, _ = archive_dir(source_dir, output_path=path_trainer)
+        zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
         user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
 
-        cmd_builder_schemas = auto_discover_cmd_builder_schemas(source_dir)
+        cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
         if len(cmd_builder_schemas) > 0:
             fields["command_builder_schemas"] = json.dumps(cmd_builder_schemas)
         fields["file"] = (zip_path.name, Path(zip_path).read_bytes())

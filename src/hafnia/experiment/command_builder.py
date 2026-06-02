@@ -184,7 +184,7 @@ class CommandBuilderSchema(BaseModel):
     )
 
     order: int = Field(
-        100,  # Default order is 100, but can be set to a lower value to be displayed higher in the UI
+        DEFAULT_ORDER,
         description=(
             "The order of the command builder in the UI. Command builders with lower order are displayed first. "
         ),

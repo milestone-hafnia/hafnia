@@ -368,7 +368,7 @@ def test_command_args_from_form_data_simple():
 
 
 def test_positional_args_unknown_name_raises():
-    """A name in 'positional' that is not a parameter of the function must raise a ValueError."""
+    """A name in 'positional_args' that is not a parameter of the function must raise a ValueError."""
 
     def some_function(param_value1: str, param_value2: int = 10) -> None:
         return None
@@ -514,41 +514,50 @@ def test_auto_discover_cmd_builder_schemas_ordering(tmp_path: Path):
     from hafnia.experiment.command_builder import DEFAULT_ORDER
     from hafnia.platform.trainer_package import auto_discover_cmd_builder_schemas
 
-    _write_schema(tmp_path, "third", {"cmd": "third", "json_schema": {}, "order": 30})
-    _write_schema(tmp_path, "first", {"cmd": "first", "json_schema": {}, "order": 10})
-    _write_schema(tmp_path, "second", {"cmd": "second", "json_schema": {}, "order": 20})
-    # No 'order' field -> treated as DEFAULT_ORDER (100), so it sorts last here.
-    _write_schema(tmp_path, "no_order", {"cmd": "no_order", "json_schema": {}})
+    package_files = [
+        _write_schema(tmp_path, "third", {"cmd": "third", "json_schema": {}, "order": 30}),
+        _write_schema(tmp_path, "first", {"cmd": "first", "json_schema": {}, "order": 10}),
+        _write_schema(tmp_path, "second", {"cmd": "second", "json_schema": {}, "order": 20}),
+        # No 'order' field -> treated as DEFAULT_ORDER (100), so it sorts last here.
+        _write_schema(tmp_path, "no_order", {"cmd": "no_order", "json_schema": {}}),
+    ]
 
-    schemas = auto_discover_cmd_builder_schemas(tmp_path)
+    schemas = auto_discover_cmd_builder_schemas(package_files)
 
     assert [s["cmd"] for s in schemas] == ["first", "second", "third", "no_order"]
     assert DEFAULT_ORDER > 30  # sanity check that 'no_order' is expected to sort after the explicit orders
 
 
 def test_auto_discover_cmd_builder_schemas_skips_invalid(tmp_path: Path):
-    """Schemas missing a required field ('cmd' or 'json_schema') are skipped, valid ones are kept."""
+    """Schemas missing a required field ('cmd' or 'json_schema'), or that are not valid JSON, are skipped."""
     from hafnia.platform.trainer_package import auto_discover_cmd_builder_schemas
 
-    _write_schema(tmp_path, "valid", {"cmd": "valid", "json_schema": {}})
-    _write_schema(tmp_path, "missing_cmd", {"json_schema": {}})
-    _write_schema(tmp_path, "missing_json_schema", {"cmd": "missing_json_schema"})
-    _write_schema(tmp_path, "empty", {})
+    malformed = tmp_path / "malformed.schema.json"
+    malformed.write_text("{not valid json")
 
-    schemas = auto_discover_cmd_builder_schemas(tmp_path)
+    package_files = [
+        _write_schema(tmp_path, "valid", {"cmd": "valid", "json_schema": {}}),
+        _write_schema(tmp_path, "missing_cmd", {"json_schema": {}}),
+        _write_schema(tmp_path, "missing_json_schema", {"cmd": "missing_json_schema"}),
+        _write_schema(tmp_path, "empty", {}),
+        malformed,
+    ]
+
+    schemas = auto_discover_cmd_builder_schemas(package_files)
 
     assert [s["cmd"] for s in schemas] == ["valid"]
 
 
-def test_auto_discover_cmd_builder_schemas_ignores_venv(tmp_path: Path):
-    """'.schema.json' files inside a '.venv' directory are ignored."""
+def test_auto_discover_cmd_builder_schemas_only_schema_json_files(tmp_path: Path):
+    """Only files ending with '.schema.json' are considered; other packaged files are ignored."""
     from hafnia.platform.trainer_package import auto_discover_cmd_builder_schemas
 
-    _write_schema(tmp_path, "valid", {"cmd": "valid", "json_schema": {}})
-    venv_dir = tmp_path / ".venv" / "some_package"
-    venv_dir.mkdir(parents=True)
-    _write_schema(venv_dir, "package_config", {"cmd": "package_config", "json_schema": {}})
+    schema_file = _write_schema(tmp_path, "valid", {"cmd": "valid", "json_schema": {}})
+    other_file = tmp_path / "train.py"
+    other_file.write_text("print('hello')")
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({"cmd": "config", "json_schema": {}}))
 
-    schemas = auto_discover_cmd_builder_schemas(tmp_path)
+    schemas = auto_discover_cmd_builder_schemas([schema_file, other_file, config_file])
 
     assert [s["cmd"] for s in schemas] == ["valid"]
