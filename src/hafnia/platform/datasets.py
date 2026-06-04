@@ -38,7 +38,13 @@ def get_dataset_by_id(dataset_id: str, cfg: Optional[Config] = None) -> Optional
     endpoint_dataset = cfg.get_platform_endpoint("datasets")
     header = {"Authorization": cfg.api_key}
     full_url = f"{endpoint_dataset}/{dataset_id}"
-    dataset: Dict[str, Any] = http.fetch(full_url, headers=header)  # type: ignore[assignment]
+    try:
+        dataset: Dict[str, Any] = http.fetch(full_url, headers=header)  # type: ignore[assignment]
+    except http.HafniaHTTPError as e:
+        if e.status_code == 404:
+            return None  # a missing dataset id is not an error here, just "not found"
+        raise
+
     if not dataset:
         return None
 
