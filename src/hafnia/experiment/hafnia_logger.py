@@ -122,7 +122,7 @@ class HafniaLogger:
             tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
             if tracking_uri:
                 mlflow.set_tracking_uri(tracking_uri)
-                user_logger.info(f"MLflow tracking URI set to: {tracking_uri}")
+                user_logger.info(f"[S2M] MLflow tracking URI set to: {tracking_uri}")
 
             # Set experiment name from environment variable
             experiment_name = os.getenv("MLFLOW_EXPERIMENT_NAME")
