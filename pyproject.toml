@@ -29,6 +29,7 @@ dependencies = [
     "mcp>=1.23.0",
     "docstring-parser>=0.17.0", # Used to parse docstrings for CommandBuilder
     "mlflow-skinny>=3.14.0",
+    "tzdata>=2025.1 ; sys_platform == 'win32'", # Windows has no IANA tz database; needed by zoneinfo/polars for UTC datetimes
 ]
 
 [dependency-groups]
