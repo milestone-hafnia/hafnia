@@ -1,12 +1,12 @@
 import copy
 import inspect
+import json
 from pathlib import Path
 from typing import Annotated, Callable, Literal, Optional
 
 import cyclopts
 import pytest
 import typer
-from flask import json
 from pydantic import BaseModel
 from pydantic import Field as PydanticField
 from typer.testing import CliRunner
