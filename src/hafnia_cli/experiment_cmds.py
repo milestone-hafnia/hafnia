@@ -188,7 +188,6 @@ def cmd_create_experiment(
         "State": experiment.get("state", "N/A"),
         "Trainer Package ID": experiment.get("trainer", "N/A"),
         "Dataset Recipe ID": experiment.get("dataset_recipe", "N/A"),
-        "Dataset ID": experiment.get("dataset", "N/A"),
         "Created At": experiment.get("created_at", "N/A"),
     }
     print("Successfully created experiment: ")
