@@ -1,6 +1,6 @@
 [project]
 name = "hafnia"
-version = "0.7.10"
+version = "0.7.11"
 description = "Python SDK for communication with Hafnia platform."
 readme = "README.md"
 authors = [
@@ -26,9 +26,10 @@ dependencies = [
     "s5cmd>=0.2.0",
     "seedir>=0.5.0",
     "xxhash>=3.5.0",
-    "mlflow>=3.4.0",
     "mcp>=1.23.0",
-    "docstring-parser>=0.17.0",    # Used to parse docstrings for CommandBuilder
+    "docstring-parser>=0.17.0", # Used to parse docstrings for CommandBuilder
+    "mlflow-skinny>=3.14.0",
+    "tzdata>=2025.1 ; sys_platform == 'win32'", # Windows has no IANA tz database; needed by zoneinfo/polars for UTC datetimes
 ]
 
 [dependency-groups]
