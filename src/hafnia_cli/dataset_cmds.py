@@ -3,7 +3,6 @@ from typing import Optional
 
 import click
 
-import hafnia.dataset.hafnia_dataset
 from hafnia import utils
 from hafnia_cli.config import Config
 
@@ -59,8 +58,9 @@ def cmd_dataset_download(
     cfg: Config, dataset_name: str, version: Optional[str], destination: Optional[click.Path], force: bool
 ) -> Path:
     """Download dataset from Hafnia platform"""
+    from hafnia.dataset.hafnia_dataset import download_or_get_dataset_path
 
-    path_dataset = hafnia.dataset.hafnia_dataset.download_or_get_dataset_path(
+    path_dataset = download_or_get_dataset_path(
         dataset_name=dataset_name,
         version=version,
         cfg=cfg,

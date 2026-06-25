@@ -4,12 +4,6 @@ from typing import Dict, Optional
 import click
 
 from hafnia import utils
-from hafnia.platform.dataset_recipe import (
-    get_dataset_recipe_by_id,
-    get_dataset_recipe_by_name,
-    get_or_create_dataset_recipe_by_dataset_name,
-)
-from hafnia.platform.trainer_package import create_trainer_package
 from hafnia_cli.config import Config
 
 
@@ -201,6 +195,12 @@ def get_dataset_recipe_by_identifiers(
     recipe_name: Optional[str],
     recipe_id: Optional[str],
 ) -> Dict:
+    from hafnia.platform.dataset_recipe import (
+        get_dataset_recipe_by_id,
+        get_dataset_recipe_by_name,
+        get_or_create_dataset_recipe_by_dataset_name,
+    )
+
     dataset_identifiers = [dataset_name, recipe_name, recipe_id]
     n_dataset_identifies_defined = sum([bool(identifier) for identifier in dataset_identifiers])
 
@@ -235,6 +235,7 @@ def get_trainer_package_by_identifiers(
     trainer_id: Optional[str],
 ) -> str:
     from hafnia.platform import get_trainer_package_by_id
+    from hafnia.platform.trainer_package import create_trainer_package
 
     if trainer_path is not None and trainer_id is not None:
         raise click.ClickException(

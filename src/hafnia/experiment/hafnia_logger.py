@@ -16,13 +16,9 @@ from pydantic import BaseModel, field_validator
 from hafnia.log import sys_logger, user_logger
 from hafnia.utils import is_hafnia_cloud_job, now_as_str
 
-try:
-    import mlflow
-
-    MLFLOW_AVAILABLE = True
-except ImportError:
+MLFLOW_AVAILABLE = importlib.util.find_spec("mlflow") is not None
+if not MLFLOW_AVAILABLE:
     user_logger.warning("MLFlow is not available")
-    MLFLOW_AVAILABLE = False
 
 SYSTEM_METRICS_AVAILABLE = importlib.util.find_spec("psutil") is not None
 if not SYSTEM_METRICS_AVAILABLE:
@@ -118,6 +114,8 @@ class HafniaLogger:
     def _init_mlflow(self):
         """Initialize MLflow tracking for remote jobs."""
         try:
+            import mlflow
+
             # Set MLflow tracking URI from environment variable
             tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
             if tracking_uri:
@@ -204,6 +202,8 @@ class HafniaLogger:
         if not self._mlflow_initialized:
             return
         try:
+            import mlflow
+
             mlflow.log_metric(name, value, step=step)
         except Exception as e:
             user_logger.error(f"Failed to log metric to MLflow: {e}")
@@ -226,6 +226,8 @@ class HafniaLogger:
             if not self._mlflow_initialized:
                 return
             try:
+                import mlflow
+
                 mlflow.log_params(params)
             except Exception as e:
                 user_logger.error(f"Failed to log params to MLflow: {e}")
@@ -272,6 +274,8 @@ class HafniaLogger:
         if not self._mlflow_initialized:
             return
         try:
+            import mlflow
+
             mlflow.end_run()
             self._mlflow_initialized = False
             user_logger.info("MLflow run ended successfully")
