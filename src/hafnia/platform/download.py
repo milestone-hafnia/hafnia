@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import Dict, Optional
 
-import boto3
-from botocore.exceptions import ClientError
 from rich.progress import Progress
 
 from hafnia.http import fetch
@@ -75,6 +73,9 @@ def download_resource(resource_url: str, destination: str, api_key: str, prefix:
         ValueError: If the S3 ARN is invalid or no objects found under prefix.
         RuntimeError: If S3 calls fail with an unexpected error.
     """
+    import boto3
+    from botocore.exceptions import ClientError
+
     res_credentials = get_resource_credentials(resource_url, api_key)
 
     bucket_name = res_credentials.bucket_name()

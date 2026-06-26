@@ -5,14 +5,15 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-import boto3
-from botocore.exceptions import UnauthorizedSSOTokenError
 from pydantic import BaseModel, field_validator
 
 from hafnia.log import sys_logger, user_logger
 from hafnia.utils import progress_bar
+
+if TYPE_CHECKING:
+    import boto3
 
 
 def find_s5cmd() -> Optional[str]:
@@ -185,10 +186,12 @@ class AwsCredentials(BaseModel):
         return environment_vars
 
     @staticmethod
-    def from_session(session: boto3.Session) -> "AwsCredentials":
+    def from_session(session: "boto3.Session") -> "AwsCredentials":
         """
         Creates AwsCredentials from a Boto3 session.
         """
+        from botocore.exceptions import UnauthorizedSSOTokenError
+
         try:
             frozen_credentials = session.get_credentials().get_frozen_credentials()
         except UnauthorizedSSOTokenError as e:
