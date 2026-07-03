@@ -140,7 +140,7 @@ def get_encord_dataset_items(
     dataset_items = project.list_label_rows_v2(
         branch_name=branch_name,
         include_all_label_branches=include_all_label_branches,
-        workflow_graph_node_title_like=workflow_stage,
+        workflow_graph_node_title_eq=workflow_stage,
     )
 
     # Sorted by creation date to ensure consistent ordering even if new labels are added later.
