@@ -1,4 +1,6 @@
 {
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.languageServer": "Pylance",
     "[json]": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "vscode.json-language-features"

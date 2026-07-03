@@ -89,13 +89,39 @@ def dump_encord_project_from_id(
     path_output_file: Path,
     select_rows: Optional[List[str]] = None,
     max_rows: Optional[int] = None,
+    branch_name: Optional[str] = None,
+    include_all_label_branches: bool = False,
+    workflow_stage: Optional[str] = None,
 ) -> Path:
+    """Download an Encord project by ID and dump its labels, ontology, and metadata to disk.
+
+    Fetches the project using the provided client, collects its label data via
+    ``dump_encord_data``, and writes the result to ``path_output_file`` as a compressed JSON file.
+
+    Args:
+        project_id: The Encord project identifier to download.
+        encord_client: Authenticated Encord user client used to fetch the project.
+        path_output_file: Destination path for the compressed JSON dump. Parent directories
+            are created if they do not exist.
+        select_rows: Optional list of data titles to include; if provided, only matching
+            rows are dumped.
+        max_rows: Optional maximum number of rows to dump.
+        branch_name: Optional label branch to read annotations from.
+        include_all_label_branches: If True, include labels from all branches.
+        workflow_stage: Optional workflow stage title used to filter label rows.
+
+    Returns:
+        The path to the written output file (same as ``path_output_file``).
+    """
     encord_project = encord_client.get_project(project_id)
 
     encord_data = dump_encord_data(
         encord_project=encord_project,
         select_rows=select_rows,
         max_rows=max_rows,
+        branch_name=branch_name,
+        include_all_label_branches=include_all_label_branches,
+        workflow_stage=workflow_stage,
     )
 
     path_output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -107,8 +133,15 @@ def get_encord_dataset_items(
     project: "Project",
     select_rows: Optional[List[str]],
     max_rows: Optional[int] = None,
+    branch_name: Optional[str] = None,
+    include_all_label_branches: bool = False,
+    workflow_stage: Optional[str] = None,
 ) -> List[Dict]:
-    dataset_items = project.list_label_rows_v2()
+    dataset_items = project.list_label_rows_v2(
+        branch_name=branch_name,
+        include_all_label_branches=include_all_label_branches,
+        workflow_graph_node_title_like=workflow_stage,
+    )
 
     # Sorted by creation date to ensure consistent ordering even if new labels are added later.
     dataset_items = sorted(dataset_items, key=lambda x: x.created_at)
@@ -145,8 +178,36 @@ def dump_encord_data(
     encord_project: "encord.Project",
     select_rows: Optional[List[str]] = None,
     max_rows: Optional[int] = None,
+    branch_name: Optional[str] = None,
+    include_all_label_branches: bool = False,
+    workflow_stage: Optional[str] = None,
 ) -> Dict:
-    collection_items = get_encord_dataset_items(encord_project, select_rows=select_rows, max_rows=max_rows)
+    """Collect the labels, ontology, and metadata of an Encord project into a single dictionary.
+
+    Loads the selected label rows, the project ontology, and project-level info, and combines
+    them with dump metadata (timestamp and git commit) into one serializable dictionary.
+
+    Args:
+        encord_project: The Encord project to read data from.
+        select_rows: Optional list of data titles to include; if provided, only matching
+            rows are collected.
+        max_rows: Optional maximum number of rows to collect.
+        branch_name: Optional label branch to read annotations from.
+        include_all_label_branches: If True, include labels from all branches.
+        workflow_stage: Optional workflow stage title used to filter label rows.
+
+    Returns:
+        A dictionary with the dump date, git commit, collected ``labels``, project-level
+        ``encord_info``, and the project ``ontology``.
+    """
+    collection_items = get_encord_dataset_items(
+        encord_project,
+        select_rows=select_rows,
+        max_rows=max_rows,
+        branch_name=branch_name,
+        include_all_label_branches=include_all_label_branches,
+        workflow_stage=workflow_stage,
+    )
 
     encord_ontology_as_dict = encord_project.ontology_structure.to_dict()
 
