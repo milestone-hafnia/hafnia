@@ -1,6 +1,6 @@
 [project]
 name = "hafnia"
-version = "0.7.13"
+version = "0.7.14"
 description = "Python SDK for communication with Hafnia platform."
 readme = "README.md"
 authors = [
@@ -15,7 +15,7 @@ dependencies = [
     "flatten-dict>=0.4.2",
     "keyring>=25.6.0",
     "more-itertools>=10.7.0",
-    "opencv-python-headless<4.13", # Issues in 4.13.0.90" for small images (hafnia requires opencv-python-headless)
+    "opencv-python-headless<4.13",              # Issues in 4.13.0.90" for small images (hafnia requires opencv-python-headless)
     "pathspec>=0.12.1",
     "pillow>=11.1.0",
     "polars>=1.30.0",
@@ -27,7 +27,7 @@ dependencies = [
     "seedir>=0.5.0",
     "xxhash>=3.5.0",
     "mcp>=1.23.0",
-    "docstring-parser>=0.17.0", # Used to parse docstrings for CommandBuilder
+    "docstring-parser>=0.17.0",                 # Used to parse docstrings for CommandBuilder
     "mlflow-skinny>=3.14.0",
     "tzdata>=2025.1 ; sys_platform == 'win32'", # Windows has no IANA tz database; needed by zoneinfo/polars for UTC datetimes
 ]
