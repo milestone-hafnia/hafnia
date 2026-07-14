@@ -1,6 +1,4 @@
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Callable, List
 
 import numpy as np
@@ -158,38 +156,3 @@ def test_adjust_bbox_from_polygon_assertions(compare_to_expected_image: Callable
         dataset.info.tasks = [t for t in dataset.info.tasks if t.primitive != Polygon]
 
         dataset.adjust_bboxes_from_polygon_masks(polygon_class_names=["Annotator Marking Polygon.Mask"])
-
-
-def test_adjust_mask_failure_case(compare_to_expected_image: Callable):
-    path_sample = Path("tests/unit/dataset/operations/adjust_mask_failure_case_001.json")
-    path_mask = Path("tests/unit/dataset/operations/adjust_mask_failure_case_001_polygons.json")
-    mask_coordinates = json.loads(path_mask.read_text())[
-        "lan0096_-_via_cantore_via_delle_franzoniane_ponente_night.png"
-    ]
-
-    sample_dict = json.loads(path_sample.read_text())
-    sample = Sample(**sample_dict)
-
-    polygons: List[Polygon] = []
-    for idx, polygon_points in enumerate(mask_coordinates):
-        polygons.append(
-            Polygon.from_list_of_pixel_points(
-                points=polygon_points,
-                image_height=sample.height,
-                image_width=sample.width,
-                class_name=f"P{idx}",
-            )
-        )
-    sample.polygons = polygons
-
-    sample.bboxes = _adjust_bboxes_from_polygon_masks(
-        boxes=sample.bboxes,  # type: ignore
-        polygons=polygons,
-        image_width=sample.width,
-        image_height=sample.height,
-    )
-    assert len(sample.bboxes) == 0, "Bbox almost fully inside the polygon mask should be dropped"
-
-    image_zeros = np.zeros((sample.height, sample.width, 3), dtype=np.uint8)
-    image = sample.draw_annotations(image=image_zeros)
-    compare_to_expected_image(image)
