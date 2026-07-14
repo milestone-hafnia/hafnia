@@ -86,6 +86,7 @@ TEST_CASES: List[TestCaseAdjustBbox] = [
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustRightSide", box_coords=[[500, 150, 750, 200]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide", box_coords=[[1460, 30, 1490, 60]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide2", box_coords=[[1460, 30, 1481, 60]]),
+    TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide3", box_coords=[[1460, 30, 1482, 60]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndRightSide", box_coords=[[580, 150, 750, 200]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("DropBboxInsidePolygon", box_coords=[[1000, 180, 1200, 220]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("DropEmptyBboxInsidePolygon", box_coords=[[1000, 180, 1000, 180]]),
@@ -181,11 +182,8 @@ def test_adjust_mask_failure_case(compare_to_expected_image: Callable):
         )
     sample.polygons = polygons
 
-    # The single bbox lies almost entirely inside polygon 'P0' (3 corners inside, the 4th only ~0.6px
-    # outside the mask edge). With the boundary tolerance that near-edge corner counts as inside, so all
-    # corners are inside and the bbox is dropped rather than left overlapping the mask or collapsed.
     sample.bboxes = _adjust_bboxes_from_polygon_masks(
-        boxes=sample.bboxes,
+        boxes=sample.bboxes,  # type: ignore
         polygons=polygons,
         image_width=sample.width,
         image_height=sample.height,

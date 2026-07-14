@@ -1,11 +1,11 @@
 import math
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, NamedTuple, Optional, Tuple
 
 import more_itertools
 import polars as pl
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
-from hafnia.dataset.primitives import Bbox, Point, Polygon
+from hafnia.dataset.primitives import Bbox, Polygon
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
 
@@ -18,6 +18,25 @@ if TYPE_CHECKING:
 # either unadjusted or collapsed to a degenerate sliver.
 _BOUNDARY_TOLERANCE_PX = 1.0
 
+# Two points closer than this (in pixels squared, via the cross product) are treated as collinear in the
+# exact on-segment test. Axis-aligned edges give an exact zero, so this only guards against float noise.
+_COLLINEAR_EPS_PX = 1e-6
+
+_OPPOSITE_SIDE = {"top": "bottom", "right": "left", "bottom": "top", "left": "right"}
+
+# Key under a bbox's `meta` dict where adjustment provenance is recorded (only on boxes that were adjusted).
+_ADJUSTMENT_META_KEY = "mask_adjustment"
+
+PixelPoint = Tuple[float, float]  # (x, y) in pixels
+PixelPolygon = List[PixelPoint]  # polygon vertices in pixels
+
+
+class PixelBbox(NamedTuple):
+    x1: float  # left
+    y1: float  # top
+    x2: float  # right
+    y2: float  # bottom
+
 
 def adjust_bboxes_from_polygon_masks_dataset(
     dataset: "HafniaDataset",
@@ -27,25 +46,12 @@ def adjust_bboxes_from_polygon_masks_dataset(
     """
     Adjust bounding boxes to avoid overlapping with polygon masks for all samples in the dataset.
 
-    Functions use pydantic Bbox and Polygon primitives to carry information instead of
-    python native types such as tuple, list and dict.
-
-    We use Bbox and Polygon primitives for better maintainability, but it adds computational overhead.
-    We may consider using python native types in the future for better performance
-
-    Performance: Running bbox adjustment for all samples:
-    - coco-2017:
-        - 26.3s: Python native types
-        - 38.5s: Pydantic primitives (current implementation)
-
-    - midwest-vehicle-detection:
-        - 6.1s: Python native types
-        - 9.0s: Pydantic primitives (current implementation)
-
-    To revert ask Agent to use these types instead of pydantic primitives:
-        _PolyPoints = List[Tuple[float, float]]  # normalized (x, y) points defining a polygon
-        _BboxDict = Dict[str, Any]  # dict with keys: top_left_x, top_left_y, width, height (plus metadata)
-
+    The geometry runs in pixel coordinates on lightweight native types (see ``_PixelBox``/``_PixelPolygon``):
+    each box and polygon is converted to pixels once, adjusted, and converted back to a normalized ``Bbox``
+    on the way out. Working in pixels keeps the boundary tolerance and per-pixel stepping simple, and
+    avoiding per-step primitive copies makes the hot loop noticeably faster than carrying primitives
+    throughout. Boxes that overlap a mask are shrunk (or dropped); each shrunk box records the adjustment
+    under ``meta[_ADJUSTMENT_META_KEY]``.
     """
     if run_checks:
         # Check tasks for 'polygon_class_names'
@@ -105,139 +111,175 @@ def _adjust_bboxes_from_polygon_masks(
     image_width: int,
     image_height: int,
 ) -> List[Bbox]:
-    """Adjust bounding boxes to avoid overlapping with polygon masks."""
+    """Adjust bounding boxes to avoid overlapping with polygon masks.
+
+    The geometry runs in pixel coordinates on lightweight native types (see ``_PixelBox``): each box and
+    polygon is converted to pixels once, adjusted, and converted back to a ``Bbox``. Boxes that are not
+    adjusted at all are returned as an unchanged copy (no pixel round-trip); adjusted boxes get new
+    geometry plus an ``_ADJUSTMENT_META_KEY`` entry under ``meta`` recording the adjustment (see
+    ``_pixels_to_bbox``).
+    """
+    polygons_px = [_polygon_to_pixels(polygon, image_width, image_height) for polygon in polygons]
+
     bboxes_adjusted: List[Bbox] = []
     for bbox in boxes:
-        bbox_adjusted = bbox
-        for polygon in polygons:
-            bbox_adjusted = _adjust_bbox_with_polygon_mask(  # type: ignore[assignment]
-                bbox=bbox_adjusted,
-                polygon=polygon,
-                W=image_width,
-                H=image_height,
-            )
-
-            if bbox_adjusted is None:  # None == stop and remove the bbox
+        original_box = _bbox_to_pixels(bbox, image_width, image_height)
+        box = original_box
+        dropped = False
+        for polygon_px in polygons_px:
+            adjusted = _adjust_box_with_polygon(box, polygon_px)
+            if adjusted is None:  # box lies (almost) fully inside a mask -> remove it
+                dropped = True
                 break
-        if bbox_adjusted is None:  # None == stop and remove the bbox
+            box = adjusted
+        if dropped:
             continue
-        bboxes_adjusted.append(bbox_adjusted)
+        if box == original_box:
+            # Not adjusted: keep the exact values (no pixel round-trip), but return a distinct object so
+            # callers that mutate the result (e.g. relabeling) don't touch the input box.
+            bboxes_adjusted.append(bbox.model_copy())
+        else:
+            bboxes_adjusted.append(_pixels_to_bbox(box, original_box, bbox, image_width, image_height))
     return bboxes_adjusted
 
 
-def _adjust_bbox_with_polygon_mask(bbox: Bbox, polygon: Polygon, W: int, H: int) -> Optional[Bbox]:
-    if len(polygon.points) == 0:
-        return bbox
+def _adjust_box_with_polygon(box: PixelBbox, polygon_px: PixelPolygon) -> Optional[PixelBbox]:
+    if len(polygon_px) == 0:
+        return box
 
-    # Drop bbox if all corners are inside the polygon. A boundary tolerance is used here (and only here)
+    # Drop box if all corners are inside the polygon. A boundary tolerance is used here (and only here)
     # so that a box lying almost entirely within the mask - with a corner only a fraction of a pixel
     # outside the edge - is treated as fully inside and dropped, rather than left overlapping the mask or
     # collapsed to a degenerate sliver by the side adjustments below.
-    iTL, iTR, iBR, iBL = _corners_states(bbox, polygon, W, H, tolerance_px=_BOUNDARY_TOLERANCE_PX)
-    all_corners_inside_polygon = iTL and iTR and iBR and iBL
-    if all_corners_inside_polygon:
+    if all(_corners_states(box, polygon_px, tolerance_px=_BOUNDARY_TOLERANCE_PX)):
         return None
 
     for _ in range(8):
-        side = _first_adjacent_pair_inside(bbox, polygon, W, H)
+        side = _first_adjacent_pair_inside(box, polygon_px)
         if side is None:
             break
-        bbox_adjusted0 = _adjust_side_minimal(bbox=bbox, side=side, polygon=polygon, W=W, H=H)
-        if bbox_adjusted0 != bbox:
-            bbox = bbox_adjusted0
+        adjusted = _adjust_side_minimal(box, side, polygon_px)
+        if adjusted != box:
+            box = adjusted
             continue
-        opp = {"top": "bottom", "right": "left", "bottom": "top", "left": "right"}[side]
-        bbox_adjusted1 = _adjust_side_minimal(bbox, opp, polygon, W, H)
-        if bbox_adjusted1 != bbox:
-            bbox = bbox_adjusted1
+        adjusted = _adjust_side_minimal(box, _OPPOSITE_SIDE[side], polygon_px)
+        if adjusted != box:
+            box = adjusted
             continue
         break
 
-    # Clamp to valid normalized range, ensuring non-negative width and height
-    top_left_x = _clamp(bbox.top_left_x, 0.0, 1.0)
-    top_left_y = _clamp(bbox.top_left_y, 0.0, 1.0)
-    width = _clamp(bbox.width, 0.0, 1.0 - top_left_x)
-    height = _clamp(bbox.height, 0.0, 1.0 - top_left_y)
-    return bbox.model_copy(
-        update={"top_left_x": top_left_x, "top_left_y": top_left_y, "width": width, "height": height}
-    )
+    return box
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
-def _point_on_segment(p: Point, a: Point, b: Point, W: int, H: int, tolerance_px: float = 0.0) -> bool:
-    """Return True if ``p`` lies on segment ``a``-``b``.
+def _bbox_to_pixels(bbox: Bbox, W: int, H: int) -> PixelBbox:
+    x1, y1 = bbox.top_left_x * W, bbox.top_left_y * H
+    return PixelBbox(x1=x1, y1=y1, x2=x1 + bbox.width * W, y2=y1 + bbox.height * H)
+
+
+def _polygon_to_pixels(polygon: Polygon, W: int, H: int) -> PixelPolygon:
+    return [(point.x * W, point.y * H) for point in polygon.points]
+
+
+def _pixels_to_bbox(box: PixelBbox, original_box: PixelBbox, template: Bbox, W: int, H: int) -> Bbox:
+    """Clamp ``box`` to the image and convert back to a ``Bbox``, recording the adjustment under ``meta``.
+
+    The recorded metadata captures that the box was adjusted, its original normalized geometry, and
+    ``area_ratio`` - the fraction of the original area that remains (1.0 = unchanged, -> 0.0 = shrunk away).
+    """
+    x1 = _clamp(box.x1, 0.0, W)
+    y1 = _clamp(box.y1, 0.0, H)
+    x2 = _clamp(box.x2, x1, W)
+    y2 = _clamp(box.y2, y1, H)
+
+    original_area = (original_box.x2 - original_box.x1) * (original_box.y2 - original_box.y1)
+    adjusted_area = (x2 - x1) * (y2 - y1)
+    area_ratio = adjusted_area / original_area if original_area > 0 else 0.0
+
+    adjustment_meta = {
+        "adjusted": True,
+        "area_ratio": area_ratio,
+    }
+    return template.model_copy(
+        update={
+            "top_left_x": x1 / W,
+            "top_left_y": y1 / H,
+            "width": (x2 - x1) / W,
+            "height": (y2 - y1) / H,
+            "meta": {**(template.meta or {}), _ADJUSTMENT_META_KEY: adjustment_meta},
+        }
+    )
+
+
+def _point_on_segment(p: PixelPoint, a: PixelPoint, b: PixelPoint, tolerance_px: float = 0.0) -> bool:
+    """Return True if pixel point ``p`` lies on segment ``a``-``b``.
 
     With ``tolerance_px > 0`` a point within that many pixels of the segment also counts as "on" it.
-    Distances are computed in pixel space (points are normalized, so they are scaled by W/H) to make the
-    tolerance an intuitive, resolution-independent number of pixels. With ``tolerance_px == 0`` an exact
-    collinear-and-within-bounds test is used.
+    With ``tolerance_px == 0`` an exact collinear-and-within-bounds test is used.
     """
+    px, py = p
+    ax, ay = a
+    bx, by = b
     if tolerance_px > 0.0:
-        px, py = p.x * W, p.y * H
-        ax, ay = a.x * W, a.y * H
-        bx, by = b.x * W, b.y * H
         dx, dy = bx - ax, by - ay
         seg_len_sq = dx * dx + dy * dy
         if seg_len_sq == 0.0:  # Degenerate segment (a == b)
-            dist = math.hypot(px - ax, py - ay)
+            distance = math.hypot(px - ax, py - ay)
         else:
             t = _clamp(((px - ax) * dx + (py - ay) * dy) / seg_len_sq, 0.0, 1.0)
-            dist = math.hypot(px - (ax + t * dx), py - (ay + t * dy))
-        return dist <= tolerance_px
+            distance = math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+        return distance <= tolerance_px
 
-    cross = (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
-    if abs(cross) > 1e-12:
+    cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax)
+    if abs(cross) > _COLLINEAR_EPS_PX:
         return False
-    min_x, max_x = min(a.x, b.x), max(a.x, b.x)
-    min_y, max_y = min(a.y, b.y), max(a.y, b.y)
-    return min_x <= p.x <= max_x and min_y <= p.y <= max_y
+    return min(ax, bx) <= px <= max(ax, bx) and min(ay, by) <= py <= max(ay, by)
 
 
-def _point_in_poly_inclusive(point: Point, polygon: Polygon, W: int, H: int, tolerance_px: float = 0.0) -> bool:
-    n = len(polygon.points)
+def _point_in_poly_inclusive(point: PixelPoint, polygon_px: PixelPolygon, tolerance_px: float = 0.0) -> bool:
+    n = len(polygon_px)
     if n < 3:
         return False
+    px, py = point
     inside = False
     for i in range(n):
-        p0 = polygon.points[i]
-        p1 = polygon.points[(i + 1) % n]
-        if _point_on_segment(point, p0, p1, W, H, tolerance_px):
+        x0, y0 = polygon_px[i]
+        x1, y1 = polygon_px[(i + 1) % n]
+        if _point_on_segment(point, (x0, y0), (x1, y1), tolerance_px):
             return True
-        if (p0.y > point.y) != (p1.y > point.y):
-            xinters = p0.x + (point.y - p0.y) * (p1.x - p0.x) / (p1.y - p0.y)
-            if point.x <= xinters:
+        if (y0 > py) != (y1 > py):
+            xinters = x0 + (py - y0) * (x1 - x0) / (y1 - y0)
+            if px <= xinters:
                 inside = not inside
     return inside
 
 
-def _bbox_corners(bbox: Bbox) -> Tuple[Point, Point, Point, Point]:
-    x1, y1 = bbox.top_left_x, bbox.top_left_y
-    x2, y2 = x1 + bbox.width, y1 + bbox.height
+def _corners(box: PixelBbox) -> Tuple[PixelPoint, PixelPoint, PixelPoint, PixelPoint]:
     return (
-        Point(x=x1, y=y1),  # TL
-        Point(x=x2, y=y1),  # TR
-        Point(x=x2, y=y2),  # BR
-        Point(x=x1, y=y2),  # BL
+        (box.x1, box.y1),  # TL
+        (box.x2, box.y1),  # TR
+        (box.x2, box.y2),  # BR
+        (box.x1, box.y2),  # BL
     )
 
 
 def _corners_states(
-    bbox: Bbox, polygon: Polygon, W: int, H: int, tolerance_px: float = 0.0
+    box: PixelBbox, polygon_px: PixelPolygon, tolerance_px: float = 0.0
 ) -> Tuple[bool, bool, bool, bool]:
-    tl, tr, br, bl = _bbox_corners(bbox)
+    tl, tr, br, bl = _corners(box)
     return (
-        _point_in_poly_inclusive(tl, polygon, W, H, tolerance_px),  # TL
-        _point_in_poly_inclusive(tr, polygon, W, H, tolerance_px),  # TR
-        _point_in_poly_inclusive(br, polygon, W, H, tolerance_px),  # BR
-        _point_in_poly_inclusive(bl, polygon, W, H, tolerance_px),  # BL
+        _point_in_poly_inclusive(tl, polygon_px, tolerance_px),  # TL
+        _point_in_poly_inclusive(tr, polygon_px, tolerance_px),  # TR
+        _point_in_poly_inclusive(br, polygon_px, tolerance_px),  # BR
+        _point_in_poly_inclusive(bl, polygon_px, tolerance_px),  # BL
     )
 
 
-def _first_adjacent_pair_inside(bbox: Bbox, polygon: Polygon, W: int, H: int) -> Optional[str]:
-    iTL, iTR, iBR, iBL = _corners_states(bbox, polygon, W, H)
+def _first_adjacent_pair_inside(box: PixelBbox, polygon_px: PixelPolygon) -> Optional[str]:
+    iTL, iTR, iBR, iBL = _corners_states(box, polygon_px)
     if iTL and iTR:
         return "top"
     if iTR and iBR:
@@ -249,56 +291,43 @@ def _first_adjacent_pair_inside(bbox: Bbox, polygon: Polygon, W: int, H: int) ->
     return None
 
 
-def _valid_bbox(bbox: Bbox) -> bool:
-    return bbox.width > 0 and bbox.height > 0
+def _valid_bbox(box: PixelBbox) -> bool:
+    return box.x2 > box.x1 and box.y2 > box.y1
 
 
-def _adjust_side_minimal(bbox: Bbox, side: str, polygon: Polygon, W: int, H: int) -> Bbox:
+def _adjust_side_minimal(box: PixelBbox, side: str, polygon_px: PixelPolygon) -> PixelBbox:
     """
-    Minimally adjusts one side so that the pair of adjacent corners is no longer inside.
-    RULE: always REDUCE the bbox (never expand it).
-      - top:    y1 += delta
-      - bottom: y2 -= delta
-      - left:   x1 += delta
-      - right:  x2 -= delta
+    Minimally shrink one side (by whole pixels) so that its pair of adjacent corners is no longer inside.
+    RULE: always REDUCE the box (never expand it).
+      - top:    move top edge down
+      - bottom: move bottom edge up
+      - left:   move left edge right
+      - right:  move right edge left
     """
-    dx = 1.0 / W
-    dy = 1.0 / H
 
-    def both_inside_for_side(bbox: Bbox) -> bool:
-        iTL, iTR, iBR, iBL = _corners_states(bbox, polygon, W, H)
+    def both_inside_for_side(candidate: PixelBbox) -> bool:
+        iTL, iTR, iBR, iBL = _corners_states(candidate, polygon_px)
         return {"top": iTL and iTR, "right": iTR and iBR, "bottom": iBR and iBL, "left": iBL and iTL}[side]
 
-    if not both_inside_for_side(bbox):
-        return bbox
+    if not both_inside_for_side(box):
+        return box
 
-    x1 = bbox.top_left_x
-    y1 = bbox.top_left_y
-    x2 = x1 + bbox.width
-    y2 = y1 + bbox.height
-
-    for step in range(1, max(W, H) + 1):
+    # A side only needs to travel across its own extent before the box collapses; further steps are invalid.
+    extent = (box.y2 - box.y1) if side in ("top", "bottom") else (box.x2 - box.x1)
+    for step in range(1, int(math.ceil(extent)) + 1):
         if side == "top":
-            ny1 = _clamp(y1 + step * dy, 0.0, 1.0)
-            cand = bbox.model_copy(update={"top_left_y": ny1, "height": y2 - ny1})
-
+            candidate = PixelBbox(box.x1, box.y1 + step, box.x2, box.y2)
         elif side == "bottom":
-            ny2 = _clamp(y2 - step * dy, 0.0, 1.0)
-            cand = bbox.model_copy(update={"height": ny2 - y1})
-
+            candidate = PixelBbox(box.x1, box.y1, box.x2, box.y2 - step)
         elif side == "left":
-            nx1 = _clamp(x1 + step * dx, 0.0, 1.0)
-            cand = bbox.model_copy(update={"top_left_x": nx1, "width": x2 - nx1})
-
+            candidate = PixelBbox(box.x1 + step, box.y1, box.x2, box.y2)
         elif side == "right":
-            nx2 = _clamp(x2 - step * dx, 0.0, 1.0)
-            cand = bbox.model_copy(update={"width": nx2 - x1})
-
+            candidate = PixelBbox(box.x1, box.y1, box.x2 - step, box.y2)
         else:
             raise ValueError(f"Unknown side: {side}")
 
-        # Keep bbox valid and check that the adjacent pair is no longer inside
-        if _valid_bbox(cand) and not both_inside_for_side(cand):
-            return cand
+        # Keep the box valid and check that the adjacent pair is no longer inside
+        if _valid_bbox(candidate) and not both_inside_for_side(candidate):
+            return candidate
 
-    return bbox
+    return box
