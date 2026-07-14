@@ -1,4 +1,6 @@
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, List
 
 import numpy as np
@@ -83,6 +85,7 @@ TEST_CASES: List[TestCaseAdjustBbox] = [
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustLeftSide", box_coords=[[1400, 150, 1600, 200]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustRightSide", box_coords=[[500, 150, 750, 200]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide", box_coords=[[1460, 30, 1490, 60]]),
+    TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide2", box_coords=[[1460, 30, 1481, 60]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndRightSide", box_coords=[[580, 150, 750, 200]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("DropBboxInsidePolygon", box_coords=[[1000, 180, 1200, 220]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("DropEmptyBboxInsidePolygon", box_coords=[[1000, 180, 1000, 180]]),
@@ -154,3 +157,41 @@ def test_adjust_bbox_from_polygon_assertions(compare_to_expected_image: Callable
         dataset.info.tasks = [t for t in dataset.info.tasks if t.primitive != Polygon]
 
         dataset.adjust_bboxes_from_polygon_masks(polygon_class_names=["Annotator Marking Polygon.Mask"])
+
+
+def test_adjust_mask_failure_case(compare_to_expected_image: Callable):
+    path_sample = Path("tests/unit/dataset/operations/adjust_mask_failure_case_001.json")
+    path_mask = Path("tests/unit/dataset/operations/adjust_mask_failure_case_001_polygons.json")
+    mask_coordinates = json.loads(path_mask.read_text())[
+        "lan0096_-_via_cantore_via_delle_franzoniane_ponente_night.png"
+    ]
+
+    sample_dict = json.loads(path_sample.read_text())
+    sample = Sample(**sample_dict)
+
+    polygons: List[Polygon] = []
+    for idx, polygon_points in enumerate(mask_coordinates):
+        polygons.append(
+            Polygon.from_list_of_pixel_points(
+                points=polygon_points,
+                image_height=sample.height,
+                image_width=sample.width,
+                class_name=f"P{idx}",
+            )
+        )
+    sample.polygons = polygons
+
+    # The single bbox lies almost entirely inside polygon 'P0' (3 corners inside, the 4th only ~0.6px
+    # outside the mask edge). With the boundary tolerance that near-edge corner counts as inside, so all
+    # corners are inside and the bbox is dropped rather than left overlapping the mask or collapsed.
+    sample.bboxes = _adjust_bboxes_from_polygon_masks(
+        boxes=sample.bboxes,
+        polygons=polygons,
+        image_width=sample.width,
+        image_height=sample.height,
+    )
+    assert len(sample.bboxes) == 0, "Bbox almost fully inside the polygon mask should be dropped"
+
+    image_zeros = np.zeros((sample.height, sample.width, 3), dtype=np.uint8)
+    image = sample.draw_annotations(image=image_zeros)
+    compare_to_expected_image(image)

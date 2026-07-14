@@ -1,0 +1,80 @@
+{
+  "file_path": "C:/CODE/ECCV/.data/datasets/detection-traffic-south-eu/data/dataset-writeable-41886382-9014-442d-b8a4-a7c110899a73-sample-data-6d-40-6d40af77f62a36d0814f12e661c2393b.png",
+  "height": 1080,
+  "width": 1920,
+  "split": "train",
+  "tags": [
+    "sample"
+  ],
+  "storage_format": "image",
+  "collection_index": 0,
+  "collection_id": "lan0096_-_via_cantore_via_delle_franzoniane_ponente--2025-09-06T225305+0100_2025-09-06T232305+0100_redacted_008880.jpg",
+  "remote_path": "s3://dataset-writeable-41886382-9014-442d-b8a4-a7c110899a73/sample/data/6d/40/6d40af77f62a36d0814f12e661c2393b.png",
+  "sample_index": 376,
+  "classifications": null,
+  "bboxes": [
+    {
+      "height": 0.03611111111111111,
+      "width": 0.025,
+      "top_left_x": 0.3185758836414045,
+      "top_left_y": 0.021648901665541877,
+      "area": null,
+      "class_name": "Vehicle.Car",
+      "class_idx": 1,
+      "object_id": "q8MLOs/m",
+      "confidence": 1.0,
+      "ground_truth": true,
+      "task_name": "object_detection",
+      "created_at": "2026-04-09T02:18:34",
+      "updated_at": "2026-04-21T09:23:05",
+      "meta": {
+        "name": "Vehicle",
+        "color": "#79d315",
+        "value": "vehicle",
+        "createdBy": "jup@milestone.dk",
+        "confidence": 0.749,
+        "objectHash": "q8MLOs/m",
+        "featureHash": "CF1jYB9c",
+        "manualAnnotation": true,
+        "lastEditedBy": "mard@milestone.dk"
+      },
+      "bboxes": null,
+      "classifications": [
+        {
+          "class_name": "Car",
+          "class_idx": 0,
+          "object_id": null,
+          "confidence": 1.0,
+          "ground_truth": true,
+          "task_name": "Vehicle Type",
+          "created_at": null,
+          "updated_at": null,
+          "meta": null,
+          "classifications": null
+        }
+      ],
+      "polygons": null,
+      "bitmasks": null
+    }
+  ],
+  "bitmasks": null,
+  "polygons": null,
+  "attribution": null,
+  "dataset_name": "detection-traffic-south-eu",
+  "video_info": null,
+  "camera_info": null,
+  "position": null,
+  "orientation": null,
+  "meta": {
+    "data_title": "lan0096_-_via_cantore_via_delle_franzoniane_ponente--2025-09-06T225305+0100_2025-09-06T232305+0100_redacted_008880.jpg",
+    "label_hash": "aff3fcc0-1143-4de1-a542-879a5d2e16f5",
+    "dataset_hash": "5ce2e2af-7e5e-4d5b-b4fa-7b9b50e9e6ae",
+    "created_at": "2026-04-09 02:16:43",
+    "last_edited_at": "2026-06-26 12:47:50",
+    "id": "lan0096_-_via_cantore_via_delle_franzoniane_ponente--2025-09-06T225305+0100_2025-09-06T232305+0100_redacted_008880.jpg",
+    "data_unit_hash": "1435b5fc-4174-4b1f-b881-c590e358dc9e",
+    "data_hash": "1435b5fc-4174-4b1f-b881-c590e358dc9e",
+    "data_link": "https://mdi-pre-labelling.s3.us-east-1.amazonaws.com/detection/eulm/outputs/genoa_traffic_50cams_1per_window_150files_20260408_234714/genoa-1/lan0096_-_via_cantore_via_delle_franzoniane_ponente/2025/09/06/22/2025-09-06T225305%2B0100_2025-09-06T232305%2B0100_redacted/2025-09-06T225305%2B0100_2025-09-06T232305%2B0100_redacted/008880.jpg",
+    "data_type": "image/jpeg"
+  }
+}

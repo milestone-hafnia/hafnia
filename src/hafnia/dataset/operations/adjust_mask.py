@@ -1,3 +1,4 @@
+import math
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import more_itertools
@@ -10,6 +11,12 @@ from hafnia.utils import progress_bar
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset import HafniaDataset
+
+# A bbox corner this close (in pixels) to a polygon edge is treated as lying on the boundary, i.e. inside.
+# Without this tolerance a corner that sits a fraction of a pixel outside the mask counts as "outside",
+# which prevents a box that is otherwise fully inside the mask from being dropped and instead leaves it
+# either unadjusted or collapsed to a degenerate sliver.
+_BOUNDARY_TOLERANCE_PX = 1.0
 
 
 def adjust_bboxes_from_polygon_masks_dataset(
@@ -122,15 +129,17 @@ def _adjust_bbox_with_polygon_mask(bbox: Bbox, polygon: Polygon, W: int, H: int)
     if len(polygon.points) == 0:
         return bbox
 
-    iTL, iTR, iBR, iBL = _corners_states(bbox, polygon)
-
-    # Drop bbox if all corners are inside the polygon
+    # Drop bbox if all corners are inside the polygon. A boundary tolerance is used here (and only here)
+    # so that a box lying almost entirely within the mask - with a corner only a fraction of a pixel
+    # outside the edge - is treated as fully inside and dropped, rather than left overlapping the mask or
+    # collapsed to a degenerate sliver by the side adjustments below.
+    iTL, iTR, iBR, iBL = _corners_states(bbox, polygon, W, H, tolerance_px=_BOUNDARY_TOLERANCE_PX)
     all_corners_inside_polygon = iTL and iTR and iBR and iBL
     if all_corners_inside_polygon:
         return None
 
     for _ in range(8):
-        side = _first_adjacent_pair_inside(bbox, polygon)
+        side = _first_adjacent_pair_inside(bbox, polygon, W, H)
         if side is None:
             break
         bbox_adjusted0 = _adjust_side_minimal(bbox=bbox, side=side, polygon=polygon, W=W, H=H)
@@ -158,7 +167,27 @@ def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
-def _point_on_segment(p: Point, a: Point, b: Point) -> bool:
+def _point_on_segment(p: Point, a: Point, b: Point, W: int, H: int, tolerance_px: float = 0.0) -> bool:
+    """Return True if ``p`` lies on segment ``a``-``b``.
+
+    With ``tolerance_px > 0`` a point within that many pixels of the segment also counts as "on" it.
+    Distances are computed in pixel space (points are normalized, so they are scaled by W/H) to make the
+    tolerance an intuitive, resolution-independent number of pixels. With ``tolerance_px == 0`` an exact
+    collinear-and-within-bounds test is used.
+    """
+    if tolerance_px > 0.0:
+        px, py = p.x * W, p.y * H
+        ax, ay = a.x * W, a.y * H
+        bx, by = b.x * W, b.y * H
+        dx, dy = bx - ax, by - ay
+        seg_len_sq = dx * dx + dy * dy
+        if seg_len_sq == 0.0:  # Degenerate segment (a == b)
+            dist = math.hypot(px - ax, py - ay)
+        else:
+            t = _clamp(((px - ax) * dx + (py - ay) * dy) / seg_len_sq, 0.0, 1.0)
+            dist = math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+        return dist <= tolerance_px
+
     cross = (p.x - a.x) * (b.y - a.y) - (p.y - a.y) * (b.x - a.x)
     if abs(cross) > 1e-12:
         return False
@@ -167,7 +196,7 @@ def _point_on_segment(p: Point, a: Point, b: Point) -> bool:
     return min_x <= p.x <= max_x and min_y <= p.y <= max_y
 
 
-def _point_in_poly_inclusive(point: Point, polygon: Polygon) -> bool:
+def _point_in_poly_inclusive(point: Point, polygon: Polygon, W: int, H: int, tolerance_px: float = 0.0) -> bool:
     n = len(polygon.points)
     if n < 3:
         return False
@@ -175,7 +204,7 @@ def _point_in_poly_inclusive(point: Point, polygon: Polygon) -> bool:
     for i in range(n):
         p0 = polygon.points[i]
         p1 = polygon.points[(i + 1) % n]
-        if _point_on_segment(point, p0, p1):
+        if _point_on_segment(point, p0, p1, W, H, tolerance_px):
             return True
         if (p0.y > point.y) != (p1.y > point.y):
             xinters = p0.x + (point.y - p0.y) * (p1.x - p0.x) / (p1.y - p0.y)
@@ -195,22 +224,20 @@ def _bbox_corners(bbox: Bbox) -> Tuple[Point, Point, Point, Point]:
     )
 
 
-def _corners_states(bbox: Bbox, polygon: Polygon) -> Tuple[bool, bool, bool, bool]:
+def _corners_states(
+    bbox: Bbox, polygon: Polygon, W: int, H: int, tolerance_px: float = 0.0
+) -> Tuple[bool, bool, bool, bool]:
     tl, tr, br, bl = _bbox_corners(bbox)
     return (
-        _point_in_poly_inclusive(tl, polygon),  # TL
-        _point_in_poly_inclusive(tr, polygon),  # TR
-        _point_in_poly_inclusive(br, polygon),  # BR
-        _point_in_poly_inclusive(bl, polygon),  # BL
+        _point_in_poly_inclusive(tl, polygon, W, H, tolerance_px),  # TL
+        _point_in_poly_inclusive(tr, polygon, W, H, tolerance_px),  # TR
+        _point_in_poly_inclusive(br, polygon, W, H, tolerance_px),  # BR
+        _point_in_poly_inclusive(bl, polygon, W, H, tolerance_px),  # BL
     )
 
 
-def _inside_any(p: Point, polygons: List[Polygon]) -> bool:
-    return any(_point_in_poly_inclusive(p, polygon) for polygon in polygons)
-
-
-def _first_adjacent_pair_inside(bbox: Bbox, polygon: Polygon) -> Optional[str]:
-    iTL, iTR, iBR, iBL = _corners_states(bbox, polygon)
+def _first_adjacent_pair_inside(bbox: Bbox, polygon: Polygon, W: int, H: int) -> Optional[str]:
+    iTL, iTR, iBR, iBL = _corners_states(bbox, polygon, W, H)
     if iTL and iTR:
         return "top"
     if iTR and iBR:
@@ -239,7 +266,7 @@ def _adjust_side_minimal(bbox: Bbox, side: str, polygon: Polygon, W: int, H: int
     dy = 1.0 / H
 
     def both_inside_for_side(bbox: Bbox) -> bool:
-        iTL, iTR, iBR, iBL = _corners_states(bbox, polygon)
+        iTL, iTR, iBR, iBL = _corners_states(bbox, polygon, W, H)
         return {"top": iTL and iTR, "right": iTR and iBR, "bottom": iBR and iBL, "left": iBL and iTL}[side]
 
     if not both_inside_for_side(bbox):
