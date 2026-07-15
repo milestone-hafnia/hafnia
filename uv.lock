@@ -859,7 +859,7 @@ wheels = [
 
 [[package]]
 name = "hafnia"
-version = "0.7.14"
+version = "0.7.15"
 source = { editable = "." }
 dependencies = [
     { name = "boto3" },
