@@ -785,6 +785,7 @@ class HafniaDataset:
         self,
         polygon_class_names: List[str],
         run_checks: bool = True,
+        drop_shrink_ratio: Optional[float] = None,
     ) -> "HafniaDataset":
         """Tighten bounding boxes around the polygon masks of the listed classes.
 
@@ -795,11 +796,15 @@ class HafniaDataset:
         Args:
             polygon_class_names: Class names whose polygons drive the bbox adjustment.
             run_checks: If True, run consistency checks before/after the adjustment.
+            drop_shrink_ratio: If set (a fraction in [0, 1]), drop boxes whose area is reduced by at
+                least this fraction by the adjustment - e.g. 0.9 drops boxes shrunk to 10% or less of
+                their original area. If None (default), keep all adjusted boxes.
         """
         return adjust_bboxes_from_polygon_masks_dataset(
             dataset=self,
             polygon_class_names=polygon_class_names,
             run_checks=run_checks,
+            drop_shrink_ratio=drop_shrink_ratio,
         )
 
     def create_primitive_table(

@@ -42,6 +42,7 @@ def adjust_bboxes_from_polygon_masks_dataset(
     dataset: "HafniaDataset",
     polygon_class_names: List[str],
     run_checks: bool = True,
+    drop_shrink_ratio: Optional[float] = None,
 ) -> "HafniaDataset":
     """
     Adjust bounding boxes to avoid overlapping with polygon masks for all samples in the dataset.
@@ -52,7 +53,14 @@ def adjust_bboxes_from_polygon_masks_dataset(
     avoiding per-step primitive copies makes the hot loop noticeably faster than carrying primitives
     throughout. Boxes that overlap a mask are shrunk (or dropped); each shrunk box records the adjustment
     under ``meta[_ADJUSTMENT_META_KEY]``.
+
+    If ``drop_shrink_ratio`` is given (a fraction in [0, 1]), boxes whose area is reduced by at least that
+    fraction by the adjustment are dropped rather than kept - e.g. ``0.9`` drops boxes shrunk to 10% or
+    less of their original area.
     """
+    if drop_shrink_ratio is not None and not (0.0 <= drop_shrink_ratio <= 1.0):
+        raise ValueError(f"drop_shrink_ratio must be in [0, 1], got {drop_shrink_ratio}")
+
     if run_checks:
         # Check tasks for 'polygon_class_names'
         polygon_tasks = dataset.info.get_tasks_by_primitive(Polygon)
@@ -92,6 +100,7 @@ def adjust_bboxes_from_polygon_masks_dataset(
             polygons=polygons,
             image_width=sample[SampleField.WIDTH],
             image_height=sample[SampleField.HEIGHT],
+            drop_shrink_ratio=drop_shrink_ratio,
         )
         adjusted_boxes_dicts = {SampleField.BBOXES: [box.model_dump(mode="json") for box in adjusted_boxes]}
         adjusted_bboxes_per_sample.append(adjusted_boxes_dicts)  # Convert to list of dicts for JSON serialization
@@ -110,6 +119,7 @@ def _adjust_bboxes_from_polygon_masks(
     polygons: List[Polygon],
     image_width: int,
     image_height: int,
+    drop_shrink_ratio: Optional[float] = None,
 ) -> List[Bbox]:
     """Adjust bounding boxes to avoid overlapping with polygon masks.
 
@@ -118,6 +128,10 @@ def _adjust_bboxes_from_polygon_masks(
     adjusted at all are returned as an unchanged copy (no pixel round-trip); adjusted boxes get new
     geometry plus an ``_ADJUSTMENT_META_KEY`` entry under ``meta`` recording the adjustment (see
     ``_pixels_to_bbox``).
+
+    If ``drop_shrink_ratio`` is given, an adjusted box whose area is reduced by at least that fraction
+    (i.e. ``1 - area_ratio >= drop_shrink_ratio``) is dropped instead of kept - e.g. ``0.9`` drops boxes
+    shrunk to 10% or less of their original area.
     """
     polygons_px = [_polygon_to_pixels(polygon, image_width, image_height) for polygon in polygons]
 
@@ -128,7 +142,7 @@ def _adjust_bboxes_from_polygon_masks(
         dropped = False
         for polygon_px in polygons_px:
             adjusted = _adjust_box_with_polygon(box, polygon_px)
-            if adjusted is None:  # box lies (almost) fully inside a mask -> remove it
+            if adjusted is None:  # box lies inside a mask
                 dropped = True
                 break
             box = adjusted
@@ -139,7 +153,13 @@ def _adjust_bboxes_from_polygon_masks(
             # callers that mutate the result (e.g. relabeling) don't touch the input box.
             bboxes_adjusted.append(bbox.model_copy())
         else:
-            bboxes_adjusted.append(_pixels_to_bbox(box, original_box, bbox, image_width, image_height))
+            bbox_adjusted, area_ratio = _pixels_to_bbox_and_adjusted_area_ratio(
+                box, original_box, bbox, image_width, image_height
+            )
+            if drop_shrink_ratio is not None:
+                if (1.0 - area_ratio) >= drop_shrink_ratio:  # Shrunk too much -> drop
+                    continue
+            bboxes_adjusted.append(bbox_adjusted)
     return bboxes_adjusted
 
 
@@ -184,7 +204,13 @@ def _polygon_to_pixels(polygon: Polygon, W: int, H: int) -> PixelPolygon:
     return [(point.x * W, point.y * H) for point in polygon.points]
 
 
-def _pixels_to_bbox(box: PixelBbox, original_box: PixelBbox, template: Bbox, W: int, H: int) -> Bbox:
+def _pixels_to_bbox_and_adjusted_area_ratio(
+    box: PixelBbox,
+    original_box: PixelBbox,
+    template: Bbox,
+    W: int,
+    H: int,
+) -> Tuple[Bbox, float]:
     """Clamp ``box`` to the image and convert back to a ``Bbox``, recording the adjustment under ``meta``.
 
     The recorded metadata captures that the box was adjusted, its original normalized geometry, and
@@ -203,7 +229,7 @@ def _pixels_to_bbox(box: PixelBbox, original_box: PixelBbox, template: Bbox, W: 
         "adjusted": True,
         "area_ratio": area_ratio,
     }
-    return template.model_copy(
+    bbox_adjusted = template.model_copy(
         update={
             "top_left_x": x1 / W,
             "top_left_y": y1 / H,
@@ -212,6 +238,7 @@ def _pixels_to_bbox(box: PixelBbox, original_box: PixelBbox, template: Bbox, W: 
             "meta": {**(template.meta or {}), _ADJUSTMENT_META_KEY: adjustment_meta},
         }
     )
+    return bbox_adjusted, area_ratio
 
 
 def _point_on_segment(p: PixelPoint, a: PixelPoint, b: PixelPoint, tolerance_px: float = 0.0) -> bool:

@@ -8,7 +8,7 @@ from hafnia.dataset import image_visualizations
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.operations.adjust_mask import _adjust_bboxes_from_polygon_masks
+from hafnia.dataset.operations.adjust_mask import _ADJUSTMENT_META_KEY, _adjust_bboxes_from_polygon_masks
 from hafnia.dataset.primitives import Bbox, Polygon
 from tests import helper_testing
 
@@ -82,9 +82,9 @@ TEST_CASES: List[TestCaseAdjustBbox] = [
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustBottomAndRightSide", box_coords=[[1435, 30, 1460, 60]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustLeftSide", box_coords=[[1400, 150, 1600, 200]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustRightSide", box_coords=[[500, 150, 750, 200]]),
-    TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide1", box_coords=[[1460, 30, 1490, 60]]),
-    TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide2", box_coords=[[1460, 30, 1481, 60]]),
-    TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide3", box_coords=[[1460, 30, 1482, 60]]),
+    TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSide", box_coords=[[1460, 30, 1490, 60]]),
+    TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSideOnMaskEdge", box_coords=[[1460, 30, 1481, 60]]),
+    TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndLeftSideAlmostOnMaskEdge", box_coords=[[1460, 30, 1482, 60]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustTopAndRightSide", box_coords=[[580, 150, 750, 200]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("DropBboxInsidePolygon", box_coords=[[1000, 180, 1200, 220]]),
     TestCaseAdjustBbox.from_x1_y1_x2_y2("DropEmptyBboxInsidePolygon", box_coords=[[1000, 180, 1000, 180]]),
@@ -156,3 +156,33 @@ def test_adjust_bbox_from_polygon_assertions(compare_to_expected_image: Callable
         dataset.info.tasks = [t for t in dataset.info.tasks if t.primitive != Polygon]
 
         dataset.adjust_bboxes_from_polygon_masks(polygon_class_names=["Annotator Marking Polygon.Mask"])
+
+
+def test_adjust_bbox_drop_shrink_ratio():
+    # This box is shrunk to ~46% of its original area (i.e. shrunk by ~0.54) by the default polygons.
+    case = TestCaseAdjustBbox.from_x1_y1_x2_y2("AdjustBottom", box_coords=[[750, 20, 1000, 200]])
+    polygons = case.polygons_as_primitives()
+    W, H = case.image_width, case.image_height
+
+    adjusted = _adjust_bboxes_from_polygon_masks(boxes=case.boxes, polygons=polygons, image_width=W, image_height=H)
+    assert len(adjusted) == 1
+    area_ratio = adjusted[0].meta[_ADJUSTMENT_META_KEY]["area_ratio"]
+    assert 0.4 < area_ratio < 0.5  # ~0.54 shrink
+
+    # A threshold above the actual shrink keeps the box; a threshold at/below it drops the box.
+
+    bboxes_not_dropped = _adjust_bboxes_from_polygon_masks(
+        boxes=case.boxes, drop_shrink_ratio=0.9, polygons=polygons, image_width=W, image_height=H
+    )
+    assert len(bboxes_not_dropped) == 1
+    bboxes_dropped = _adjust_bboxes_from_polygon_masks(
+        boxes=case.boxes, drop_shrink_ratio=0.5, polygons=polygons, image_width=W, image_height=H
+    )
+    assert len(bboxes_dropped) == 0
+
+    # drop_shrink_ratio must be a fraction in [0, 1].
+    dataset = helper_testing.get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")
+    with pytest.raises(ValueError, match="drop_shrink_ratio must be in"):
+        dataset.adjust_bboxes_from_polygon_masks(
+            polygon_class_names=["Annotator Marking Polygon.Mask"], drop_shrink_ratio=1.5
+        )
