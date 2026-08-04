@@ -21,7 +21,7 @@ jobs:
     outputs:
       package-version: ${{ steps.extract-version.outputs.package_version }}
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.0.0
         with:
           python-version-file: ${{ inputs.python-version-file }}
