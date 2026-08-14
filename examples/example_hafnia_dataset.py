@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 from rich import print as rprint
 
+from hafnia.dataset.dataset_helpers import FileStorageMode
 from hafnia.dataset.dataset_names import SplitName
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
@@ -90,10 +91,15 @@ dataset = (
 )
 
 
-# Write dataset to disk
+# Write dataset to disk - images are stored as real copies
 path_tmp = Path(".data/tmp")
 path_dataset = path_tmp / "hafnia_dataset"
 dataset.write(path_dataset)
+
+# Store images as symbolic links instead to avoid duplicating a large dataset on disk.
+# Note that the written dataset breaks if the original image files are moved or deleted.
+path_dataset_symlinks = path_tmp / "hafnia_dataset_symlinks"
+dataset.write(path_dataset_symlinks, storage_mode="symlink")  # Or storage_mode=FileStorageMode.SYMLINK
 
 # Load dataset from disk
 dataset_again = HafniaDataset.from_path(path_dataset)
@@ -104,6 +110,9 @@ dataset_od = HafniaDataset.from_name("coco-2017", version=COCO_VERSION).select_s
 # Export/import dataset to YOLO format
 path_yolo_format = Path(".data/tmp/yolo_dataset")
 dataset_od.to_yolo_format(path_output=path_yolo_format)  # Export to YOLO format
+# 'storage_mode' is also available for the exporters ('to_yolo_format', 'to_coco_format', ...)
+path_yolo_format_symlinks = Path(".data/tmp/yolo_dataset_symlinks")
+dataset_od.to_yolo_format(path_output=path_yolo_format_symlinks, storage_mode=FileStorageMode.SYMLINK)
 dataset_od_imported = HafniaDataset.from_yolo_format(path_yolo_format)  # Import dataset from YOLO format
 
 

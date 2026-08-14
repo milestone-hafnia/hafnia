@@ -113,6 +113,22 @@ def get_micro_hafnia_dataset(dataset_name: str, force_update: bool = False) -> "
     return hafnia_dataset
 
 
+def skip_if_no_symlink_support(path_folder: Path) -> None:
+    """Skip the calling test if symbolic links cannot be created in 'path_folder'.
+
+    Symlink creation requires Developer Mode or administrator privileges on Windows, so tests
+    covering 'FileStorageMode.SYMLINK' can not be expected to run on all platforms.
+    """
+    import pytest
+
+    from hafnia.dataset.dataset_helpers import check_symlink_support
+
+    try:
+        check_symlink_support(path_folder)
+    except OSError as e:
+        pytest.skip(f"Symbolic links are not supported in '{path_folder}': {e}")
+
+
 def is_typing_type(annotation: Any) -> bool:
     return get_origin(annotation) is not None
 

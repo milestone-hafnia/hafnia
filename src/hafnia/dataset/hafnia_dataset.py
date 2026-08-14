@@ -15,7 +15,11 @@ from hafnia.dataset.benchmark.metrics import (
     classification_metrics,
     object_detection_metrics,
 )
-from hafnia.dataset.dataset_helpers import is_valid_version_string, version_from_string
+from hafnia.dataset.dataset_helpers import (
+    FileStorageMode,
+    is_valid_version_string,
+    version_from_string,
+)
 from hafnia.dataset.dataset_names import (
     TAG_IS_SAMPLE,
     PrimitiveField,
@@ -835,29 +839,42 @@ class HafniaDataset:
             keep_sample_data=keep_sample_data,
         )
 
-    def write(self, path_folder: Path, drop_null_cols: bool = True) -> None:
-        """Write the dataset to disk: copies all images into `path_folder/data/` and writes annotations
-        to `path_folder`.
+    def write(
+        self,
+        path_folder: Path,
+        drop_null_cols: bool = True,
+        storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
+    ) -> None:
+        """Write the dataset to disk: stores all image/video files in `path_folder/data/` and writes
+        annotations to `path_folder`.
 
-        Image files are renamed by content hash so that duplicates are de-duplicated. After copying,
-        annotations are written via `write_annotations` (both Parquet and JSONL) and `dataset_info.json`.
+        Files are renamed by content hash so that duplicates are de-duplicated. After the files have
+        been stored, annotations are written via `write_annotations` (both Parquet and JSONL) and
+        `dataset_info.json`.
 
         Args:
             path_folder: Destination folder. Created if it does not exist.
             drop_null_cols: If True, drop fully-null columns from the annotations files to keep them
                 compact.
+            storage_mode: How image/video files are stored: `FileStorageMode.COPY` (default) for
+                real copies or `FileStorageMode.SYMLINK` for symbolic links to the original files -
+                avoiding duplication on disk, but breaking if the original files are moved or
+                deleted. The string values `"copy"` and `"symlink"` are also accepted.
         """
         user_logger.info(f"Writing dataset to {path_folder}...")
         path_folder = path_folder.absolute()
         if not path_folder.exists():
             path_folder.mkdir(parents=True)
+        storage_mode = dataset_helpers.resolve_storage_mode(storage_mode, path_output=path_folder)
         hafnia_dataset = self.copy()  # To avoid inplace modifications
         new_paths = []
         org_paths = hafnia_dataset.samples[SampleField.FILE_PATH].to_list()
-        for org_path in progress_bar(org_paths, description="- Copy images"):
+        description = "- Copy images" if storage_mode is FileStorageMode.COPY else "- Link images"
+        for org_path in progress_bar(org_paths, description=description):
             new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
                 path_source=Path(org_path),
                 path_dataset_root=path_folder / "data",
+                storage_mode=storage_mode,
             )
             new_paths.append(new_path.as_posix())
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))

@@ -1,11 +1,12 @@
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import more_itertools
 import polars as pl
 from PIL import Image
 
+from hafnia.dataset.dataset_helpers import FileStorageMode, resolve_storage_mode, store_file
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.format_conversions.format_helpers import SplitNameAndPath, get_splits_from_folder
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
@@ -136,10 +137,11 @@ def to_image_classification_folder(
     path_output: Path,
     task_name: Optional[str] = None,
     clean_folder: bool = False,
+    storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
 ) -> List[Path]:
     """Export a classification `HafniaDataset` to the ImageFolder layout (one folder per class).
 
-    Creates `path_output/<split>/<class_name>/` and copies each sample's image to the matching
+    Creates `path_output/<split>/<class_name>/` and stores each sample's image in the matching
     folder. Requires a `Classification` task in the dataset.
 
     Args:
@@ -148,11 +150,16 @@ def to_image_classification_folder(
         task_name: Optional task name disambiguation when the dataset has multiple
             `Classification` tasks.
         clean_folder: If True, delete the contents of each split folder before writing.
+        storage_mode: How image/video files are stored: `FileStorageMode.COPY` (default) for real
+            copies or `FileStorageMode.SYMLINK` for symbolic links to the original files - avoiding
+            duplication on disk, but breaking if the original files are moved or deleted. The string
+            values `"copy"` and `"symlink"` are also accepted.
 
     Returns:
         The list of split-level output folders that were written.
     """
     task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=Classification)
+    storage_mode = resolve_storage_mode(storage_mode, path_output=path_output)
 
     split_names = dataset.samples[SampleField.SPLIT].unique().to_list()
     split_paths = []
@@ -163,6 +170,7 @@ def to_image_classification_folder(
             path_output_split=path_output / split_name,
             task_name=task.name,
             clean_folder=clean_folder,
+            storage_mode=storage_mode,
         )
         split_paths.append(split_path)
 
@@ -174,6 +182,7 @@ def to_image_classification_split_folder(
     path_output_split: Path,
     task_name: Optional[str] = None,
     clean_folder: bool = False,
+    storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
 ) -> Path:
     task = dataset.info.get_task_by_task_name_and_primitive(task_name=task_name, primitive=Classification)
 
@@ -208,7 +217,12 @@ def to_image_classification_split_folder(
 
         path_image_org = Path(sample_dict[SampleField.FILE_PATH])
         path_image_new = path_class_folder / path_image_org.name
-        shutil.copy2(path_image_org, path_image_new)
+        store_file(
+            path_source=path_image_org,
+            path_destination=path_image_new,
+            storage_mode=storage_mode,
+            allow_skip=False,
+        )
 
     return path_output_split
 

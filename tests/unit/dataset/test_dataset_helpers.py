@@ -8,7 +8,9 @@ import pytest
 from packaging.version import Version
 
 from hafnia.dataset import dataset_helpers
+from hafnia.dataset.dataset_helpers import FileStorageMode
 from hafnia.dataset.dataset_names import SplitName
+from tests.helper_testing import skip_if_no_symlink_support
 
 
 @dataclass
@@ -83,6 +85,84 @@ def test_save_image_with_hash_name(tmp_path: Path):
     assert path_image1.exists()
     assert path_image0.suffix in [".png"]
     assert path_image1.suffix in [".png"]
+
+
+def test_store_file_as_copy(tmp_path: Path):
+    path_source = tmp_path / "source.png"
+    path_source.write_bytes(b"image-data")
+    path_destination = tmp_path / "destination" / "image.png"
+
+    dataset_helpers.store_file(path_source, path_destination, storage_mode=FileStorageMode.COPY)
+
+    assert path_destination.is_symlink() is False
+    assert path_destination.read_bytes() == b"image-data"
+
+
+def test_store_file_as_symlink(tmp_path: Path):
+    skip_if_no_symlink_support(tmp_path)
+    path_source = tmp_path / "source.png"
+    path_source.write_bytes(b"image-data")
+    path_destination = tmp_path / "destination" / "image.png"
+
+    dataset_helpers.store_file(path_source, path_destination, storage_mode=FileStorageMode.SYMLINK)
+
+    assert path_destination.is_symlink()
+    assert path_destination.read_bytes() == b"image-data"
+    # An absolute link target ensures that the link keeps working if the destination folder is moved
+    assert Path(path_destination.readlink()).is_absolute()
+
+
+def test_store_file_replaces_existing_file_when_skip_is_disabled(tmp_path: Path):
+    skip_if_no_symlink_support(tmp_path)
+    path_source = tmp_path / "source.png"
+    path_source.write_bytes(b"image-data")
+    path_destination = tmp_path / "image.png"
+    path_destination.write_bytes(b"old-data")
+
+    dataset_helpers.store_file(path_source, path_destination, storage_mode="symlink", allow_skip=True)
+    assert path_destination.is_symlink() is False, "An existing file should be kept with 'allow_skip=True'"
+
+    dataset_helpers.store_file(path_source, path_destination, storage_mode="symlink", allow_skip=False)
+    assert path_destination.is_symlink(), "An existing file should be replaced with 'allow_skip=False'"
+
+
+def test_store_file_replaces_broken_symlink(tmp_path: Path):
+    skip_if_no_symlink_support(tmp_path)
+    path_source = tmp_path / "source.png"
+    path_source.write_bytes(b"image-data")
+    path_destination = tmp_path / "image.png"
+    path_destination.symlink_to(tmp_path / "does_not_exist.png")
+
+    dataset_helpers.store_file(path_source, path_destination, storage_mode="copy", allow_skip=False)
+
+    assert path_destination.is_symlink() is False
+    assert path_destination.read_bytes() == b"image-data"
+
+
+@pytest.mark.parametrize("storage_mode", [FileStorageMode.COPY, FileStorageMode.SYMLINK])
+def test_copy_and_rename_file_to_hash_value_storage_modes(tmp_path: Path, storage_mode: FileStorageMode):
+    skip_if_no_symlink_support(tmp_path)
+    dummy_image = (255 * np.random.rand(100, 100, 3)).astype(np.uint8)
+    path_image_source = dataset_helpers.save_image_with_hash_name(dummy_image, tmp_path / "folder0")
+
+    path_dataset_root = tmp_path / "folder1"
+    path_image_stored = dataset_helpers.copy_and_rename_file_to_hash_value(
+        path_image_source,
+        path_dataset_root,
+        storage_mode=storage_mode,
+    )
+
+    assert path_image_stored.name == path_image_source.name, "Files should be named by content hash for both modes"
+    assert path_image_stored.read_bytes() == path_image_source.read_bytes()
+    assert path_image_stored.is_symlink() == (storage_mode is FileStorageMode.SYMLINK)
+
+
+def test_store_file_with_invalid_storage_mode(tmp_path: Path):
+    path_source = tmp_path / "source.png"
+    path_source.write_bytes(b"image-data")
+
+    with pytest.raises(ValueError):
+        dataset_helpers.store_file(path_source, tmp_path / "image.png", storage_mode="hardlink")
 
 
 @pytest.mark.parametrize("version_str", ["1.0.0", "0.0.1"])

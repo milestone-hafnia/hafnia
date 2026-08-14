@@ -2,8 +2,10 @@ import io
 import math
 import random
 import shutil
+import tempfile
+from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import xxhash
@@ -11,6 +13,121 @@ from packaging.version import InvalidVersion, Version
 from PIL import Image
 
 from hafnia.log import user_logger
+
+
+class FileStorageMode(str, Enum):
+    """How image/video files are placed at a new location when a dataset is written or exported.
+
+    - `COPY` (default): Store real copies of the files. The written dataset is self-contained, but
+        a dataset is duplicated on disk - for large datasets this can be 100s of GBs.
+    - `SYMLINK`: Store symbolic links pointing at the original files. Disk usage is negligible, but
+        the written dataset is only valid as long as the original files stay in place. Note that
+        symlinks come with caveats: they break if the source files are moved/deleted, they are not
+        preserved by all archiving/upload tools, they may resolve to the wrong location if either
+        source or destination is moved to another machine or mounted at another path, and on
+        Windows they require Developer Mode or administrator privileges.
+    """
+
+    COPY = "copy"
+    SYMLINK = "symlink"
+
+
+def resolve_storage_mode(
+    storage_mode: Union["FileStorageMode", str],
+    path_output: Optional[Path] = None,
+) -> "FileStorageMode":
+    """Normalize a user-provided storage mode and verify up-front that it is usable.
+
+    For `FileStorageMode.SYMLINK` a warning is issued and - when `path_output` is provided - symlink
+    support is checked on the target filesystem, so that an export fails immediately instead of
+    halfway through writing files.
+
+    Args:
+        storage_mode: Storage mode as a `FileStorageMode` or its string value ("copy"/"symlink").
+        path_output: Optional output folder used to check symlink support. The folder is created if
+            it does not exist.
+
+    Returns:
+        The normalized `FileStorageMode`.
+    """
+    storage_mode = FileStorageMode(storage_mode)
+    if storage_mode is FileStorageMode.SYMLINK:
+        user_logger.warning(
+            "Storing files as symbolic links. No file data is duplicated, but the written dataset "
+            "will break if the original files are moved or deleted."
+        )
+        if path_output is not None:
+            check_symlink_support(path_output)
+    return storage_mode
+
+
+def check_symlink_support(path_folder: Path) -> None:
+    """Check that symbolic links can be created in `path_folder` and raise a helpful error if not."""
+    path_folder = Path(path_folder)
+    path_folder.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=path_folder) as path_tmp_dir:
+        path_source = Path(path_tmp_dir) / "symlink_check_source"
+        path_source.touch()
+        path_link = Path(path_tmp_dir) / "symlink_check_link"
+        try:
+            path_link.symlink_to(path_source)
+        except OSError as e:
+            raise OSError(
+                f"Unable to create symbolic links in '{path_folder}': {e}. "
+                "On Windows, symbolic links require Developer Mode to be enabled "
+                "('Settings > System > For developers') or an elevated (administrator) process. "
+                f"Use storage_mode='{FileStorageMode.COPY.value}' to store real copies of the files instead."
+            ) from e
+
+
+def store_file(
+    path_source: Path,
+    path_destination: Path,
+    storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
+    allow_skip: bool = True,
+) -> Path:
+    """Store a file (image/video) at a new location as a real copy or as a symbolic link.
+
+    Args:
+        path_source: Existing source file.
+        path_destination: Destination path. Parent folders are created if missing.
+        storage_mode: `FileStorageMode.COPY` (default) to copy the file data or
+            `FileStorageMode.SYMLINK` to create a symbolic link pointing at `path_source`. The
+            string values `"copy"` and `"symlink"` are also accepted.
+        allow_skip: If True (default), keep an already existing destination file as is.
+
+    Returns:
+        The destination path.
+    """
+    storage_mode = FileStorageMode(storage_mode)
+    path_source = Path(path_source)
+    path_destination = Path(path_destination)
+
+    # 'is_symlink' is checked explicitly, because 'exists' is False for a broken symlink
+    destination_exists = path_destination.exists() or path_destination.is_symlink()
+    if destination_exists:
+        if allow_skip:
+            return path_destination
+        path_destination.unlink()
+
+    path_destination.parent.mkdir(parents=True, exist_ok=True)
+    if storage_mode is FileStorageMode.COPY:
+        shutil.copy2(path_source, path_destination)
+        return path_destination
+
+    # Symlinks are created with an absolute source path. Relative links would break as soon as the
+    # written dataset (or the source dataset) is moved to another folder.
+    path_source_absolute = path_source.resolve()
+    try:
+        path_destination.symlink_to(path_source_absolute)
+    except OSError as e:
+        raise OSError(
+            f"Unable to create a symbolic link '{path_destination}' -> '{path_source_absolute}': {e}. "
+            "On Windows, symbolic links require Developer Mode to be enabled "
+            "('Settings > System > For developers') or an elevated (administrator) process. "
+            f"Use storage_mode='{FileStorageMode.COPY.value}' to store real copies of the files instead."
+        ) from e
+    return path_destination
 
 
 def is_valid_version_string(version: Optional[str], allow_none: bool = False, allow_latest: bool = False) -> bool:
@@ -122,9 +239,13 @@ def copy_and_rename_file_to_hash_value(
     path_source: Path,
     path_dataset_root: Path,
     allow_skip: bool = True,
+    storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
 ) -> Path:
     """
-    Copies a file to a dataset root directory with a hash-based name and sub-directory structure.
+    Stores a file in a dataset root directory with a hash-based name and sub-directory structure.
+
+    Depending on `storage_mode` the file is stored as a real copy (default) or as a symbolic link
+    pointing at `path_source`. Accepts a `FileStorageMode` or the strings `"copy"`/`"symlink"`.
     """
 
     if not path_source.exists():
@@ -132,14 +253,13 @@ def copy_and_rename_file_to_hash_value(
 
     hash_value = hash_file_xxhash(path_source)
     path_file = path_dataset_root / relative_path_from_hash(hash=hash_value, suffix=path_source.suffix)
-    path_file.parent.mkdir(parents=True, exist_ok=True)
 
-    if allow_skip and path_file.exists():
-        return path_file
-
-    shutil.copy2(path_source, path_file)
-
-    return path_file
+    return store_file(
+        path_source=path_source,
+        path_destination=path_file,
+        storage_mode=storage_mode,
+        allow_skip=allow_skip,
+    )
 
 
 def relative_path_from_hash(hash: str, suffix: str) -> str:
