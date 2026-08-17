@@ -1,7 +1,7 @@
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Type
+from typing import List, Tuple, Type
 
 import polars as pl
 import pytest
@@ -12,6 +12,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
     ClassMapper,
     DefineSampleSetBySize,
     DropSamplesByClassName,
+    FlatteningBySpecification,
     RenameTask,
     SelectSamples,
     SelectSamplesByClassName,
@@ -21,8 +22,28 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
 )
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.primitives import Bbox
-from tests.helper_testing import dict_as_list_of_tuples, get_micro_hafnia_dataset, get_strict_class_mapping_tiny_dataset
+from hafnia.dataset.hafnia_dataset_types import TaskInfo
+from hafnia.dataset.primitives import Bbox, Classification, Polygon
+from tests.helper_testing import (
+    dict_as_list_of_tuples,
+    get_micro_hafnia_dataset,
+    get_path_test_dataset_formats,
+    get_strict_class_mapping_tiny_dataset,
+)
+
+
+def get_flattening_specification() -> List[Tuple[TaskInfo, List[List[str]]]]:
+    """Flattening specification matching the tasks of the tiny encord test dataset."""
+    return [
+        (TaskInfo(primitive=Bbox), [["Vehicle Color", "Gray Tone"], ["Annotator Marking Type"]]),
+        (TaskInfo(primitive=Polygon), [["Annotator Marking Polygon Type"]]),
+        (TaskInfo(primitive=Classification, name="Time of Day"), [["Sunrise/Sunset Type"]]),
+    ]
+
+
+def get_encord_dataset_tiny() -> HafniaDataset:
+    path_compressed_data = get_path_test_dataset_formats() / "format_encord" / "tiny_dataset.json.gz"
+    return HafniaDataset.from_encord_zip_format(path_compressed_data, max_samples=3)
 
 
 @dataclass
@@ -71,6 +92,11 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             ),
             as_python_code=f"class_mapper(class_mapping={dict_as_list_of_tuples(get_strict_class_mapping_tiny_dataset())}, method='strict', primitive=None, task_name=None)",  # noqa: E501
             short_name="ClassMapper",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=FlatteningBySpecification(specification=get_flattening_specification()),
+            as_python_code=f"flattening_by_specification(specification={get_flattening_specification()})",
+            short_name="FlatteningBySpecification",
         ),
         TestCaseRecipeTransform(
             recipe_transform=RenameTask(old_task_name="old_name", new_task_name="new_name"),
@@ -218,6 +244,22 @@ def test_class_mapper_preserve_order():
     assert class_mapper_recreated.class_mapping == class_mapper.class_mapping, (
         "Class mapping should be the same after serialization/deserialization"
     )
+
+
+def test_flattening_by_specification_preserve_order():
+    """
+    The flattening specification is an ordered list of '(TaskInfo, flatten_types)' tuples and not a dict,
+    because a 'TaskInfo' is not a valid json key and because a dict does not preserve field order when
+    serialized to json/jsonb.
+    """
+    specification = get_flattening_specification()
+    transformation = FlatteningBySpecification(specification=specification)
+
+    assert transformation.specification == specification, "The order of the specification should be preserved"
+
+    # Recreate the transformation from the dumped model to ensure serialization/deserialization works
+    transformation_recreated = FlatteningBySpecification(**transformation.model_dump())
+    assert transformation_recreated == transformation
 
 
 def test_shuffle_transformation():

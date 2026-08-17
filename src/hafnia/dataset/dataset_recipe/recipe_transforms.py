@@ -4,6 +4,7 @@ from pydantic import field_validator
 
 from hafnia.dataset.dataset_recipe.recipe_types import RecipeTransform
 from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import TaskInfo
 from hafnia.dataset.primitives.primitive import Primitive
 
 
@@ -76,6 +77,16 @@ class ClassMapper(RecipeTransform):
     @staticmethod
     def get_function() -> Callable[..., "HafniaDataset"]:
         return HafniaDataset.class_mapper
+
+
+class FlatteningBySpecification(RecipeTransform):
+    # The specification is a list of tuples and not a dictionary, because a 'TaskInfo' is not a valid json
+    # key and because a dictionary does not preserve field order when stored as a jsonb field (postgres).
+    specification: List[Tuple[TaskInfo, List[List[str]]]]
+
+    @staticmethod
+    def get_function() -> Callable[..., "HafniaDataset"]:
+        return HafniaDataset.flattening_by_specification
 
 
 class RenameTask(RecipeTransform):

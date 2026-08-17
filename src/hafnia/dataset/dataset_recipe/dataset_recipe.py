@@ -24,7 +24,7 @@ from hafnia.dataset.hafnia_dataset import (
     HafniaDataset,
     available_dataset_versions_from_name,
 )
-from hafnia.dataset.hafnia_dataset_types import DatasetMetadataFilePaths
+from hafnia.dataset.hafnia_dataset_types import DatasetMetadataFilePaths, TaskInfo
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 
@@ -435,6 +435,18 @@ class DatasetRecipe(Serializable):
             primitive=primitive,
             task_name=task_name,
         )
+        recipe.append_operation(operation)
+        return recipe
+
+    def flattening_by_specification(
+        recipe: DatasetRecipe,
+        specification: List[Tuple[TaskInfo, List[List[str]]]],
+    ) -> DatasetRecipe:
+        """Append a class-name flattening operation to the recipe.
+
+        Recipe equivalent of `HafniaDataset.flattening_by_specification`.
+        """
+        operation = recipe_transforms.FlatteningBySpecification(specification=specification)
         recipe.append_operation(operation)
         return recipe
 

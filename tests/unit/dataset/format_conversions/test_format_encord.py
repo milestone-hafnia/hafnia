@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import List, Tuple
 
 import pytest
 
@@ -134,14 +134,12 @@ def test_flattening_specification_image_based():
     dataset = dataset.drop_primitive(primitives.Classification)
     dataset.check_dataset(check_splits=False)
 
-    flattening_specification: Dict[TaskInfo, List[List[str]]] = {
-        TaskInfo(primitive=primitives.Bbox): [["Vehicle Type"], ["Pedestrian"]],
-        TaskInfo(primitive=primitives.Polygon): [["Annotator Marking Type"]],
-    }
+    specification: List[Tuple[TaskInfo, List[List[str]]]] = [
+        (TaskInfo(primitive=primitives.Bbox), [["Vehicle Type"], ["Pedestrian"]]),
+        (TaskInfo(primitive=primitives.Polygon), [["Annotator Marking Type"]]),
+    ]
 
-    dataset_flat = dataset.flattening_by_specification(
-        flattening_specification=flattening_specification,
-    )
+    dataset_flat = dataset.flattening_by_specification(specification=specification)
     dataset_flat.check_dataset(check_splits=False)
     dataset_flat.print_stats()
     dataset_flat.print_class_distribution()
@@ -152,15 +150,16 @@ def test_flattening_specification_midwest():
     dataset: HafniaDataset = HafniaDataset.from_encord_zip_format(path_compressed_data, max_samples=MAX_SAMPLES)
     dataset.check_dataset(check_splits=False)
 
-    flattening_specification: Dict[TaskInfo, List[List[str]]] = {
-        TaskInfo(primitive=primitives.Bbox): [["Vehicle Type"], ["Annotator Marking Type"]],
-        TaskInfo(primitive=primitives.Polygon): [["Annotator Marking Polygon Type"]],
-        TaskInfo(primitive=primitives.Classification, name="Time of Day"): [["Sunrise/Sunset Type"], ["Twilight Type"]],
-    }
+    specification: List[Tuple[TaskInfo, List[List[str]]]] = [
+        (TaskInfo(primitive=primitives.Bbox), [["Vehicle Type"], ["Annotator Marking Type"]]),
+        (TaskInfo(primitive=primitives.Polygon), [["Annotator Marking Polygon Type"]]),
+        (
+            TaskInfo(primitive=primitives.Classification, name="Time of Day"),
+            [["Sunrise/Sunset Type"], ["Twilight Type"]],
+        ),
+    ]
 
-    dataset_flat = dataset.flattening_by_specification(
-        flattening_specification=flattening_specification,
-    )
+    dataset_flat = dataset.flattening_by_specification(specification=specification)
     dataset_flat.check_dataset(check_splits=False)
     dataset_flat.print_stats()
 
@@ -168,16 +167,16 @@ def test_flattening_specification_midwest():
 def test_flattening_specification_assert(encord_dataset_tiny: HafniaDataset):
     encord_dataset_tiny = encord_dataset_tiny.copy()  # This is Session scoped fixture - copy to not affect other tests
 
-    flattening_specification: Dict[TaskInfo, List[List[str]]] = {
+    specification: List[Tuple[TaskInfo, List[List[str]]]] = [
         # Deliberately use wrong task names to trigger the assertion error
-        TaskInfo(primitive=primitives.Classification, name="Nonexistent Task"): [
-            ["Sunrise/Sunset Type"],
-            ["Twilight Type"],
-        ],
-    }
+        (
+            TaskInfo(primitive=primitives.Classification, name="Nonexistent Task"),
+            [["Sunrise/Sunset Type"], ["Twilight Type"]],
+        ),
+    ]
 
     with pytest.raises(ValueError, match="does not exist in the dataset"):
-        encord_dataset_tiny.flattening_by_specification(flattening_specification=flattening_specification)
+        encord_dataset_tiny.flattening_by_specification(specification=specification)
 
 
 def test_flattening_specification(encord_dataset_tiny: HafniaDataset):
@@ -192,17 +191,18 @@ def test_flattening_specification(encord_dataset_tiny: HafniaDataset):
     class_names = [cn["Class Name"] for cn in class_name_counts]
 
     assert all("." not in cn for cn in class_names), "Expected not nesting and therefore no '.' before flattening"
-    flattening_specification: Dict[TaskInfo, List[List[str]]] = {
+    specification: List[Tuple[TaskInfo, List[List[str]]]] = [
         # Vehicle color is used to check nested attributes, but "Vehicle Type" would be a more natural choice.
-        TaskInfo(primitive=primitives.Bbox): [["Vehicle Color", "Gray Tone"], ["Annotator Marking Type"]],
-        TaskInfo(primitive=primitives.Polygon): [["Annotator Marking Polygon Type"]],
-        TaskInfo(primitive=primitives.Bitmask): [["Annotator Marking Bitmask Type"]],
-        TaskInfo(primitive=primitives.Classification, name="Time of Day"): [["Sunrise/Sunset Type"], ["Twilight Type"]],
-    }
+        (TaskInfo(primitive=primitives.Bbox), [["Vehicle Color", "Gray Tone"], ["Annotator Marking Type"]]),
+        (TaskInfo(primitive=primitives.Polygon), [["Annotator Marking Polygon Type"]]),
+        (TaskInfo(primitive=primitives.Bitmask), [["Annotator Marking Bitmask Type"]]),
+        (
+            TaskInfo(primitive=primitives.Classification, name="Time of Day"),
+            [["Sunrise/Sunset Type"], ["Twilight Type"]],
+        ),
+    ]
 
-    dataset_flat = encord_dataset_tiny.flattening_by_specification(
-        flattening_specification=flattening_specification,
-    )
+    dataset_flat = encord_dataset_tiny.flattening_by_specification(specification=specification)
 
     # Check that class names are flattened as expected
     class_name_counts = dataset_flat.calculate_class_counts()

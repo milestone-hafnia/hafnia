@@ -520,22 +520,22 @@ class HafniaDataset:
 
     def flattening_by_specification(
         dataset: "HafniaDataset",
-        flattening_specification: Dict[TaskInfo, List[List[str]]],
+        specification: List[Tuple[TaskInfo, List[List[str]]]],
     ) -> "HafniaDataset":
         """Flatten hierarchical class names for one or more tasks according to a specification.
 
-        For each task in `flattening_specification`, applies the listed flatten-types in order to
-        collapse hierarchical class names (e.g. ``Vehicle.Car`` → ``Vehicle``) and updates the
-        corresponding `TaskInfo`. Raises if the spec references a task that does not exist on this
-        dataset.
+        For each task in `specification`, applies the listed flatten-types in order to collapse
+        hierarchical class names (e.g. ``Vehicle.Car`` → ``Vehicle``) and updates the corresponding
+        `TaskInfo`. Raises if the spec references a task that does not exist on this dataset.
 
         Args:
-            flattening_specification: Mapping from `TaskInfo` (matched by task name and primitive)
-                to a list of flatten-type lists to apply sequentially.
+            specification: Ordered list of `(TaskInfo, flatten_types)` tuples. The `TaskInfo` selects
+                the task to flatten (matched by task name and primitive) and `flatten_types` is a
+                list of flatten-type lists to apply sequentially to that task.
         """
         updated_tasks = []
         samples = dataset.samples
-        for task, flatten_types in flattening_specification.items():
+        for task, flatten_types in specification:
             try:
                 task_updated = dataset.info.get_task_by_name(task_name=task.name).model_copy(deep=True)
             except ValueError as e:
