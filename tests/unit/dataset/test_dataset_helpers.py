@@ -126,14 +126,16 @@ def test_store_file_replaces_existing_file_when_skip_is_disabled(tmp_path: Path)
     assert path_destination.is_symlink(), "An existing file should be replaced with 'allow_skip=False'"
 
 
-def test_store_file_replaces_broken_symlink(tmp_path: Path):
+@pytest.mark.parametrize("allow_skip", [True, False])
+def test_store_file_replaces_broken_symlink(tmp_path: Path, allow_skip: bool):
+    """A broken symlink is not a usable destination and should be repaired even with 'allow_skip=True'."""
     skip_if_no_symlink_support(tmp_path)
     path_source = tmp_path / "source.png"
     path_source.write_bytes(b"image-data")
     path_destination = tmp_path / "image.png"
     path_destination.symlink_to(tmp_path / "does_not_exist.png")
 
-    dataset_helpers.store_file(path_source, path_destination, storage_mode="copy", allow_skip=False)
+    dataset_helpers.store_file(path_source, path_destination, storage_mode="copy", allow_skip=allow_skip)
 
     assert path_destination.is_symlink() is False
     assert path_destination.read_bytes() == b"image-data"
@@ -155,6 +157,32 @@ def test_copy_and_rename_file_to_hash_value_storage_modes(tmp_path: Path, storag
     assert path_image_stored.name == path_image_source.name, "Files should be named by content hash for both modes"
     assert path_image_stored.read_bytes() == path_image_source.read_bytes()
     assert path_image_stored.is_symlink() == (storage_mode is FileStorageMode.SYMLINK)
+
+
+@pytest.mark.parametrize("storage_mode", [FileStorageMode.COPY, FileStorageMode.SYMLINK])
+def test_store_file_with_missing_source(tmp_path: Path, storage_mode: FileStorageMode):
+    """A missing source should raise for both modes and never leave a broken symlink behind."""
+    path_source = tmp_path / "does_not_exist.png"
+    path_destination = tmp_path / "destination" / "image.png"
+
+    with pytest.raises(FileNotFoundError):
+        dataset_helpers.store_file(path_source, path_destination, storage_mode=storage_mode)
+
+    assert path_destination.exists() is False
+    assert path_destination.is_symlink() is False
+
+
+@pytest.mark.parametrize("storage_mode", [FileStorageMode.COPY, FileStorageMode.SYMLINK])
+def test_store_file_with_broken_symlink_as_source(tmp_path: Path, storage_mode: FileStorageMode):
+    skip_if_no_symlink_support(tmp_path)
+    path_source = tmp_path / "broken_source.png"
+    path_source.symlink_to(tmp_path / "does_not_exist.png")
+    path_destination = tmp_path / "image.png"
+
+    with pytest.raises(FileNotFoundError):
+        dataset_helpers.store_file(path_source, path_destination, storage_mode=storage_mode)
+
+    assert path_destination.is_symlink() is False
 
 
 def test_store_file_with_invalid_storage_mode(tmp_path: Path):

@@ -98,16 +98,25 @@ def store_file(
 
     Returns:
         The destination path.
+
+    Raises:
+        FileNotFoundError: If `path_source` does not exist. Without this check, symlink mode would
+            silently create a broken symlink, as 'Path.resolve()' also resolves missing paths.
     """
     storage_mode = FileStorageMode(storage_mode)
     path_source = Path(path_source)
     path_destination = Path(path_destination)
 
+    if not path_source.exists():  # 'exists' is False for both missing files and broken symlinks
+        raise FileNotFoundError(f"Source file {path_source} does not exist.")
+
+    # 'exists' follows symlinks, so a broken symlink is not a usable destination and is never skipped.
+    # Re-running an export into an existing folder will therefore repair broken links.
+    if allow_skip and path_destination.exists():
+        return path_destination
+
     # 'is_symlink' is checked explicitly, because 'exists' is False for a broken symlink
-    destination_exists = path_destination.exists() or path_destination.is_symlink()
-    if destination_exists:
-        if allow_skip:
-            return path_destination
+    if path_destination.exists() or path_destination.is_symlink():
         path_destination.unlink()
 
     path_destination.parent.mkdir(parents=True, exist_ok=True)
