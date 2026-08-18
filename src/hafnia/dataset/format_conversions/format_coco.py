@@ -1,5 +1,4 @@
 import json
-import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -9,6 +8,7 @@ import polars as pl
 from pycocotools import mask as coco_utils
 
 from hafnia.dataset import license_types
+from hafnia.dataset.dataset_helpers import FileStorageMode, resolve_storage_mode, store_file
 from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_coco, format_helpers
 from hafnia.utils import progress_bar
@@ -326,6 +326,7 @@ def to_coco_format(
     path_output: Path,
     task_name: Optional[str] = None,
     coco_format_type: str = "roboflow",
+    storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
 ) -> List[CocoSplitPaths]:
     """Export a `HafniaDataset` to COCO format on disk and return the paths of each split.
 
@@ -339,10 +340,15 @@ def to_coco_format(
         task_name: Specific task to export. If None, a single eligible task is auto-selected
             (Bitmask first, then Bbox).
         coco_format_type: Output layout. Currently only ``"roboflow"`` is supported.
+        storage_mode: How image/video files are stored: `FileStorageMode.COPY` (default) for real
+            copies or `FileStorageMode.SYMLINK` for symbolic links to the original files - avoiding
+            duplication on disk, but breaking if the original files are moved or deleted. The string
+            values `"copy"` and `"symlink"` are also accepted.
 
     Returns:
         A list of `CocoSplitPaths` describing the files written for each split.
     """
+    storage_mode = resolve_storage_mode(storage_mode, path_output=path_output)
     samples_modified_all = dataset.samples.with_row_index("id")
 
     if SampleField.ATTRIBUTION in samples_modified_all.columns:
@@ -410,10 +416,12 @@ def to_coco_format(
         for src_path in src_paths:
             dst_path = split_paths.path_images / Path(src_path).name
             new_relative_image_path.append(dst_path.relative_to(split_paths.path_images).as_posix())
-            if dst_path.exists():
-                continue
-
-            shutil.copy2(src_path, dst_path)
+            store_file(
+                path_source=Path(src_path),
+                path_destination=dst_path,
+                storage_mode=storage_mode,
+                allow_skip=True,
+            )
 
         images_table_files_moved = images_table.with_columns(
             pl.Series(new_relative_image_path).alias(COCO_KEY_FILE_NAME)

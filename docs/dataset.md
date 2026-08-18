@@ -34,8 +34,13 @@ dataset = HafniaDataset.from_name("midwest-vehicle-detection", version="1.0.0")
 # Or load from disk
 dataset = HafniaDataset.from_path(".data/datasets/midwest-vehicle-detection")
 
-# Persist to disk
+# Persist to disk - images are stored as real copies
 dataset.write(".data/tmp/hafnia_dataset")
+
+# ... or as symbolic links to avoid duplicating a large dataset on disk. Note that the
+# written dataset breaks if the original files are moved or deleted. Also available for
+# 'to_yolo_format', 'to_coco_format' and 'to_image_classification_folder'.
+dataset.write(".data/tmp/hafnia_dataset", storage_mode="symlink")  # Or FileStorageMode.SYMLINK
 ```
 
 `from_name` downloads the dataset to `.data/datasets/` on first call and

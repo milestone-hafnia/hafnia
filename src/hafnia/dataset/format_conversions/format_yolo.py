@@ -1,11 +1,11 @@
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from PIL import Image
 
 from hafnia.dataset import primitives
+from hafnia.dataset.dataset_helpers import FileStorageMode, resolve_storage_mode, store_file
 from hafnia.dataset.dataset_names import SampleField, SplitName
 from hafnia.dataset.format_conversions import format_helpers
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
@@ -186,6 +186,7 @@ def to_yolo_format(
     task_name: Optional[str] = None,
     filename_images_txt: str = FILENAME_YOLO_IMAGES_TXT,
     filename_class_names: str = FILENAME_YOLO_CLASS_NAMES,
+    storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
 ) -> List[YoloSplitPaths]:
     """Export a `HafniaDataset` to the YOLO (Darknet) on-disk format.
 
@@ -198,11 +199,16 @@ def to_yolo_format(
         task_name: Optional task name disambiguation when the dataset has multiple `Bbox` tasks.
         filename_images_txt: Filename of the per-split image listing.
         filename_class_names: Filename of the shared class-names file at the dataset root.
+        storage_mode: How image/video files are stored: `FileStorageMode.COPY` (default) for real
+            copies or `FileStorageMode.SYMLINK` for symbolic links to the original files - avoiding
+            duplication on disk, but breaking if the original files are moved or deleted. The string
+            values `"copy"` and `"symlink"` are also accepted.
 
     Returns:
         A list of `YoloSplitPaths` describing the files written for each split.
     """
 
+    storage_mode = resolve_storage_mode(storage_mode, path_output=path_output)
     split_names = dataset.samples[SampleField.SPLIT].unique().to_list()
 
     per_split_paths: List[YoloSplitPaths] = []
@@ -220,6 +226,7 @@ def to_yolo_format(
             dataset=dataset_split,
             split_paths=yolo_split_paths,
             task_name=task_name,
+            storage_mode=storage_mode,
         )
         per_split_paths.append(yolo_split_paths)
     return per_split_paths
@@ -229,6 +236,7 @@ def to_yolo_split_format(
     dataset: "HafniaDataset",
     split_paths: YoloSplitPaths,
     task_name: Optional[str],
+    storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
 ):
     """Exports a HafniaDataset as YOLO (Darknet) format."""
 
@@ -252,7 +260,12 @@ def to_yolo_split_format(
             raise ValueError("Sample has no file_path defined.")
         path_image_src = Path(sample.file_path)
         path_image_dst = path_data_folder / path_image_src.name
-        shutil.copy2(path_image_src, path_image_dst)
+        store_file(
+            path_source=path_image_src,
+            path_destination=path_image_dst,
+            storage_mode=storage_mode,
+            allow_skip=False,
+        )
         image_paths.append(path_image_dst.relative_to(split_paths.path_root).as_posix())
         path_label = path_image_dst.with_suffix(".txt")
         bboxes = sample.bboxes or []
