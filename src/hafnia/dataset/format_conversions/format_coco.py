@@ -482,7 +482,9 @@ def _convert_bbox_bitmask_to_coco_format(
         .unnest(task_sample_field)
     )
 
-    iscrowd_list = [0 if row is None else row.get("iscrowd", 0) for row in annotation_table_full["meta"]]
+    if "meta" not in annotation_table_full.columns:
+        annotation_table_full = annotation_table_full.with_columns(pl.lit(None).alias("meta"))
+    iscrowd_list = [0 if row is None else (row.get("iscrowd") or 0) for row in annotation_table_full["meta"]]
     annotation_table_full = annotation_table_full.with_columns(pl.Series(iscrowd_list).alias("iscrowd"))
 
     if task_info.primitive == Bitmask:
