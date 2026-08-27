@@ -9,7 +9,7 @@ class FakeInferenceModel(InferenceModel):
     def __init__(self, fake_model_tasks: list[TaskInfo]):
         self.fake_model_tasks = fake_model_tasks
 
-    def predict(self, images, sample_dict=None) -> list[Primitive]:
+    def predict(self, image, sample_dict=None) -> list[Primitive]:
         sample = Sample(**sample_dict)
         model_primitive_types = [t.primitive for t in self.fake_model_tasks]
         model_task_name = [t.name for t in self.fake_model_tasks]
