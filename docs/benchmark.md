@@ -39,6 +39,11 @@ which returns one list of primitives per image. The base class implements it by
 looping over `predict`, so only override it if your model can process a batch
 more efficiently.
 
+Inference always goes through `predict_batch`. With the default `batch_size=1`
+that means one `predict` call per sample; pass a larger `batch_size` to
+`run_benchmark` / `run_inference_on_dataset` to feed real batches to a model
+that overrides `predict_batch`.
+
 ## Running inference and computing metrics
 
 The simplest path is `benchmark.run_benchmark`, which runs inference and
@@ -57,7 +62,7 @@ metrics, dataset_predictions = benchmark.run_benchmark(dataset=dataset, model=mo
 If you want to inspect the prediction dataset before scoring, split the call:
 
 ```python
-dataset_predictions = benchmark.run_inference_on_dataset(dataset=dataset, model=model)
+dataset_predictions = benchmark.run_inference_on_dataset(dataset=dataset, model=model, batch_size=1)
 
 # Compute a specific metric directly on the dataset
 map_metrics = dataset_predictions.calculate_mean_average_precision(
