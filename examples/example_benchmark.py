@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional
 
 import numpy as np
 import torch
@@ -50,12 +50,12 @@ class TorchvisionSSDLite(InferenceModel):
 
     def predict(
         self,
-        images: Union[ImageType, List[ImageType]],
-        sample_dict: Union[dict, List[dict], None] = None,
+        image: ImageType,
+        sample_dict: Optional[dict] = None,
     ) -> List[Primitive]:
         # 'benchmark' calls predict with a single np.ndarray image (from Sample.read_image).
-        assert isinstance(images, np.ndarray), "Expected a single np.ndarray image"
-        image_np = images  # HxWxC, uint8, RGB
+        assert isinstance(image, np.ndarray), "Expected a single np.ndarray image"
+        image_np = image  # HxWxC, uint8, RGB
 
         # Torchvision expects CHW float tensors - the 'weights.transforms()' pipeline
         # handles normalization and resizing expected by the pretrained model.

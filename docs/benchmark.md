@@ -9,7 +9,7 @@ be inspected, visualized or exported like any other dataset.
 ## The `InferenceModel` interface
 
 Any model that implements `InferenceModel` can be benchmarked. The interface
-has two methods:
+has two required methods:
 
 ```python
 from hafnia.dataset.benchmark.inference_model import InferenceModel, ImageType
@@ -23,7 +23,7 @@ class MyModel(InferenceModel):
             tasks=[TaskInfo.from_class_names(primitive=Bbox, class_names=[...])],
         )
 
-    def predict(self, images, sample_dict=None) -> list[Primitive]:
+    def predict(self, image, sample_dict=None) -> list[Primitive]:
         # Return primitives in hafnia format (normalized coords, class_name set,
         # ground_truth=False, confidence=<float>).
         ...
@@ -32,6 +32,17 @@ class MyModel(InferenceModel):
 Predictions must be returned as **hafnia primitives** with `ground_truth=False`
 and a `confidence` value, so they can be stored alongside the ground truth in
 the same dataset.
+
+`predict` handles a **single** image. For batched inference there is a third,
+optional method `predict_batch(images, sample_dicts=None) -> list[list[Primitive]]`
+which returns one list of primitives per image. The base class implements it by
+looping over `predict`, so only override it if your model can process a batch
+more efficiently.
+
+Inference always goes through `predict_batch`. With the default `batch_size=1`
+that means one `predict` call per sample; pass a larger `batch_size` to
+`run_benchmark` / `run_inference_on_dataset` to feed real batches to a model
+that overrides `predict_batch`.
 
 ## Running inference and computing metrics
 
@@ -51,7 +62,7 @@ metrics, dataset_predictions = benchmark.run_benchmark(dataset=dataset, model=mo
 If you want to inspect the prediction dataset before scoring, split the call:
 
 ```python
-dataset_predictions = benchmark.run_inference_on_dataset(dataset=dataset, model=model)
+dataset_predictions = benchmark.run_inference_on_dataset(dataset=dataset, model=model, batch_size=1)
 
 # Compute a specific metric directly on the dataset
 map_metrics = dataset_predictions.calculate_mean_average_precision(
