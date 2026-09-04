@@ -88,7 +88,7 @@ def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFram
     has_same_schema = samples0.schema == samples1.schema
     if not has_same_schema:
         shared_columns = []
-        for column_name, s0_column_type in samples0.schema.items():
+        for column_name in samples0.schema:
             if column_name not in samples1.schema:
                 continue
             samples0, samples1 = correction_of_list_struct_primitives(samples0, samples1, column_name)
@@ -110,12 +110,13 @@ def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFram
         dropped_columns1 = [
             f"{n}[{ctype._string_repr()}]" for n, ctype in samples1.schema.items() if n not in shared_columns
         ]
-        user_logger.warning(
-            "Datasets with different schemas are being merged. "
-            "Only the columns with the same name and type will be kept in the merged dataset.\n"
-            f"Dropped columns in samples0: {dropped_columns0}\n"
-            f"Dropped columns in samples1: {dropped_columns1}\n"
-        )
+        if dropped_columns0 or dropped_columns1:
+            user_logger.warning(
+                "Datasets with different schemas are being merged. "
+                "Only the columns with the same name and type will be kept in the merged dataset.\n"
+                f"Dropped columns in samples0: {dropped_columns0}\n"
+                f"Dropped columns in samples1: {dropped_columns1}\n"
+            )
 
         samples0 = samples0.select(list(shared_columns))
         samples1 = samples1.select(list(shared_columns))
@@ -134,33 +135,41 @@ def correction_of_list_struct_primitives(
     between two datasets. This is useful when merging two datasets with the same primitive (e.g. Bbox), where
     some (less important) field types in the struct differ between the two datasets.
     This issue often occurs with the 'meta' field as different dataset formats may store different metadata information.
+
+    Both columns are rebuilt from the shared fields in the field order of 'samples0'. Applying the same field order
+    to both datasets is important, as struct types with identical fields in a different order are not equal and
+    the column would then be dropped by 'merge_samples'.
     """
     s0_column_type = samples0.schema[column_name]
     s1_column_type = samples1.schema[column_name]
     is_list_structs = s1_column_type == pl.List(pl.Struct) and s0_column_type == pl.List(pl.Struct)
     is_non_matching_types = s1_column_type != s0_column_type
-    if is_list_structs and is_non_matching_types:  # Only perform correction for list[struct] types that do not match
-        s0_fields = set(s0_column_type.inner.fields)
-        s1_fields = set(s1_column_type.inner.fields)
-        similar_fields = s0_fields.intersection(s1_fields)
-        s0_dropped_fields = s0_fields - similar_fields
-        if len(s0_dropped_fields) > 0:
-            samples0 = samples0.with_columns(
-                pl.col(column_name)
-                .list.eval(pl.struct([pl.element().struct.field(k.name) for k in similar_fields]))
-                .alias(column_name)
-            )
-        s1_dropped_fields = s1_fields - similar_fields
-        if len(s1_dropped_fields) > 0:
-            samples1 = samples1.with_columns(
-                pl.col(column_name)
-                .list.eval(pl.struct([pl.element().struct.field(k.name) for k in similar_fields]))
-                .alias(column_name)
-            )
+    if not (is_list_structs and is_non_matching_types):  # Only correct list[struct] types that do not match
+        return samples0, samples1
+
+    s0_fields = s0_column_type.inner.fields
+    s1_fields = s1_column_type.inner.fields
+    s0_field_set, s1_field_set = set(s0_fields), set(s1_fields)
+    similar_fields = [field for field in s0_fields if field in s1_field_set]
+    s0_dropped_fields = [field.name for field in s0_fields if field not in s1_field_set]
+    s1_dropped_fields = [field.name for field in s1_fields if field not in s0_field_set]
+
+    if len(similar_fields) == 0:
+        user_logger.warning(
+            f"Primitive column '{column_name}' has no matching fields in the two datasets. "
+            f"Fields in samples0: {s0_dropped_fields}. Fields in samples1: {s1_dropped_fields}."
+        )
+        return samples0, samples1
+
+    field_selection = pl.struct([pl.element().struct.field(field.name) for field in similar_fields])
+    samples0 = samples0.with_columns(pl.col(column_name).list.eval(field_selection))
+    samples1 = samples1.with_columns(pl.col(column_name).list.eval(field_selection))
+
+    if s0_dropped_fields or s1_dropped_fields:  # Only field order differs when no fields are dropped
         user_logger.warning(
             f"Primitive column '{column_name}' has none-matching fields in the two datasets. "
-            f"Dropping fields in samples0: {[f.name for f in s0_dropped_fields]}. "
-            f"Dropping fields in samples1: {[f.name for f in s1_dropped_fields]}."
+            f"Dropping fields in samples0: {s0_dropped_fields}. "
+            f"Dropping fields in samples1: {s1_dropped_fields}."
         )
 
     return samples0, samples1

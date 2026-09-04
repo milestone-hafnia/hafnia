@@ -124,7 +124,7 @@ mappings_coco = {
     "truck": "Vehicle",
 }
 mapping_midwest = {
-    "Person": "Person",
+    "Person*": "Person",  # Wildcard mapping. This will include "Person.Pedestrian" and "Person.NotPedestrian"
     "Vehicle*": "Vehicle",  # Wildcard mapping. Selects class names starting with 'Vehicle.' e.g. 'Vehicle.Bicycle', "Vehicle.Car', etc.
     "Vehicle.Trailer": OPS_REMOVE_CLASS,  # Use this to remove a class
 }
