@@ -179,8 +179,8 @@ class HafniaLogger:
 
         return self.path_local_experiment() / "model"
 
-    def log_metric(self, name: str, value: float, step: int) -> None:
-        self.log_scalar(name, value, step, EntityType.METRIC)
+    def log_metric(self, name: str, value: float, step: int = 0) -> None:
+        self.log_scalar(name=name, value=value, step=step, ent_type=EntityType.METRIC)
 
     def log_scalar(
         self,

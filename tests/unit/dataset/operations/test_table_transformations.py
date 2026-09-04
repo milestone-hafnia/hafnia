@@ -3,7 +3,7 @@ from typing import List, Type
 import polars as pl
 import pytest
 
-from hafnia.dataset.dataset_names import PrimitiveField
+from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.operations.table_transformations import unnest_classification_tasks
 from hafnia.dataset.primitives import Bbox, Bitmask, Classification
@@ -96,3 +96,45 @@ def test_unnest_classification_tasks():
         expected_column_name = f"{Classification.column_name()}.{task_name}"
         assert expected_column_name in table_unnested.columns
         assert table_unnested[expected_column_name].dtype == pl.Struct
+
+
+@pytest.mark.parametrize(
+    "bboxes0, bboxes1, expected_fields",
+    [
+        # Extra field in 'samples0' only. The shared fields should be kept in the field order of 'samples0'.
+        ([{"a": 1, "b": 2, "c": 3, "meta0": 9}], [{"a": 1, "b": 2, "c": 3}], ["a", "b", "c"]),
+        # Extra field in 'samples1' only
+        ([{"a": 1, "b": 2, "c": 3}], [{"a": 1, "b": 2, "c": 3, "meta1": 8}], ["a", "b", "c"]),
+        # Extra field in both datasets
+        ([{"a": 1, "b": 2, "meta0": 9}], [{"a": 1, "b": 2, "meta1": 8}], ["a", "b"]),
+        # Same fields, but declared in a different order
+        ([{"a": 1, "b": 2, "c": 3}], [{"c": 3, "a": 1, "b": 2}], ["a", "b", "c"]),
+    ],
+)
+def test_merge_samples_with_non_matching_primitive_fields(bboxes0, bboxes1, expected_fields):
+    """Primitive columns should survive a merge even when the struct fields do not match exactly."""
+    samples0 = pl.DataFrame({SampleField.FILE_PATH: ["0.png"], Bbox.column_name(): [bboxes0]})
+    samples1 = pl.DataFrame({SampleField.FILE_PATH: ["1.png"], Bbox.column_name(): [bboxes1]})
+
+    merged = table_transformations.merge_samples(samples0, samples1)
+
+    assert Bbox.column_name() in merged.columns, "The primitive column should not be dropped by the merge"
+    merged_fields = [field.name for field in merged.schema[Bbox.column_name()].inner.fields]
+    assert merged_fields == expected_fields
+    assert len(merged) == 2
+
+    # Struct fields are matched by name, so the values of both datasets should be preserved
+    bboxes_merged = merged.explode(Bbox.column_name()).unnest(Bbox.column_name())
+    for field_name in expected_fields:
+        expected_values = [bboxes0[0][field_name], bboxes1[0][field_name]]
+        assert bboxes_merged[field_name].to_list() == expected_values
+
+
+def test_merge_samples_drops_primitive_column_without_shared_fields():
+    samples0 = pl.DataFrame({SampleField.FILE_PATH: ["0.png"], Bbox.column_name(): [[{"a": 1}]]})
+    samples1 = pl.DataFrame({SampleField.FILE_PATH: ["1.png"], Bbox.column_name(): [[{"b": 2}]]})
+
+    merged = table_transformations.merge_samples(samples0, samples1)
+
+    assert Bbox.column_name() not in merged.columns
+    assert len(merged) == 2

@@ -17,7 +17,7 @@ model_dir = logger.path_model()
 
 # Log scalar and metric values during training and validation
 logger.log_scalar("train/loss", value=0.1, step=100)
-logger.log_metric("train/accuracy", value=0.98, step=100)
+logger.log_metric("train/accuracy", value=0.98)
 
 logger.log_scalar("validation/loss", value=0.1, step=100)
-logger.log_metric("validation/accuracy", value=0.95, step=100)
+logger.log_metric("validation/accuracy", value=0.95)
