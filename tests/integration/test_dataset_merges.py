@@ -22,7 +22,7 @@ def test_merge_midwest_and_coco_datasets():
         "truck": "Vehicle",
     }
     mapping_midwest = {
-        "Person": "Person",
+        "Person*": "Person",
         "Vehicle.*": "Vehicle",
         "Vehicle.Trailer": OPS_REMOVE_CLASS,
     }
