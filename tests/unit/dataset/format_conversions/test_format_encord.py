@@ -3,10 +3,12 @@ from pathlib import Path
 from typing import Callable, List, Tuple
 
 import numpy as np
+import polars as pl
 import pytest
 
 from hafnia import utils
 from hafnia.dataset import primitives
+from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.format_conversions.format_encord import parse_encord_date_field
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample, TaskInfo
@@ -192,6 +194,47 @@ def test_check_dataset_skeletons(encord_dataset_tiny: HafniaDataset, mutation: s
 
     with pytest.raises(ValueError, match=expected_error):
         encord_dataset_tiny.check_dataset_skeletons()
+
+
+def test_skeleton_template_survives_class_mapper(encord_dataset_tiny: HafniaDataset):
+    encord_dataset_tiny = encord_dataset_tiny.copy()  # This is Session scoped fixture - copy to not affect other tests
+
+    dataset = encord_dataset_tiny.class_mapper({"PersonPose": "person_pose"}, primitive=primitives.Skeleton)
+
+    class_info = dataset.info.get_task_by_primitive(primitives.Skeleton).get_class_by_name("person_pose")
+    assert class_info.skeleton is not None, "Expected the skeleton template to survive the class mapping"  # type: ignore[union-attr]
+    dataset.check_dataset(check_splits=False)
+
+
+def test_check_dataset_skeletons_with_invalid_keypoint_index(encord_dataset_tiny: HafniaDataset):
+    """A keypoint index that is not a valid index of the template should give a descriptive error."""
+    encord_dataset_tiny = encord_dataset_tiny.copy()  # This is Session scoped fixture - copy to not affect other tests
+
+    column_name = primitives.Skeleton.column_name()
+    keypoints_with_invalid_index = pl.element().struct.with_fields(
+        pl.element()
+        .struct.field(SampleField.KEYPOINTS)
+        .list.eval(pl.element().struct.with_fields(pl.lit(None, dtype=pl.Int64).alias(PrimitiveField.CLASS_IDX)))
+    )
+    encord_dataset_tiny.samples = encord_dataset_tiny.samples.with_columns(
+        pl.col(column_name).list.eval(keypoints_with_invalid_index)
+    )
+
+    with pytest.raises(ValueError, match="is not a valid index for the"):
+        encord_dataset_tiny.check_dataset_skeletons()
+
+
+def test_draw_skeleton_with_inconsistent_keypoints():
+    """Drawing should not fail for skeletons without keypoints or with edges of non-annotated keypoints."""
+    image = np.zeros((20, 20, 3), dtype=np.uint8)
+    edges = [SkeletonEdge(index_start=0, index_end=1)]
+
+    skeleton_without_keypoints = primitives.Skeleton(keypoints=[], class_name="pose", edges=edges)
+    assert np.array_equal(skeleton_without_keypoints.draw(image), image), "Expected an unchanged image"
+
+    keypoint = primitives.KeyPoint(point=primitives.Point(x=0.5, y=0.5), class_name="a", class_idx=0)
+    skeleton_missing_keypoint = primitives.Skeleton(keypoints=[keypoint], class_name="pose", edges=edges)
+    assert not np.array_equal(skeleton_missing_keypoint.draw(image), image), "Expected the keypoint to be drawn"
 
 
 def test_parse_encord_date_field():

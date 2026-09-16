@@ -506,6 +506,21 @@ class DatasetInfo(TasksInfo):
                             f"{task_ds0_class_names} in dataset0 and {task_ds1_class_names} in dataset1."
                         )
 
+                    # Skeleton classes are defined by their template, so annotations of the two datasets are
+                    # only compatible if the templates are identical
+                    for class_name in task_ds0_class_names:
+                        skeleton_ds0 = task_ds0.get_class_by_name(class_name).skeleton  # type: ignore[union-attr]
+                        skeleton_ds1 = task_ds1.get_class_by_name(class_name).skeleton  # type: ignore[union-attr]
+                        if skeleton_ds0 != skeleton_ds1:
+                            raise ValueError(
+                                f"Cannot merge datasets with different skeleton templates for the same class: "
+                                f"class '{class_name}' of task '{task_ds0.name}' has the keypoints "
+                                f"{skeleton_ds0.keypoint_names if skeleton_ds0 else None} in dataset0 and "
+                                f"{skeleton_ds1.keypoint_names if skeleton_ds1 else None} in dataset1. "
+                                f"The skeleton templates must be identical, as they define the keypoints and "
+                                f"edges of the annotations."
+                            )
+
         if info1.format_version != info0.format_version:
             user_logger.warning(
                 "Dataset format version of the two datasets do not match. "

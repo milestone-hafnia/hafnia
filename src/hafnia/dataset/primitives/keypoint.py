@@ -82,10 +82,13 @@ class KeyPoint(Primitive):
         inplace: bool = False,
         color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None,
     ) -> np.ndarray:
-        raise NotImplementedError("Masking is not supported for the 'KeyPoint' primitive")
+        # Masking is not implemented for the 'KeyPoint' primitive, so the image is returned unchanged.
+        # A no-op (as for 'Classification') keeps masking of other primitives in a sample working.
+        return image
 
     def anonymize_by_blurring(self, image: np.ndarray, inplace: bool = False, max_resolution: int = 20) -> np.ndarray:
-        raise NotImplementedError("Anonymization by blurring is not supported for the 'KeyPoint' primitive")
+        # Anonymization is not implemented for the 'KeyPoint' primitive, so the image is returned unchanged
+        return image
 
     def get_class_name(self) -> str:
         return get_class_name(self.class_name, self.class_idx)

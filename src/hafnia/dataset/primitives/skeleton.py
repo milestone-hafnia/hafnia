@@ -90,10 +90,17 @@ class Skeleton(Primitive):
         if not inplace:
             image = image.copy()
         points = self.to_pixel_coordinates(image_shape=image.shape[:2])
+        if len(points) == 0:
+            return image
 
         class_name = self.get_class_name()
         color = class_color_by_name(class_name)
         for edge in self.edges or []:
+            # Edges are a copy of the class template, so they may reference keypoints that are not annotated.
+            # Inconsistencies are reported by 'HafniaDataset.check_dataset_skeletons' and skipped when drawing.
+            is_valid_edge = (0 <= edge.index_start < len(points)) and (0 <= edge.index_end < len(points))
+            if not is_valid_edge:
+                continue
             cv2.line(image, pt1=points[edge.index_start], pt2=points[edge.index_end], color=color, thickness=2)
 
         for keypoint in self.keypoints:
@@ -119,10 +126,13 @@ class Skeleton(Primitive):
         inplace: bool = False,
         color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None,
     ) -> np.ndarray:
-        raise NotImplementedError("Masking is not supported for the 'Skeleton' primitive")
+        # Masking is not implemented for the 'Skeleton' primitive, so the image is returned unchanged.
+        # A no-op (as for 'Classification') keeps masking of other primitives in a sample working.
+        return image
 
     def anonymize_by_blurring(self, image: np.ndarray, inplace: bool = False, max_resolution: int = 20) -> np.ndarray:
-        raise NotImplementedError("Anonymization by blurring is not supported for the 'Skeleton' primitive")
+        # Anonymization is not implemented for the 'Skeleton' primitive, so the image is returned unchanged
+        return image
 
     def get_class_name(self) -> str:
         return get_class_name(self.class_name, self.class_idx)

@@ -25,8 +25,10 @@ from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
     Classification,
+    KeyPoint,
     Polygon,
     Segmentation,
+    Skeleton,
 )
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.platform.datasets import upload_dataset_details
@@ -448,7 +450,7 @@ def dataset_details_from_hafnia_dataset(
             )
 
             object_reports: List[DbAnnotatedObjectReport] = []
-            for PrimitiveType in [Classification, Bbox, Bitmask, Polygon, Segmentation]:
+            for PrimitiveType in [Classification, Bbox, Bitmask, Polygon, Segmentation, KeyPoint, Skeleton]:
                 object_reports.extend(create_reports_from_primitive(dataset_split, PrimitiveType=PrimitiveType))  # type: ignore[type-abstract]
 
             # Sort object reports by name to more easily compare between versions

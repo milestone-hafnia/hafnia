@@ -392,6 +392,7 @@ def class_mapper(
     # Update dataset info with new class names
     name_and_classes_new: Dict[str, List[ClassInfo]] = {new_name: [] for new_name in new_class_names}
     name_and_classes_old = {klass.name: klass.attributes for klass in task.classes or []}
+    name_and_skeleton_old = {klass.name: klass.skeleton for klass in task.classes or []}
     classes = []
     for new_name in name_and_classes_new:
         previous_names = [name_from for name_from, name_to in class_mapping.items() if name_to == new_name]
@@ -399,7 +400,19 @@ def class_mapper(
         for previous_name in previous_names:
             attributes_combined.extend(name_and_classes_old[previous_name] or [])
         attributes = None if len(attributes_combined or []) == 0 else attributes_combined
-        classes.append(ClassInfo(name=new_name, attributes=attributes))
+
+        # Keep the skeleton template of the renamed class(es), as it defines the keypoints of the annotations
+        skeletons = [name_and_skeleton_old[previous_name] for previous_name in previous_names]
+        skeletons_defined = [skeleton for skeleton in skeletons if skeleton is not None]
+        unique_skeletons = {skeleton.model_dump_json() for skeleton in skeletons_defined}
+        if len(unique_skeletons) > 1:
+            raise ValueError(
+                f"Cannot map the classes {previous_names} of task '{task.name}' into the single class '{new_name}', "
+                f"as they have different skeleton templates. The keypoints of the annotations would no longer "
+                f"match the skeleton template of the class."
+            )
+        skeleton = skeletons_defined[0] if skeletons_defined else None
+        classes.append(ClassInfo(name=new_name, attributes=attributes, skeleton=skeleton))
     new_task = task.model_copy(deep=True)
     new_task.classes = classes
     dataset_info = dataset.info.replace_task(old_task=task, new_task=new_task)

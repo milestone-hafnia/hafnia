@@ -426,6 +426,12 @@ def check_dataset_skeletons(dataset: HafniaDataset):
                 continue  # Undefined class names are reported by 'check_dataset_tasks'
             keypoint_names = templates[class_name].keypoint_names
             keypoint_index = row["keypoint_index"]
+            if keypoint_index is None or not 0 <= keypoint_index < len(keypoint_names):
+                raise ValueError(
+                    msg_task + f"a keypoint of class '{class_name}' has the class index '{keypoint_index}', which "
+                    f"is not a valid index for the {len(keypoint_names)} keypoints of the skeleton template: "
+                    f"{keypoint_names}."
+                )
             if keypoint_names[keypoint_index] != row["keypoint_name"]:
                 raise ValueError(
                     msg_task + f"a keypoint of class '{class_name}' with index '{keypoint_index}' is named "

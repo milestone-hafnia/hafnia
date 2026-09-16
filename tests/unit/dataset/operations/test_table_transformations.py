@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Type
 
 import polars as pl
@@ -189,3 +190,43 @@ def test_merge_keeps_skeleton_edges():
     assert len(merged) == 2
     assert get_stored_edges(merged) == [[{"index_start": 0, "index_end": 1}]] * 2
     merged.check_dataset(check_splits=False)
+
+
+@pytest.mark.parametrize("skeletons", [[], None], ids=["empty_list", "no_skeletons"])
+def test_fill_skeleton_edges_without_skeleton_annotations(skeletons):
+    """Samples without skeleton annotations give a 'List(Null)'/'Null' column that has no struct fields."""
+    template = SkeletonTemplate(keypoint_names=["a", "b"], edges=[SkeletonEdge(index_start=0, index_end=1)])
+    task = TaskInfo(primitive=Skeleton, classes=[ClassInfo(name="pose", skeleton=template)])
+    sample = Sample(file_path="image.jpg", height=10, width=10, split="train", skeletons=skeletons)
+
+    dataset = HafniaDataset.from_samples_list([sample], info=DatasetInfo(dataset_name="empty", tasks=[task]))
+
+    assert len(dataset) == 1
+
+
+def test_merge_samples_keeps_nested_primitive_fields_with_non_matching_types():
+    """A nested field with the same name but a different type should not drop the whole annotation."""
+    keypoints0 = [{"class_name": "a", "created_at": datetime(2024, 1, 1)}]
+    keypoints1 = [{"class_name": "a", "created_at": None}]
+    samples0 = pl.DataFrame({SampleField.FILE_PATH: ["0.png"], Skeleton.column_name(): [[{"keypoints": keypoints0}]]})
+    samples1 = pl.DataFrame({SampleField.FILE_PATH: ["1.png"], Skeleton.column_name(): [[{"keypoints": keypoints1}]]})
+
+    merged = table_transformations.merge_samples(samples0, samples1)
+
+    assert Skeleton.column_name() in merged.columns
+    merged_fields = [field.name for field in merged.schema[Skeleton.column_name()].inner.fields]
+    assert merged_fields == ["keypoints"], "Expected the nested keypoints to survive the merge"
+    keypoint_names = merged[Skeleton.column_name()].explode().struct.field("keypoints").to_list()
+    assert [kp[0]["class_name"] for kp in keypoint_names] == ["a", "a"]
+    assert len(merged) == 2
+
+
+def test_merge_datasets_with_conflicting_skeleton_templates():
+    dataset0 = get_skeleton_dataset(edges=[SkeletonEdge(index_start=0, index_end=1)], dataset_name="dataset0")
+
+    other_template = SkeletonTemplate(keypoint_names=["a", "b"], edges=[SkeletonEdge(index_start=1, index_end=0)])
+    dataset1 = get_skeleton_dataset(edges=other_template.edges, dataset_name="dataset1")
+    dataset1.info.get_task_by_primitive(Skeleton).classes[0].skeleton = other_template  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="different skeleton templates for the same class"):
+        HafniaDataset.merge(dataset0, dataset1)
