@@ -133,16 +133,17 @@ def test_from_encord_zip_format(encord_dataset_tiny: HafniaDataset, compare_to_e
         keypoint_names = [keypoint.class_name for keypoint in skeleton.keypoints]
         assert keypoint_names == skeleton_template.keypoint_names
         assert [keypoint.class_idx for keypoint in skeleton.keypoints] == list(range(len(skeleton.keypoints)))
-
-        # Edges ('bones') are a denormalized copy of the template edges and connect keypoints by index
-        assert skeleton.edges == skeleton_template.edges
         assert skeleton.task_name == primitives.Skeleton.default_task_name()
+
+    # Edges ('bones') are defined once per class by the template and are not stored on the annotation
+    assert "edges" not in primitives.Skeleton.model_fields
 
     encord_dataset_tiny.check_dataset(check_splits=False)
 
-    # Encord exports contain no image data, so annotations are drawn on a blank image
+    # Encord exports contain no image data, so annotations are drawn on a blank image.
+    # Tasks are passed to also draw the edges between the keypoints of the skeletons.
     blank_image = np.zeros((sample.height, sample.width, 3), dtype=np.uint8)
-    image = sample.draw_annotations(image=blank_image)
+    image = sample.draw_annotations(image=blank_image, tasks=encord_dataset_tiny.info.tasks)
 
     compare_to_expected_image(image)
 
@@ -154,8 +155,6 @@ def test_from_encord_zip_format(encord_dataset_tiny: HafniaDataset, compare_to_e
         "edge_without_keypoint",
         "renamed_keypoint",
         "too_few_keypoints",
-        "edges_not_in_template",
-        "edge_count_mismatch",
     ],
 )
 def test_check_dataset_skeletons(encord_dataset_tiny: HafniaDataset, mutation: str):
@@ -180,15 +179,6 @@ def test_check_dataset_skeletons(encord_dataset_tiny: HafniaDataset, mutation: s
         # Edges are left out, as the original edges would reference the removed keypoints
         class_info.skeleton = SkeletonTemplate(keypoint_names=keypoint_names[:5])  # type: ignore[union-attr]
         expected_error = "keypoints, but the skeleton template defines"
-    elif mutation == "edges_not_in_template":
-        # Same number of edges as the annotations, but the edges themselves are different
-        other_edges = [SkeletonEdge(index_start=0, index_end=1)] * len(template.edges)
-        class_info.skeleton = SkeletonTemplate(keypoint_names=keypoint_names, edges=other_edges)  # type: ignore[union-attr]
-        expected_error = "which is not defined in the skeleton template"
-    elif mutation == "edge_count_mismatch":
-        fewer_edges = template.edges[:1]
-        class_info.skeleton = SkeletonTemplate(keypoint_names=keypoint_names, edges=fewer_edges)  # type: ignore[union-attr]
-        expected_error = "edges, but the skeleton template defines"
     else:
         raise ValueError(f"Unknown mutation '{mutation}'")
 
@@ -227,14 +217,38 @@ def test_check_dataset_skeletons_with_invalid_keypoint_index(encord_dataset_tiny
 def test_draw_skeleton_with_inconsistent_keypoints():
     """Drawing should not fail for skeletons without keypoints or with edges of non-annotated keypoints."""
     image = np.zeros((20, 20, 3), dtype=np.uint8)
-    edges = [SkeletonEdge(index_start=0, index_end=1)]
+    template = SkeletonTemplate(keypoint_names=["a", "b"], edges=[SkeletonEdge(index_start=0, index_end=1)])
+    task = TaskInfo(primitive=primitives.Skeleton, classes=[ClassInfo(name="pose", skeleton=template)])
 
-    skeleton_without_keypoints = primitives.Skeleton(keypoints=[], class_name="pose", edges=edges)
-    assert np.array_equal(skeleton_without_keypoints.draw(image), image), "Expected an unchanged image"
+    skeleton_without_keypoints = primitives.Skeleton(keypoints=[], class_name="pose")
+    image_drawn = skeleton_without_keypoints.draw(image, task=task)
+    assert np.array_equal(image_drawn, image), "Expected an unchanged image"
 
     keypoint = primitives.KeyPoint(point=primitives.Point(x=0.5, y=0.5), class_name="a", class_idx=0)
-    skeleton_missing_keypoint = primitives.Skeleton(keypoints=[keypoint], class_name="pose", edges=edges)
-    assert not np.array_equal(skeleton_missing_keypoint.draw(image), image), "Expected the keypoint to be drawn"
+    skeleton_missing_keypoint = primitives.Skeleton(keypoints=[keypoint], class_name="pose")
+    image_drawn = skeleton_missing_keypoint.draw(image, task=task)
+    assert not np.array_equal(image_drawn, image), "Expected the keypoint to be drawn"
+
+    # Without a task there is no skeleton template and therefore no edges
+    keypoints = [keypoint, primitives.KeyPoint(point=primitives.Point(x=0.9, y=0.9), class_name="b", class_idx=1)]
+    skeleton = primitives.Skeleton(keypoints=keypoints, class_name="pose")
+    assert not np.array_equal(skeleton.draw(image, task=task), skeleton.draw(image)), "Expected edges only with a task"
+
+
+def test_draw_skeleton_edges_only_with_tasks(encord_dataset_tiny: HafniaDataset):
+    """Edges are only drawn when the tasks - and therefore the skeleton template - are provided."""
+    encord_dataset_tiny = encord_dataset_tiny.copy()  # This is Session scoped fixture - copy to not affect other tests
+    sample = Sample(**encord_dataset_tiny[0])
+    sample.classifications = None  # Classifications add a text banner below the image
+    blank_image = np.zeros((sample.height, sample.width, 3), dtype=np.uint8)
+
+    image_keypoints_only = sample.draw_annotations(image=blank_image)
+    image_with_edges = sample.draw_annotations(image=blank_image, tasks=encord_dataset_tiny.info.tasks)
+
+    assert not np.array_equal(image_keypoints_only, image_with_edges), "Expected edges to be drawn with tasks"
+    n_pixels_keypoints_only = int((image_keypoints_only > 0).sum())
+    n_pixels_with_edges = int((image_with_edges > 0).sum())
+    assert n_pixels_with_edges > n_pixels_keypoints_only, "Expected the drawn edges to add pixels"
 
 
 def test_parse_encord_date_field():

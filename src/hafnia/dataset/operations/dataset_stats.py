@@ -9,8 +9,8 @@ from rich.table import Table
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, SplitName, VideoInfoField
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample
-from hafnia.dataset.operations.table_transformations import FIELD_EDGES, create_primitive_table
-from hafnia.dataset.primitives import PRIMITIVE_TYPES, Skeleton, SkeletonEdge, SkeletonTemplate
+from hafnia.dataset.operations.table_transformations import create_primitive_table
+from hafnia.dataset.primitives import PRIMITIVE_TYPES, Skeleton, SkeletonTemplate
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
 
@@ -347,9 +347,8 @@ def check_dataset_skeletons(dataset: HafniaDataset):
 
     Each class of a `Skeleton` task must define a `ClassInfo.skeleton` template. The template is the
     canonical definition of the class, so the keypoints of each annotation must match the keypoint
-    names and ordering of the template and the edges of each annotation - which are a denormalized
-    copy of the template - must match the edges of the template. Also rejects template edges that
-    reference a non-existing keypoint. Raises `ValueError` on the first violation found.
+    names and ordering of the template. Also rejects template edges that reference a non-existing
+    keypoint. Raises `ValueError` on the first violation found.
     """
     for task in dataset.info.tasks:
         if task.primitive is not Skeleton:
@@ -437,56 +436,6 @@ def check_dataset_skeletons(dataset: HafniaDataset):
                     msg_task + f"a keypoint of class '{class_name}' with index '{keypoint_index}' is named "
                     f"'{row['keypoint_name']}', but the skeleton template expects "
                     f"'{keypoint_names[keypoint_index]}'. Template keypoints: {keypoint_names}."
-                )
-
-        # Check that stored edges match the template. Edges are optional, so only check the ones present
-        edge_fields = {field.name: field.dtype for field in dataset.samples.schema[column_name].inner.fields}
-        has_edges = FIELD_EDGES in edge_fields and edge_fields[FIELD_EDGES] != pl.Null
-        if not has_edges:
-            continue
-
-        stored_edges = skeletons.filter(pl.col(FIELD_EDGES).is_not_null())
-        if stored_edges.is_empty():
-            continue
-
-        # Check the number of edges per annotation
-        edge_counts = stored_edges.select(
-            pl.col(PrimitiveField.CLASS_NAME),
-            pl.col(FIELD_EDGES).list.len().alias("n_edges"),
-        ).unique()
-        for row in edge_counts.iter_rows(named=True):
-            class_name = row[PrimitiveField.CLASS_NAME]
-            if class_name not in templates:
-                continue  # Undefined class names are reported by 'check_dataset_tasks'
-            n_edges_expected = len(templates[class_name].edges)
-            if row["n_edges"] != n_edges_expected:
-                raise ValueError(
-                    msg_task + f"an annotation of class '{class_name}' has {row['n_edges']} edges, but the "
-                    f"skeleton template defines {n_edges_expected} edges. The edges of an annotation are a "
-                    "denormalized copy of the template edges and are expected to be identical."
-                )
-
-        # Check the edges themselves. The unique set is small (one row per class and edge)
-        edges = (
-            stored_edges.select(pl.col(PrimitiveField.CLASS_NAME), pl.col(FIELD_EDGES))
-            .explode(FIELD_EDGES)
-            .select(
-                pl.col(PrimitiveField.CLASS_NAME),
-                pl.col(FIELD_EDGES).struct.field("index_start"),
-                pl.col(FIELD_EDGES).struct.field("index_end"),
-            )
-            .unique()
-        )
-        for row in edges.iter_rows(named=True):
-            class_name = row[PrimitiveField.CLASS_NAME]
-            if class_name not in templates:
-                continue  # Undefined class names are reported by 'check_dataset_tasks'
-            edge = SkeletonEdge(index_start=row["index_start"], index_end=row["index_end"])
-            if edge not in templates[class_name].edges:
-                raise ValueError(
-                    msg_task + f"an annotation of class '{class_name}' has the edge "
-                    f"({edge.index_start}, {edge.index_end}), which is not defined in the skeleton template. "
-                    f"Template edges: {[(e.index_start, e.index_end) for e in templates[class_name].edges]}."
                 )
 
 

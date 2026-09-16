@@ -17,6 +17,7 @@ from hafnia.dataset.primitives.utils import (
 )
 
 if TYPE_CHECKING:
+    from hafnia.dataset.hafnia_dataset_types import TaskInfo
     from hafnia.dataset.primitives import Bbox, Classification, Polygon
 
 
@@ -121,7 +122,14 @@ class Bitmask(Primitive):
         mask = coco_mask.decode(self.to_coco_rle(img_height=img_height, img_width=img_width)) > 0
         return mask
 
-    def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
+    def draw(
+        self,
+        image: np.ndarray,
+        inplace: bool = False,
+        draw_label: bool = True,
+        *,
+        task: Optional["TaskInfo"] = None,
+    ) -> np.ndarray:
         if not inplace:
             image = image.copy()
         if image.ndim == 2:  # for grayscale/monochromatic images

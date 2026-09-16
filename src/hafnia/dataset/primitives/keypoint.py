@@ -10,6 +10,7 @@ from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import class_color_by_name, get_class_name
 
 if TYPE_CHECKING:
+    from hafnia.dataset.hafnia_dataset_types import TaskInfo
     from hafnia.dataset.primitives import Classification
 
 
@@ -54,7 +55,14 @@ class KeyPoint(Primitive):
     ) -> Tuple[Any, Any]:
         return self.point.to_pixel_coordinates(image_shape=image_shape, as_int=as_int, clip_values=clip_values)
 
-    def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
+    def draw(
+        self,
+        image: np.ndarray,
+        inplace: bool = False,
+        draw_label: bool = True,
+        *,
+        task: Optional["TaskInfo"] = None,
+    ) -> np.ndarray:
         if not inplace:
             image = image.copy()
         x, y = self.to_pixel_coordinates(image_shape=image.shape[:2])

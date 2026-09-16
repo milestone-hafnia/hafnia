@@ -468,11 +468,10 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
                         # Keypoints are keyed by their index in the skeleton template e.g. {"0": {...}, "1": {...}}
                         for point_index, point in sorted(encord_primitive_data.items(), key=lambda item: int(item[0]))
                     ]
+                    # The edges between keypoints are defined per class by 'ClassInfo.skeleton'
                     sample.skeletons.append(
                         Skeleton(
                             keypoints=skeleton_keypoints,
-                            # Denormalized copy of the template edges to keep drawing self-contained
-                            edges=class_info.skeleton.edges if class_info.skeleton else None,
                             object_id=object_hash,
                             class_name=class_name,
                             class_idx=class_idx,

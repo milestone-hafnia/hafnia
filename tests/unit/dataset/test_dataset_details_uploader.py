@@ -124,7 +124,7 @@ def test_create_gallery_images_uses_filename_only(
     file_path: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Gallery images must be saved using only the filename regardless of path style."""
-    monkeypatch.setattr(Sample, "draw_annotations", lambda _: np.zeros((10, 10, 3), dtype=np.uint8))
+    monkeypatch.setattr(Sample, "draw_annotations", lambda _, **kwargs: np.zeros((10, 10, 3), dtype=np.uint8))
 
     samples = pl.DataFrame(
         {

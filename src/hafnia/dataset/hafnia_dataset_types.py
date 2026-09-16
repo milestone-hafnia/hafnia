@@ -871,13 +871,25 @@ class Sample(BaseModel):
             raise ValueError(f"Unsupported storage format: {self.storage_format}")
         return image
 
-    def draw_annotations(self, image: Optional[np.ndarray] = None) -> np.ndarray:
+    def draw_annotations(
+        self,
+        image: Optional[np.ndarray] = None,
+        tasks: Optional[List["TaskInfo"]] = None,
+    ) -> np.ndarray:
+        """Draw the annotations of the sample on an image.
+
+        Args:
+            image: Image to draw on. Defaults to the image of the sample.
+            tasks: Optional dataset tasks ('dataset.info.tasks'). Required to draw the edges of
+                `Skeleton` annotations, as the edges are defined per class by the skeleton template
+                of the task. Without tasks, only the keypoints of a skeleton are drawn.
+        """
         from hafnia.dataset import image_visualizations
 
         if image is None:
             image = self.read_image()
         annotations = self.get_primitives()
-        annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations)
+        annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations, tasks=tasks)
         return annotations_visualized
 
 

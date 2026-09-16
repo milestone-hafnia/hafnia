@@ -1026,9 +1026,6 @@ class HafniaDataset:
 def _dataset_corrections(samples: pl.DataFrame, dataset_info: DatasetInfo) -> Tuple[pl.DataFrame, DatasetInfo]:
     format_version_of_dataset = Version(dataset_info.format_version)
 
-    # Skeleton edges are a denormalized copy of the class template and are filled in when missing
-    samples = table_transformations.fill_skeleton_edges_from_tasks(samples, dataset_info.tasks)
-
     ## Backwards compatibility fixes for older dataset versions
     if format_version_of_dataset < Version("0.2.0"):
         samples = table_transformations.add_dataset_name_if_missing(samples, dataset_info.dataset_name)
