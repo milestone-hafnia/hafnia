@@ -9,7 +9,7 @@ from hafnia.dataset.dataset_names import (
 )
 from hafnia.dataset.hafnia_dataset_types import TaskInfo
 from hafnia.dataset.operations import table_transformations
-from hafnia.dataset.primitives import PRIMITIVE_TYPES, Classification
+from hafnia.dataset.primitives import PRIMITIVE_TYPES, Classification, Skeleton, SkeletonEdge
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
@@ -331,6 +331,74 @@ def update_class_indices(samples: pl.DataFrame, task: TaskInfo) -> pl.DataFrame:
     )
 
     return samples_updated
+
+
+EDGE_DTYPE = pl.Struct({"index_start": pl.Int64, "index_end": pl.Int64})
+FIELD_EDGES = "edges"
+
+
+def _edges_as_literal(edges: List[SkeletonEdge]) -> pl.Expr:
+    """Build a 'List(Struct)' literal expression for a list of skeleton edges."""
+    if len(edges) == 0:
+        return pl.lit(None, dtype=pl.List(EDGE_DTYPE))
+    return pl.concat_list(
+        [
+            pl.struct(
+                index_start=pl.lit(edge.index_start, dtype=pl.Int64),
+                index_end=pl.lit(edge.index_end, dtype=pl.Int64),
+            )
+            for edge in edges
+        ]
+    )
+
+
+def fill_skeleton_edges_from_tasks(samples: pl.DataFrame, tasks: List[TaskInfo]) -> pl.DataFrame:
+    """Fill missing `Skeleton.edges` from the skeleton template of the class ('ClassInfo.skeleton').
+
+    The edges of a `Skeleton` annotation are a denormalized copy of the class template, so that
+    drawing a skeleton doesn't require the dataset. This function populates them for datasets that
+    were created without edges, e.g. custom datasets ("bring your own data").
+
+    Without this, an 'edges' field of dtype 'Null' (all edges are 'None') is dropped from *both*
+
+    sample_dict = dataset[0]
+    datasets by `merge_samples`, silently removing the edges of the other dataset. Existing edges are
+    never overwritten - use `check_dataset_skeletons` to detect edges that contradict the template.
+    """
+    column_name = Skeleton.column_name()
+    skeleton_tasks = [task for task in tasks if task.primitive is Skeleton]
+    if len(skeleton_tasks) == 0 or column_name not in samples.columns:
+        return samples
+
+    struct_fields = {field.name: field.dtype for field in samples.schema[column_name].inner.fields}
+    has_edges = FIELD_EDGES in struct_fields and struct_fields[FIELD_EDGES] != pl.Null
+    if has_edges:
+        edges_expr = pl.element().struct.field(FIELD_EDGES)
+        is_missing = edges_expr.is_null()
+    else:  # The 'edges' field is missing or of dtype 'Null', so all edges are missing
+        edges_expr = pl.lit(None, dtype=pl.List(EDGE_DTYPE))
+        is_missing = pl.lit(True)
+
+    new_edges_expr = edges_expr
+    for task in skeleton_tasks:
+        for class_info in task.classes or []:
+            if class_info.skeleton is None:
+                continue
+            is_task_class = (pl.element().struct.field(PrimitiveField.TASK_NAME) == task.name) & (
+                pl.element().struct.field(PrimitiveField.CLASS_NAME) == class_info.name
+            )
+            new_edges_expr = (
+                pl.when(is_missing & is_task_class)
+                .then(_edges_as_literal(class_info.skeleton.edges))
+                .otherwise(new_edges_expr)
+            )
+
+    if new_edges_expr is edges_expr:  # No templates defined, so nothing to fill
+        return samples
+
+    return samples.with_columns(
+        pl.col(column_name).list.eval(pl.element().struct.with_fields(new_edges_expr.alias(FIELD_EDGES)))
+    )
 
 
 def add_sample_index(samples: pl.DataFrame) -> pl.DataFrame:

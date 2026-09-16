@@ -1,12 +1,23 @@
-from typing import List, Type
+from typing import List, Optional, Type
 
 import polars as pl
 import pytest
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import ClassInfo, DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.operations.table_transformations import unnest_classification_tasks
-from hafnia.dataset.primitives import Bbox, Bitmask, Classification
+from hafnia.dataset.primitives import (
+    Bbox,
+    Bitmask,
+    Classification,
+    KeyPoint,
+    Point,
+    Skeleton,
+    SkeletonEdge,
+    SkeletonTemplate,
+)
 from hafnia.dataset.primitives.primitive import Primitive
 from tests import helper_testing
 
@@ -138,3 +149,43 @@ def test_merge_samples_drops_primitive_column_without_shared_fields():
 
     assert Bbox.column_name() not in merged.columns
     assert len(merged) == 2
+
+
+def get_skeleton_dataset(edges: Optional[List[SkeletonEdge]], dataset_name: str) -> HafniaDataset:
+    """Dataset with a single skeleton annotation. Pass 'edges=None' to skip the denormalized edges."""
+    template = SkeletonTemplate(keypoint_names=["a", "b"], edges=[SkeletonEdge(index_start=0, index_end=1)])
+    task = TaskInfo(primitive=Skeleton, classes=[ClassInfo(name="pose", skeleton=template)])
+    keypoints = [
+        KeyPoint(point=Point(x=0.1, y=0.2), class_name="a", class_idx=0),
+        KeyPoint(point=Point(x=0.3, y=0.4), class_name="b", class_idx=1),
+    ]
+    skeleton = Skeleton(keypoints=keypoints, class_name="pose", class_idx=0, edges=edges)
+    sample = Sample(file_path="image.jpg", height=10, width=10, split="train", skeletons=[skeleton])
+    return HafniaDataset.from_samples_list([sample], info=DatasetInfo(dataset_name=dataset_name, tasks=[task]))
+
+
+def get_stored_edges(dataset: HafniaDataset) -> List:
+    return dataset.samples[Skeleton.column_name()].explode().struct.field("edges").to_list()
+
+
+def test_fill_skeleton_edges_from_tasks():
+    # Edges are not provided, so they are filled from the skeleton template of the class
+    dataset = get_skeleton_dataset(edges=None, dataset_name="filled")
+    assert get_stored_edges(dataset) == [[{"index_start": 0, "index_end": 1}]]
+
+    struct_fields = {f.name: f.dtype for f in dataset.samples.schema[Skeleton.column_name()].inner.fields}
+    assert struct_fields["edges"] != pl.Null, "Expected a typed 'edges' field to avoid field removal during merge"
+
+    dataset.check_dataset(check_splits=False)
+
+
+def test_merge_keeps_skeleton_edges():
+    """Edges of dtype 'Null' are dropped for both datasets during merge, so they are filled beforehand."""
+    template_edges = [SkeletonEdge(index_start=0, index_end=1)]
+    dataset_with_edges = get_skeleton_dataset(edges=template_edges, dataset_name="with_edges")
+    dataset_without_edges = get_skeleton_dataset(edges=None, dataset_name="without_edges")
+
+    merged = HafniaDataset.merge(dataset_with_edges, dataset_without_edges)
+    assert len(merged) == 2
+    assert get_stored_edges(merged) == [[{"index_start": 0, "index_end": 1}]] * 2
+    merged.check_dataset(check_splits=False)

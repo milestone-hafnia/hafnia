@@ -8,8 +8,10 @@ from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
     Classification,
+    KeyPoint,
     Polygon,
     Segmentation,
+    Skeleton,
 )
 from hafnia.dataset.primitives.primitive import Primitive
 
@@ -58,7 +60,7 @@ def draw_annotations(
     if not inplace:
         image = image.copy()
     draw_settings = draw_settings or {}
-    primitives_order = [Segmentation, Bitmask, Bbox, Polygon, Classification]
+    primitives_order = [Segmentation, Bitmask, Bbox, Polygon, Skeleton, KeyPoint, Classification]
     primitives = sorted(primitives, key=lambda x: primitives_order.index(type(x)))
     for primitive in primitives:
         draw_settings_for_primitive = draw_settings.get(type(primitive), {})

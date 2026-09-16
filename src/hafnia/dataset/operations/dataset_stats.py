@@ -8,9 +8,9 @@ from rich import print as rprint
 from rich.table import Table
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, SplitName, VideoInfoField
-from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.operations.table_transformations import create_primitive_table
-from hafnia.dataset.primitives import PRIMITIVE_TYPES
+from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample
+from hafnia.dataset.operations.table_transformations import FIELD_EDGES, create_primitive_table
+from hafnia.dataset.primitives import PRIMITIVE_TYPES, Skeleton, SkeletonEdge, SkeletonTemplate
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
 
@@ -290,7 +290,8 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
     """Run integrity checks on a dataset and raise on the first violation found.
 
     Verifies that the dataset name is non-empty, that `info.tasks` is consistent with the
-    primitive columns in `samples` (delegates to `check_dataset_tasks`), and — when
+    primitive columns in `samples` (delegates to `check_dataset_tasks`), that skeleton
+    annotations match their skeleton template (delegates to `check_dataset_skeletons`), and — when
     `check_splits=True` — that a sample subset exists and that every required split is present.
     Each `Sample` is also instantiated as a sanity check on the row schema.
 
@@ -315,6 +316,7 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
             raise ValueError(f"Expected all splits '{required_splits}' in dataset, but got '{actual_splits}'. ")
 
     dataset.check_dataset_tasks()
+    dataset.check_dataset_skeletons()
 
     expected_tasks = dataset.info.tasks
     # Check that tasks found in the 'dataset.samples' matches the tasks defined in 'dataset.info.tasks'
@@ -338,6 +340,148 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
 
     for sample_dict in progress_bar(dataset, description="Checking samples in dataset"):
         sample = Sample(**sample_dict)  # noqa: F841
+
+
+def check_dataset_skeletons(dataset: HafniaDataset):
+    """Verify that `Skeleton` annotations in `dataset.samples` match the skeleton template of their class.
+
+    Each class of a `Skeleton` task must define a `ClassInfo.skeleton` template. The template is the
+    canonical definition of the class, so the keypoints of each annotation must match the keypoint
+    names and ordering of the template and the edges of each annotation - which are a denormalized
+    copy of the template - must match the edges of the template. Also rejects template edges that
+    reference a non-existing keypoint. Raises `ValueError` on the first violation found.
+    """
+    for task in dataset.info.tasks:
+        if task.primitive is not Skeleton:
+            continue
+
+        msg_task = (
+            f"Something is wrong with the '{task.primitive.__name__}' task '{task.name}' in dataset "
+            f"'{dataset.info.dataset_name}'. \n"
+        )
+        templates: Dict[str, SkeletonTemplate] = {}
+        for class_info in task.classes or []:
+            template = class_info.skeleton
+            if template is None:
+                raise ValueError(
+                    msg_task + f"the class '{class_info.name}' has no skeleton template defined in "
+                    f"'{ClassInfo.__name__}.skeleton'. A skeleton template is required to define the "
+                    "keypoint names and the edges between keypoints."
+                )
+            n_keypoints = len(template.keypoint_names)
+            for edge in template.edges:
+                for keypoint_index in [edge.index_start, edge.index_end]:
+                    if not 0 <= keypoint_index < n_keypoints:
+                        raise ValueError(
+                            msg_task + f"an edge of the skeleton template for class '{class_info.name}' is "
+                            f"referencing the non-existing keypoint index '{keypoint_index}'. The template "
+                            f"defines {n_keypoints} keypoints: {template.keypoint_names}."
+                        )
+            templates[class_info.name] = template
+
+        column_name = task.primitive.column_name()
+        if len(dataset) == 0 or column_name not in dataset.samples.columns:
+            continue  # Missing columns are reported by 'check_dataset_tasks'
+
+        skeletons = (
+            dataset.samples[column_name].explode().struct.unnest().filter(pl.col(PrimitiveField.TASK_NAME) == task.name)
+        )
+        if skeletons.is_empty():
+            continue
+
+        # Check keypoint counts. Expected to be the same for all annotations of a class
+        keypoint_counts = skeletons.select(
+            pl.col(PrimitiveField.CLASS_NAME),
+            pl.col(SampleField.KEYPOINTS).list.len().alias("n_keypoints"),
+        ).unique()
+        for row in keypoint_counts.iter_rows(named=True):
+            class_name = row[PrimitiveField.CLASS_NAME]
+            if class_name not in templates:
+                continue  # Undefined class names are reported by 'check_dataset_tasks'
+            n_keypoints_expected = len(templates[class_name].keypoint_names)
+            if row["n_keypoints"] != n_keypoints_expected:
+                raise ValueError(
+                    msg_task + f"an annotation of class '{class_name}' has {row['n_keypoints']} keypoints, but the "
+                    f"skeleton template defines {n_keypoints_expected} keypoints: "
+                    f"{templates[class_name].keypoint_names}."
+                )
+
+        # Check keypoint names and ordering. The unique set is small (one row per class and keypoint)
+        keypoints = (
+            skeletons.select(
+                pl.col(PrimitiveField.CLASS_NAME),
+                pl.col(SampleField.KEYPOINTS),
+            )
+            .explode(SampleField.KEYPOINTS)
+            .select(
+                pl.col(PrimitiveField.CLASS_NAME),
+                pl.col(SampleField.KEYPOINTS).struct.field(PrimitiveField.CLASS_IDX).alias("keypoint_index"),
+                pl.col(SampleField.KEYPOINTS).struct.field(PrimitiveField.CLASS_NAME).alias("keypoint_name"),
+            )
+            .unique()
+        )
+        for row in keypoints.iter_rows(named=True):
+            class_name = row[PrimitiveField.CLASS_NAME]
+            if class_name not in templates:
+                continue  # Undefined class names are reported by 'check_dataset_tasks'
+            keypoint_names = templates[class_name].keypoint_names
+            keypoint_index = row["keypoint_index"]
+            if keypoint_names[keypoint_index] != row["keypoint_name"]:
+                raise ValueError(
+                    msg_task + f"a keypoint of class '{class_name}' with index '{keypoint_index}' is named "
+                    f"'{row['keypoint_name']}', but the skeleton template expects "
+                    f"'{keypoint_names[keypoint_index]}'. Template keypoints: {keypoint_names}."
+                )
+
+        # Check that stored edges match the template. Edges are optional, so only check the ones present
+        edge_fields = {field.name: field.dtype for field in dataset.samples.schema[column_name].inner.fields}
+        has_edges = FIELD_EDGES in edge_fields and edge_fields[FIELD_EDGES] != pl.Null
+        if not has_edges:
+            continue
+
+        stored_edges = skeletons.filter(pl.col(FIELD_EDGES).is_not_null())
+        if stored_edges.is_empty():
+            continue
+
+        # Check the number of edges per annotation
+        edge_counts = stored_edges.select(
+            pl.col(PrimitiveField.CLASS_NAME),
+            pl.col(FIELD_EDGES).list.len().alias("n_edges"),
+        ).unique()
+        for row in edge_counts.iter_rows(named=True):
+            class_name = row[PrimitiveField.CLASS_NAME]
+            if class_name not in templates:
+                continue  # Undefined class names are reported by 'check_dataset_tasks'
+            n_edges_expected = len(templates[class_name].edges)
+            if row["n_edges"] != n_edges_expected:
+                raise ValueError(
+                    msg_task + f"an annotation of class '{class_name}' has {row['n_edges']} edges, but the "
+                    f"skeleton template defines {n_edges_expected} edges. The edges of an annotation are a "
+                    "denormalized copy of the template edges and are expected to be identical."
+                )
+
+        # Check the edges themselves. The unique set is small (one row per class and edge)
+        edges = (
+            stored_edges.select(pl.col(PrimitiveField.CLASS_NAME), pl.col(FIELD_EDGES))
+            .explode(FIELD_EDGES)
+            .select(
+                pl.col(PrimitiveField.CLASS_NAME),
+                pl.col(FIELD_EDGES).struct.field("index_start"),
+                pl.col(FIELD_EDGES).struct.field("index_end"),
+            )
+            .unique()
+        )
+        for row in edges.iter_rows(named=True):
+            class_name = row[PrimitiveField.CLASS_NAME]
+            if class_name not in templates:
+                continue  # Undefined class names are reported by 'check_dataset_tasks'
+            edge = SkeletonEdge(index_start=row["index_start"], index_end=row["index_end"])
+            if edge not in templates[class_name].edges:
+                raise ValueError(
+                    msg_task + f"an annotation of class '{class_name}' has the edge "
+                    f"({edge.index_start}, {edge.index_end}), which is not defined in the skeleton template. "
+                    f"Template edges: {[(e.index_start, e.index_end) for e in templates[class_name].edges]}."
+                )
 
 
 def check_dataset_tasks(dataset: HafniaDataset):

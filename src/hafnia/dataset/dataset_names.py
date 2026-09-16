@@ -64,6 +64,8 @@ class SampleField:
     BBOXES: str = "bboxes"
     BITMASKS: str = "bitmasks"
     POLYGONS: str = "polygons"
+    KEYPOINTS: str = "keypoints"
+    SKELETONS: str = "skeletons"
 
     STORAGE_FORMAT: str = "storage_format"  # E.g. "image", "video", "zip"
     COLLECTION_INDEX: str = "collection_index"

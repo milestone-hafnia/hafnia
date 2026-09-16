@@ -14,6 +14,7 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import Bbox, Bitmask, Classification, Polygon, Segmentation
 from hafnia.utils import is_hafnia_configured
+from tests.helper_testing import is_matching_dataset_format_version
 from tests.helper_testing_datasets import SUPPORTED_DATASETS
 
 FORCE_REDOWNLOAD = False  # Set to True to force re-download of datasets. (Set to False before committing)
@@ -38,8 +39,9 @@ def loaded_dataset(request) -> Dict[str, Any]:
 
     # We skip tests for datasets that doesn't match the current format version.
     # We do this to have working tests and maintain successful CI/CD pipeline runs,
-    # while datasets are being updated.
-    is_old_format = dataset.info.format_version != hafnia.__dataset_format_version__
+    # while datasets are being updated. Patch versions are backwards compatible, so tests are
+    # only skipped when the major or minor version of the dataset format differs.
+    is_old_format = not is_matching_dataset_format_version(dataset.info.format_version, ignore_patch_version=True)
     if is_old_format and (not RUN_ON_OLD_DATASETS):
         pytest.skip(
             f"Dataset format version {dataset.info.format_version} is behind "

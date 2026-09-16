@@ -28,7 +28,10 @@ from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
     Classification,
+    KeyPoint,
     Polygon,
+    Skeleton,
+    SkeletonTemplate,
     get_primitive_type_from_string,
 )
 from hafnia.dataset.primitives.primitive import Primitive
@@ -38,6 +41,13 @@ from hafnia.log import user_logger
 class ClassInfo(BaseModel):
     name: str = Field(description="Name of the class")
     attributes: Optional[List["TaskInfo"]] = None
+    skeleton: Optional[SkeletonTemplate] = Field(
+        default=None,
+        description=(
+            "Keypoints and edges for classes of the 'Skeleton' primitive. "
+            "Defines the keypoint names/order and the edges between keypoints of e.g. a human pose"
+        ),
+    )
 
     @staticmethod
     def from_encord_option_dict(option_dict: Dict, parent_primitive: Type[Primitive]) -> "ClassInfo":
@@ -142,9 +152,11 @@ class TaskInfo(BaseModel):
         """
         from hafnia.dataset.format_conversions.format_encord import (
             primitive_from_encord_shape_name,
+            skeleton_templates_from_encord_ontology_dict,
         )
 
         tasks = []
+        skeleton_templates = skeleton_templates_from_encord_ontology_dict(ontology_dict)
 
         # Group objects by their primitive type
         objects_by_primitive = collections.defaultdict(list)
@@ -174,6 +186,8 @@ class TaskInfo(BaseModel):
                     ClassInfo(
                         name=class_name,
                         attributes=class_attributes if class_attributes else None,
+                        # Only classes of the 'Skeleton' primitive have a skeleton template
+                        skeleton=skeleton_templates.get(obj_dict["featureNodeHash"]),
                     )
                 )
 
@@ -749,6 +763,8 @@ class Sample(BaseModel):
     bboxes: Optional[List[Bbox]] = Field(default=None, description="Optional list of bounding boxes")
     bitmasks: Optional[List[Bitmask]] = Field(default=None, description="Optional list of bitmasks")
     polygons: Optional[List[Polygon]] = Field(default=None, description="Optional list of polygons")
+    keypoints: Optional[List[KeyPoint]] = Field(default=None, description="Optional list of keypoints")
+    skeletons: Optional[List[Skeleton]] = Field(default=None, description="Optional list of skeletons")
 
     attribution: Optional[Attribution] = Field(default=None, description="Attribution information for the image")
     dataset_name: Optional[str] = Field(
