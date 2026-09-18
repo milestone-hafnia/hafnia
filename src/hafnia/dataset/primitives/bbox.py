@@ -18,7 +18,7 @@ from hafnia.dataset.primitives.utils import (
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset_types import TaskInfo
-    from hafnia.dataset.primitives import Bitmask, Classification, Polygon
+    from hafnia.dataset.primitives import Bitmask, Classification, KeyPoint, Polygon, Skeleton
 
 
 class Bbox(Primitive):
@@ -55,6 +55,8 @@ class Bbox(Primitive):
     classifications: Optional[List["Classification"]] = None
     polygons: Optional[List["Polygon"]] = None
     bitmasks: Optional[List["Bitmask"]] = None
+    skeletons: Optional[List["Skeleton"]] = None
+    keypoints: Optional[List["KeyPoint"]] = None
 
     @staticmethod
     def default_task_name() -> str:

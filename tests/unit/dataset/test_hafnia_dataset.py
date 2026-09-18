@@ -15,6 +15,7 @@ from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.primitives import Classification
 from tests.helper_testing import (
     get_hafnia_functions_from_module,
+    get_micro_hafnia_dataset,
 )
 
 
@@ -220,3 +221,20 @@ def test_dataset_format_version_is_newer_warning():
         mock_warning.assert_called_once()
         call_args = mock_warning.call_args[0][0]  # Get the first argument (message)
         assert "Please consider updating Hafnia package" in call_args
+
+
+def test_define_sample_set_by_size_validation_exceptions():
+    dataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")
+    n_dataset_samples = len(dataset)
+
+    # Use case 1: A negative number of samples is not allowed
+    with pytest.raises(ValueError, match="must be a positive number of samples"):
+        dataset.define_sample_set_by_size(n_samples=-1)
+
+    # Use case 2: More samples than the dataset contains is not allowed
+    with pytest.raises(ValueError, match="exceeds the number of samples in the dataset"):
+        dataset.define_sample_set_by_size(n_samples=n_dataset_samples + 1)
+
+    # Use case 3: Tagging all samples of the dataset is allowed
+    dataset_all_tagged = dataset.define_sample_set_by_size(n_samples=n_dataset_samples)
+    assert len(dataset_all_tagged.create_sample_dataset()) == n_dataset_samples

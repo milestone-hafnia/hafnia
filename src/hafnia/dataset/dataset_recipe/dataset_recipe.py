@@ -426,8 +426,38 @@ class DatasetRecipe(Serializable):
     ) -> DatasetRecipe:
         """Append a class-renaming/grouping operation to the recipe.
 
-        Recipe equivalent of `HafniaDataset.class_mapper`. See that method's docstring for the
-        semantics of `method`, `primitive` and `task_name`.
+        Recipe equivalent of `HafniaDataset.class_mapper`. Renames class names of a single task,
+        optionally merging several old classes into one new class. Class indices are determined by
+        the order of first appearance of the new class names in `class_mapping`, so the mapping
+        order matters. Mapping a class to ``"__REMOVE__"`` (`dataset_names.OPS_REMOVE_CLASS`) drops
+        those annotations and the class itself.
+
+        Keys may use ``*`` as a wildcard (e.g. ``{"Vehicle.*": "Vehicle"}`` maps both
+        ``"Vehicle.Car"`` and ``"Vehicle.Bus"`` to ``"Vehicle"``). An exact key always wins over a
+        wildcard key. Keys that match no class name in the task raise an error.
+
+        Args:
+            class_mapping: Mapping of old class name -> new class name, either as a dict or as an
+                ordered list of ``(old_name, new_name)`` tuples. The list form is what gets stored
+                when the recipe is serialized, because JSON objects do not preserve field order in
+                a database.
+            method: How to treat class names of the task that the mapping does not cover:
+
+                - ``"strict"`` (default): every existing class name must appear in the mapping.
+                  Raises a `ValueError` listing the unmapped classes otherwise. Safest option, as
+                  adding classes to the source dataset makes the recipe fail loudly instead of
+                  silently dropping or keeping data.
+                - ``"remove_undefined"``: unmapped classes are mapped to ``"__REMOVE__"``, i.e.
+                  their annotations are deleted and the classes are removed from the task. Use this
+                  to keep only an explicit subset of classes.
+                - ``"keep_undefined"``: unmapped classes are mapped to themselves and keep their
+                  current names. Use this to rename or merge a few classes and pass the rest
+                  through untouched. Note that the untouched classes are appended after the mapped
+                  ones, so their class indices may change.
+            primitive: Primitive type of the task to remap (e.g. `Bbox`, `Classification`). May be
+                omitted when the `task_name` identifies exactly one task.
+            task_name: Name of the task to remap. May be omitted when `primitive` identifies
+                exactly one task. If both are omitted, the dataset must contain exactly one task.
         """
         operation = recipe_transforms.ClassMapper(
             class_mapping=class_mapping,
@@ -507,6 +537,11 @@ class DatasetRecipe(Serializable):
     @field_validator("creation", mode="plain")
     @classmethod
     def validate_creation(cls, creation: Union[Dict, RecipeCreation]) -> RecipeCreation:
+        """Validate the `creation` field, deserializing a dict into its concrete `RecipeCreation` subclass.
+
+        Raises:
+            TypeError: If the value is not (and does not deserialize into) a `RecipeCreation`.
+        """
         if isinstance(creation, dict):
             creation = Serializable.from_dict(creation)  # type: ignore[assignment]
         if not isinstance(creation, RecipeCreation):
@@ -515,11 +550,17 @@ class DatasetRecipe(Serializable):
 
     @field_serializer("creation")
     def serialize_creation(self, creation: RecipeCreation) -> dict:
+        """Serialize the creation step to a dictionary (including its `__class__` discriminator)."""
         return creation.model_dump()
 
     @field_validator("operations", mode="plain")
     @classmethod
     def validate_operation(cls, operations: List[Union[Dict, RecipeTransform]]) -> List[RecipeTransform]:
+        """Validate the `operations` field, deserializing dicts into their concrete `RecipeTransform` subclasses.
+
+        Raises:
+            TypeError: If an entry is not (and does not deserialize into) a `RecipeTransform`.
+        """
         if operations is None:
             return None
         validated_operations = []

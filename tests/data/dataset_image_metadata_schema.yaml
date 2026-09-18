@@ -109,6 +109,14 @@ $defs:
           image height) as a fraction of image height
         title: Height
         type: number
+      keypoints:
+        anyOf:
+        - items:
+            $ref: '#/$defs/KeyPoint'
+          type: array
+        - type: 'null'
+        default: null
+        title: Keypoints
       meta:
         anyOf:
         - additionalProperties: true
@@ -132,6 +140,14 @@ $defs:
         - type: 'null'
         default: null
         title: Polygons
+      skeletons:
+        anyOf:
+        - items:
+            $ref: '#/$defs/Skeleton'
+          type: array
+        - type: 'null'
+        default: null
+        title: Skeletons
       task_name:
         default: ''
         description: Task name to support multiple Bbox tasks in the same dataset.
@@ -372,6 +388,84 @@ $defs:
         title: Updated At
     title: Classification
     type: object
+  KeyPoint:
+    properties:
+      class_idx:
+        anyOf:
+        - type: integer
+        - type: 'null'
+        default: null
+        description: Class index of the keypoint
+        title: Class Idx
+      class_name:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        description: Class name of the keypoint, e.g. 'left_eye'
+        title: Class Name
+      classifications:
+        anyOf:
+        - items:
+            $ref: '#/$defs/Classification'
+          type: array
+        - type: 'null'
+        default: null
+        title: Classifications
+      confidence:
+        default: 1.0
+        description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for KeyPoint
+        title: Confidence
+        type: number
+      created_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was created
+        title: Created At
+      ground_truth:
+        default: true
+        description: Whether this is ground truth or a prediction
+        title: Ground Truth
+        type: boolean
+      meta:
+        anyOf:
+        - additionalProperties: true
+          type: object
+        - type: 'null'
+        default: null
+        description: This can be used to store additional information about the keypoint
+        title: Meta
+      object_id:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        description: Object ID of the keypoint
+        title: Object Id
+      point:
+        $ref: '#/$defs/Point'
+        description: Normalized point (x, y) defining the keypoint location
+      task_name:
+        default: ''
+        description: Task name to support multiple KeyPoint tasks in the same dataset.
+          Defaults to 'keypoint_detection'
+        title: Task Name
+        type: string
+      updated_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was last updated
+        title: Updated At
+    required:
+    - point
+    title: KeyPoint
+    type: object
   Point:
     properties:
       x:
@@ -500,6 +594,99 @@ $defs:
     required:
     - points
     title: Polygon
+    type: object
+  Skeleton:
+    description: 'A set of connected keypoints. Used for e.g. human pose estimation
+      and face landmarks.
+
+
+      The keypoints are defined per annotation, while the edges (''bones'') between
+      keypoints are defined
+
+      once per class by the skeleton template in ''ClassInfo.skeleton'' of the dataset
+      tasks. Pass the
+
+      template to ''draw'' to also draw the edges of the skeleton.'
+    properties:
+      class_idx:
+        anyOf:
+        - type: integer
+        - type: 'null'
+        default: null
+        description: Class index of the skeleton
+        title: Class Idx
+      class_name:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        description: Class name of the skeleton, e.g. 'person_pose'
+        title: Class Name
+      classifications:
+        anyOf:
+        - items:
+            $ref: '#/$defs/Classification'
+          type: array
+        - type: 'null'
+        default: null
+        title: Classifications
+      confidence:
+        default: 1.0
+        description: Confidence score (0-1.0) for the primitive, e.g. 0.95 for Skeleton
+        title: Confidence
+        type: number
+      created_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was created
+        title: Created At
+      ground_truth:
+        default: true
+        description: Whether this is ground truth or a prediction
+        title: Ground Truth
+        type: boolean
+      keypoints:
+        description: Keypoints (vertices) of the skeleton, e.g. 'Nose' and 'LeftEye'.
+          Ordered by keypoint index
+        items:
+          $ref: '#/$defs/KeyPoint'
+        title: Keypoints
+        type: array
+      meta:
+        anyOf:
+        - additionalProperties: true
+          type: object
+        - type: 'null'
+        default: null
+        description: This can be used to store additional information about the skeleton
+        title: Meta
+      object_id:
+        anyOf:
+        - type: string
+        - type: 'null'
+        default: null
+        description: Object ID of the skeleton
+        title: Object Id
+      task_name:
+        default: ''
+        description: Task name to support multiple Skeleton tasks in the same dataset.
+          Defaults to 'pose_estimation'
+        title: Task Name
+        type: string
+      updated_at:
+        anyOf:
+        - format: date-time
+          type: string
+        - type: 'null'
+        default: null
+        description: Date when the primitive was last updated
+        title: Updated At
+    required:
+    - keypoints
+    title: Skeleton
     type: object
 description: Metadata for gallery images on the dataset detail page on portal.
 properties:
