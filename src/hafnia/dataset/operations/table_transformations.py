@@ -98,7 +98,19 @@ def merge_samples(samples0: pl.DataFrame, samples1: pl.DataFrame) -> pl.DataFram
             both_are_structs = isinstance(column0_type, pl.Struct) and isinstance(column1_type, pl.Struct)
             one_is_struct_other_is_null0 = isinstance(column0_type, pl.Struct) and column1_type == pl.Null
             one_is_struct_other_is_null1 = isinstance(column1_type, pl.Struct) and column0_type == pl.Null
-            if both_are_structs or one_is_struct_other_is_null0 or one_is_struct_other_is_null1:
+            # Field names of primitive columns are aligned by 'correction_of_list_struct_primitives' above, so
+            # remaining type differences are reconciled by the 'vertical_relaxed' concatenation below.
+            both_are_list_structs_with_same_fields = (
+                column0_type == pl.List(pl.Struct)
+                and column1_type == pl.List(pl.Struct)
+                and [f.name for f in column0_type.inner.fields] == [f.name for f in column1_type.inner.fields]
+            )
+            if (
+                both_are_structs
+                or one_is_struct_other_is_null0
+                or one_is_struct_other_is_null1
+                or both_are_list_structs_with_same_fields
+            ):
                 pass  # Keep Struct columns even if they do not match exactly.
             elif column0_type != column1_type:
                 continue
@@ -139,6 +151,11 @@ def correction_of_list_struct_primitives(
     Both columns are rebuilt from the shared fields in the field order of 'samples0'. Applying the same field order
     to both datasets is important, as struct types with identical fields in a different order are not equal and
     the column would then be dropped by 'merge_samples'.
+
+    Fields are matched by *name* and not by type. A field with the same name but a different type in the two
+    datasets is kept, as the types are reconciled by the 'vertical_relaxed' concatenation in 'merge_samples'.
+    This matters for nested annotations such as 'Skeleton.keypoints', where a field of the nested primitive
+    (e.g. an unset 'created_at' of type 'Null') would otherwise drop the whole annotation payload.
     """
     s0_column_type = samples0.schema[column_name]
     s1_column_type = samples1.schema[column_name]
@@ -149,10 +166,11 @@ def correction_of_list_struct_primitives(
 
     s0_fields = s0_column_type.inner.fields
     s1_fields = s1_column_type.inner.fields
-    s0_field_set, s1_field_set = set(s0_fields), set(s1_fields)
-    similar_fields = [field for field in s0_fields if field in s1_field_set]
-    s0_dropped_fields = [field.name for field in s0_fields if field not in s1_field_set]
-    s1_dropped_fields = [field.name for field in s1_fields if field not in s0_field_set]
+    s0_names = [field.name for field in s0_fields]
+    s1_names = [field.name for field in s1_fields]
+    similar_fields = [field for field in s0_fields if field.name in s1_names]
+    s0_dropped_fields = [name for name in s0_names if name not in s1_names]
+    s1_dropped_fields = [name for name in s1_names if name not in s0_names]
 
     if len(similar_fields) == 0:
         user_logger.warning(

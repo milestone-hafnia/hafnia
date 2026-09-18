@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -6,6 +6,9 @@ from pydantic import Field
 
 from hafnia.dataset.colors import get_n_colors
 from hafnia.dataset.primitives.primitive import Primitive
+
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
+    from hafnia.dataset.hafnia_dataset_types import TaskInfo
 from hafnia.dataset.primitives.utils import get_class_name
 
 
@@ -33,7 +36,7 @@ class Segmentation(Primitive):
     def calculate_area(self, image_height: int, image_width: int) -> float:
         raise NotImplementedError()
 
-    def draw(self, image: np.ndarray, inplace: bool = False) -> np.ndarray:
+    def draw(self, image: np.ndarray, inplace: bool = False, *, task: Optional["TaskInfo"] = None) -> np.ndarray:
         if not inplace:
             image = image.copy()
 

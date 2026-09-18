@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import numpy as np
 from pydantic import BaseModel
+
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
+    from hafnia.dataset.hafnia_dataset_types import TaskInfo
 
 
 class Primitive(BaseModel, metaclass=ABCMeta):
@@ -33,8 +36,16 @@ class Primitive(BaseModel, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def draw(self, image: np.ndarray, inplace: bool = False) -> np.ndarray:
-        pass
+    def draw(self, image: np.ndarray, inplace: bool = False, *, task: Optional[TaskInfo] = None) -> np.ndarray:
+        """Draw the primitive on an image.
+
+        Args:
+            image: Image to draw on.
+            inplace: If True, draw directly on the provided image instead of a copy.
+            task: Optional `TaskInfo` of the primitive, providing class-level information that is not
+                stored on the annotation itself. Used by `Skeleton` to draw the edges between keypoints
+                as defined by the skeleton template of the class.
+        """
 
     @abstractmethod
     def mask(

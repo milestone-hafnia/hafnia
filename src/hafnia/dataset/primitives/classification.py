@@ -1,10 +1,13 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from pydantic import Field
 
 from hafnia.dataset.primitives.primitive import Primitive
+
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
+    from hafnia.dataset.hafnia_dataset_types import TaskInfo
 from hafnia.dataset.primitives.utils import anonymize_by_resizing, get_class_name
 
 
@@ -42,7 +45,14 @@ class Classification(Primitive):
     def calculate_area(self, image_height: int, image_width: int) -> float:
         return 1.0
 
-    def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
+    def draw(
+        self,
+        image: np.ndarray,
+        inplace: bool = False,
+        draw_label: bool = True,
+        *,
+        task: Optional["TaskInfo"] = None,
+    ) -> np.ndarray:
         if draw_label is False:
             return image
         from hafnia.dataset import image_visualizations

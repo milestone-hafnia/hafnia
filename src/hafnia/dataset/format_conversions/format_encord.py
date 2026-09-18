@@ -13,10 +13,14 @@ from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
     Classification,
+    KeyPoint,
     Point,
     Polygon,
     Primitive,
     Segmentation,
+    Skeleton,
+    SkeletonEdge,
+    SkeletonTemplate,
 )
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar, title_to_name
@@ -46,6 +50,8 @@ ENCORD_NAMES = [
     EncordNaming(primitive=Bbox, encord_name="boundingBox", encord_shape_name="bounding_box"),
     EncordNaming(primitive=Bitmask, encord_name="bitmask", encord_shape_name="bitmask"),
     EncordNaming(primitive=Polygon, encord_name="polygon", encord_shape_name="polygon"),
+    EncordNaming(primitive=KeyPoint, encord_name="point", encord_shape_name="point"),
+    EncordNaming(primitive=Skeleton, encord_name="skeleton", encord_shape_name="skeleton"),
     EncordNaming(
         primitive=Segmentation,
         encord_name="segmentation",
@@ -426,6 +432,55 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
                             updated_at=updated_at,
                         )
                     )
+                elif Primitive == KeyPoint:
+                    if sample.keypoints is None:
+                        sample.keypoints = []
+                    encord_primitive_data = obj_annotation.pop("point")
+                    keypoints = [
+                        Point(x=float(point["x"]), y=float(point["y"])) for point in encord_primitive_data.values()
+                    ]
+                    assert len(keypoints) == 1, (
+                        f"Expected one point for the 'point' shape, but got {len(keypoints)}. "
+                        "Investigate why there are multiple points and adjust the code accordingly."
+                    )
+                    sample.keypoints.append(
+                        KeyPoint(
+                            point=keypoints[0],
+                            object_id=object_hash,
+                            class_name=class_name,
+                            class_idx=class_idx,
+                            meta=obj_annotation,
+                            classifications=primitive_attributes,
+                            created_at=created_at,
+                            updated_at=updated_at,
+                        )
+                    )
+                elif Primitive == Skeleton:
+                    if sample.skeletons is None:
+                        sample.skeletons = []
+                    encord_primitive_data = obj_annotation.pop("skeleton")
+                    skeleton_keypoints = [
+                        KeyPoint(
+                            point=Point(x=float(point["x"]), y=float(point["y"])),
+                            class_name=point["name"],
+                            class_idx=int(point_index),
+                        )
+                        # Keypoints are keyed by their index in the skeleton template e.g. {"0": {...}, "1": {...}}
+                        for point_index, point in sorted(encord_primitive_data.items(), key=lambda item: int(item[0]))
+                    ]
+                    # The edges between keypoints are defined per class by 'ClassInfo.skeleton'
+                    sample.skeletons.append(
+                        Skeleton(
+                            keypoints=skeleton_keypoints,
+                            object_id=object_hash,
+                            class_name=class_name,
+                            class_idx=class_idx,
+                            meta=obj_annotation,
+                            classifications=primitive_attributes,
+                            created_at=created_at,
+                            updated_at=updated_at,
+                        )
+                    )
                 elif Primitive == Bitmask:
                     if sample.bitmasks is None:
                         sample.bitmasks = []
@@ -469,6 +524,35 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
         samples.append(sample)
 
     return samples
+
+
+def skeleton_templates_from_encord_ontology_dict(encord_ontology_dict: Dict) -> Dict[str, SkeletonTemplate]:
+    """Read the skeleton templates of an Encord ontology and return them per feature hash.
+
+    Encord defines the keypoints and edges of a skeleton in a template ('skeleton_templates') that is
+    shared by the ontology object and the annotations with the same feature hash. Keypoints are keyed
+    by their index, e.g. {"0": {"name": "Nose", ...}}, and edges are stored as a nested dict of
+    keypoint indices, e.g. {"6": {"1": ..., "2": ...}} for the edges (6, 1) and (6, 2).
+
+    Args:
+        encord_ontology_dict: The 'ontology' dictionary of an Encord export.
+
+    Returns:
+        A dictionary mapping the feature hash of each skeleton template to a 'SkeletonTemplate'.
+    """
+    templates_by_feature_hash: Dict[str, SkeletonTemplate] = {}
+    for template_item in encord_ontology_dict.get("skeleton_templates", []):
+        template = template_item["template"]
+        keypoints = sorted(template["skeleton"].items(), key=lambda item: int(item[0]))
+        templates_by_feature_hash[template["feature_node_hash"]] = SkeletonTemplate(
+            keypoint_names=[keypoint["name"] for _, keypoint in keypoints],
+            edges=[
+                SkeletonEdge(index_start=int(index_start), index_end=int(index_end))
+                for index_start, index_ends in template.get("skeletonEdges", {}).items()
+                for index_end in index_ends
+            ],
+        )
+    return templates_by_feature_hash
 
 
 def parse_encord_date_field(obj_annotation: dict, date_field: str) -> Optional[datetime]:

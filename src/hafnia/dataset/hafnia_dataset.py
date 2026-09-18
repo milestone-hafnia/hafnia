@@ -82,6 +82,7 @@ class HafniaDataset:
     # Function mapping: Dataset checks
     check_dataset = dataset_stats.check_dataset
     check_dataset_tasks = dataset_stats.check_dataset_tasks
+    check_dataset_skeletons = dataset_stats.check_dataset_skeletons
 
     # Function mapping: Dataset transformations
     transform_images = dataset_transformations.transform_images
@@ -455,9 +456,21 @@ class HafniaDataset:
         with full datasets on the platform.
 
         Args:
-            n_samples: Number of samples to mark.
+            n_samples: Number of samples to mark. Must be between 0 and the number of samples in
+                the dataset - a `ValueError` is raised otherwise.
             seed: Random seed for deterministic selection.
         """
+        n_dataset_samples = len(dataset)
+        if n_samples < 0:
+            raise ValueError(
+                f"'n_samples' must be a positive number of samples to mark, but got 'n_samples={n_samples}'."
+            )
+        if n_samples > n_dataset_samples:
+            raise ValueError(
+                f"'n_samples={n_samples}' exceeds the number of samples in the dataset ({n_dataset_samples}). "
+                f"Reduce 'n_samples' to at most {n_dataset_samples} samples."
+            )
+
         samples = dataset.samples
 
         # Remove any pre-existing "sample"-tags
@@ -468,7 +481,7 @@ class HafniaDataset:
         )
 
         # Add "sample" to tags column for the selected samples
-        is_sample_indices = Random(seed).sample(range(len(dataset)), n_samples)
+        is_sample_indices = Random(seed).sample(range(n_dataset_samples), n_samples)
         samples = samples.with_columns(
             pl.when(pl.int_range(len(samples)).is_in(is_sample_indices))
             .then(pl.col(SampleField.TAGS).list.concat(pl.lit([TAG_IS_SAMPLE])))
@@ -483,32 +496,55 @@ class HafniaDataset:
         primitive: Optional[Type[Primitive]] = None,
         task_name: Optional[str] = None,
     ) -> "HafniaDataset":
-        """
-        Map class names to new class names using a strict mapping.
-        A strict mapping means that all class names in the dataset must be mapped to a new class name.
-        If a class name is not mapped, an error is raised.
+        """Map the class names of a single task to new class names, optionally merging classes.
 
-        The class indices are determined by the order of appearance of the new class names in the mapping.
-        Duplicates in the new class names are removed, preserving the order of first appearance.
+        Class indices are determined by the order of first appearance of the new class names in
+        `class_mapping` — duplicates are removed, preserving that first-appearance order — so the
+        order of the mapping matters. Mapping a class to ``"__REMOVE__"``
+        (`dataset_names.OPS_REMOVE_CLASS`) drops those annotations and removes the class from the
+        task.
 
-        E.g.
+        Keys may use ``*`` as a wildcard (e.g. ``{"Vehicle.*": "Vehicle"}`` maps both
+        ``"Vehicle.Car"`` and ``"Vehicle.Bus"`` to ``"Vehicle"``). An exact key always wins over a
+        wildcard key. Keys that match no class name in the task raise an error.
 
-        mnist = HafniaDataset.from_name("mnist")
-        strict_class_mapping = {
-            "1 - one": "odd",   # 'odd' appears first and becomes class index 0
-            "3 - three": "odd",
-            "5 - five": "odd",
-            "7 - seven": "odd",
-            "9 - nine": "odd",
-            "0 - zero": "even",  # 'even' appears second and becomes class index 1
-            "2 - two": "even",
-            "4 - four": "even",
-            "6 - six": "even",
-            "8 - eight": "even",
-        }
+        E.g. grouping the mnist digits into 'odd' and 'even':
 
-        dataset_new = class_mapper(dataset=mnist, class_mapping=strict_class_mapping)
+        >>> mnist = HafniaDataset.from_name("mnist", version="latest")
+        >>> strict_class_mapping = {
+        ...     "1 - one": "odd",    # 'odd' appears first and becomes class index 0
+        ...     "3 - three": "odd",
+        ...     "5 - five": "odd",
+        ...     "7 - seven": "odd",
+        ...     "9 - nine": "odd",
+        ...     "0 - zero": "even",  # 'even' appears second and becomes class index 1
+        ...     "2 - two": "even",
+        ...     "4 - four": "even",
+        ...     "6 - six": "even",
+        ...     "8 - eight": "even",
+        ... }
+        >>> dataset_new = mnist.class_mapper(class_mapping=strict_class_mapping)
 
+        Args:
+            class_mapping: Mapping of old class name -> new class name, either as a dict or as an
+                ordered list of ``(old_name, new_name)`` tuples.
+            method: How to treat class names of the task that the mapping does not cover:
+
+                - ``"strict"`` (default): every existing class name must appear in the mapping.
+                  Raises a `ValueError` listing the unmapped classes otherwise. Safest option, as
+                  classes added to the dataset later fail loudly instead of being silently dropped
+                  or kept.
+                - ``"remove_undefined"``: unmapped classes are mapped to ``"__REMOVE__"``, i.e.
+                  their annotations are deleted and the classes are removed from the task. Use this
+                  to keep only an explicit subset of classes.
+                - ``"keep_undefined"``: unmapped classes are mapped to themselves and keep their
+                  current names. Use this to rename or merge a few classes and pass the rest
+                  through untouched. Note that the untouched classes are appended after the mapped
+                  ones, so their class indices may change.
+            primitive: Primitive type of the task to remap (e.g. `Bbox`, `Classification`). May be
+                omitted when `task_name` identifies exactly one task.
+            task_name: Name of the task to remap. May be omitted when `primitive` identifies
+                exactly one task. If both are omitted, the dataset must contain exactly one task.
         """
         return dataset_transformations.class_mapper(
             dataset=dataset,

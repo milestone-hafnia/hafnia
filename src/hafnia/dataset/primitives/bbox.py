@@ -17,7 +17,8 @@ from hafnia.dataset.primitives.utils import (
 )
 
 if TYPE_CHECKING:
-    from hafnia.dataset.primitives import Bitmask, Classification, Polygon
+    from hafnia.dataset.hafnia_dataset_types import TaskInfo
+    from hafnia.dataset.primitives import Bitmask, Classification, KeyPoint, Polygon, Skeleton
 
 
 class Bbox(Primitive):
@@ -54,6 +55,8 @@ class Bbox(Primitive):
     classifications: Optional[List["Classification"]] = None
     polygons: Optional[List["Polygon"]] = None
     bitmasks: Optional[List["Bitmask"]] = None
+    skeletons: Optional[List["Skeleton"]] = None
+    keypoints: Optional[List["KeyPoint"]] = None
 
     @staticmethod
     def default_task_name() -> str:
@@ -117,7 +120,14 @@ class Bbox(Primitive):
 
         return xmin, ymin, xmax, ymax
 
-    def draw(self, image: np.ndarray, inplace: bool = False, draw_label: bool = True) -> np.ndarray:
+    def draw(
+        self,
+        image: np.ndarray,
+        inplace: bool = False,
+        draw_label: bool = True,
+        *,
+        task: Optional["TaskInfo"] = None,
+    ) -> np.ndarray:
         if not inplace:
             image = image.copy()
         xmin, ymin, xmax, ymax = self.to_pixel_coordinates(image_shape=image.shape[:2])
@@ -129,7 +139,13 @@ class Bbox(Primitive):
         bottom_left = (xmin + margin, ymax - margin)
         if draw_label:
             cv2.putText(
-                img=image, text=class_name, org=bottom_left, fontFace=font, fontScale=0.75, color=color, thickness=2
+                img=image,
+                text=class_name,
+                org=bottom_left,
+                fontFace=font,
+                fontScale=0.75,
+                color=color,
+                thickness=2,
             )
         cv2.rectangle(image, pt1=(xmin, ymin), pt2=(xmax, ymax), color=color, thickness=2)
 

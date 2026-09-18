@@ -1,12 +1,24 @@
-from typing import List, Type
+from datetime import datetime
+from typing import List, Optional, Type
 
 import polars as pl
 import pytest
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+from hafnia.dataset.hafnia_dataset_types import ClassInfo, DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.operations import table_transformations
 from hafnia.dataset.operations.table_transformations import unnest_classification_tasks
-from hafnia.dataset.primitives import Bbox, Bitmask, Classification
+from hafnia.dataset.primitives import (
+    Bbox,
+    Bitmask,
+    Classification,
+    KeyPoint,
+    Point,
+    Skeleton,
+    SkeletonEdge,
+    SkeletonTemplate,
+)
 from hafnia.dataset.primitives.primitive import Primitive
 from tests import helper_testing
 
@@ -138,3 +150,55 @@ def test_merge_samples_drops_primitive_column_without_shared_fields():
 
     assert Bbox.column_name() not in merged.columns
     assert len(merged) == 2
+
+
+def get_skeleton_dataset(dataset_name: str, template: Optional[SkeletonTemplate] = None) -> HafniaDataset:
+    """Dataset with a single skeleton annotation. Edges are defined by the template of the class."""
+    template = template or SkeletonTemplate(keypoint_names=["a", "b"], edges=[SkeletonEdge(index_start=0, index_end=1)])
+    task = TaskInfo(primitive=Skeleton, classes=[ClassInfo(name="pose", skeleton=template)])
+    keypoints = [
+        KeyPoint(point=Point(x=0.1, y=0.2), class_name="a", class_idx=0),
+        KeyPoint(point=Point(x=0.3, y=0.4), class_name="b", class_idx=1),
+    ]
+    skeleton = Skeleton(keypoints=keypoints, class_name="pose", class_idx=0)
+    sample = Sample(file_path="image.jpg", height=10, width=10, split="train", skeletons=[skeleton])
+    return HafniaDataset.from_samples_list([sample], info=DatasetInfo(dataset_name=dataset_name, tasks=[task]))
+
+
+def test_merge_samples_keeps_nested_primitive_fields_with_non_matching_types():
+    """A nested field with the same name but a different type should not drop the whole annotation."""
+    keypoints0 = [{"class_name": "a", "created_at": datetime(2024, 1, 1)}]
+    keypoints1 = [{"class_name": "a", "created_at": None}]
+    samples0 = pl.DataFrame({SampleField.FILE_PATH: ["0.png"], Skeleton.column_name(): [[{"keypoints": keypoints0}]]})
+    samples1 = pl.DataFrame({SampleField.FILE_PATH: ["1.png"], Skeleton.column_name(): [[{"keypoints": keypoints1}]]})
+
+    merged = table_transformations.merge_samples(samples0, samples1)
+
+    assert Skeleton.column_name() in merged.columns
+    merged_fields = [field.name for field in merged.schema[Skeleton.column_name()].inner.fields]
+    assert merged_fields == ["keypoints"], "Expected the nested keypoints to survive the merge"
+    keypoint_names = merged[Skeleton.column_name()].explode().struct.field("keypoints").to_list()
+    assert [kp[0]["class_name"] for kp in keypoint_names] == ["a", "a"]
+    assert len(merged) == 2
+
+
+def test_merge_datasets_with_conflicting_skeleton_templates():
+    dataset0 = get_skeleton_dataset(dataset_name="dataset0")
+
+    other_template = SkeletonTemplate(keypoint_names=["a", "b"], edges=[SkeletonEdge(index_start=1, index_end=0)])
+    dataset1 = get_skeleton_dataset(dataset_name="dataset1", template=other_template)
+
+    with pytest.raises(ValueError, match="different skeleton templates for the same class"):
+        HafniaDataset.merge(dataset0, dataset1)
+
+
+@pytest.mark.parametrize("skeletons", [[], None], ids=["empty_list", "no_skeletons"])
+def test_dataset_without_skeleton_annotations(skeletons):
+    """A skeleton task without annotations gives a 'List(Null)'/'Null' column that has no struct fields."""
+    template = SkeletonTemplate(keypoint_names=["a", "b"], edges=[SkeletonEdge(index_start=0, index_end=1)])
+    task = TaskInfo(primitive=Skeleton, classes=[ClassInfo(name="pose", skeleton=template)])
+    sample = Sample(file_path="image.jpg", height=10, width=10, split="train", skeletons=skeletons)
+
+    dataset = HafniaDataset.from_samples_list([sample], info=DatasetInfo(dataset_name="empty", tasks=[task]))
+
+    assert len(dataset) == 1

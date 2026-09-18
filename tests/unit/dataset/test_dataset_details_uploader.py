@@ -8,12 +8,13 @@ import pytest
 from hafnia.dataset.dataset_details_uploader import (
     DatasetImageMetadata,
     create_gallery_images,
+    create_reports_from_primitive,
     dataset_details_from_hafnia_dataset,
 )
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.primitives import Classification
+from hafnia.dataset.primitives import Classification, KeyPoint, Skeleton
 from tests import helper_testing
 
 
@@ -123,7 +124,7 @@ def test_create_gallery_images_uses_filename_only(
     file_path: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Gallery images must be saved using only the filename regardless of path style."""
-    monkeypatch.setattr(Sample, "draw_annotations", lambda _: np.zeros((10, 10, 3), dtype=np.uint8))
+    monkeypatch.setattr(Sample, "draw_annotations", lambda _, **kwargs: np.zeros((10, 10, 3), dtype=np.uint8))
 
     samples = pl.DataFrame(
         {
@@ -138,3 +139,17 @@ def test_create_gallery_images_uses_filename_only(
     create_gallery_images(gallery_samples=samples, path_gallery_images=path_gallery)
 
     assert (path_gallery / "file.jpg").exists(), f"Gallery image not saved with correct filename for path {file_path!r}"
+
+
+@pytest.mark.parametrize("PrimitiveType", [KeyPoint, Skeleton])
+def test_create_reports_for_keypoint_and_skeleton_primitives(PrimitiveType):
+    """Annotation reports are expected for all primitives of a dataset, including keypoints and skeletons."""
+    path_encord_dataset = helper_testing.get_path_test_dataset_formats() / "format_encord" / "tiny_dataset.json.gz"
+    dataset = HafniaDataset.from_encord_zip_format(path_encord_dataset, max_samples=2)
+
+    reports = create_reports_from_primitive(dataset.samples, PrimitiveType=PrimitiveType)
+
+    assert len(reports) > 0, f"Expected annotation reports for the '{PrimitiveType.__name__}' primitive"
+    for report in reports:
+        assert report.obj.annotation_type.name == PrimitiveType.__name__
+        assert report.obj_instances > 0

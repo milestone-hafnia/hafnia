@@ -25,8 +25,10 @@ from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
     Classification,
+    KeyPoint,
     Polygon,
     Segmentation,
+    Skeleton,
 )
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.platform.datasets import upload_dataset_details
@@ -405,7 +407,11 @@ def dataset_details_from_hafnia_dataset(
     path_and_variant = [DatasetVariant.SAMPLE, DatasetVariant.HIDDEN]
 
     path_gallery_images = path_gallery_images or get_path_dataset_gallery_images(dataset.info.dataset_name)
-    gallery_images = create_gallery_images(gallery_samples=gallery_samples, path_gallery_images=path_gallery_images)
+    gallery_images = create_gallery_images(
+        gallery_samples=gallery_samples,
+        path_gallery_images=path_gallery_images,
+        tasks=dataset.info.tasks,
+    )
 
     for variant_type in path_and_variant:
         if variant_type == DatasetVariant.SAMPLE:
@@ -448,7 +454,7 @@ def dataset_details_from_hafnia_dataset(
             )
 
             object_reports: List[DbAnnotatedObjectReport] = []
-            for PrimitiveType in [Classification, Bbox, Bitmask, Polygon, Segmentation]:
+            for PrimitiveType in [Classification, Bbox, Bitmask, Polygon, Segmentation, KeyPoint, Skeleton]:
                 object_reports.extend(create_reports_from_primitive(dataset_split, PrimitiveType=PrimitiveType))  # type: ignore[type-abstract]
 
             # Sort object reports by name to more easily compare between versions
@@ -620,11 +626,13 @@ def create_reports_from_primitive(
 def create_gallery_images(
     gallery_samples: Optional[Union[pl.DataFrame, HafniaDataset]],
     path_gallery_images: Path,
+    tasks: Optional[List[TaskInfo]] = None,
 ) -> Optional[List[DatasetImage]]:
     if gallery_samples is None or not isinstance(gallery_samples, (pl.DataFrame, HafniaDataset)):
         return None
 
     if isinstance(gallery_samples, HafniaDataset):
+        tasks = tasks or gallery_samples.info.tasks
         gallery_samples = gallery_samples.samples
 
     if len(gallery_samples) == 0:
@@ -639,7 +647,7 @@ def create_gallery_images(
 
         metadata = DatasetImageMetadata.from_sample(sample=sample)
         sample.classifications = None  # To not draw classifications in gallery images
-        image = sample.draw_annotations()
+        image = sample.draw_annotations(tasks=tasks)
         if sample.file_path is None:
             raise ValueError(f"Sample {sample} does not have a file path.")
         sample_name = PurePosixPath(sample.file_path.replace("\\", "/")).name

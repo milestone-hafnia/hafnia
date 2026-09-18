@@ -28,7 +28,10 @@ from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
     Classification,
+    KeyPoint,
     Polygon,
+    Skeleton,
+    SkeletonTemplate,
     get_primitive_type_from_string,
 )
 from hafnia.dataset.primitives.primitive import Primitive
@@ -38,6 +41,13 @@ from hafnia.log import user_logger
 class ClassInfo(BaseModel):
     name: str = Field(description="Name of the class")
     attributes: Optional[List["TaskInfo"]] = None
+    skeleton: Optional[SkeletonTemplate] = Field(
+        default=None,
+        description=(
+            "Keypoints and edges for classes of the 'Skeleton' primitive. "
+            "Defines the keypoint names/order and the edges between keypoints of e.g. a human pose"
+        ),
+    )
 
     @staticmethod
     def from_encord_option_dict(option_dict: Dict, parent_primitive: Type[Primitive]) -> "ClassInfo":
@@ -142,9 +152,11 @@ class TaskInfo(BaseModel):
         """
         from hafnia.dataset.format_conversions.format_encord import (
             primitive_from_encord_shape_name,
+            skeleton_templates_from_encord_ontology_dict,
         )
 
         tasks = []
+        skeleton_templates = skeleton_templates_from_encord_ontology_dict(ontology_dict)
 
         # Group objects by their primitive type
         objects_by_primitive = collections.defaultdict(list)
@@ -174,6 +186,8 @@ class TaskInfo(BaseModel):
                     ClassInfo(
                         name=class_name,
                         attributes=class_attributes if class_attributes else None,
+                        # Only classes of the 'Skeleton' primitive have a skeleton template
+                        skeleton=skeleton_templates.get(obj_dict["featureNodeHash"]),
                     )
                 )
 
@@ -492,6 +506,21 @@ class DatasetInfo(TasksInfo):
                             f"{task_ds0_class_names} in dataset0 and {task_ds1_class_names} in dataset1."
                         )
 
+                    # Skeleton classes are defined by their template, so annotations of the two datasets are
+                    # only compatible if the templates are identical
+                    for class_name in task_ds0_class_names:
+                        skeleton_ds0 = task_ds0.get_class_by_name(class_name).skeleton  # type: ignore[union-attr]
+                        skeleton_ds1 = task_ds1.get_class_by_name(class_name).skeleton  # type: ignore[union-attr]
+                        if skeleton_ds0 != skeleton_ds1:
+                            raise ValueError(
+                                f"Cannot merge datasets with different skeleton templates for the same class: "
+                                f"class '{class_name}' of task '{task_ds0.name}' has the keypoints "
+                                f"{skeleton_ds0.keypoint_names if skeleton_ds0 else None} in dataset0 and "
+                                f"{skeleton_ds1.keypoint_names if skeleton_ds1 else None} in dataset1. "
+                                f"The skeleton templates must be identical, as they define the keypoints and "
+                                f"edges of the annotations."
+                            )
+
         if info1.format_version != info0.format_version:
             user_logger.warning(
                 "Dataset format version of the two datasets do not match. "
@@ -749,6 +778,8 @@ class Sample(BaseModel):
     bboxes: Optional[List[Bbox]] = Field(default=None, description="Optional list of bounding boxes")
     bitmasks: Optional[List[Bitmask]] = Field(default=None, description="Optional list of bitmasks")
     polygons: Optional[List[Polygon]] = Field(default=None, description="Optional list of polygons")
+    keypoints: Optional[List[KeyPoint]] = Field(default=None, description="Optional list of keypoints")
+    skeletons: Optional[List[Skeleton]] = Field(default=None, description="Optional list of skeletons")
 
     attribution: Optional[Attribution] = Field(default=None, description="Attribution information for the image")
     dataset_name: Optional[str] = Field(
@@ -840,13 +871,25 @@ class Sample(BaseModel):
             raise ValueError(f"Unsupported storage format: {self.storage_format}")
         return image
 
-    def draw_annotations(self, image: Optional[np.ndarray] = None) -> np.ndarray:
+    def draw_annotations(
+        self,
+        image: Optional[np.ndarray] = None,
+        tasks: Optional[List["TaskInfo"]] = None,
+    ) -> np.ndarray:
+        """Draw the annotations of the sample on an image.
+
+        Args:
+            image: Image to draw on. Defaults to the image of the sample.
+            tasks: Optional dataset tasks ('dataset.info.tasks'). Required to draw the edges of
+                `Skeleton` annotations, as the edges are defined per class by the skeleton template
+                of the task. Without tasks, only the keypoints of a skeleton are drawn.
+        """
         from hafnia.dataset import image_visualizations
 
         if image is None:
             image = self.read_image()
         annotations = self.get_primitives()
-        annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations)
+        annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations, tasks=tasks)
         return annotations_visualized
 
 

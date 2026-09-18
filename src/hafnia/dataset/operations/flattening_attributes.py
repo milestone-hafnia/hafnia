@@ -68,9 +68,11 @@ def _expand_class_info(
         return [class_info]
 
     other_attrs = [a for a in attrs if a.name != attr_name]
+    # The skeleton template belongs to the class that is expanded, so it is kept for all expanded classes
     base_class = ClassInfo(
         name=class_info.name,
         attributes=other_attrs if other_attrs else None,
+        skeleton=class_info.skeleton,
     )
     result: List[ClassInfo] = []
     for sub_class in matching_attr.classes or []:
@@ -80,6 +82,7 @@ def _expand_class_info(
                 ClassInfo(
                     name=f"{class_info.name}{separator}{expanded.name}",
                     attributes=merged_attrs if merged_attrs else None,
+                    skeleton=class_info.skeleton,
                 )
             )
     return [base_class] + result

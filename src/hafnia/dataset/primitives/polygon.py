@@ -12,6 +12,7 @@ from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import anonymize_by_resizing, class_color_by_name, get_class_name
 
 if TYPE_CHECKING:
+    from hafnia.dataset.hafnia_dataset_types import TaskInfo
     from hafnia.dataset.primitives import Bbox, Bitmask, Classification
 
 
@@ -82,7 +83,7 @@ class Polygon(Primitive):
         ]
         return points
 
-    def draw(self, image: np.ndarray, inplace: bool = False) -> np.ndarray:
+    def draw(self, image: np.ndarray, inplace: bool = False, *, task: Optional["TaskInfo"] = None) -> np.ndarray:
         if not inplace:
             image = image.copy()
         points = np.array(self.to_pixel_coordinates(image_shape=image.shape[:2]))

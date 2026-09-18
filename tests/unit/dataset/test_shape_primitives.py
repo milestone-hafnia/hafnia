@@ -7,7 +7,7 @@ import yaml
 from hafnia.dataset.dataset_details_uploader import DatasetImageMetadata
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
 from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.primitives import PRIMITIVE_TYPES, Bbox, Bitmask, Classification, Polygon
+from hafnia.dataset.primitives import PRIMITIVE_TYPES, Bbox, Bitmask, Classification, KeyPoint, Point, Polygon, Skeleton
 from hafnia.dataset.primitives.primitive import Primitive
 from tests import helper_testing
 
@@ -28,6 +28,13 @@ def get_initialized_dummy_primitives_using_default_task_name(TypePrimitive: Type
             top=1,
             left=1,
             class_name="dummy_bitmask",
+        )
+    elif TypePrimitive == KeyPoint:
+        return KeyPoint(point=Point(x=0.1, y=0.2), class_name="dummy_keypoint")
+    elif TypePrimitive == Skeleton:
+        return Skeleton(
+            keypoints=[KeyPoint(point=Point(x=0.1, y=0.2)), KeyPoint(point=Point(x=0.3, y=0.4))],
+            class_name="dummy_skeleton",
         )
     else:
         raise ValueError(f"Unsupported primitive type: {TypePrimitive}")

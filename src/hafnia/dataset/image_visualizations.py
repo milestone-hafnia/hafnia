@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -8,10 +8,15 @@ from hafnia.dataset.primitives import (
     Bbox,
     Bitmask,
     Classification,
+    KeyPoint,
     Polygon,
     Segmentation,
+    Skeleton,
 )
 from hafnia.dataset.primitives.primitive import Primitive
+
+if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
+    from hafnia.dataset.hafnia_dataset_types import TaskInfo
 
 
 def draw_anonymize_by_blurring(
@@ -49,20 +54,39 @@ def draw_masks(
     return image
 
 
+def task_from_tasks(primitive: Primitive, tasks: List["TaskInfo"]) -> Optional["TaskInfo"]:
+    """Find the task of a primitive by matching the primitive type and the task name.
+
+    Returns 'None' if the tasks do not contain the task of the primitive.
+    """
+    for task in tasks:
+        if task.primitive is type(primitive) and task.name == primitive.task_name:
+            return task
+    return None
+
+
 def draw_annotations(
     image: np.ndarray,
     primitives: List[Primitive],
     inplace: bool = False,
-    draw_settings: Optional[Dict[Type[Primitive], Dict]] = None,
+    tasks: Optional[List["TaskInfo"]] = None,
 ) -> np.ndarray:
+    """Draw annotations on an image.
+
+    Args:
+        image: Image to draw on.
+        primitives: Annotations to draw, e.g. from `Sample.get_primitives`.
+        inplace: If True, draw directly on the provided image instead of a copy.
+        tasks: Optional dataset tasks ('dataset.info.tasks'). The task of each primitive is passed to its
+            'draw' function to provide class-level information that is not stored on the annotation.
+            Without tasks, the edges between the keypoints of a `Skeleton` are not drawn.
+    """
     if not inplace:
         image = image.copy()
-    draw_settings = draw_settings or {}
-    primitives_order = [Segmentation, Bitmask, Bbox, Polygon, Classification]
+    primitives_order = [Segmentation, Bitmask, Bbox, Polygon, Skeleton, KeyPoint, Classification]
     primitives = sorted(primitives, key=lambda x: primitives_order.index(type(x)))
     for primitive in primitives:
-        draw_settings_for_primitive = draw_settings.get(type(primitive), {})
-        image = primitive.draw(image, **draw_settings_for_primitive)
+        image = primitive.draw(image, task=task_from_tasks(primitive, tasks or []))
     return image
 
 

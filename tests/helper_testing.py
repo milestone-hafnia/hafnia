@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, Union, get_o
 import cv2
 import numpy as np
 import polars as pl
+from packaging.version import Version
 
 import hafnia
 from hafnia.dataset import image_visualizations, primitives
@@ -56,6 +57,19 @@ def get_path_micro_hafnia_dataset_no_check() -> Path:
     return get_path_test_data() / "micro_test_datasets"
 
 
+def is_matching_dataset_format_version(version_str: str, ignore_patch_version: bool) -> bool:
+    """Check if a dataset format version matches the format version of the hafnia package.
+
+    Patch versions are backwards compatible, so only the major and minor version are compared.
+    This keeps tests running on existing datasets when the format version gets a patch upgrade.
+    """
+    dataset_version = Version(version_str)
+    current_version = Version(hafnia.__dataset_format_version__)
+    if ignore_patch_version:
+        return (dataset_version.major, dataset_version.minor) == (current_version.major, current_version.minor)
+    return dataset_version == current_version
+
+
 def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path:
     import pytest
 
@@ -79,7 +93,10 @@ def get_path_micro_hafnia_dataset(dataset_name: str, force_update=False) -> Path
         hafnia_dataset = hafnia_dataset.select_samples(n_samples=3, seed=0)
     hafnia_dataset.write(path_test_dataset)
 
-    format_version_mismatch = hafnia_dataset.info.format_version != hafnia.__dataset_format_version__
+    format_version_mismatch = not is_matching_dataset_format_version(
+        hafnia_dataset.info.format_version,
+        ignore_patch_version=True,
+    )
     if format_version_mismatch:
         raise ValueError(
             f"You are trying to update the micro test dataset '{dataset_name}' (located in '{path_test_dataset}'), "
