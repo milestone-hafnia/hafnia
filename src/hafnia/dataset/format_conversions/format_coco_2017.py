@@ -75,7 +75,7 @@ ARCHIVE_IMAGES_TRAIN = CocoArchive(url=f"{URL_IMAGES}/train2017.zip", extracted_
 ARCHIVE_IMAGES_VAL = CocoArchive(
     url=f"{URL_IMAGES}/val2017.zip",
     extracted_paths=("val2017",),
-    md5="442b8da7639aecaf257c1dab9a6b9cc4",
+    md5="442b8da7639aecaf257c1dceb8ba8c80",
 )
 ARCHIVE_IMAGES_TEST = CocoArchive(url=f"{URL_IMAGES}/test2017.zip", extracted_paths=("test2017",))
 ARCHIVE_ANNOTATIONS_TRAINVAL = CocoArchive(

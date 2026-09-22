@@ -1,6 +1,6 @@
-# COCO 2017 as a public dataset — handover notes
+# COCO 2017 as a public dataset — notes
 
-Scratch notes for continuing the work. **Delete this file before opening a PR.**
+Scratch notes for the follow-up work. **Delete this file before opening a PR.**
 
 Branch: `worktree-coco-2017-public-dataset`
 Worktree: `.claude/worktrees/coco-2017-public-dataset`
@@ -28,44 +28,52 @@ as agreed for the first iteration.
   - `public_dataset_to_hafnia_converters()` = torchvision converters + `coco-2017`.
     `HafniaDataset.from_name_public_dataset` now uses this registry.
 - `src/hafnia/utils.py`: `get_path_public_dataset_downloads()` → `~/hafnia/public_dataset_downloads`.
-- Tests
-  - `tests/unit/dataset/format_conversions/test_format_coco_2017.py` — 9 offline tests. Downloads are
-    tested with `file://` archives, so no network is needed.
-  - `tests/data/dataset_formats/format_coco_2017/` — tiny fixture in the original COCO folder layout
-    (2 real val2017 images + annotations cut down to those images). One person annotation has 15
-    labeled keypoints, the other has 0, which covers both conversion paths.
-  - `tests/integration/test_coco_2017_public_dataset.py` — `@pytest.mark.slow`, skipped in GitHub
-    Actions. Downloads ~1 GB on the first run.
+- `KeyPoint.labeled` (new field, default `True`) — see "Keypoint visibility" below.
+  Dataset format version bumped `0.3.2` → `0.3.3`.
+- Tests: `tests/unit/dataset/format_conversions/test_format_coco_2017.py` (9 offline tests, downloads
+  covered with `file://` archives), the `tests/data/dataset_formats/format_coco_2017/` fixture (2 real
+  val2017 images; one person has 15 labeled keypoints, one has 0), two drawing tests in
+  `tests/unit/dataset/test_shape_primitives.py`, and
+  `tests/integration/test_coco_2017_public_dataset.py` (`@pytest.mark.slow`, skipped in CI).
 
-Verified: `ruff check`/`format`, `mypy src/ tests/` (via `uvx mypy==1.16.0`), and
-`uv run pytest tests -m "not slow"` → 445 passed, 8 skipped. The single failure,
-`tests/integration/test_bring_your_own_data.py::test_remove_leftover_integration_test_datasets`, is a
-pre-existing leftover-dataset-on-platform failure unrelated to this branch.
+## Verified
 
-## Not verified yet — do this first
+- Real download + extraction + conversion of the **full validation split**:
+  5000 samples, 36781 `Bbox` and 36781 `Bitmask` annotations over 80 classes, 6352 `Skeleton`
+  annotations, 107984 keypoints (68215 labeled / 39769 unlabeled). Those counts match the official
+  COCO val2017 statistics. `check_dataset(check_splits=False)` passes.
+- Re-running skips both downloads and extractions.
+- `ruff check`/`format`, `mypy src/ tests/`, `pytest -m "not slow"` → 447 passed, 8 skipped.
+  `tests/integration/test_bring_your_own_data.py::test_remove_leftover_integration_test_datasets`
+  fails, but it is unrelated: it scans the *platform* for stale `integration-test-dataset-*` datasets
+  and asks for manual cleanup.
+- Download speed was ~10 MB/s (815 MB val images in ~85 s), not the ~300 KB/s seen in one early
+  attempt.
 
-1. **Run the real conversion end-to-end.** It has never been run against the real download:
+## Heads-up for review
 
-   ```bash
-   uv run pytest tests/integration/test_coco_2017_public_dataset.py -q -m slow
-   # or
-   uv run python -c "from hafnia.dataset.hafnia_dataset import HafniaDataset as D; print(D.from_name_public_dataset('coco-2017', n_samples=20))"
-   ```
+- **The frontend metadata schema changed.** `tests/data/dataset_image_metadata_schema.yaml` gained the
+  `labeled` property of `KeyPoint`. The test guarding that file says to notify the front-end team.
+  The change is additive with a default, so it is backwards compatible.
+- `ARCHIVE_IMAGES_VAL.md5` is `442b8da7639aecaf257c1dceb8ba8c80`, confirmed by downloading the archive
+  and by `unzip -t` (no CRC errors). The md5 of `annotations_trainval2017.zip` and
+  `image_info_test2017.zip` were confirmed from their S3 ETags. `train2017.zip` and `test2017.zip` are
+  multipart uploads with no published checksum, so their `md5` is `None` and their content is only
+  verified by the CRC checks during extraction.
 
-   `annotations_trainval2017.zip` is already downloaded and md5-verified in
-   `~/hafnia/public_dataset_downloads/coco-2017/.archives/`, so only `val2017.zip` (815 MB) is
-   missing. The network on this machine ran at ~300 KB/s, so expect ~45 min.
+## Keypoint visibility
 
-2. **`ARCHIVE_IMAGES_VAL.md5 = "442b8da7639aecaf257c1dab9a6b9cc4"` is unverified.** The md5 of
-   `annotations_trainval2017.zip` and `image_info_test2017.zip` were confirmed from their S3 ETags,
-   but `val2017.zip` is a multipart upload so its ETag is not an md5. The value above is the one
-   commonly published for COCO val2017 — if step 1 fails with a checksum error, verify with
-   `md5sum` and correct the constant (do not just drop the check).
+COCO labels a varying number of the 17 body keypoints per person (37% of the keypoints in val2017 are
+unlabeled), but hafnia requires a `Skeleton` to carry every keypoint of its class template
+(`check_dataset_skeletons`). All 17 keypoints are therefore kept, and:
 
-3. A leftover partial download from a checksum experiment is in `~/hafnia/coco_downloads_check/`
-   (~255 MB, incomplete). Safe to delete — I was denied permission to remove it.
+- `KeyPoint.labeled` is `False` for keypoints that COCO has not labeled. `KeyPoint.draw` skips them
+  and `Skeleton.draw` skips the edges towards them, so a pose is no longer drawn with edges running
+  to the top-left corner of the image.
+- The raw COCO visibility (`0`=not labeled, `1`=labeled but not visible, `2`=visible) is kept in
+  `KeyPoint.meta["visibility"]`, as `labeled` does not distinguish occluded from visible keypoints.
 
-## Next steps (the follow-up prompt)
+## Next steps
 
 - Enable the remaining splits by extending `SUPPORTED_SPLITS` in `format_coco_2017.py`. Things to
   settle when doing that:
@@ -73,28 +81,9 @@ pre-existing leftover-dataset-on-platform failure unrelated to this branch.
     `categories` but no `annotations`, so the existing importer produces samples without primitives.
     `check_dataset_tasks` requires at least one annotation per task, so a train+val+test dataset will
     need either a special case for the test split or a documented "no annotations" behaviour.
-  - `train2017.zip` is 19 GB (~118k images). The conversion loads
-    `instances_train2017.json` (~450 MB) and `person_keypoints_train2017.json` fully into memory.
+  - `train2017.zip` is 19 GB (~118k images). The conversion loads `instances_train2017.json`
+    (~450 MB) and `person_keypoints_train2017.json` fully into memory.
   - `n_samples` is split evenly across splits by `from_coco_dataset_by_split_definitions` and takes
     the **first** N images of each split, not a random sample.
-
-## Known limitation worth a decision
-
-COCO labels a varying number of the 17 body keypoints per person, but hafnia requires a `Skeleton` to
-carry every keypoint of its class template (`check_dataset_skeletons`). All 17 keypoints are therefore
-kept, with the COCO visibility in `KeyPoint.meta["visibility"]` (`0`=not labeled, `1`=labeled but not
-visible, `2`=visible), and unlabeled keypoints keep COCO's `(0, 0)` coordinate.
-
-Consequence: `sample.draw_annotations(tasks=...)` draws edges from the pose towards the top-left
-corner for every unlabeled keypoint — visible in the expected image
-`tests/data/expected_images/test_format_coco_2017/test_from_coco_2017_keypoints_visualized.png`.
-The data is faithful and trainable (mask on `visibility == 0`), but the visualization is misleading.
-
-Options, if you want it fixed:
-1. Add a `visible`/`labeled` field to `KeyPoint` and skip those keypoints and their edges in
-   `Skeleton.draw`. Cleanest, but changes the primitive schema.
-2. Skip unlabeled keypoints in `Skeleton.draw` based on `meta["visibility"]` — keeps the schema, but
-   puts COCO semantics into a generic primitive.
-3. Leave as is and document it.
-
-I did not pick one, as it changes the `Skeleton`/`KeyPoint` API beyond this task.
+- A leftover partial download from an early checksum experiment may still be in
+  `~/hafnia/coco_downloads_check/` (~255 MB, incomplete). Safe to delete — I was denied permission.

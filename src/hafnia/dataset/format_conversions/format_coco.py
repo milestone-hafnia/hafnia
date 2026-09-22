@@ -285,6 +285,7 @@ class CocoKeypointLabels:
                     x=flat_keypoints[3 * keypoint_index] / image_width,
                     y=flat_keypoints[3 * keypoint_index + 1] / image_height,
                 ),
+                labeled=visibilities[keypoint_index] > 0,
                 class_name=keypoint_name,
                 class_idx=keypoint_index,
                 object_id=object_id,

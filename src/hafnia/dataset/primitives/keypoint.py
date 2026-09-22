@@ -17,6 +17,14 @@ if TYPE_CHECKING:
 class KeyPoint(Primitive):
     # Names should match names in FieldName
     point: Point = Field(description="Normalized point (x, y) defining the keypoint location")
+    labeled: bool = Field(
+        default=True,
+        description=(
+            "Whether the keypoint has been labeled. An unlabeled keypoint has no meaningful location, but is "
+            "kept to match the keypoints of the skeleton template of its class. Unlabeled keypoints - and the "
+            "skeleton edges towards them - are skipped when drawing"
+        ),
+    )
     class_name: Optional[str] = Field(default=None, description="Class name of the keypoint, e.g. 'left_eye'")
     class_idx: Optional[int] = Field(default=None, description="Class index of the keypoint")
     object_id: Optional[str] = Field(default=None, description="Object ID of the keypoint")
@@ -65,6 +73,9 @@ class KeyPoint(Primitive):
     ) -> np.ndarray:
         if not inplace:
             image = image.copy()
+        if not self.labeled:
+            # An unlabeled keypoint has no meaningful location, so there is nothing to draw
+            return image
         x, y = self.to_pixel_coordinates(image_shape=image.shape[:2])
 
         class_name = self.get_class_name()

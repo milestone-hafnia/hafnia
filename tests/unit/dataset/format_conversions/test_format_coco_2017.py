@@ -78,7 +78,9 @@ def test_from_coco_2017_with_keypoints() -> None:
         assert 0.0 <= keypoint.point.x <= 1.0
         assert 0.0 <= keypoint.point.y <= 1.0
         assert keypoint.meta is not None and keypoint.meta["visibility"] in [0, 1, 2]
-    n_labeled_keypoints = sum(keypoint.meta["visibility"] > 0 for keypoint in skeleton.keypoints)  # type: ignore[index]
+        # Keypoints that COCO has not labeled are marked as unlabeled and are skipped when drawing
+        assert keypoint.labeled == (keypoint.meta["visibility"] > 0)
+    n_labeled_keypoints = sum(keypoint.labeled for keypoint in skeleton.keypoints)
     assert n_labeled_keypoints == 15
 
     # Bboxes and bitmasks of the instance annotations are still converted
@@ -95,9 +97,9 @@ def test_from_coco_2017_keypoints_visualized(compare_to_expected_image: Callable
     assert len(samples) == 1
     sample = Sample(**samples.row(0, named=True))
 
-    # 'tasks' is required to also draw the edges between the keypoints of a skeleton.
-    # Note that COCO keypoints that are not labeled keep the (0, 0) coordinate, so the skeleton of
-    # the person in this image is also drawn with edges towards the top-left corner of the image.
+    # 'tasks' is required to also draw the edges between the keypoints of a skeleton. Keypoints
+    # that COCO has not labeled keep the (0, 0) coordinate, but are marked as unlabeled and are
+    # therefore skipped - together with their edges - when the skeleton is drawn.
     sample_visualized = sample.draw_annotations(tasks=dataset.info.tasks)
     compare_to_expected_image(sample_visualized)
 
