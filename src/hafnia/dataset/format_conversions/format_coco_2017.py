@@ -247,8 +247,10 @@ def download_and_extract_coco_2017(
     for split in splits:
         if split not in COCO_2017_SPLITS:
             raise ValueError(f"Unknown split '{split}' for '{DATASET_NAME}'. Splits: {list(COCO_2017_SPLITS)}")
-        # The same archive is shared by multiple splits - e.g. the train and validation annotations
-        archives.extend(archive for archive in COCO_2017_SPLITS[split].archives if archive not in archives)
+        for archive in COCO_2017_SPLITS[split].archives:
+            # The same archive is shared by multiple splits - e.g. the train and validation annotations
+            if archive not in archives:
+                archives.append(archive)
 
     for archive in archives:
         download_and_extract_coco_archive(
@@ -272,6 +274,7 @@ def download_and_extract_coco_archive(
     if force_redownload:
         for extracted_path in archive.extracted_paths:
             remove_path(path_root / extracted_path)
+        get_path_extraction_marker(archive=archive, path_root=path_root).unlink(missing_ok=True)
         path_archive.unlink(missing_ok=True)
 
     if is_archive_extracted(archive=archive, path_root=path_root):
@@ -294,13 +297,26 @@ def download_and_extract_coco_archive(
             )
 
     extract_archive(path_archive=path_archive, path_output=path_root)
+    get_path_extraction_marker(archive=archive, path_root=path_root).write_text(archive.url)
 
     if remove_archive_after_extraction:
         path_archive.unlink(missing_ok=True)
 
 
+def get_path_extraction_marker(archive: CocoArchive, path_root: Path) -> Path:
+    """Marker file written after an archive has been fully extracted.
+
+    The marker is used - and not just the extracted files - to also detect an extraction that was
+    interrupted. An interrupted extraction leaves e.g. the 'val2017' image folder with only a part
+    of the images, which would otherwise look like a fully extracted archive.
+    """
+    return path_root / FOLDER_NAME_ARCHIVES / f"{archive.file_name}.extracted"
+
+
 def is_archive_extracted(archive: CocoArchive, path_root: Path) -> bool:
-    """Check if all files and folders provided by the archive are present in the dataset root."""
+    """Check if the archive has been fully extracted and the extracted files are still present."""
+    if not get_path_extraction_marker(archive=archive, path_root=path_root).exists():
+        return False
     return all((path_root / extracted_path).exists() for extracted_path in archive.extracted_paths)
 
 
@@ -351,6 +367,7 @@ def extract_archive(path_archive: Path, path_output: Path) -> Path:
     """Extract a zip archive with a progress bar showing the number of extracted files."""
     user_logger.info(f"Extracting '{path_archive}' to '{path_output}'")
     path_output.mkdir(parents=True, exist_ok=True)
+    path_archive.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(path_archive) as zip_file:
         members = zip_file.namelist()
         description = f"Extracting '{path_archive.name}'"

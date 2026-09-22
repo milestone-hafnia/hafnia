@@ -136,6 +136,9 @@ def test_download_is_skipped_when_dataset_is_extracted(tmp_path: Path, monkeypat
                 path_extracted = tmp_path / extracted_path
                 path_extracted.parent.mkdir(parents=True, exist_ok=True)
                 path_extracted.touch()
+            path_marker = format_coco_2017.get_path_extraction_marker(archive=archive, path_root=tmp_path)
+            path_marker.parent.mkdir(parents=True, exist_ok=True)
+            path_marker.touch()
 
     path_root = format_coco_2017.download_and_extract_coco_2017(splits=[SplitName.VAL], path_root=tmp_path)
     assert path_root == tmp_path
@@ -163,8 +166,13 @@ def test_download_and_extract_coco_archive(tmp_path: Path) -> None:
     assert not (path_root / format_coco_2017.FOLDER_NAME_ARCHIVES / "annotations.zip").exists()
 
     # A second call is a no-op, as the files of the archive have already been extracted
+    assert format_coco_2017.is_archive_extracted(archive=archive, path_root=path_root)
     format_coco_2017.download_and_extract_coco_archive(archive=archive, path_root=path_root)
     assert (path_root / "annotations" / "instances_val2017.json").exists()
+
+    # An interrupted extraction is detected and extracted again, as the marker file is missing
+    format_coco_2017.get_path_extraction_marker(archive=archive, path_root=path_root).unlink()
+    assert not format_coco_2017.is_archive_extracted(archive=archive, path_root=path_root)
 
 
 def test_download_and_extract_coco_archive_with_wrong_checksum(tmp_path: Path) -> None:
