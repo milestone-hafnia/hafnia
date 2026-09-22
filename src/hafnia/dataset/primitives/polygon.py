@@ -9,7 +9,14 @@ from pydantic import Field
 
 from hafnia.dataset.primitives.point import Point
 from hafnia.dataset.primitives.primitive import Primitive
-from hafnia.dataset.primitives.utils import anonymize_by_resizing, class_color_by_name, get_class_name
+from hafnia.dataset.primitives.utils import (
+    FONT_FACE,
+    LABEL_LINE_HEIGHT_NESTED,
+    anonymize_by_resizing,
+    class_color_by_name,
+    draw_style,
+    get_class_name,
+)
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset_types import TaskInfo
@@ -83,7 +90,16 @@ class Polygon(Primitive):
         ]
         return points
 
-    def draw(self, image: np.ndarray, inplace: bool = False, *, task: Optional["TaskInfo"] = None) -> np.ndarray:
+    def draw(
+        self,
+        image: np.ndarray,
+        inplace: bool = False,
+        draw_label: bool = True,
+        *,
+        task: Optional["TaskInfo"] = None,
+        nested: bool = False,
+        anchor: Optional[Tuple[int, int]] = None,
+    ) -> np.ndarray:
         if not inplace:
             image = image.copy()
         points = np.array(self.to_pixel_coordinates(image_shape=image.shape[:2]))
@@ -91,16 +107,26 @@ class Polygon(Primitive):
         bottom_left_idx = np.lexsort((-points[:, 1], points[:, 0]))[0]
         bottom_left_np = points[bottom_left_idx, :]
         margin = 5
-        bottom_left = (bottom_left_np[0] + margin, bottom_left_np[1] - margin)
+        bottom_left = (int(bottom_left_np[0]) + margin, int(bottom_left_np[1]) - margin)
 
         class_name = self.get_class_name()
         color = class_color_by_name(class_name)
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        cv2.polylines(image, [points], isClosed=True, color=(0, 255, 0), thickness=2)
-        cv2.putText(
-            img=image, text=class_name, org=bottom_left, fontFace=font, fontScale=0.75, color=color, thickness=2
-        )
-        return image
+        font_scale, thickness = draw_style(nested)
+        cv2.polylines(image, [points], isClosed=True, color=(0, 255, 0), thickness=thickness)
+        if draw_label:
+            cv2.putText(
+                img=image,
+                text=class_name,
+                org=bottom_left,
+                fontFace=FONT_FACE,
+                fontScale=font_scale,
+                color=color,
+                thickness=thickness,
+            )
+
+        # Define anchor to place nested classification labels below the label of the  polygon
+        nested_anchor = (bottom_left[0], bottom_left[1] + LABEL_LINE_HEIGHT_NESTED)
+        return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
 
     def anonymize_by_blurring(self, image: np.ndarray, inplace: bool = False, max_resolution: int = 20) -> np.ndarray:
         if not inplace:

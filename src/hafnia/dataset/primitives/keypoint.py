@@ -7,7 +7,13 @@ from pydantic import Field
 
 from hafnia.dataset.primitives.point import Point
 from hafnia.dataset.primitives.primitive import Primitive
-from hafnia.dataset.primitives.utils import class_color_by_name, get_class_name
+from hafnia.dataset.primitives.utils import (
+    FONT_FACE,
+    LABEL_LINE_HEIGHT_NESTED,
+    class_color_by_name,
+    draw_style,
+    get_class_name,
+)
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset_types import TaskInfo
@@ -62,6 +68,8 @@ class KeyPoint(Primitive):
         draw_label: bool = True,
         *,
         task: Optional["TaskInfo"] = None,
+        nested: bool = False,
+        anchor: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
         if not inplace:
             image = image.copy()
@@ -69,20 +77,25 @@ class KeyPoint(Primitive):
 
         class_name = self.get_class_name()
         color = class_color_by_name(class_name)
-        radius = 4
+        font_scale, thickness = draw_style(nested)
+        radius = 3 if nested else 4
+        margin = 5
         cv2.circle(image, center=(x, y), radius=radius, color=color, thickness=-1)
+        label_org = (x + radius + margin, y - margin)
         if draw_label:
-            margin = 5
             cv2.putText(
                 img=image,
                 text=class_name,
-                org=(x + radius + margin, y - margin),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=0.75,
+                org=label_org,
+                fontFace=FONT_FACE,
+                fontScale=font_scale,
                 color=color,
-                thickness=2,
+                thickness=thickness,
             )
-        return image
+
+        # Define anchor to place nested classification labels below the label of the  keypoint
+        nested_anchor = (label_org[0], label_org[1] + LABEL_LINE_HEIGHT_NESTED)
+        return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
 
     def mask(
         self,

@@ -36,7 +36,16 @@ class Segmentation(Primitive):
     def calculate_area(self, image_height: int, image_width: int) -> float:
         raise NotImplementedError()
 
-    def draw(self, image: np.ndarray, inplace: bool = False, *, task: Optional["TaskInfo"] = None) -> np.ndarray:
+    def draw(
+        self,
+        image: np.ndarray,
+        inplace: bool = False,
+        draw_label: bool = True,
+        *,
+        task: Optional["TaskInfo"] = None,
+        nested: bool = False,
+        anchor: Optional[Tuple[int, int]] = None,
+    ) -> np.ndarray:
         if not inplace:
             image = image.copy()
 

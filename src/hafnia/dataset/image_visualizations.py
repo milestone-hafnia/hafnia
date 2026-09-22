@@ -73,20 +73,25 @@ def draw_annotations(
 ) -> np.ndarray:
     """Draw annotations on an image.
 
+    Nested primitives ('attributes') of an annotation are drawn by the 'draw' function of the annotation
+    they are nested in, using the smaller and thinner style of 'Primitive.draw(nested=True)'.
+
     Args:
         image: Image to draw on.
         primitives: Annotations to draw, e.g. from `Sample.get_primitives`.
         inplace: If True, draw directly on the provided image instead of a copy.
         tasks: Optional dataset tasks ('dataset.info.tasks'). The task of each primitive is passed to its
             'draw' function to provide class-level information that is not stored on the annotation.
-            Without tasks, the edges between the keypoints of a `Skeleton` are not drawn.
+            Without tasks, the edges between the keypoints of a `Skeleton` are not drawn and the tasks of
+            nested primitives can not be resolved.
     """
     if not inplace:
         image = image.copy()
+    tasks = tasks or []
     primitives_order = [Segmentation, Bitmask, Bbox, Polygon, Skeleton, KeyPoint, Classification]
     primitives = sorted(primitives, key=lambda x: primitives_order.index(type(x)))
     for primitive in primitives:
-        image = primitive.draw(image, task=task_from_tasks(primitive, tasks or []))
+        image = primitive.draw(image, task=task_from_tasks(primitive, tasks))
     return image
 
 

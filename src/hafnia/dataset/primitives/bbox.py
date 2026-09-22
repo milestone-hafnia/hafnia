@@ -9,9 +9,12 @@ from pydantic import Field
 
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import (
+    FONT_FACE,
+    LABEL_LINE_HEIGHT_NESTED,
     anonymize_by_resizing,
     class_color_by_name,
     clip,
+    draw_style,
     get_class_name,
     round_int_clip_value,
 )
@@ -127,6 +130,8 @@ class Bbox(Primitive):
         draw_label: bool = True,
         *,
         task: Optional["TaskInfo"] = None,
+        nested: bool = False,
+        anchor: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
         if not inplace:
             image = image.copy()
@@ -134,7 +139,7 @@ class Bbox(Primitive):
 
         class_name = self.get_class_name()
         color = class_color_by_name(class_name)
-        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale, thickness = draw_style(nested)
         margin = 5
         bottom_left = (xmin + margin, ymax - margin)
         if draw_label:
@@ -142,14 +147,16 @@ class Bbox(Primitive):
                 img=image,
                 text=class_name,
                 org=bottom_left,
-                fontFace=font,
-                fontScale=0.75,
+                fontFace=FONT_FACE,
+                fontScale=font_scale,
                 color=color,
-                thickness=2,
+                thickness=thickness,
             )
-        cv2.rectangle(image, pt1=(xmin, ymin), pt2=(xmax, ymax), color=color, thickness=2)
+        cv2.rectangle(image, pt1=(xmin, ymin), pt2=(xmax, ymax), color=color, thickness=thickness)
 
-        return image
+        # Define anchor to place nested classification labels below the label of the  bounding box
+        nested_anchor = (int(bottom_left[0]), int(bottom_left[1]) + LABEL_LINE_HEIGHT_NESTED)
+        return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
 
     def mask(
         self, image: np.ndarray, inplace: bool = False, color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None
