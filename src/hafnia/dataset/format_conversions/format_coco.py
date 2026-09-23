@@ -16,8 +16,8 @@ from hafnia.utils import progress_bar
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-from hafnia.dataset.hafnia_dataset_types import Attribution, DatasetInfo, License, Sample, TaskInfo
-from hafnia.dataset.primitives import Bbox, Bitmask
+from hafnia.dataset.hafnia_dataset_types import Attribution, ClassInfo, DatasetInfo, License, Sample, TaskInfo
+from hafnia.dataset.primitives import Bbox, Bitmask, KeyPoint, Point, Skeleton, SkeletonEdge, SkeletonTemplate
 from hafnia.log import user_logger
 
 COCO_KEY_FILE_NAME = "file_name"
@@ -35,6 +35,9 @@ class CocoSplitPaths:
     split: str
     path_images: Path
     path_instances_json: Path
+    # Keypoint annotations are stored in a separate label file in the original COCO format,
+    # e.g. 'person_keypoints_val2017.json' for the human pose keypoints of COCO 2017.
+    path_keypoints_json: Optional[Path] = None
 
 
 def from_coco_format(
@@ -117,6 +120,7 @@ def from_coco_dataset_by_split_definitions(
             max_samples_per_split=max_samples_per_split,
             path_images=split_definition.path_images,
             split_name=split_definition.split,
+            path_keypoints_label_file=split_definition.path_keypoints_json,
         )
 
         for task_in_split in tasks_in_split:
@@ -151,6 +155,7 @@ def coco_format_folder_with_split_to_hafnia_samples(
     path_images: Path,
     split_name: str,
     max_samples_per_split: Optional[int],
+    path_keypoints_label_file: Optional[Path] = None,
 ) -> Tuple[List[Sample], List[TaskInfo]]:
     if not path_label_file.exists():
         raise FileNotFoundError(f"Expected label file not found: {path_label_file}")
@@ -172,13 +177,12 @@ def coco_format_folder_with_split_to_hafnia_samples(
         coco_images = coco_images[:max_samples_per_split]
     id_to_image = {img["id"]: img for img in coco_images}
 
-    img_id_to_annotations: Dict[int, List[dict]] = {}
-    coco_annotations = image_and_annotation_dict.get("annotations", [])
-    for annotation in coco_annotations:
-        img_id = annotation["image_id"]
-        if img_id not in img_id_to_annotations:
-            img_id_to_annotations[img_id] = []
-        img_id_to_annotations[img_id].append(annotation)
+    img_id_to_annotations = group_coco_annotations_by_image_id(image_and_annotation_dict.get("annotations", []))
+
+    keypoint_labels = None
+    if path_keypoints_label_file is not None:
+        keypoint_labels = read_coco_keypoint_label_file(path_keypoints_label_file)
+        tasks.append(keypoint_labels.task)
 
     samples = []
     for img_id, image_dict in progress_bar(
@@ -186,7 +190,16 @@ def coco_format_folder_with_split_to_hafnia_samples(
     ):
         image_annotations = img_id_to_annotations.get(img_id, [])
 
-        sample = fiftyone_coco_to_hafnia_sample(
+        if keypoint_labels is None:
+            skeletons = []
+        else:
+            skeletons = keypoint_labels.skeletons_for_image(
+                image_id=img_id,
+                image_height=image_dict["height"],
+                image_width=image_dict["width"],
+            )
+
+        sample = coco_format_to_hafnia_sample(
             path_images=path_images,
             image_dict=image_dict,
             image_annotations=image_annotations,
@@ -194,10 +207,165 @@ def coco_format_folder_with_split_to_hafnia_samples(
             class_names=class_names,
             id_to_license_mapping=id_to_license_mapping,
             split_name=split_name,
+            skeletons=skeletons,
         )
         samples.append(sample)
 
     return samples, tasks
+
+
+def group_coco_annotations_by_image_id(coco_annotations: List[Dict]) -> Dict[int, List[Dict]]:
+    """Group a flat list of COCO annotations by the 'image_id' of each annotation."""
+    img_id_to_annotations: Dict[int, List[Dict]] = {}
+    for annotation in coco_annotations:
+        img_id_to_annotations.setdefault(annotation["image_id"], []).append(annotation)
+    return img_id_to_annotations
+
+
+@dataclass
+class CocoKeypointLabels:
+    """Keypoint annotations of a COCO keypoint label file, e.g. 'person_keypoints_val2017.json'.
+
+    In the COCO format, keypoints are stored in a separate label file with one 'keypoints' list per
+    object annotation. The keypoint names and the edges ('skeleton') between keypoints are defined
+    per category and are stored as a 'SkeletonTemplate' on the 'ClassInfo' of the 'Skeleton' task.
+    """
+
+    task: TaskInfo
+    category_id_to_class_name: Dict[int, str]
+    annotations_by_image_id: Dict[int, List[Dict]]
+
+    def skeletons_for_image(self, image_id: int, image_height: int, image_width: int) -> List[Skeleton]:
+        """Convert the keypoint annotations of one image into 'Skeleton' primitives."""
+        skeletons = []
+        for annotation in self.annotations_by_image_id.get(image_id, []):
+            skeleton = self.to_skeleton(annotation, image_height=image_height, image_width=image_width)
+            if skeleton is None:
+                continue
+            skeletons.append(skeleton)
+        return skeletons
+
+    def to_skeleton(self, annotation: Dict, image_height: int, image_width: int) -> Optional[Skeleton]:
+        """Convert one COCO keypoint annotation into a 'Skeleton'.
+
+        Returns 'None' for annotations without keypoints - either because the category defines no
+        keypoints or because no keypoints of the object have been labeled ('num_keypoints=0').
+        """
+        class_name = self.category_id_to_class_name.get(annotation["category_id"])
+        if class_name is None:
+            return None
+
+        class_info = self.task.get_class_by_name(class_name)
+        template = class_info.skeleton if class_info else None
+        if template is None:
+            raise ValueError(f"Missing skeleton template for class '{class_name}' in task '{self.task.name}'.")
+        keypoint_names = template.keypoint_names
+
+        # COCO stores keypoints flattened as [x0, y0, visibility0, x1, y1, visibility1, ...]
+        flat_keypoints = annotation.get("keypoints") or []
+        n_expected_values = 3 * len(keypoint_names)
+        if len(flat_keypoints) != n_expected_values:
+            raise ValueError(
+                f"The keypoint annotation '{annotation.get('id')}' of class '{class_name}' has "
+                f"{len(flat_keypoints)} keypoint values, but {n_expected_values} values are expected for the "
+                f"{len(keypoint_names)} keypoints of the skeleton template: {keypoint_names}."
+            )
+
+        visibilities = flat_keypoints[2::3]
+        n_labeled_keypoints = sum(1 for visibility in visibilities if visibility > 0)
+        if n_labeled_keypoints == 0:
+            # Objects with no labeled keypoints (e.g. a person in a crowd) are still annotated in the
+            # instances label file, so no information is lost by skipping the empty skeleton.
+            return None
+
+        object_id = str(annotation["id"])
+        keypoints = [
+            KeyPoint(
+                point=Point(
+                    x=flat_keypoints[3 * keypoint_index] / image_width,
+                    y=flat_keypoints[3 * keypoint_index + 1] / image_height,
+                ),
+                labeled=visibilities[keypoint_index] > 0,
+                class_name=keypoint_name,
+                class_idx=keypoint_index,
+                object_id=object_id,
+                # Visibility as defined by COCO: 0=not labeled, 1=labeled but not visible, 2=labeled and
+                # visible. Keypoints that are not labeled are stored as the (0, 0) coordinate by COCO.
+                meta={"visibility": int(visibilities[keypoint_index])},
+            )
+            for keypoint_index, keypoint_name in enumerate(keypoint_names)
+        ]
+
+        return Skeleton(
+            keypoints=keypoints,
+            class_name=class_name,
+            class_idx=self.task.get_class_index(class_name),
+            object_id=object_id,
+            task_name=self.task.name or Skeleton.default_task_name(),
+            meta={
+                "iscrowd": annotation.get("iscrowd"),
+                "num_keypoints": annotation.get("num_keypoints", n_labeled_keypoints),
+            },
+        )
+
+
+def read_coco_keypoint_label_file(
+    path_keypoints_label_file: Path, task_name: Optional[str] = None
+) -> CocoKeypointLabels:
+    """Read a COCO keypoint label file, e.g. 'person_keypoints_val2017.json'.
+
+    Args:
+        path_keypoints_label_file: Path to a COCO label file with a 'keypoints' list per annotation.
+        task_name: Optional name for the resulting 'Skeleton' task. Defaults to the task name of the
+            'Skeleton' primitive ('pose_estimation').
+    """
+    if not path_keypoints_label_file.exists():
+        raise FileNotFoundError(f"Expected keypoint label file not found: {path_keypoints_label_file}")
+    user_logger.info(f"Loading coco keypoint label file as json: '{path_keypoints_label_file.name}'")
+    keypoints_dict = json.loads(path_keypoints_label_file.read_text())
+
+    coco_categories = keypoints_dict.get("categories", [])
+    task = skeleton_task_from_coco_keypoint_categories(coco_categories, task_name=task_name)
+    class_names = task.get_class_names() or []
+    category_id_to_class_name = {
+        category["id"]: category["name"] for category in coco_categories if category["name"] in class_names
+    }
+    return CocoKeypointLabels(
+        task=task,
+        category_id_to_class_name=category_id_to_class_name,
+        annotations_by_image_id=group_coco_annotations_by_image_id(keypoints_dict.get("annotations", [])),
+    )
+
+
+def skeleton_task_from_coco_keypoint_categories(
+    coco_categories: List[Dict], task_name: Optional[str] = None
+) -> TaskInfo:
+    """Create a 'Skeleton' task with a skeleton template per class from COCO keypoint categories.
+
+    Categories without keypoints are skipped, as e.g. the 'person_keypoints' label files of COCO 2017
+    may contain categories with no keypoint definition.
+    """
+    classes = []
+    for category in coco_categories:
+        keypoint_names = category.get("keypoints")
+        if not keypoint_names:
+            continue
+        # COCO edges are pairs of 1-indexed keypoint indices, e.g. [[16, 14], [14, 12], ...]
+        edges = [
+            SkeletonEdge(index_start=index_start - 1, index_end=index_end - 1)
+            for index_start, index_end in category.get("skeleton", [])
+        ]
+        classes.append(
+            ClassInfo(
+                name=category["name"],
+                skeleton=SkeletonTemplate(keypoint_names=list(keypoint_names), edges=edges),
+            )
+        )
+
+    if len(classes) == 0:
+        raise ValueError("No COCO categories with keypoints found. Expected at least one category with keypoints.")
+
+    return TaskInfo(primitive=Skeleton, classes=classes, name=task_name)
 
 
 def get_coco_id_category_mapping(
@@ -235,7 +403,7 @@ def convert_segmentation_to_rle_list(segmentation: Union[Dict, List], height: in
     raise ValueError("Segmentation format not recognized for conversion to RLE.")
 
 
-def fiftyone_coco_to_hafnia_sample(
+def coco_format_to_hafnia_sample(
     path_images: Path,
     image_dict: Dict,
     image_annotations: List[Dict],
@@ -243,6 +411,7 @@ def fiftyone_coco_to_hafnia_sample(
     class_names: List[str],
     id_to_license_mapping: Dict[int, License],
     split_name: str,
+    skeletons: Optional[List[Skeleton]] = None,
 ) -> Sample:
     image_dict = image_dict.copy()  # Create a copy to avoid modifying the original dictionary.
     file_name_relative = image_dict.pop(COCO_KEY_FILE_NAME)
@@ -316,6 +485,7 @@ def fiftyone_coco_to_hafnia_sample(
         split=split_name,
         bboxes=bboxes,  # Bboxes will be added later if needed.
         bitmasks=bitmasks,  # Add the bitmask to the sample.
+        skeletons=skeletons or None,  # Skeletons are read from a separate COCO keypoint label file.
         attribution=attribution,
         meta=image_dict,
     )

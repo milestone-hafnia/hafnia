@@ -6,8 +6,19 @@ import yaml
 
 from hafnia.dataset.dataset_details_uploader import DatasetImageMetadata
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField
-from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.primitives import PRIMITIVE_TYPES, Bbox, Bitmask, Classification, KeyPoint, Point, Polygon, Skeleton
+from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample, TaskInfo
+from hafnia.dataset.primitives import (
+    PRIMITIVE_TYPES,
+    Bbox,
+    Bitmask,
+    Classification,
+    KeyPoint,
+    Point,
+    Polygon,
+    Skeleton,
+    SkeletonEdge,
+    SkeletonTemplate,
+)
 from hafnia.dataset.primitives.primitive import Primitive
 from tests import helper_testing
 
@@ -110,3 +121,47 @@ def test_dataset_image_metadata_serialization():
     meta = metadata_dict["meta"]
 
     assert SampleField.FILE_PATH in meta
+
+
+def get_skeleton_task_with_two_keypoints() -> TaskInfo:
+    template = SkeletonTemplate(
+        keypoint_names=["labeled_keypoint", "unlabeled_keypoint"],
+        edges=[SkeletonEdge(index_start=0, index_end=1)],
+    )
+    return TaskInfo(primitive=Skeleton, classes=[ClassInfo(name="pose", skeleton=template)])
+
+
+def test_unlabeled_keypoints_are_not_drawn():
+    """An unlabeled keypoint has no location, so neither it nor its edges are drawn."""
+    image = np.zeros((100, 100, 3), dtype=np.uint8)
+    skeleton = Skeleton(
+        keypoints=[
+            KeyPoint(point=Point(x=0.5, y=0.5), class_name="labeled_keypoint", class_idx=0),
+            # Unlabeled keypoints are stored with the (0, 0) coordinate by e.g. the COCO format
+            KeyPoint(point=Point(x=0.0, y=0.0), class_name="unlabeled_keypoint", class_idx=1, labeled=False),
+        ],
+        class_name="pose",
+        class_idx=0,
+    )
+
+    image_drawn = skeleton.draw(image, draw_label=False, task=get_skeleton_task_with_two_keypoints())
+
+    assert image_drawn[50, 50].any(), "Expected the labeled keypoint to be drawn"
+    assert not image_drawn[:10, :10].any(), "Expected the unlabeled keypoint at (0, 0) to be skipped"
+    assert not image_drawn[25, 25].any(), "Expected no edge towards the unlabeled keypoint"
+
+
+def test_skeleton_without_labeled_keypoints_is_not_drawn():
+    image = np.zeros((100, 100, 3), dtype=np.uint8)
+    skeleton = Skeleton(
+        keypoints=[
+            KeyPoint(point=Point(x=0.0, y=0.0), class_name="labeled_keypoint", class_idx=0, labeled=False),
+            KeyPoint(point=Point(x=0.0, y=0.0), class_name="unlabeled_keypoint", class_idx=1, labeled=False),
+        ],
+        class_name="pose",
+        class_idx=0,
+    )
+
+    image_drawn = skeleton.draw(image, task=get_skeleton_task_with_two_keypoints())
+
+    assert not image_drawn.any(), "Expected nothing to be drawn for a skeleton without labeled keypoints"

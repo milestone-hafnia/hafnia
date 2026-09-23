@@ -134,7 +134,9 @@ class Skeleton(Primitive):
         if not inplace:
             image = image.copy()
         points = self.to_pixel_coordinates(image_shape=image.shape[:2])
-        if len(points) == 0:
+        # Unlabeled keypoints are kept to match the skeleton template, but have no location to draw
+        labeled_points = [point for point, keypoint in zip(points, self.keypoints) if keypoint.labeled]
+        if len(labeled_points) == 0:
             return image
 
         class_name = self.get_class_name()
@@ -147,6 +149,9 @@ class Skeleton(Primitive):
             # Inconsistencies are reported by 'HafniaDataset.check_dataset_skeletons' and skipped when drawing.
             is_valid_edge = (0 <= edge.index_start < len(points)) and (0 <= edge.index_end < len(points))
             if not is_valid_edge:
+                continue
+            is_labeled_edge = self.keypoints[edge.index_start].labeled and self.keypoints[edge.index_end].labeled
+            if not is_labeled_edge:
                 continue
             cv2.line(image, pt1=points[edge.index_start], pt2=points[edge.index_end], color=color, thickness=thickness)
 

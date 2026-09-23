@@ -340,29 +340,29 @@ class HafniaDataset:
         force_redownload: bool = False,
         n_samples: Optional[int] = None,
     ) -> HafniaDataset:
-        """Load a public dataset (e.g. one of the supported torchvision datasets) as a `HafniaDataset`.
+        """Load a public dataset (e.g. a torchvision dataset or 'coco-2017') as a `HafniaDataset`.
 
         Unlike `from_name`, this does not require platform credentials — the dataset is fetched
         from its public source and converted into the Hafnia format.
 
         Args:
-            name: Public dataset identifier. Use `torchvision_to_hafnia_converters()` to list the
+            name: Public dataset identifier. Use `public_dataset_to_hafnia_converters()` to list the
                 supported names.
             force_redownload: If True, re-download even if a local copy is already present.
             n_samples: Optional cap on the number of samples to materialize.
         """
-        from hafnia.dataset.format_conversions.torchvision_datasets import (
-            torchvision_to_hafnia_converters,
+        from hafnia.dataset.format_conversions.public_datasets import (
+            public_dataset_to_hafnia_converters,
         )
 
-        name_to_torchvision_function = torchvision_to_hafnia_converters()
+        name_to_converter_function = public_dataset_to_hafnia_converters()
 
-        if name not in name_to_torchvision_function:
+        if name not in name_to_converter_function:
             raise ValueError(
-                f"Unknown torchvision dataset name: {name}. Supported: {list(name_to_torchvision_function.keys())}"
+                f"Unknown public dataset name: {name}. Supported: {list(name_to_converter_function.keys())}"
             )
-        vision_dataset = name_to_torchvision_function[name]
-        return vision_dataset(
+        converter_function = name_to_converter_function[name]
+        return converter_function(
             force_redownload=force_redownload,
             n_samples=n_samples,
         )
