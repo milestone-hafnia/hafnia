@@ -4,7 +4,7 @@ import copy
 from dataclasses import dataclass
 from pathlib import Path
 from random import Random
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import polars as pl
 from packaging.version import Version
@@ -58,6 +58,58 @@ from hafnia_cli.config import Config
 
 if TYPE_CHECKING:
     import boto3
+
+# Number of samples that are serialized and converted into a samples table at a time. Samples are
+# converted in chunks, as a sample and its serialized form use far more memory than the row it
+# becomes. Measured on the COCO 2017 conversion, a smaller chunk lowers the peak memory until it
+# hits the memory used to parse the label file - 2.000 is at that point and keeps the number of
+# chunks (and thereby the concatenation cost) low.
+DEFAULT_SAMPLES_CHUNK_SIZE = 2_000
+
+
+def samples_to_table(samples: Iterable, chunk_size: Optional[int] = DEFAULT_SAMPLES_CHUNK_SIZE) -> pl.DataFrame:
+    """Convert `Sample` objects (or sample dicts) into a samples table.
+
+    Samples are serialized and converted into a table in chunks of 'chunk_size' samples, so the
+    serialized form of the full dataset is never in memory at once. The chunks are concatenated
+    with 'vertical_relaxed', which reconciles the schemas of the chunks - a column is e.g. of the
+    'Null' type in a chunk where no sample has an annotation for it.
+
+    Args:
+        samples: Iterable of `Sample` instances or dicts matching the `Sample` schema.
+        chunk_size: Number of samples per chunk. 'None' converts all samples in one chunk.
+    """
+    tables = []
+    chunk: List[Dict] = []
+    for sample in samples:
+        if isinstance(sample, Sample):
+            sample = sample.model_dump(mode="json")
+        elif not isinstance(sample, dict):
+            raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
+        chunk.append(sample)
+
+        if chunk_size is not None and len(chunk) >= chunk_size:
+            tables.append(_samples_chunk_to_table(chunk))
+            chunk = []
+
+    if len(chunk) > 0:
+        tables.append(_samples_chunk_to_table(chunk))
+        chunk = []
+
+    if len(tables) == 0:
+        raise ValueError("No samples provided. Expected at least one sample to create a dataset.")
+    if len(tables) == 1:
+        return tables[0]
+    return pl.concat(tables, how="vertical_relaxed")
+
+
+def _samples_chunk_to_table(samples_chunk: List[Dict]) -> pl.DataFrame:
+    # To ensure that the 'file_path' column is of type string even if all samples have 'None' as file_path
+    schema_override = {
+        SampleField.FILE_PATH: pl.String,
+        SampleField.TAGS: pl.List(pl.String),
+    }
+    return pl.from_records(samples_chunk, schema_overrides=schema_override, infer_schema_length=None)
 
 
 @dataclass
@@ -248,24 +300,49 @@ class HafniaDataset:
         Used when constructing datasets from custom data — see `examples/example_custom_dataset.py`.
         Adds a sample index and fills in the dataset name on the resulting samples table.
 
+        Use `from_samples_iterable` for large datasets, as all samples of the list are converted into
+        the samples table in one go.
+
         Args:
             samples_list: List of `Sample` instances or dicts matching the `Sample` schema.
             info: Dataset-level metadata (name, version, tasks, ...).
         """
-        sample = samples_list[0]
-        if isinstance(sample, Sample):
-            json_samples = [sample.model_dump(mode="json") for sample in samples_list]
-        elif isinstance(sample, dict):
-            json_samples = samples_list
-        else:
-            raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
+        table = samples_to_table(samples_list, chunk_size=None)
+        return HafniaDataset.from_samples_table(table, info=info)
 
-        # To ensure that the 'file_path' column is of type string even if all samples have 'None' as file_path
-        schema_override = {
-            SampleField.FILE_PATH: pl.String,
-            SampleField.TAGS: pl.List(pl.String),
-        }
-        table = pl.from_records(json_samples, schema_overrides=schema_override, infer_schema_length=None)
+    @staticmethod
+    def from_samples_iterable(
+        samples_iterable: Iterable,
+        info: DatasetInfo,
+        chunk_size: int = DEFAULT_SAMPLES_CHUNK_SIZE,
+    ) -> "HafniaDataset":
+        """Create a `HafniaDataset` from an iterable of `Sample` objects (or sample dicts).
+
+        Memory-friendly variant of `from_samples_list`: samples are consumed lazily and converted
+        into the samples table in chunks, so neither the samples nor their serialized form are kept
+        in memory for the whole dataset. Prefer this when converting large datasets - a list of
+        `Sample` objects and its serialized copy can be orders of magnitude larger than the
+        resulting samples table.
+
+        Args:
+            samples_iterable: Iterable of `Sample` instances or dicts matching the `Sample` schema.
+                A generator keeps the memory use of the caller down as well.
+            info: Dataset-level metadata (name, version, tasks, ...).
+            chunk_size: Number of samples converted into a table at a time.
+        """
+        table = samples_to_table(samples_iterable, chunk_size=chunk_size)
+        return HafniaDataset.from_samples_table(table, info=info)
+
+    @staticmethod
+    def from_samples_table(table: pl.DataFrame, info: DatasetInfo) -> "HafniaDataset":
+        """Create a `HafniaDataset` from an already built samples table and a `DatasetInfo`.
+
+        Drops columns without any values, adds a sample index and fills in the dataset name.
+
+        Args:
+            table: Samples table with one row per sample and columns mirroring `Sample`.
+            info: Dataset-level metadata (name, version, tasks, ...).
+        """
         table = table.drop(pl.selectors.by_dtype(pl.Null))
         table = table_transformations.add_sample_index(table)
         table = table_transformations.add_dataset_name_if_missing(table, dataset_name=info.dataset_name)

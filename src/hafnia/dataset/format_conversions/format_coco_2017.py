@@ -46,8 +46,14 @@ if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
 DATASET_NAME = "coco-2017"
-URL_IMAGES = "http://images.cocodataset.org/zips"
-URL_ANNOTATIONS = "http://images.cocodataset.org/annotations"
+# The COCO archives are hosted in the 'images.cocodataset.org' S3 bucket. The bucket is addressed
+# by path ('s3.amazonaws.com/images.cocodataset.org') and not by the 'images.cocodataset.org' vanity
+# domain of the COCO website, as the certificate of that domain is issued to 's3.amazonaws.com' and
+# fails verification. Downloading over https matters, as the checksums of the two image archives
+# below are not published by COCO.
+URL_BUCKET = "https://s3.amazonaws.com/images.cocodataset.org"
+URL_IMAGES = f"{URL_BUCKET}/zips"
+URL_ANNOTATIONS = f"{URL_BUCKET}/annotations"
 FOLDER_NAME_ARCHIVES = ".archives"
 # Timeout for the socket operations of a download. The COCO archives are large, so the timeout is
 # applied per read and not to the download as a whole.
@@ -132,10 +138,7 @@ COCO_2017_SPLITS: Dict[str, Coco2017Split] = {
     ),
 }
 
-# Splits that are converted by 'coco_2017_as_hafnia_dataset'. All splits are defined above and can be
-# downloaded, but only the validation split is converted for now. The training split (19 GB of images)
-# and the unannotated test split are enabled as a follow-up.
-SUPPORTED_SPLITS: List[str] = [SplitName.VAL]
+SUPPORTED_SPLITS: List[str] = [SplitName.TRAIN, SplitName.VAL, SplitName.TEST]
 
 COCO_2017_BIBTEX = textwrap.dedent("""\
     @inproceedings{lin2014microsoft,

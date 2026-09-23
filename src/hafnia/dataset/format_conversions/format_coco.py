@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Tuple, Union
 
 import polars as pl
 from pycocotools import mask as coco_utils
@@ -21,6 +21,11 @@ from hafnia.dataset.primitives import Bbox, Bitmask, KeyPoint, Point, Skeleton, 
 from hafnia.log import user_logger
 
 COCO_KEY_FILE_NAME = "file_name"
+
+# Fields of a COCO keypoint annotation that are used to build a 'Skeleton'. The remaining fields -
+# most notably the segmentation - are dropped when a keypoint label file is read, as they are read
+# from the instances label file instead.
+KEYPOINT_ANNOTATION_FIELDS = ("id", "category_id", "keypoints", "num_keypoints", "iscrowd")
 
 HAFNIA_TO_ROBOFLOW_SPLIT_NAME = {
     SplitName.TRAIN: "train",
@@ -101,7 +106,7 @@ def from_coco_dataset_by_split_definitions(
         max_samples_per_split = None
     else:
         max_samples_per_split = max_samples // len(split_definitions)
-    samples = []
+    tables: List[pl.DataFrame] = []
     tasks: List[TaskInfo] = []
     for split_definition in split_definitions:
         if split_definition.path_instances_json is None or not split_definition.path_instances_json.exists():
@@ -115,7 +120,7 @@ def from_coco_dataset_by_split_definitions(
                 f"Images folder doesn't exist: {split_definition.path_images}"
             )
 
-        samples_in_split, tasks_in_split = coco_format_folder_with_split_to_hafnia_samples(
+        table_in_split, tasks_in_split = coco_format_folder_with_split_to_samples_table(
             path_label_file=split_definition.path_instances_json,
             max_samples_per_split=max_samples_per_split,
             path_images=split_definition.path_images,
@@ -139,28 +144,59 @@ def from_coco_dataset_by_split_definitions(
                     f"Inconsistent task found across splits in the COCO dataset for task name '{task_in_split.name}'. "
                 )
 
-        samples.extend(samples_in_split)
+        tables.append(table_in_split)
 
     dataset_info = DatasetInfo(
         dataset_name=dataset_name,
         tasks=tasks,
     )
 
-    hafnia_dataset = HafniaDataset.from_samples_list(samples, info=dataset_info)
-    return hafnia_dataset
+    # 'vertical_relaxed' reconciles columns that are empty - and therefore of the 'Null' type - in
+    # one split, but populated in another, e.g. the keypoints of an unannotated test split.
+    table = tables[0] if len(tables) == 1 else pl.concat(tables, how="vertical_relaxed")
+    return HafniaDataset.from_samples_table(table, info=dataset_info)
 
 
-def coco_format_folder_with_split_to_hafnia_samples(
+def coco_format_folder_with_split_to_samples_table(
     path_label_file: Path,
     path_images: Path,
     split_name: str,
     max_samples_per_split: Optional[int],
     path_keypoints_label_file: Optional[Path] = None,
-) -> Tuple[List[Sample], List[TaskInfo]]:
+    chunk_size: Optional[int] = None,
+) -> Tuple[pl.DataFrame, List[TaskInfo]]:
+    """Convert one split of a COCO dataset into a samples table and the tasks of the split.
+
+    The samples are converted into the table in chunks, and the parsed label file is released while
+    it is consumed, so memory use stays roughly constant for datasets of any size. A table is built
+    - instead of a list of `Sample` objects - because a `Sample` and its serialized form use far
+    more memory than the table row they become.
+
+    Args:
+        path_label_file: COCO label file with the images and object annotations of the split.
+        path_images: Folder with the images of the split.
+        split_name: Name of the split, e.g. 'validation'.
+        max_samples_per_split: Optional cap on the number of images converted.
+        path_keypoints_label_file: Optional COCO label file with keypoint annotations.
+        chunk_size: Number of samples converted into the table at a time. Defaults to
+            'DEFAULT_SAMPLES_CHUNK_SIZE'.
+    """
+    from hafnia.dataset.hafnia_dataset import DEFAULT_SAMPLES_CHUNK_SIZE, samples_to_table
+
+    chunk_size = chunk_size or DEFAULT_SAMPLES_CHUNK_SIZE
     if not path_label_file.exists():
         raise FileNotFoundError(f"Expected label file not found: {path_label_file}")
+
+    # The keypoint label file is read before the instances label file, so that the parsed keypoints
+    # are reduced to the fields in use before the - much larger - instances file is parsed.
+    keypoint_labels = None
+    if path_keypoints_label_file is not None:
+        keypoint_labels = read_coco_keypoint_label_file(path_keypoints_label_file)
+
     user_logger.info("Loading coco label file as json")
-    image_and_annotation_dict = json.loads(path_label_file.read_text())
+    # 'read_bytes' and not 'read_text', as the decoded text of a large label file is a needless copy
+    # - 'json.loads' decodes the bytes itself.
+    image_and_annotation_dict = json.loads(path_label_file.read_bytes())
     user_logger.info("Converting coco dataset to HafniaDataset samples")
 
     id_to_category, class_names = get_coco_id_category_mapping(image_and_annotation_dict.get("categories", []))
@@ -172,46 +208,62 @@ def coco_format_folder_with_split_to_hafnia_samples(
     coco_licenses = image_and_annotation_dict.get("licenses", [])
     id_to_license_mapping = {lic["id"]: license_types.get_license_by_url(lic["url"]) for lic in coco_licenses}
 
-    coco_images = image_and_annotation_dict.get("images", [])
+    # Images and annotations are popped from the parsed label file and are then released one by one
+    # as they are converted into samples below.
+    coco_images = image_and_annotation_dict.pop("images", [])
     if max_samples_per_split is not None:
         coco_images = coco_images[:max_samples_per_split]
     id_to_image = {img["id"]: img for img in coco_images}
+    coco_images.clear()
 
-    img_id_to_annotations = group_coco_annotations_by_image_id(image_and_annotation_dict.get("annotations", []))
+    img_id_to_annotations = group_coco_annotations_by_image_id(image_and_annotation_dict.pop("annotations", []))
 
-    keypoint_labels = None
-    if path_keypoints_label_file is not None:
-        keypoint_labels = read_coco_keypoint_label_file(path_keypoints_label_file)
-        tasks.append(keypoint_labels.task)
+    n_skeletons = 0
 
-    samples = []
-    for img_id, image_dict in progress_bar(
-        id_to_image.items(), description=f"Convert coco to hafnia sample '{split_name}'"
-    ):
-        image_annotations = img_id_to_annotations.get(img_id, [])
+    def samples_of_split() -> Iterator[Sample]:
+        nonlocal n_skeletons
+        image_ids = list(id_to_image)
+        for img_id in progress_bar(image_ids, description=f"Convert coco to hafnia sample '{split_name}'"):
+            image_dict = id_to_image.pop(img_id)
+            image_annotations = img_id_to_annotations.pop(img_id, [])
 
-        if keypoint_labels is None:
-            skeletons = []
-        else:
-            skeletons = keypoint_labels.skeletons_for_image(
-                image_id=img_id,
-                image_height=image_dict["height"],
-                image_width=image_dict["width"],
+            if keypoint_labels is None:
+                skeletons = []
+            else:
+                skeletons = keypoint_labels.skeletons_for_image(
+                    image_id=img_id,
+                    image_height=image_dict["height"],
+                    image_width=image_dict["width"],
+                    consume=True,
+                )
+                n_skeletons += len(skeletons)
+
+            yield coco_format_to_hafnia_sample(
+                path_images=path_images,
+                image_dict=image_dict,
+                image_annotations=image_annotations,
+                id_to_category=id_to_category,
+                class_names=class_names,
+                id_to_license_mapping=id_to_license_mapping,
+                split_name=split_name,
+                skeletons=skeletons,
             )
 
-        sample = coco_format_to_hafnia_sample(
-            path_images=path_images,
-            image_dict=image_dict,
-            image_annotations=image_annotations,
-            id_to_category=id_to_category,
-            class_names=class_names,
-            id_to_license_mapping=id_to_license_mapping,
-            split_name=split_name,
-            skeletons=skeletons,
-        )
-        samples.append(sample)
+    table = samples_to_table(samples_of_split(), chunk_size=chunk_size)
 
-    return samples, tasks
+    if keypoint_labels is not None:
+        if n_skeletons > 0:
+            tasks.append(keypoint_labels.task)
+        else:
+            # Samples without skeletons leave out the 'skeletons' column entirely, and a task without
+            # a matching column fails 'check_dataset'. This happens for a small selection of images,
+            # as most COCO images have no person with labeled keypoints.
+            user_logger.warning(
+                f"No keypoint annotations found for the '{split_name}' split in "
+                f"'{path_keypoints_label_file}'. The '{keypoint_labels.task.name}' task is left out."
+            )
+
+    return table, tasks
 
 
 def group_coco_annotations_by_image_id(coco_annotations: List[Dict]) -> Dict[int, List[Dict]]:
@@ -235,10 +287,26 @@ class CocoKeypointLabels:
     category_id_to_class_name: Dict[int, str]
     annotations_by_image_id: Dict[int, List[Dict]]
 
-    def skeletons_for_image(self, image_id: int, image_height: int, image_width: int) -> List[Skeleton]:
-        """Convert the keypoint annotations of one image into 'Skeleton' primitives."""
+    def skeletons_for_image(
+        self, image_id: int, image_height: int, image_width: int, consume: bool = False
+    ) -> List[Skeleton]:
+        """Convert the keypoint annotations of one image into 'Skeleton' primitives.
+
+        Args:
+            image_id: Image to convert the keypoint annotations of.
+            image_height: Height of the image, used to normalize the keypoints.
+            image_width: Width of the image, used to normalize the keypoints.
+            consume: If True, the annotations of the image are dropped once converted, so that a
+                large label file is released while it is converted. The annotations of the image
+                are then no longer available on following calls.
+        """
+        if consume:
+            annotations = self.annotations_by_image_id.pop(image_id, [])
+        else:
+            annotations = self.annotations_by_image_id.get(image_id, [])
+
         skeletons = []
-        for annotation in self.annotations_by_image_id.get(image_id, []):
+        for annotation in annotations:
             skeleton = self.to_skeleton(annotation, image_height=image_height, image_width=image_width)
             if skeleton is None:
                 continue
@@ -263,6 +331,11 @@ class CocoKeypointLabels:
 
         # COCO stores keypoints flattened as [x0, y0, visibility0, x1, y1, visibility1, ...]
         flat_keypoints = annotation.get("keypoints") or []
+        if len(flat_keypoints) == 0:
+            # COCO stores a list of zeros for an object without labeled keypoints, but other
+            # COCO-style exports leave out the 'keypoints' field for such objects.
+            return None
+
         n_expected_values = 3 * len(keypoint_names)
         if len(flat_keypoints) != n_expected_values:
             raise ValueError(
@@ -322,7 +395,7 @@ def read_coco_keypoint_label_file(
     if not path_keypoints_label_file.exists():
         raise FileNotFoundError(f"Expected keypoint label file not found: {path_keypoints_label_file}")
     user_logger.info(f"Loading coco keypoint label file as json: '{path_keypoints_label_file.name}'")
-    keypoints_dict = json.loads(path_keypoints_label_file.read_text())
+    keypoints_dict = json.loads(path_keypoints_label_file.read_bytes())
 
     coco_categories = keypoints_dict.get("categories", [])
     task = skeleton_task_from_coco_keypoint_categories(coco_categories, task_name=task_name)
@@ -330,10 +403,21 @@ def read_coco_keypoint_label_file(
     category_id_to_class_name = {
         category["id"]: category["name"] for category in coco_categories if category["name"] in class_names
     }
+
+    # Only the fields used by 'to_skeleton' are kept. A keypoint label file repeats the segmentation
+    # and the bounding box of the object annotations, which are read from the instances label file.
+    # Dropping them here releases the bulk of the keypoint label file before the instances are read.
+    annotations_by_image_id = {}
+    for image_id, annotations in group_coco_annotations_by_image_id(keypoints_dict.pop("annotations", [])).items():
+        annotations_by_image_id[image_id] = [
+            {field: annotation[field] for field in KEYPOINT_ANNOTATION_FIELDS if field in annotation}
+            for annotation in annotations
+        ]
+
     return CocoKeypointLabels(
         task=task,
         category_id_to_class_name=category_id_to_class_name,
-        annotations_by_image_id=group_coco_annotations_by_image_id(keypoints_dict.get("annotations", [])),
+        annotations_by_image_id=annotations_by_image_id,
     )
 
 

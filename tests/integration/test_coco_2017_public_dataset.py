@@ -1,8 +1,11 @@
 import pytest
 
-from hafnia.dataset.format_conversions.format_coco_2017 import DATASET_NAME, SUPPORTED_SPLITS
+from hafnia.dataset.dataset_names import SplitName
+from hafnia.dataset.format_conversions.format_coco_2017 import (
+    DATASET_NAME,
+    coco_2017_as_hafnia_dataset,
+)
 from hafnia.dataset.format_conversions.public_datasets import public_dataset_to_hafnia_converters
-from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.primitives import Bbox, Bitmask, Skeleton
 from tests.helper_testing import is_github_actions_pipeline
 
@@ -21,12 +24,11 @@ def test_coco_2017_public_dataset() -> None:
     if is_github_actions_pipeline():
         pytest.skip("Skipping public dataset tests in GitHub Actions to avoid large downloads.")
 
+    dataset = coco_2017_as_hafnia_dataset(n_samples=20, splits=[SplitName.VAL])
     n_samples = 20
-    dataset = HafniaDataset.from_name_public_dataset(DATASET_NAME, n_samples=n_samples)
 
     assert len(dataset) == n_samples
     assert dataset.info.dataset_name == DATASET_NAME
-    assert dataset.samples["split"].unique().to_list() == SUPPORTED_SPLITS
 
     # Object detection, instance segmentation and human pose annotations are all converted
     for primitive in [Bbox, Bitmask, Skeleton]:

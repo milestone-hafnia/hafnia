@@ -8,7 +8,7 @@ import polars as pl
 import pytest
 
 from hafnia.dataset.dataset_names import SampleField, SplitName
-from hafnia.dataset.format_conversions import format_coco, format_coco_2017
+from hafnia.dataset.format_conversions import format_coco, format_coco_2017, public_datasets
 from hafnia.dataset.format_conversions.format_coco_2017 import CocoArchive
 from hafnia.dataset.hafnia_dataset_types import Sample
 from hafnia.dataset.primitives import Skeleton
@@ -119,9 +119,11 @@ def test_coco_keypoint_annotation_with_unexpected_number_of_keypoints() -> None:
         keypoint_labels.to_skeleton(annotation, image_height=100, image_width=100)
 
 
-def test_coco_2017_as_hafnia_dataset_rejects_unsupported_splits(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="are not supported yet"):
-        format_coco_2017.coco_2017_as_hafnia_dataset(splits=[SplitName.TRAIN], path_root=tmp_path)
+def test_torchvision_dataset_names_are_up_to_date() -> None:
+    """The names in the registry are hardcoded to avoid importing torchvision to list them."""
+    from hafnia.dataset.format_conversions.torchvision_datasets import torchvision_to_hafnia_converters
+
+    assert public_datasets.TORCHVISION_DATASET_NAMES == list(torchvision_to_hafnia_converters())
 
 
 def test_download_is_skipped_when_dataset_is_extracted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

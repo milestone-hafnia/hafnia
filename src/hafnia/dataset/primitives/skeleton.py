@@ -96,6 +96,11 @@ class Skeleton(Primitive):
     def to_pixel_coordinates(
         self, image_shape: Tuple[int, int], as_int: bool = True, clip_values: bool = True
     ) -> List[Tuple]:
+        """Pixel coordinates of all keypoints, including the keypoints that are not labeled.
+
+        All keypoints are returned to keep the indices aligned with the skeleton template. Use
+        'KeyPoint.labeled' to filter out the keypoints that have no meaningful location.
+        """
         return [
             keypoint.to_pixel_coordinates(image_shape=image_shape, as_int=as_int, clip_values=clip_values)
             for keypoint in self.keypoints
@@ -159,7 +164,7 @@ class Skeleton(Primitive):
             keypoint.draw(image, inplace=True, draw_label=False, nested=nested)
 
         margin = 5
-        top_left = (min(x for x, _ in points), min(y for _, y in points) - margin)
+        top_left = (min(x for x, _ in labeled_points), min(y for _, y in labeled_points) - margin)
         if draw_label:
             cv2.putText(
                 img=image,
