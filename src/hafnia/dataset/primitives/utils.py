@@ -4,6 +4,25 @@ from typing import Optional, Tuple, Union
 import cv2
 import numpy as np
 
+FONT_FACE = cv2.FONT_HERSHEY_SIMPLEX
+
+# Font scale and line thickness of a primitive drawn as a top-level annotation and as a nested annotation.
+# Nested annotations are drawn thinner and smaller to keep the top-level annotation the dominant one.
+FONT_SCALE = 0.75
+THICKNESS = 2
+FONT_SCALE_NESTED = 0.5
+THICKNESS_NESTED = 1
+
+# Distance between two stacked labels of nested primitives in pixels
+LABEL_LINE_HEIGHT_NESTED = 16
+
+
+def draw_style(nested: bool) -> Tuple[float, int]:
+    """Font scale and line thickness used when drawing a primitive as a top-level or a nested annotation."""
+    if nested:
+        return FONT_SCALE_NESTED, THICKNESS_NESTED
+    return FONT_SCALE, THICKNESS
+
 
 def text_org_from_left_bottom_to_centered(xy_org: tuple, text: str, font, font_scale: float, thickness: int) -> tuple:
     xy_text_size = cv2.getTextSize(text, fontFace=font, fontScale=font_scale, thickness=thickness)[0]

@@ -7,7 +7,13 @@ from pydantic import BaseModel, Field
 
 from hafnia.dataset.primitives.keypoint import KeyPoint
 from hafnia.dataset.primitives.primitive import Primitive
-from hafnia.dataset.primitives.utils import class_color_by_name, get_class_name
+from hafnia.dataset.primitives.utils import (
+    FONT_FACE,
+    LABEL_LINE_HEIGHT_NESTED,
+    class_color_by_name,
+    draw_style,
+    get_class_name,
+)
 
 if TYPE_CHECKING:
     from hafnia.dataset.hafnia_dataset_types import TaskInfo
@@ -69,6 +75,12 @@ class Skeleton(Primitive):
     # Attributes
     classifications: Optional[List["Classification"]] = None
 
+    @classmethod
+    def nested_primitive_fields(cls) -> List[str]:
+        # 'Skeleton.keypoints' are the vertices of the skeleton itself - not nested primitives -
+        # and are drawn by 'Skeleton.draw' together with the edges between them.
+        return [field_name for field_name in super().nested_primitive_fields() if field_name != "keypoints"]
+
     @staticmethod
     def default_task_name() -> str:
         return "pose_estimation"
@@ -103,6 +115,8 @@ class Skeleton(Primitive):
         draw_label: bool = True,
         *,
         task: Optional["TaskInfo"] = None,
+        nested: bool = False,
+        anchor: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
         """Draw the keypoints of the skeleton and, if a task is provided, the edges between them.
 
@@ -113,6 +127,9 @@ class Skeleton(Primitive):
             task: Optional `TaskInfo` of the skeleton. The edges between keypoints are defined per class
                 by the skeleton template ('ClassInfo.skeleton') of the task. Without a task, only the
                 keypoints are drawn.
+            nested: If True, the skeleton is drawn as an attribute of another primitive using a thinner
+                and smaller style.
+            anchor: Unused. A skeleton draws its label at the position of its own keypoints.
         """
         if not inplace:
             image = image.copy()
@@ -122,6 +139,7 @@ class Skeleton(Primitive):
 
         class_name = self.get_class_name()
         color = class_color_by_name(class_name)
+        font_scale, thickness = draw_style(nested)
         skeleton_template = self.get_skeleton_template(task)
         edges = skeleton_template.edges if skeleton_template else []
         for edge in edges:
@@ -130,24 +148,27 @@ class Skeleton(Primitive):
             is_valid_edge = (0 <= edge.index_start < len(points)) and (0 <= edge.index_end < len(points))
             if not is_valid_edge:
                 continue
-            cv2.line(image, pt1=points[edge.index_start], pt2=points[edge.index_end], color=color, thickness=2)
+            cv2.line(image, pt1=points[edge.index_start], pt2=points[edge.index_end], color=color, thickness=thickness)
 
         for keypoint in self.keypoints:
-            keypoint.draw(image, inplace=True, draw_label=False)
+            keypoint.draw(image, inplace=True, draw_label=False, nested=nested)
 
+        margin = 5
+        top_left = (min(x for x, _ in points), min(y for _, y in points) - margin)
         if draw_label:
-            margin = 5
-            top_left = (min(x for x, _ in points), min(y for _, y in points) - margin)
             cv2.putText(
                 img=image,
                 text=class_name,
                 org=top_left,
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=0.75,
+                fontFace=FONT_FACE,
+                fontScale=font_scale,
                 color=color,
-                thickness=2,
+                thickness=thickness,
             )
-        return image
+
+        # Define anchor to place nested classification labels below the label of the  skeleton
+        nested_anchor = (int(top_left[0]), int(top_left[1]) + LABEL_LINE_HEIGHT_NESTED)
+        return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=nested_anchor)
 
     def mask(
         self,

@@ -10,8 +10,11 @@ from pydantic import Field
 
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.dataset.primitives.utils import (
+    FONT_FACE,
+    LABEL_LINE_HEIGHT_NESTED,
     anonymize_by_resizing,
     class_color_by_name,
+    draw_style,
     get_class_name,
     text_org_from_left_bottom_to_centered,
 )
@@ -129,6 +132,8 @@ class Bitmask(Primitive):
         draw_label: bool = True,
         *,
         task: Optional["TaskInfo"] = None,
+        nested: bool = False,
+        anchor: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
         if not inplace:
             image = image.copy()
@@ -139,33 +144,35 @@ class Bitmask(Primitive):
 
         class_name = self.get_class_name()
         color = class_color_by_name(class_name)
+        font_scale, thickness = draw_style(nested)
 
-        # Creates transparent masking with the specified color
+        # Creates transparent masking with the specified color. A nested bitmask is drawn more
+        # transparent to keep the annotation it is nested in visible.
+        alpha, beta = (0.7, 0.3) if nested else (0.3, 0.7)
         image_masked = image.copy()
         image_masked[bitmask_np] = color
-        cv2.addWeighted(src1=image, alpha=0.3, src2=image_masked, beta=0.7, gamma=0, dst=image)
+        cv2.addWeighted(src1=image, alpha=alpha, src2=image_masked, beta=beta, gamma=0, dst=image)
 
+        # The anchor is only used to place nested labels, so it is only needed when labels are drawn
+        nested_anchor = None
         if draw_label:
             # Determines the center of mask
             xy = np.stack(np.nonzero(bitmask_np))
-            xy_org = tuple(np.median(xy, axis=1).astype(int))[::-1]
-
             xy_org = np.median(xy, axis=1).astype(int)[::-1]
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.75
-            thickness = 2
-            xy_centered = text_org_from_left_bottom_to_centered(xy_org, class_name, font, font_scale, thickness)
+            xy_centered = text_org_from_left_bottom_to_centered(xy_org, class_name, FONT_FACE, font_scale, thickness)
+            # Define anchor to place nested classification labels below the label of the bitmask
+            nested_anchor = (int(xy_centered[0]), int(xy_centered[1]) + LABEL_LINE_HEIGHT_NESTED)
 
             cv2.putText(
                 img=image,
                 text=class_name,
                 org=xy_centered,
-                fontFace=font,
+                fontFace=FONT_FACE,
                 fontScale=font_scale,
                 color=(255, 255, 255),
                 thickness=thickness,
             )
-        return image
+        return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=nested_anchor)
 
     def mask(
         self, image: np.ndarray, inplace: bool = False, color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None
