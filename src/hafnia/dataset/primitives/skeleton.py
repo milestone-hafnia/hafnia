@@ -168,7 +168,7 @@ class Skeleton(Primitive):
 
         # Define anchor to place nested classification labels below the label of the  skeleton
         nested_anchor = (int(top_left[0]), int(top_left[1]) + LABEL_LINE_HEIGHT_NESTED)
-        return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
+        return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=nested_anchor)
 
     def mask(
         self,

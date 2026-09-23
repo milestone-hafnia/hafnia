@@ -153,26 +153,26 @@ class Bitmask(Primitive):
         image_masked[bitmask_np] = color
         cv2.addWeighted(src1=image, alpha=alpha, src2=image_masked, beta=beta, gamma=0, dst=image)
 
+        # The anchor is only used to place nested labels, so it is only needed when labels are drawn
         nested_anchor = None
-        if draw_label or self.get_nested_primitives():
+        if draw_label:
             # Determines the center of mask
             xy = np.stack(np.nonzero(bitmask_np))
             xy_org = np.median(xy, axis=1).astype(int)[::-1]
             xy_centered = text_org_from_left_bottom_to_centered(xy_org, class_name, FONT_FACE, font_scale, thickness)
-            # Define anchor to place nested classification labels below the label of the  bitmask
+            # Define anchor to place nested classification labels below the label of the bitmask
             nested_anchor = (int(xy_centered[0]), int(xy_centered[1]) + LABEL_LINE_HEIGHT_NESTED)
 
-            if draw_label:
-                cv2.putText(
-                    img=image,
-                    text=class_name,
-                    org=xy_centered,
-                    fontFace=FONT_FACE,
-                    fontScale=font_scale,
-                    color=(255, 255, 255),
-                    thickness=thickness,
-                )
-        return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
+            cv2.putText(
+                img=image,
+                text=class_name,
+                org=xy_centered,
+                fontFace=FONT_FACE,
+                fontScale=font_scale,
+                color=(255, 255, 255),
+                thickness=thickness,
+            )
+        return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=nested_anchor)
 
     def mask(
         self, image: np.ndarray, inplace: bool = False, color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None

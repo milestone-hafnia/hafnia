@@ -156,7 +156,7 @@ class Bbox(Primitive):
 
         # Define anchor to place nested classification labels below the label of the  bounding box
         nested_anchor = (int(bottom_left[0]), int(bottom_left[1]) + LABEL_LINE_HEIGHT_NESTED)
-        return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
+        return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=nested_anchor)
 
     def mask(
         self, image: np.ndarray, inplace: bool = False, color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None

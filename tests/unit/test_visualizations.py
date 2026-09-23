@@ -158,3 +158,48 @@ def test_nested_label_line_count():
     assert classification.nested_label_line_count() == 2
     # Primitives with image coordinates draw their label themselves and occupy no line
     assert Bbox(top_left_x=0.1, top_left_y=0.1, width=0.5, height=0.5).nested_label_line_count() == 0
+
+
+def test_draw_label_false_also_suppresses_nested_labels():
+    """'draw_label=False' should leave the image free of text - also for nested primitives.
+
+    'Skeleton.draw' relies on this to draw its keypoints (vertices) without a label each.
+    """
+    image = np.full((200, 400, 3), 40, dtype=np.uint8)
+    attribute = [Classification(class_name="Visible", task_name="Visibility")]
+    primitives_without_and_with_attributes = [
+        (
+            Bbox(top_left_x=0.1, top_left_y=0.1, width=0.5, height=0.5, class_name="Vehicle"),
+            Bbox(
+                top_left_x=0.1,
+                top_left_y=0.1,
+                width=0.5,
+                height=0.5,
+                class_name="Vehicle",
+                classifications=attribute,
+            ),
+        ),
+        (
+            KeyPoint(point=Point(x=0.5, y=0.5), class_name="Nose"),
+            KeyPoint(point=Point(x=0.5, y=0.5), class_name="Nose", classifications=attribute),
+        ),
+    ]
+    for primitive, primitive_with_attributes in primitives_without_and_with_attributes:
+        name = type(primitive).__name__
+        drawn = primitive.draw(image, draw_label=False)
+        drawn_with_attributes = primitive_with_attributes.draw(image, draw_label=False)
+        assert np.array_equal(drawn, drawn_with_attributes), f"Nested label was drawn for '{name}'"
+
+        # Sanity check: the attribute is drawn when labels are enabled
+        assert not np.array_equal(
+            primitive.draw(image, draw_label=True), primitive_with_attributes.draw(image, draw_label=True)
+        ), f"Expected the nested label to be drawn for '{name}'"
+
+
+def test_draw_nested_primitives_without_inplace_keeps_the_image_unchanged():
+    """'inplace=False' should draw on a copy - also for a nested 'Classification' drawn at an anchor."""
+    image = np.full((200, 400, 3), 40, dtype=np.uint8)
+    image_before = image.copy()
+
+    Classification(class_name="Red", task_name="Vehicle Color").draw(image, inplace=False, nested=True, anchor=(10, 50))
+    assert np.array_equal(image, image_before), "Expected 'inplace=False' to leave the provided image unchanged"

@@ -57,8 +57,8 @@ def test_dataset_details_from_hafnia_dataset(dataset_name: str, tmp_path: Path):
     assert expected_primitives == actual_primitives
     for report in full_report.annotated_object_reports:
         primitive_name = report.obj.annotation_type.name
-        obj_instances = report.obj_instances or 0
-        assert obj_instances or 0 > 0, f"Expected annotated objects in the '{primitive_name}' report"
+        obj_instances = report.obj_instances or 0  # 'None' is not a valid object count and should fail
+        assert obj_instances > 0, f"Expected annotated objects in the '{primitive_name}' report"
 
     # Check distribution values
     assert full_report.distribution_values is not None

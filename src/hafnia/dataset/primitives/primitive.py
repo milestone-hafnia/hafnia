@@ -91,6 +91,7 @@ class Primitive(BaseModel, metaclass=ABCMeta):
         self,
         image: np.ndarray,
         *,
+        draw_label: bool = True,
         task: Optional[TaskInfo] = None,
         anchor: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
@@ -98,6 +99,8 @@ class Primitive(BaseModel, metaclass=ABCMeta):
 
         Args:
             image: Image to draw on. Always drawn on inplace.
+            draw_label: If True, draw the class names of the nested primitives. Pass on the 'draw_label'
+                of this primitive, so that e.g. the keypoints of a `Skeleton` stay free of text.
             task: Optional `TaskInfo` of *this* primitive. The task of each nested primitive is resolved
                 from the attribute tasks of the class of this primitive, see 'get_nested_task'.
             anchor: Position where nested primitives without image coordinates (e.g. `Classification`)
@@ -107,6 +110,7 @@ class Primitive(BaseModel, metaclass=ABCMeta):
             image = primitive.draw(
                 image,
                 inplace=True,
+                draw_label=draw_label,
                 nested=True,
                 task=self.get_nested_task(primitive, task),
                 anchor=anchor,

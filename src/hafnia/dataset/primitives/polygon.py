@@ -126,7 +126,7 @@ class Polygon(Primitive):
 
         # Define anchor to place nested classification labels below the label of the  polygon
         nested_anchor = (bottom_left[0], bottom_left[1] + LABEL_LINE_HEIGHT_NESTED)
-        return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
+        return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=nested_anchor)
 
     def anonymize_by_blurring(self, image: np.ndarray, inplace: bool = False, max_resolution: int = 20) -> np.ndarray:
         if not inplace:

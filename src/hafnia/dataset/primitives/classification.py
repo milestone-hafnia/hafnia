@@ -84,6 +84,8 @@ class Classification(Primitive):
 
         text = self.get_label_text()
         if nested and anchor is not None:
+            if not inplace:
+                image = image.copy()
             font_scale, thickness = draw_style(nested=True)
             cv2.putText(
                 img=image,
@@ -96,13 +98,13 @@ class Classification(Primitive):
             )
             # Own attributes are indented one level and stacked below this label
             nested_anchor = (anchor[0], anchor[1] + LABEL_LINE_HEIGHT_NESTED)
-            return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
+            return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=nested_anchor)
 
         from hafnia.dataset import image_visualizations
 
         text = f"  {text}" if nested else text  # Indent attributes below their parent classification
         image = image_visualizations.append_text_below_frame(image, text=text, text_size_ratio=0.05)
-        return self.draw_nested_primitives(image, task=task, anchor=None)
+        return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=None)
 
     def mask(
         self, image: np.ndarray, inplace: bool = False, color: Optional[Tuple[np.uint8, np.uint8, np.uint8]] = None

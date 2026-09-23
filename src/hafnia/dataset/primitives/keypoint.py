@@ -95,7 +95,7 @@ class KeyPoint(Primitive):
 
         # Define anchor to place nested classification labels below the label of the  keypoint
         nested_anchor = (label_org[0], label_org[1] + LABEL_LINE_HEIGHT_NESTED)
-        return self.draw_nested_primitives(image, task=task, anchor=nested_anchor)
+        return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=nested_anchor)
 
     def mask(
         self,

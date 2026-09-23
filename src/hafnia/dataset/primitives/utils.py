@@ -13,10 +13,8 @@ THICKNESS = 2
 FONT_SCALE_NESTED = 0.5
 THICKNESS_NESTED = 1
 
-# Vertical distance between two stacked labels of nested primitives and the horizontal indentation
-# added for each level of nesting. Both in pixels.
+# Distance between two stacked labels of nested primitives in pixels
 LABEL_LINE_HEIGHT_NESTED = 16
-LABEL_INDENT_NESTED = 8
 
 
 def draw_style(nested: bool) -> Tuple[float, int]:
