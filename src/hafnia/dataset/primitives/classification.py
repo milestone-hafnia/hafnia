@@ -102,7 +102,6 @@ class Classification(Primitive):
 
         from hafnia.dataset import image_visualizations
 
-        text = f"  {text}" if nested else text  # Indent attributes below their parent classification
         image = image_visualizations.append_text_below_frame(image, text=text, text_size_ratio=0.05)
         return self.draw_nested_primitives(image, draw_label=draw_label, task=task, anchor=None)
 
