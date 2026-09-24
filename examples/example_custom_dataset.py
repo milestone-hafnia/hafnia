@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 from typing import List
 
+import polars as pl
 from PIL import Image
 
 from hafnia.dataset.dataset_names import SampleField
@@ -18,6 +19,7 @@ from a custom dataset format.
 
 # Define paths to the custom dataset in YOLO format
 path_tmp = Path(".data/tmp")
+path_tmp.mkdir(parents=True, exist_ok=True)
 path_yolo_dataset = Path("tests/data/dataset_formats/format_yolo/train")
 path_class_names = path_yolo_dataset.parent / "obj.names"
 
@@ -72,9 +74,12 @@ Image.fromarray(image_with_annotations).save(path_tmp / "custom_dataset_sample.p
 
 # Upload dataset to Hafnia platform (optional)
 gallery_image_names = [custom_dataset.samples[SampleField.FILE_PATH].str.split("/").list.last().sort()[0]]
+gallery_samples = custom_dataset.samples.filter(
+    pl.col(SampleField.FILE_PATH).str.split("/").list.last().is_in(gallery_image_names)
+)
 
-# custom_dataset.upload_to_platform(
-#     interactive=False,
-#     allow_version_overwrite=True,
-#     gallery_images=gallery_image_names,
-# )
+custom_dataset.upload_to_platform(
+    interactive=False,
+    allow_version_overwrite=True,
+    gallery_samples=gallery_samples,
+)
