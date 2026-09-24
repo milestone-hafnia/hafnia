@@ -96,6 +96,11 @@ class Skeleton(Primitive):
     def to_pixel_coordinates(
         self, image_shape: Tuple[int, int], as_int: bool = True, clip_values: bool = True
     ) -> List[Tuple]:
+        """Pixel coordinates of all keypoints, including the keypoints that are not labeled.
+
+        All keypoints are returned to keep the indices aligned with the skeleton template. Use
+        'KeyPoint.labeled' to filter out the keypoints that have no meaningful location.
+        """
         return [
             keypoint.to_pixel_coordinates(image_shape=image_shape, as_int=as_int, clip_values=clip_values)
             for keypoint in self.keypoints
@@ -134,7 +139,9 @@ class Skeleton(Primitive):
         if not inplace:
             image = image.copy()
         points = self.to_pixel_coordinates(image_shape=image.shape[:2])
-        if len(points) == 0:
+        # Unlabeled keypoints are kept to match the skeleton template, but have no location to draw
+        labeled_points = [point for point, keypoint in zip(points, self.keypoints) if keypoint.labeled]
+        if len(labeled_points) == 0:
             return image
 
         class_name = self.get_class_name()
@@ -148,13 +155,16 @@ class Skeleton(Primitive):
             is_valid_edge = (0 <= edge.index_start < len(points)) and (0 <= edge.index_end < len(points))
             if not is_valid_edge:
                 continue
+            is_labeled_edge = self.keypoints[edge.index_start].labeled and self.keypoints[edge.index_end].labeled
+            if not is_labeled_edge:
+                continue
             cv2.line(image, pt1=points[edge.index_start], pt2=points[edge.index_end], color=color, thickness=thickness)
 
         for keypoint in self.keypoints:
             keypoint.draw(image, inplace=True, draw_label=False, nested=nested)
 
         margin = 5
-        top_left = (min(x for x, _ in points), min(y for _, y in points) - margin)
+        top_left = (min(x for x, _ in labeled_points), min(y for _, y in labeled_points) - margin)
         if draw_label:
             cv2.putText(
                 img=image,

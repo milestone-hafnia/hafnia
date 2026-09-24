@@ -1,6 +1,6 @@
 [project]
 name = "hafnia"
-version = "0.8.4"
+version = "0.8.5"
 description = "Python SDK for communication with Hafnia platform."
 readme = "README.md"
 authors = [

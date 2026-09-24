@@ -88,6 +88,10 @@ def get_path_torchvision_downloads() -> Path:
     return get_path_hafnia_cache() / "torchvision_downloads"
 
 
+def get_path_public_dataset_downloads() -> Path:
+    return get_path_hafnia_cache() / "public_dataset_downloads"
+
+
 def get_path_hafnia_conversions() -> Path:
     return get_path_hafnia_cache() / "hafnia_conversions"
 

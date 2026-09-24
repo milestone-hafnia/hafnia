@@ -430,6 +430,14 @@ $defs:
         description: Whether this is ground truth or a prediction
         title: Ground Truth
         type: boolean
+      labeled:
+        default: true
+        description: Whether the keypoint has been labeled. An unlabeled keypoint
+          has no meaningful location, but is kept to match the keypoints of the skeleton
+          template of its class. Unlabeled keypoints - and the skeleton edges towards
+          them - are skipped when drawing
+        title: Labeled
+        type: boolean
       meta:
         anyOf:
         - additionalProperties: true
