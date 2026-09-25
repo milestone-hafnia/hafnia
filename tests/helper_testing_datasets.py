@@ -57,7 +57,7 @@ DATASET_SPEC_CIFAR100 = DatasetSpec(
 )
 DATASET_SPEC_COCO_2017 = DatasetSpec(
     name="coco-2017",
-    splits={"train": 189, "validation": 2, "test": 9},
+    splits={"train": 106, "validation": 25, "test": 69},
     version="1.0.0",  # Remember to update "COCO_VERSION" used in example-scripts accordingly
 )
 

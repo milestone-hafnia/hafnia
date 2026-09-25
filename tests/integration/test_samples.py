@@ -12,7 +12,8 @@ from hafnia.dataset import torch_helpers
 from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import Sample
-from hafnia.dataset.primitives import Bbox, Bitmask, Classification, Polygon, Segmentation
+from hafnia.dataset.primitives import Bbox, Bitmask, Classification, KeyPoint, Polygon, Segmentation
+from hafnia.dataset.primitives.skeleton import Skeleton
 from hafnia.utils import is_hafnia_configured
 from tests.helper_testing import is_matching_dataset_format_version
 from tests.helper_testing_datasets import SUPPORTED_DATASETS
@@ -130,7 +131,9 @@ def test_dataset_draw_image_and_target(loaded_dataset, compare_to_expected_image
 @pytest.mark.slow
 def test_dataset_dataloader(loaded_dataset):
     """Test dataloader functionality."""
-    dataset = loaded_dataset["dataset"]
+    dataset: HafniaDataset = loaded_dataset["dataset"]
+    dataset = dataset.drop_primitive(primitive=Skeleton)  # Skeleton primitive not yet supported
+    dataset = dataset.drop_primitive(primitive=KeyPoint)  # KeyPoint primitive not yet supported
     torch_dataset = hafnia_2_torch_dataset(dataset.create_split_dataset("train"))
 
     # Test dataloader with custom collate function
