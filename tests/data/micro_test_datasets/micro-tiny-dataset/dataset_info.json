@@ -1,8 +1,4 @@
 {
-    "dataset_name": "tiny-dataset",
-    "version": "1.0.0",
-    "dataset_title": null,
-    "description": null,
     "tasks": [
         {
             "primitive": "Bbox",
@@ -15,19 +11,23 @@
                             "classes": [
                                 {
                                     "name": "Male",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Female",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Other",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Hidden",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Gender"
@@ -37,35 +37,43 @@
                             "classes": [
                                 {
                                     "name": "Infant",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Child",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Teenager",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Young Adult",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Middel-aged Adult",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Older Adult",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Senior",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Hidden",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Age"
@@ -75,39 +83,48 @@
                             "classes": [
                                 {
                                     "name": "White / Caucasian",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Black / African / African American",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Asian / Pacific Islander",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Hispanic / Latino",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Middle Eastern / North African (MENA)",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Native American / Indigenous / First Nations",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Mixed",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Other",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Hidden",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Ethnicity"
@@ -117,32 +134,39 @@
                             "classes": [
                                 {
                                     "name": "Standing",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Sitting",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Lying Down",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Walking",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Running",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Jumping",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Person Action"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Car",
@@ -152,23 +176,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -178,23 +207,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -204,33 +238,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Pickup Truck",
@@ -240,23 +281,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -266,23 +312,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -292,33 +343,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Single Truck",
@@ -328,23 +386,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -354,23 +417,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -380,33 +448,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Combo Truck",
@@ -416,23 +491,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -442,23 +522,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -468,33 +553,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Heavy Duty Vehicle",
@@ -504,23 +596,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -530,23 +627,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -556,33 +658,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Trailer",
@@ -592,23 +701,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -618,23 +732,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -644,33 +763,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Emergency Vehicle",
@@ -680,23 +806,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -706,23 +837,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -732,33 +868,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Motorcycle",
@@ -768,23 +911,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -794,23 +942,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -820,33 +973,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Bicycle",
@@ -856,23 +1016,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -882,23 +1047,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -908,33 +1078,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Bus",
@@ -944,23 +1121,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -970,23 +1152,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -996,33 +1183,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.RV",
@@ -1032,23 +1226,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -1058,23 +1257,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -1084,33 +1288,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle.Van",
@@ -1120,23 +1331,28 @@
                             "classes": [
                                 {
                                     "name": "Driving",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Parked",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped By Signal",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Traffic Jam",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Stopped by Incident",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle State"
@@ -1146,23 +1362,28 @@
                             "classes": [
                                 {
                                     "name": "Red",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Blue",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Green",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Yellow",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "White",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Gray",
@@ -1172,33 +1393,40 @@
                                             "classes": [
                                                 {
                                                     "name": "very light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "light",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "medium",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 },
                                                 {
                                                     "name": "very dark",
-                                                    "attributes": null
+                                                    "attributes": null,
+                                                    "skeleton": null
                                                 }
                                             ],
                                             "name": "Gray Tone"
                                         }
-                                    ]
+                                    ],
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Vehicle Color"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 }
             ],
             "name": "object_detection"
@@ -1208,30 +1436,23 @@
             "classes": [
                 {
                     "name": "BitmaskTest",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Annotator Marking Bitmask",
-                    "attributes": [
-                        {
-                            "primitive": "Classification",
-                            "classes": [
-                                {
-                                    "name": "Mask",
-                                    "attributes": null
-                                }
-                            ],
-                            "name": "Annotator Marking Bitmask Type"
-                        }
-                    ]
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Annotator Marking Bitmask.Mask",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle Bitmask",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 }
             ],
             "name": "mask_detection"
@@ -1241,27 +1462,33 @@
             "classes": [
                 {
                     "name": "Urban",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Rural",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Forest",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Desert",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Coastal",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Polar",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 }
             ],
             "name": "Geographical Context"
@@ -1271,7 +1498,8 @@
             "classes": [
                 {
                     "name": "Day",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Sunrise/Sunset",
@@ -1281,20 +1509,24 @@
                             "classes": [
                                 {
                                     "name": "Sunrise",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Sunset",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Sunrise/Sunset Type"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Night",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Twilight",
@@ -1304,20 +1536,24 @@
                             "classes": [
                                 {
                                     "name": "Dawn",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 },
                                 {
                                     "name": "Dusk",
-                                    "attributes": null
+                                    "attributes": null,
+                                    "skeleton": null
                                 }
                             ],
                             "name": "Twilight Type"
                         }
-                    ]
+                    ],
+                    "skeleton": null
                 },
                 {
                     "name": "Not Applicable",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 }
             ],
             "name": "Time of Day"
@@ -1327,61 +1563,140 @@
             "classes": [
                 {
                     "name": "Sunny/Clear",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Rainy",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Snow",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Clear Night",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Cloudy",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 }
             ],
             "name": "Weather"
+        },
+        {
+            "primitive": "KeyPoint",
+            "classes": [
+                {
+                    "name": "KeypointRightEye",
+                    "attributes": null,
+                    "skeleton": null
+                },
+                {
+                    "name": "KeypointLeftEye",
+                    "attributes": null,
+                    "skeleton": null
+                }
+            ],
+            "name": "keypoint_detection"
         },
         {
             "primitive": "Polygon",
             "classes": [
                 {
                     "name": "Annotator Marking Polygon",
-                    "attributes": [
-                        {
-                            "primitive": "Classification",
-                            "classes": [
-                                {
-                                    "name": "Mask",
-                                    "attributes": null
-                                }
-                            ],
-                            "name": "Annotator Marking Polygon Type"
-                        }
-                    ]
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Annotator Marking Polygon.Mask",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 },
                 {
                     "name": "Vehicle Polygon",
-                    "attributes": null
+                    "attributes": null,
+                    "skeleton": null
                 }
             ],
             "name": "polygon_detection"
+        },
+        {
+            "primitive": "Skeleton",
+            "classes": [
+                {
+                    "name": "PersonPose",
+                    "attributes": null,
+                    "skeleton": {
+                        "keypoint_names": [
+                            "RightArm",
+                            "point_1",
+                            "point_2",
+                            "LeftArm",
+                            "RightEye",
+                            "LeftEye",
+                            "Nose",
+                            "Core",
+                            "RightLeft",
+                            "LeftLeg"
+                        ],
+                        "edges": [
+                            {
+                                "index_start": 1,
+                                "index_end": 0
+                            },
+                            {
+                                "index_start": 2,
+                                "index_end": 3
+                            },
+                            {
+                                "index_start": 6,
+                                "index_end": 1
+                            },
+                            {
+                                "index_start": 6,
+                                "index_end": 2
+                            },
+                            {
+                                "index_start": 6,
+                                "index_end": 4
+                            },
+                            {
+                                "index_start": 6,
+                                "index_end": 5
+                            },
+                            {
+                                "index_start": 7,
+                                "index_end": 6
+                            },
+                            {
+                                "index_start": 8,
+                                "index_end": 7
+                            },
+                            {
+                                "index_start": 9,
+                                "index_end": 7
+                            }
+                        ]
+                    }
+                }
+            ],
+            "name": "pose_estimation"
         }
     ],
-    "reference_bibtex": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Hafnia Dataset: Tiny Dataset},\n    url = https://mdi.milestonesys.com/datasets/070b3bd5-0266-4446-a318-052c993558ef,\n    note = {Part of the Hafnia project},\n    version = {0.0.1},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}",
+    "dataset_name": "tiny-dataset",
+    "version": "1.0.0",
+    "dataset_title": "Tiny Dataset",
+    "description": null,
+    "reference_bibtex": "@misc{hafnia-dataset-tiny-dataset,\n    author = {Milestone Systems},\n    title = {Tiny Dataset},\n    url = https://hafnia.milestonesys.com/datasets/df018a3a-603c-4a10-914d-f457aaf2b30f,\n    note = {Part of Project Hafnia},\n    version = {1.0.0},\n    address = {Copenhagen, Denmark},\n    year = { 2024 },\n    month = { dec },\n}",
     "reference_paper_url": null,
     "reference_dataset_page": null,
     "meta": {},
-    "format_version": "0.3.1",
-    "updated_at": "2026-03-24T16:13:11.829845"
+    "format_version": "0.3.3",
+    "updated_at": "2026-09-25T08:24:03.436297"
 }

@@ -4,7 +4,6 @@ from typing import List
 
 from PIL import Image
 
-from hafnia.dataset.dataset_names import SampleField
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.primitives.bbox import Bbox
@@ -70,11 +69,9 @@ image_with_annotations = sample.draw_annotations()
 Image.fromarray(image_with_annotations).save(path_tmp / "custom_dataset_sample.png")  # Save visualization to TMP
 
 
-# Upload dataset to Hafnia platform (optional)
-gallery_image_names = [custom_dataset.samples[SampleField.FILE_PATH].str.split("/").list.last().sort()[0]]
+# # Upload custom dataset to make it available on the platform
+# gallery_samples = custom_dataset.select_samples(n_samples=5, seed=42)  # To add random gallery images.
+# custom_dataset.upload_to_platform(interactive=False, allow_version_overwrite=True, gallery_samples=gallery_samples)
 
-# custom_dataset.upload_to_platform(
-#     interactive=False,
-#     allow_version_overwrite=True,
-#     gallery_images=gallery_image_names,
-# )
+# # Delete custom dataset on the platform
+# custom_dataset.delete_on_platform(interactive=False)

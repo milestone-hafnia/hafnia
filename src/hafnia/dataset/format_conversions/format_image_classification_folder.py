@@ -120,6 +120,7 @@ def from_image_classification_split_folder(
             height=height,
             split=split,
             classifications=classifications,
+            meta={"org_name": path_image_org.relative_to(path_folder).as_posix()},
         )
         samples.append(sample)
 

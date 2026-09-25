@@ -37,7 +37,7 @@ def test_format_yolo_import_export_tiny_dataset(tmp_path: Path, compare_to_expec
 
     dataset_reloaded = format_yolo.from_yolo_format(path_yolo_dataset_exported)
 
-    image_hash = "4d5817f0e44da708ce2db0262080f571"
+    image_hash = "d1a63c2d11546b876b00f2c1f38119e6"
     samples = dataset_reloaded.samples.filter(pl.col(SampleField.FILE_PATH).str.contains(image_hash))
     assert len(samples) == 1, f"Expected to find one sample with index 0, found {len(samples)}"
     sample = Sample(**samples.row(0, named=True))
