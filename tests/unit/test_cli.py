@@ -277,3 +277,24 @@ class TestRuncLaunchLocal:
         volume_mount = docker_args[v_idx + 1]
         assert chr(92) not in volume_mount, f"Backslash in Docker volume mount: {volume_mount!r}"
         assert ":/opt/ml/input/data/training" in volume_mount
+
+
+def test_trainer_create_passes_cmd(cli_runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression test for #241: '--cmd' on 'trainer create' crashed with 'Cannot instantiate typing.Union'."""
+    import hafnia.platform.trainer_package as trainer_package
+
+    captured: Dict = {}
+
+    def mock_create_trainer_package(**kwargs) -> Dict:
+        captured.update(kwargs)
+        return {"id": "fake-id"}
+
+    monkeypatch.setattr(trainer_package, "create_trainer_package", mock_create_trainer_package)
+
+    result = cli_runner.invoke(
+        cli.main,
+        ["trainer", "create", str(tmp_path), "--name", "my-trainer", "--cmd", "python scripts/train.py"],
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["cmd"] == "python scripts/train.py"
+    assert captured["name"] == "my-trainer"
