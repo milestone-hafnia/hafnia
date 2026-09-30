@@ -110,6 +110,8 @@ def test_cli_integration_test():
                 f"IntegrationTestTrainer{utils.now_as_str()}",
                 "--description",
                 "Integration test trainer package created by CLI integration test.",
+                "--cmd",
+                "python scripts/train.py",
             ],
             standalone_mode=False,
         )

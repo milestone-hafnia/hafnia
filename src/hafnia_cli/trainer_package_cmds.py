@@ -68,7 +68,7 @@ def cmd_list_trainer_packages(
 )
 @click.option(
     "--cmd",
-    type=Optional[str],
+    type=str,
     default=None,
     show_default=True,
     help="Default command to run the trainer package.",
