@@ -6,6 +6,9 @@ import pytest
 
 from hafnia.platform.builder import check_registry, validate_trainer_package_format
 
+PLATFORM_URL = "https://api.hafnia.example"
+TRAINER_URL = f"{PLATFORM_URL}/api/v1/experiments/1/trainer-credentials"
+
 
 @pytest.fixture
 def valid_trainer_package(tmp_path: Path) -> Path:
@@ -61,10 +64,28 @@ def test_successful_trainer_package_extraction(valid_trainer_package: Path, tmp_
         mock_download = MagicMock(return_value={"status": "success", "downloaded_files": [valid_trainer_package]})
 
         mp.setattr("hafnia.platform.builder.download_resource", mock_download)
-        result = prepare_trainer_package("s3://bucket/trainer.zip", tmp_path, "api-key-123", Path(state_file))
-        mock_download.assert_called_once_with("s3://bucket/trainer.zip", tmp_path.as_posix(), "api-key-123")
+        result = prepare_trainer_package(
+            TRAINER_URL, tmp_path, "api-key-123", Path(state_file), platform_url=PLATFORM_URL
+        )
+        mock_download.assert_called_once_with(TRAINER_URL, tmp_path.as_posix(), "api-key-123")
 
         assert result["digest"] == expected_hash
+
+
+def test_trainer_package_is_not_fetched_from_a_foreign_origin(tmp_path: Path) -> None:
+    from hafnia.platform.builder import prepare_trainer_package
+
+    with pytest.MonkeyPatch.context() as mp:
+        mock_download = MagicMock()
+        mp.setattr("hafnia.platform.builder.download_resource", mock_download)
+        with pytest.raises(ValueError, match="not on the configured platform"):
+            prepare_trainer_package(
+                "https://attacker.example/api/v1/experiments/1/trainer-credentials",
+                tmp_path,
+                "api-key-123",
+                platform_url=PLATFORM_URL,
+            )
+        mock_download.assert_not_called()
 
 
 def test_ecr_image_exist() -> None:

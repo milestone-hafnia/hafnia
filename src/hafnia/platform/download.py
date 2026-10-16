@@ -1,11 +1,24 @@
 from pathlib import Path
 from typing import Dict, Optional
+from urllib.parse import urlsplit
 
 from rich.progress import Progress
 
 from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
 from hafnia.platform.s5cmd_utils import ResourceCredentials
+
+
+def ensure_platform_origin(url: str, platform_url: str) -> None:
+    """
+    Raises ValueError unless `url` has the same scheme and host as the configured platform,
+    so that the API key is never sent anywhere else.
+    """
+    if not platform_url:
+        raise ValueError("platform_url is not configured; refusing to fetch credentials from an unverified origin.")
+    expected, actual = urlsplit(platform_url), urlsplit(url)
+    if (actual.scheme, actual.netloc.lower()) != (expected.scheme, expected.netloc.lower()):
+        raise ValueError(f"'{url}' is not on the configured platform '{platform_url}'.")
 
 
 def get_resource_credentials(endpoint: str, api_key: str) -> ResourceCredentials:
@@ -45,8 +58,14 @@ def download_single_object(s3_client, bucket: str, object_key: str, output_dir: 
 
     Returns:
         Path: The local path where the file was saved.
+
+    Raises:
+        ValueError: If the object key does not resolve to a file inside `output_dir`.
     """
-    local_path = output_dir / object_key
+    output_dir = output_dir.resolve()
+    local_path = (output_dir / object_key).resolve()
+    if local_path == output_dir or not local_path.is_relative_to(output_dir):
+        raise ValueError(f"Object key '{object_key}' must resolve to a file inside the output directory.")
     local_path.parent.mkdir(parents=True, exist_ok=True)
     s3_client.download_file(bucket, object_key, local_path.as_posix())
     return local_path
