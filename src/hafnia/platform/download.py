@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from urllib.parse import urlsplit
 
 from rich.progress import Progress
@@ -16,9 +16,20 @@ def ensure_platform_origin(url: str, platform_url: str) -> None:
     """
     if not platform_url:
         raise ValueError("platform_url is not configured; refusing to fetch credentials from an unverified origin.")
-    expected, actual = urlsplit(platform_url), urlsplit(url)
-    if (actual.scheme, actual.netloc.lower()) != (expected.scheme, expected.netloc.lower()):
+    if _origin(url, "resource") != _origin(platform_url, "platform"):
         raise ValueError(f"'{url}' is not on the configured platform '{platform_url}'.")
+
+
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _origin(url: str, name: str) -> Tuple[str, str, int]:
+    """Return (scheme, hostname, port) for an absolute HTTP(S) URL, with the default port filled in when omitted."""
+    parts = urlsplit(url)
+    if parts.scheme not in _DEFAULT_PORTS or not parts.hostname:
+        raise ValueError(f"The {name} URL must be an absolute HTTP(S) URL with a hostname, got '{url}'.")
+    port = parts.port if parts.port is not None else _DEFAULT_PORTS[parts.scheme]
+    return parts.scheme, parts.hostname, port
 
 
 def get_resource_credentials(endpoint: str, api_key: str) -> ResourceCredentials:

@@ -50,6 +50,19 @@ def test_ensure_platform_origin_accepts_platform_urls(url: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "url, platform_url",
+    [
+        ("https://api.hafnia.example:443/api/v1/experiments/1/trainer-credentials", "https://api.hafnia.example"),
+        ("https://api.hafnia.example/api/v1/experiments/1/trainer-credentials", "https://api.hafnia.example:443"),
+        ("http://localhost:80/api/v1/experiments/1/trainer-credentials", "http://localhost"),
+        ("http://localhost/api/v1/experiments/1/trainer-credentials", "http://localhost:80"),
+    ],
+)
+def test_ensure_platform_origin_treats_default_ports_as_equivalent(url: str, platform_url: str) -> None:
+    ensure_platform_origin(url, platform_url)
+
+
+@pytest.mark.parametrize(
     "url",
     [
         "https://attacker.example/api/v1/experiments/1/trainer-credentials",
@@ -67,3 +80,20 @@ def test_ensure_platform_origin_rejects_other_origins(url: str) -> None:
 def test_ensure_platform_origin_requires_a_configured_platform_url() -> None:
     with pytest.raises(ValueError, match="platform_url is not configured"):
         ensure_platform_origin(f"{PLATFORM_URL}/api/v1/experiments/1/trainer-credentials", "")
+
+
+@pytest.mark.parametrize(
+    "url, platform_url",
+    [
+        # Scheme-less pair: urlsplit yields empty scheme/netloc for both, which a naive comparison would accept.
+        ("attacker.example/api/v1/experiments/1/trainer-credentials", "api.hafnia.example"),
+        ("api.hafnia.example/api/v1/experiments/1/trainer-credentials", "api.hafnia.example"),
+        # Protocol-relative and non-HTTP schemes.
+        ("//attacker.example/api/v1/experiments/1/trainer-credentials", PLATFORM_URL),
+        ("ftp://api.hafnia.example/api/v1/experiments/1/trainer-credentials", "ftp://api.hafnia.example"),
+        (f"{PLATFORM_URL}/api/v1/experiments/1/trainer-credentials", "https://"),
+    ],
+)
+def test_ensure_platform_origin_rejects_non_absolute_http_urls(url: str, platform_url: str) -> None:
+    with pytest.raises(ValueError, match="must be an absolute HTTP\\(S\\) URL"):
+        ensure_platform_origin(url, platform_url)
