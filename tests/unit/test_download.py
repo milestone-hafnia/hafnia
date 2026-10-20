@@ -68,7 +68,6 @@ def test_ensure_platform_origin_treats_default_ports_as_equivalent(url: str, pla
         "https://attacker.example/api/v1/experiments/1/trainer-credentials",
         "http://api.hafnia.example/api/v1/experiments/1/trainer-credentials",
         "https://api.hafnia.example:8443/api/v1/experiments/1/trainer-credentials",
-        "https://api.hafnia.example@attacker.example/api/v1/experiments/1/trainer-credentials",
         "https://api.hafnia.example.attacker.example/api/v1/experiments/1/trainer-credentials",
     ],
 )
@@ -97,3 +96,29 @@ def test_ensure_platform_origin_requires_a_configured_platform_url() -> None:
 def test_ensure_platform_origin_rejects_non_absolute_http_urls(url: str, platform_url: str) -> None:
     with pytest.raises(ValueError, match="must be an absolute HTTP\\(S\\) URL"):
         ensure_platform_origin(url, platform_url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        # urllib.parse.urlsplit reads the host as api.hafnia.example, but urllib3 (used by hafnia.http.fetch)
+        # ends the authority at the backslash and sends the request to attacker.example.
+        "https://attacker.example\\@api.hafnia.example/api/v1/experiments/1/trainer-credentials",
+        "https://attacker.example\\api.hafnia.example/api/v1/experiments/1/trainer-credentials",
+    ],
+)
+def test_ensure_platform_origin_rejects_urls_that_urllib3_sends_elsewhere(url: str) -> None:
+    with pytest.raises(ValueError, match="not on the configured platform"):
+        ensure_platform_origin(url, PLATFORM_URL)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://api.hafnia.example@attacker.example/api/v1/experiments/1/trainer-credentials",
+        "https://user:pw@api.hafnia.example/api/v1/experiments/1/trainer-credentials",
+    ],
+)
+def test_ensure_platform_origin_rejects_userinfo(url: str) -> None:
+    with pytest.raises(ValueError, match="must not contain credentials"):
+        ensure_platform_origin(url, PLATFORM_URL)

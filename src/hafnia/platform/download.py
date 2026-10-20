@@ -1,8 +1,9 @@
 from pathlib import Path
 from typing import Dict, Optional, Tuple
-from urllib.parse import urlsplit
 
 from rich.progress import Progress
+from urllib3.exceptions import LocationParseError
+from urllib3.util import parse_url
 
 from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
@@ -24,12 +25,23 @@ _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 def _origin(url: str, name: str) -> Tuple[str, str, int]:
-    """Return (scheme, hostname, port) for an absolute HTTP(S) URL, with the default port filled in when omitted."""
-    parts = urlsplit(url)
-    if parts.scheme not in _DEFAULT_PORTS or not parts.hostname:
+    """
+    Return (scheme, host, port) for an absolute HTTP(S) URL, with the default port filled in when omitted.
+
+    Parsing is done with urllib3, the same parser `hafnia.http.fetch` uses to send the request, so that the host
+    checked here is the host the request goes to. `urllib.parse.urlsplit` disagrees with urllib3 on inputs such as
+    'https://attacker.example\\@api.hafnia.example/', which would let the API key leak to the attacker host.
+    """
+    try:
+        parts = parse_url(url)
+    except LocationParseError as e:
+        raise ValueError(f"The {name} URL could not be parsed: {e}") from e
+    if parts.scheme not in _DEFAULT_PORTS or not parts.host:
         raise ValueError(f"The {name} URL must be an absolute HTTP(S) URL with a hostname, got '{url}'.")
+    if parts.auth is not None:
+        raise ValueError(f"The {name} URL must not contain credentials, got '{url}'.")
     port = parts.port if parts.port is not None else _DEFAULT_PORTS[parts.scheme]
-    return parts.scheme, parts.hostname, port
+    return parts.scheme, parts.host, port
 
 
 def get_resource_credentials(endpoint: str, api_key: str) -> ResourceCredentials:
