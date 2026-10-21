@@ -6,7 +6,7 @@ from hafnia import http
 from hafnia.experiment.command_builder import DEFAULT_ORDER
 from hafnia.log import user_logger
 from hafnia.utils import (
-    archive_dir,
+    create_trainer_package_zip_file,
     get_trainer_package_path,
     pretty_print_list_as_table,
     timed,
@@ -21,6 +21,7 @@ def create_trainer_package(
     description: Optional[str] = None,
     cmd: Optional[str] = None,
     cfg: Optional[Config] = None,
+    allow_blocked_files: bool = False,
 ) -> Dict:
     # Ensure the path is absolute to handle '.' paths are given an appropriate name.
     source_dir = Path(source_dir).resolve()
@@ -29,7 +30,9 @@ def create_trainer_package(
 
     path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
     name = name or path_trainer.stem
-    zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
+    zip_path, package_files = create_trainer_package_zip_file(
+        source_dir, output_path=path_trainer, allow_blocked_files=allow_blocked_files
+    )
     user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
 
     cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)
@@ -92,6 +95,7 @@ def update_trainer_package(
     description: Optional[str] = None,
     cmd: Optional[str] = None,
     cfg: Optional[Config] = None,
+    allow_blocked_files: bool = False,
 ) -> Dict:
     if source_dir is None and name is None and description is None and cmd is None:
         raise ValueError("Provide at least one of source_dir, name, description, or cmd to update.")
@@ -111,7 +115,9 @@ def update_trainer_package(
     if source_dir is not None:
         source_dir = Path(source_dir).resolve()
         path_trainer = get_trainer_package_path(trainer_name=source_dir.name)
-        zip_path, package_files = archive_dir(source_dir, output_path=path_trainer)
+        zip_path, package_files = create_trainer_package_zip_file(
+            source_dir, output_path=path_trainer, allow_blocked_files=allow_blocked_files
+        )
         user_logger.info(f"Trainer package created and stored in '{path_trainer}'")
 
         cmd_builder_schemas = auto_discover_cmd_builder_schemas(package_files)

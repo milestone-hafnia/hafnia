@@ -34,21 +34,46 @@ PATH_DATASETS = PATH_DATA / "datasets"
 PATH_DATASET_RECIPES = PATH_DATA / "dataset_recipes"
 PATH_TRAINER_PACKAGES = PATH_DATA / "trainers"
 FILENAME_HAFNIAIGNORE = ".hafniaignore"
+# Patterns that must be excluded from a trainer package. Files matching these patterns are rarely needed to
+# run the trainer, but they slow down the platform's trainer package security scanner and are a common source of
+# false alarms - which may block the trainer package from being used. Values describe why the pattern is blocked.
+BLOCKED_TRAINER_PACKAGE_PATTERNS: Dict[str, str] = {
+    ".venv/": "Virtual environment with third-party packages. Dependencies are installed on the platform instead.",
+    ".git/": "Git history and objects.",
+    ".data/": "Local datasets and experiment outputs.",
+    "tests/": "Test code is not used for training.",
+    "__pycache__/": "Compiled Python bytecode.",
+    "*_cache/": "Tool caches (e.g. '.pytest_cache', '.mypy_cache', '.ruff_cache').",
+    "**.egg-info/": "Python packaging metadata.",
+    "excluded_files/": "Folder excluded from the trainer package.",
+    "venv/": "Virtual environment with third-party packages. Dependencies are installed on the platform instead.",
+    ".env": "Environment file that commonly holds secrets (API keys, tokens, passwords).",
+    ".tox/": "tox test environments.",
+    ".nox/": "nox test environments.",
+    ".eggs/": "Python packaging build dependencies.",
+    "dist/": "Built Python distributions (wheels, sdists).",
+    "htmlcov/": "Code coverage HTML reports.",
+    ".coverage": "Code coverage data.",
+    ".ipynb_checkpoints/": "Jupyter notebook autosave checkpoints.",
+    ".github/": "CI/CD workflows are not used for training.",
+    "node_modules/": "Third-party JavaScript packages.",
+    "wandb/": "Local Weights & Biases run logs.",
+    "mlruns/": "Local MLflow run logs.",
+    "mlflow.db": "Local MLflow tracking database.",
+    "lightning_logs/": "Local PyTorch Lightning run logs.",
+}
 DEFAULT_IGNORE_SPECIFICATION = [
+    *BLOCKED_TRAINER_PACKAGE_PATTERNS,
     "*.jpg",
     "*.png",
     "*.py[cod]",
-    "*_cache/",
-    "**.egg-info/",
-    ".data",
-    ".git",
-    ".venv",
     ".vscode",
-    "__pycache__",
     "trainer.zip",
-    "tests",
-    "wandb",
 ]
+
+
+class TrainerPackageBlockedFilesError(ValueError):
+    """Raised when a trainer package contains files matching 'BLOCKED_TRAINER_PACKAGE_PATTERNS'."""
 
 
 def timed(label: str):
@@ -65,7 +90,9 @@ def timed(label: str):
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                sys_logger.error(f"{operation_label} failed: {e}")
+                # User-facing errors are reported by the caller - avoid repeating the message for each '@timed'
+                if not isinstance(e, TrainerPackageBlockedFilesError):
+                    sys_logger.error(f"{operation_label} failed: {e}")
                 raise  # Re-raise the exception after logging
             finally:
                 elapsed = time.perf_counter() - tik
@@ -123,21 +150,77 @@ def filter_trainer_package_files(trainer_path: Path, path_ignore_file: Optional[
     return include_files
 
 
-@timed("Wrapping recipe.")
-def archive_dir(
+def find_blocked_trainer_package_files(files: Iterable[str]) -> Dict[str, List[str]]:
+    """Returns a mapping from each blocked pattern to the files (relative paths) matching it."""
+    files = sorted(Path(f).as_posix() for f in files)
+    blocked_files: Dict[str, List[str]] = {}
+    for pattern in BLOCKED_TRAINER_PACKAGE_PATTERNS:
+        spec = pathspec.GitIgnoreSpec.from_lines([pattern])
+        matched_files = [f for f in files if spec.match_file(f)]
+        if len(matched_files) > 0:
+            blocked_files[pattern] = matched_files
+    return blocked_files
+
+
+def check_trainer_package_files(files: Iterable[str], trainer_path: Path, max_files_shown: int = 3) -> None:
+    blocked_files = find_blocked_trainer_package_files(files)
+    if len(blocked_files) == 0:
+        return
+
+    lines = []
+    for pattern, matched_files in blocked_files.items():
+        examples = ", ".join(f"'{f}'" for f in matched_files[:max_files_shown])
+        if len(matched_files) > max_files_shown:
+            examples += f", ... ({len(matched_files)} files in total)"
+        lines.append(f"  - '{pattern}': {BLOCKED_TRAINER_PACKAGE_PATTERNS[pattern]}\n      Matched files: {examples}")
+    patterns_to_add = "\n".join(f"    {pattern}" for pattern in blocked_files)
+    raise TrainerPackageBlockedFilesError(
+        f"The trainer package '{trainer_path}' contains files that should not be part of a trainer package:\n"
+        + "\n".join(lines)
+        + "\n\nWhy: The platform scans trainer packages for security vulnerabilities before they can be used. "
+        "Unnecessary files (e.g. virtual environments, tests and caches) make the scan slower and trigger "
+        "false alarms that may block your trainer package from being used.\n\n"
+        f"Fix: Add the following lines to the '{FILENAME_HAFNIAIGNORE}' file in '{trainer_path}':\n"
+        f"{patterns_to_add}\n\n"
+        "If these files are required by your trainer, bypass this check with 'allow_blocked_files=True' "
+        "(SDK) or '--allow-blocked-files' (CLI). However, we strongly recommend that you do not include these files "
+        "and also some blocked files will also be removed automatically by the platform and may lead to unexpected "
+        "behavior and errors when running the trainer."
+    )
+
+
+@timed("Create trainer package zip file")
+def create_trainer_package_zip_file(
     recipe_path: Path,
     output_path: Optional[Path] = None,
     path_ignore_file: Optional[Path] = None,
+    allow_blocked_files: bool = False,
 ) -> Tuple[Path, List[Path]]:
+    """
+    Creates a trainer package zip file from 'recipe_path', excluding files matching the '.hafniaignore' file.
+
+    Raises 'TrainerPackageBlockedFilesError' if the package contains files matching
+    'BLOCKED_TRAINER_PACKAGE_PATTERNS' (e.g. '.venv' or 'tests'). Set 'allow_blocked_files=True' to
+    explicitly bypass this check.
+    """
     recipe_zip_path = output_path or recipe_path / "trainer.zip"
     assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
-    recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
     user_logger.info(f" Creating zip archive of '{recipe_path}'")
-    include_files_generator = filter_trainer_package_files(recipe_path, path_ignore_file)
+    include_files = list(filter_trainer_package_files(recipe_path, path_ignore_file))
+    if allow_blocked_files:
+        blocked_files = find_blocked_trainer_package_files(include_files)
+        if len(blocked_files) > 0:
+            user_logger.warning(
+                f"Blocked files check bypassed. Trainer package includes files matching: {list(blocked_files)}"
+            )
+    else:
+        check_trainer_package_files(include_files, trainer_path=recipe_path)
+
+    recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
     included_files = []
     with ZipFile(recipe_zip_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zip_ref:
-        for str_filepath in include_files_generator:
+        for str_filepath in include_files:
             full_path = recipe_path / str_filepath
             zip_ref.write(full_path, Path(str_filepath).as_posix())
             included_files.append(full_path)
