@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 
 import click
 
+import hafnia_cli.consts as consts
 from hafnia.log import sys_logger, user_logger
 from hafnia_cli.config import Config
 
@@ -105,15 +106,15 @@ def build(cfg: Config, recipe_url: str, state_file: str, repo: str) -> None:
 @click.argument("recipe")
 @click.option("--state_file", "--st", type=str, default="state.json")
 @click.option("--repo", type=str, default="localhost", help="Docker repository")
-def build_local(recipe: Path, state_file: str, repo: str) -> None:
+@click.option("--allow-blocked-files", is_flag=True, default=False, help=consts.HELP_ALLOW_BLOCKED_FILES)
+def build_local(recipe: Path, state_file: str, repo: str, allow_blocked_files: bool = False) -> None:
     """Build recipe from local path as image with prefix - localhost"""
-    import shutil
     import uuid
 
     import seedir
 
     from hafnia.platform.builder import build_image
-    from hafnia.utils import filter_trainer_package_files
+    from hafnia.utils import TrainerPackageBlockedFilesError, create_trainer_package_zip_file
 
     recipe = Path(recipe)
 
@@ -122,16 +123,19 @@ def build_local(recipe: Path, state_file: str, repo: str) -> None:
         recipe_dir = tmp_dir / "recipe"
         recipe_dir.mkdir(parents=True, exist_ok=True)
 
+        if recipe.is_dir():
+            # Package the folder exactly as it would be uploaded to the platform
+            try:
+                recipe, _ = create_trainer_package_zip_file(
+                    recipe, tmp_dir / "trainer.zip", allow_blocked_files=allow_blocked_files
+                )
+            except TrainerPackageBlockedFilesError as e:
+                raise click.ClickException(str(e)) from e
+
         if recipe.suffix == ".zip":
             user_logger.info("Extracting recipe for processing.")
             with zipfile.ZipFile(recipe.as_posix(), "r") as zip_ref:
                 zip_ref.extractall(recipe_dir)
-        elif recipe.is_dir():
-            for rf in filter_trainer_package_files(recipe):
-                src_path = (recipe / rf).absolute()
-                target_path = recipe_dir / rf
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(src_path, target_path)
 
         user_logger.info(
             seedir.seedir(recipe_dir, sort=True, first="folders", style="emoji", printout=False, depthlimit=2)

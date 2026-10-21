@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 from typing import Dict
+from zipfile import ZipFile
 
 import pytest
 from click.testing import CliRunner
@@ -8,6 +9,7 @@ from click.testing import CliRunner
 import hafnia_cli.__main__ as cli
 import hafnia_cli.consts as consts
 import hafnia_cli.runc_cmds as runc_cmds
+from hafnia.utils import FILENAME_HAFNIAIGNORE
 from hafnia_cli.config import Config, ConfigFileSchema, ConfigSchema
 
 
@@ -277,3 +279,53 @@ class TestRuncLaunchLocal:
         volume_mount = docker_args[v_idx + 1]
         assert chr(92) not in volume_mount, f"Backslash in Docker volume mount: {volume_mount!r}"
         assert ":/opt/ml/input/data/training" in volume_mount
+
+
+class TestBlockedTrainerPackageFiles:
+    @pytest.fixture
+    def path_trainer(self, tmp_path: Path) -> Path:
+        """Trainer package folder containing files matching blocked patterns ('tests/' and '.env')."""
+        path_trainer = tmp_path / "trainer"
+        for rel_path in ["Dockerfile", "scripts/train.py", "tests/test_train.py", ".env"]:
+            (path_trainer / rel_path).parent.mkdir(parents=True, exist_ok=True)
+            (path_trainer / rel_path).write_text("Some content")
+        (path_trainer / FILENAME_HAFNIAIGNORE).write_text("")
+        return path_trainer
+
+    def test_create_zip_blocked_files(self, cli_runner: CliRunner, tmp_path: Path, path_trainer: Path) -> None:
+        path_zip = tmp_path / "trainer.zip"
+        args = ["trainer", "create-zip", str(path_trainer), "--output", str(path_zip)]
+
+        result = cli_runner.invoke(cli.main, args)
+        assert result.exit_code != 0
+        assert "'tests/'" in result.output
+        assert "'.env'" in result.output
+        assert FILENAME_HAFNIAIGNORE in result.output
+        assert not path_zip.exists()
+
+        result = cli_runner.invoke(cli.main, [*args, "--allow-blocked-files"])
+        assert result.exit_code == 0, result.output
+        assert "tests/test_train.py" in ZipFile(path_zip).namelist()
+
+    def test_build_local_blocked_files(
+        self, cli_runner: CliRunner, path_trainer: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import hafnia.platform.builder as builder
+
+        docker_context_files: list = []
+
+        def mock_build_image(metadata: Dict, *args, **kwargs) -> None:
+            path_context = Path(metadata["docker_context"])
+            docker_context_files.extend(p.relative_to(path_context).as_posix() for p in path_context.rglob("*"))
+
+        monkeypatch.setattr(builder, "build_image", mock_build_image)
+
+        result = cli_runner.invoke(cli.main, ["runc", "build-local", str(path_trainer)])
+        assert result.exit_code != 0
+        assert "'tests/'" in result.output
+        assert docker_context_files == []
+
+        result = cli_runner.invoke(cli.main, ["runc", "build-local", str(path_trainer), "--allow-blocked-files"])
+        assert result.exit_code == 0, result.output
+        assert "tests/test_train.py" in docker_context_files
+        assert "scripts/train.py" in docker_context_files

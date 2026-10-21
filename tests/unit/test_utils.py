@@ -176,3 +176,13 @@ def test_zip_entry_names_use_forward_slashes(tmp_path: Path, project_with_files_
     zipped_files = ZipFile(path_zipped_trainer).namelist()
     backslash_entries = [e for e in zipped_files if "\\" in e]
     assert not backslash_entries, f"Backslash found in zip entry names: {backslash_entries}"
+
+
+@pytest.mark.parametrize(
+    "path, is_blocked",
+    [(".env", True), (".env.local", True), ("config/.env.prod", True), (".envrc", False), ("src/env.py", False)],
+)
+def test_blocked_env_files(path: str, is_blocked: bool) -> None:
+    from hafnia.utils import find_blocked_trainer_package_files
+
+    assert bool(find_blocked_trainer_package_files([path])) == is_blocked

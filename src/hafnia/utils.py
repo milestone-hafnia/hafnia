@@ -45,9 +45,9 @@ BLOCKED_TRAINER_PACKAGE_PATTERNS: Dict[str, str] = {
     "__pycache__/": "Compiled Python bytecode.",
     "*_cache/": "Tool caches (e.g. '.pytest_cache', '.mypy_cache', '.ruff_cache').",
     "**.egg-info/": "Python packaging metadata.",
-    "excluded_files/": "Folder excluded from the trainer package.",
     "venv/": "Virtual environment with third-party packages. Dependencies are installed on the platform instead.",
     ".env": "Environment file that commonly holds secrets (API keys, tokens, passwords).",
+    ".env.*": "Environment files (e.g. '.env.local', '.env.prod') that commonly hold secrets.",
     ".tox/": "tox test environments.",
     ".nox/": "nox test environments.",
     ".eggs/": "Python packaging build dependencies.",
@@ -183,9 +183,8 @@ def check_trainer_package_files(files: Iterable[str], trainer_path: Path, max_fi
         f"Fix: Add the following lines to the '{FILENAME_HAFNIAIGNORE}' file in '{trainer_path}':\n"
         f"{patterns_to_add}\n\n"
         "If these files are required by your trainer, bypass this check with 'allow_blocked_files=True' "
-        "(SDK) or '--allow-blocked-files' (CLI). However, we strongly recommend that you do not include these files "
-        "and also some blocked files will also be removed automatically by the platform and may lead to unexpected "
-        "behavior and errors when running the trainer."
+        "(SDK) or '--allow-blocked-files' (CLI). We strongly recommend not including these files. Some of them "
+        "are removed automatically by the platform, which may cause unexpected errors when the trainer runs."
     )
 
 

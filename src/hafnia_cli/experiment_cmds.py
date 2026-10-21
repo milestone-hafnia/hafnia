@@ -117,7 +117,7 @@ def default_experiment_run_name():
     is_flag=True,
     default=False,
     help=(
-        "Allow files matching blocked patterns (e.g. '.venv', 'tests') in the trainer package created from "
+        "Allow files matching blocked patterns (e.g. '.venv/', 'tests/') in the trainer package created from "
         "'--trainer-path'. Not recommended: such files slow down the platform's security scan and may trigger "
         "false alarms."
     ),

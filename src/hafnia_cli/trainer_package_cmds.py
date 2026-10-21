@@ -77,10 +77,7 @@ def cmd_list_trainer_packages(
     "--allow-blocked-files",
     is_flag=True,
     default=False,
-    help=(
-        "Allow files matching blocked patterns (e.g. '.venv', 'tests') in the trainer package. "
-        "Not recommended: such files slow down the platform's security scan and may trigger false alarms."
-    ),
+    help=consts.HELP_ALLOW_BLOCKED_FILES,
 )
 def cmd_create_trainer_package(
     cfg: Config,
@@ -126,10 +123,7 @@ def cmd_create_trainer_package(
     "--allow-blocked-files",
     is_flag=True,
     default=False,
-    help=(
-        "Allow files matching blocked patterns (e.g. '.venv', 'tests') in the trainer package. "
-        "Not recommended: such files slow down the platform's security scan and may trigger false alarms."
-    ),
+    help=consts.HELP_ALLOW_BLOCKED_FILES,
 )
 def cmd_update_trainer_package(
     cfg: Config,
@@ -178,10 +172,7 @@ def cmd_update_trainer_package(
     "--allow-blocked-files",
     is_flag=True,
     default=False,
-    help=(
-        "Allow files matching blocked patterns (e.g. '.venv', 'tests') in the trainer package. "
-        "Not recommended: such files slow down the platform's security scan and may trigger false alarms."
-    ),
+    help=consts.HELP_ALLOW_BLOCKED_FILES,
 )
 def cmd_create_trainer_package_zip(source: str, output: str, allow_blocked_files: bool = False) -> None:
     """Create Hafnia trainer package as zip-file from local path"""
