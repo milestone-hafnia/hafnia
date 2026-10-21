@@ -11,7 +11,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 from hafnia.log import sys_logger, user_logger
-from hafnia.platform import download_resource
+from hafnia.platform import download_resource, ensure_platform_origin
 
 
 def validate_trainer_package_format(path: Path) -> None:
@@ -28,8 +28,9 @@ def validate_trainer_package_format(path: Path) -> None:
 
 
 def prepare_trainer_package(
-    trainer_url: str, output_dir: Path, api_key: str, state_file: Optional[Path] = None
+    trainer_url: str, output_dir: Path, api_key: str, state_file: Optional[Path] = None, *, platform_url: str
 ) -> Dict:
+    ensure_platform_origin(trainer_url, platform_url)
     resource = download_resource(trainer_url, output_dir.as_posix(), api_key)
     trainer_path = Path(resource["downloaded_files"][0])
     with zipfile.ZipFile(trainer_path, "r") as zip_ref:

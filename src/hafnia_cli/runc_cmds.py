@@ -97,7 +97,7 @@ def build(cfg: Config, recipe_url: str, state_file: str, repo: str) -> None:
     from hafnia.platform.builder import build_image, prepare_trainer_package
 
     with TemporaryDirectory() as temp_dir:
-        metadata = prepare_trainer_package(recipe_url, Path(temp_dir), cfg.api_key)
+        metadata = prepare_trainer_package(recipe_url, Path(temp_dir), cfg.api_key, platform_url=cfg.platform_url)
         build_image(metadata, repo, state_file=state_file)
 
 

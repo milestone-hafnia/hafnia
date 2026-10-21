@@ -168,6 +168,37 @@ class TestProfile:
             assert consts.ERROR_PROFILE_REMOVE_ACTIVE in result.output
 
 
+@pytest.mark.parametrize(
+    "platform_url, expected",
+    [
+        (consts.DEFAULT_API_URL, consts.DEFAULT_API_URL),
+        (consts.DEFAULT_API_URL + "/", consts.DEFAULT_API_URL),
+        ("http://localhost:8000/", "http://localhost:8000"),
+    ],
+)
+def test_config_schema_accepts_absolute_http_platform_urls(platform_url: str, expected: str, api_key: str) -> None:
+    assert ConfigSchema(platform_url=platform_url, api_key=api_key).platform_url == expected
+
+
+def test_config_schema_defaults_to_the_hafnia_platform(api_key: str) -> None:
+    assert ConfigSchema(api_key=api_key).platform_url == consts.DEFAULT_API_URL
+
+
+@pytest.mark.parametrize(
+    "platform_url",
+    [
+        "",
+        "api.hafnia.milestonesys.com",
+        "//api.hafnia.milestonesys.com",
+        "ftp://api.hafnia.milestonesys.com",
+        "https://",
+    ],
+)
+def test_config_schema_rejects_non_absolute_http_platform_urls(platform_url: str, api_key: str) -> None:
+    with pytest.raises(ValueError, match="absolute HTTP"):
+        ConfigSchema(platform_url=platform_url, api_key=api_key)
+
+
 def test_setting_environment_variables(tmp_path: Path):
     # 1) Environment variables when no config file is present
     path_fake_config_file = tmp_path / "env_settings" / "config.json"
