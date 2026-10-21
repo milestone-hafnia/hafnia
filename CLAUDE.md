@@ -105,7 +105,13 @@ The `samples` field on `HafniaDataset` is a `polars.DataFrame` built from a `Lis
 
 ## CI/CD
 
-GitHub Actions on push/PR to `main`. Pipeline: lint → security scan (Trivy) → tests (Ubuntu + Windows matrix) → build → publish (PyPI + Docker to AWS ECR). Tests mount `HAFNIA_CONFIG` secret for integration tests.
+GitHub Actions on push/PR to `main`. Pipeline: lint → tests (Ubuntu + Windows matrix) → build → publish (PyPI + Docker to AWS ECR). Tests mount `HAFNIA_CONFIG` secret for integration tests.
+
+Security checks:
+- **PRs:** `dependency-review` fails only when the PR introduces a vulnerable dependency. Ruff `S` rules (bandit) run in lint.
+- **Release gate:** Trivy fs scan on push to `main` blocks publishing on CRITICAL/HIGH findings. Accepted vulnerabilities go in `.trivyignore`.
+- **Scheduled:** [security_scan.yaml](.github/workflows/security_scan.yaml) runs Trivy daily on the repo and the built Docker image and uploads results to the GitHub Security tab (non-blocking).
+- **Dependabot** opens weekly grouped PRs for `uv` and GitHub Actions updates. `gitleaks` runs as a pre-commit hook.
 
 ## Default dependency group
 
