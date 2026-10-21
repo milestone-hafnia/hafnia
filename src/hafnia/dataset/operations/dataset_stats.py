@@ -302,7 +302,8 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
     """
 
     user_logger.info("Checking Hafnia dataset...")
-    assert isinstance(dataset.info.dataset_name, str) and len(dataset.info.dataset_name) > 0
+    if not isinstance(dataset.info.dataset_name, str) or len(dataset.info.dataset_name) == 0:
+        raise ValueError(f"Dataset name must be a non-empty string, got {dataset.info.dataset_name!r}")
 
     if check_splits:
         sample_dataset = dataset.create_sample_dataset()
@@ -500,4 +501,5 @@ def check_dataset_tasks(dataset: HafniaDataset):
             error_msg = msg_something_wrong + (
                 f"class indices in '{PrimitiveField.CLASS_IDX}' column does not match classes ordering in 'task.class_names'"
             )
-            assert mapped_indices.equals(table_indices), error_msg
+            if not mapped_indices.equals(table_indices):
+                raise ValueError(error_msg)

@@ -615,7 +615,8 @@ def pydantic_model_from_cli_function(
             field_info_attributes = field_info.asdict()["attributes"]
             field_info_attributes["description"] = docstring_params[param.name]
             field_info = Field(**field_info_attributes)
-        assert isinstance(field_info, FieldInfo), "Expected FieldInfo in Annotated metadata"
+        if not isinstance(field_info, FieldInfo):
+            raise TypeError("Expected FieldInfo in Annotated metadata")
         annotation = Annotated[base_type, field_info]  # type: ignore[valid-type]
         fields[param.name] = (annotation, default)
     name = model_name or f"{func.__name__}Args"

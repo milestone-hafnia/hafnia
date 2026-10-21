@@ -38,7 +38,7 @@ def round_int_clip_value(value: Union[int, float], max_value: int) -> int:
 
 def class_color_by_name(name: str) -> Tuple[int, int, int]:
     # Create a hash of the class name
-    hash_object = hashlib.md5(name.encode())
+    hash_object = hashlib.md5(name.encode(), usedforsecurity=False)
     # Use the hash to generate a color
     hash_digest = hash_object.hexdigest()
     color = (int(hash_digest[0:2], 16), int(hash_digest[2:4], 16), int(hash_digest[4:6], 16))

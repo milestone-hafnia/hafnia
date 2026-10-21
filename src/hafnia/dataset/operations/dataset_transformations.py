@@ -194,9 +194,10 @@ def convert_to_image_storage_format(
     n_videos = len(video_grouped_samples)
     update_list = []
     for i_video, ((path_video,), video_samples) in enumerate(video_grouped_samples):
-        assert Path(path_video).exists(), (
-            f"'{path_video}' not found. We expect the video to be downloaded to '{path_output_folder}'"
-        )
+        if not Path(path_video).exists():
+            raise FileNotFoundError(
+                f"'{path_video}' not found. We expect the video to be downloaded to '{path_output_folder}'"
+            )
         video = cv2.VideoCapture(str(path_video))
 
         video_samples = video_samples.sort(SampleField.COLLECTION_INDEX)

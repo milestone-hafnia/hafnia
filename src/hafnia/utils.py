@@ -130,7 +130,8 @@ def archive_dir(
     path_ignore_file: Optional[Path] = None,
 ) -> Tuple[Path, List[Path]]:
     recipe_zip_path = output_path or recipe_path / "trainer.zip"
-    assert recipe_zip_path.suffix == ".zip", "Output path must be a zip file"
+    if recipe_zip_path.suffix != ".zip":
+        raise ValueError(f"Output path must be a zip file, got '{recipe_zip_path}'")
     recipe_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
     user_logger.info(f" Creating zip archive of '{recipe_path}'")
@@ -203,7 +204,7 @@ def snake_to_pascal_case(name: str) -> str:
 
 
 def hash_from_string(s: str) -> str:
-    return hashlib.md5(s.encode("utf-8")).hexdigest()
+    return hashlib.md5(s.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def pretty_print_list_as_table(

@@ -417,7 +417,7 @@ def local_path_from_remote_path(
         return local_path_str
 
     suffix = Path(filename).suffix
-    hash_part = hashlib.sha1(filename.encode()).hexdigest()
+    hash_part = hashlib.sha1(filename.encode(), usedforsecurity=False).hexdigest()
     shortened_path_str = (path_data / hash_part).with_suffix(suffix).absolute().as_posix()
 
     user_logger.debug(

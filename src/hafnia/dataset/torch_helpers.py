@@ -80,7 +80,10 @@ class TorchvisionDataset(torch.utils.data.Dataset):
 
         class_tasks: Dict[str, List] = get_primitives_per_task_name_for_primitive(sample, Classification)
         for task_name, classifications in class_tasks.items():
-            assert len(classifications) == 1, "Expected exactly one classification task per sample"
+            if len(classifications) != 1:
+                raise ValueError(
+                    f"Expected exactly one classification per task, got {len(classifications)} for '{task_name}'"
+                )
             target_flat[f"{Classification.column_name()}.{task_name}"] = {
                 PrimitiveField.CLASS_IDX: classifications[0].class_idx,
                 PrimitiveField.CLASS_NAME: classifications[0].class_name,

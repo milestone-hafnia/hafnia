@@ -200,7 +200,7 @@ def create_split_name_list_from_ratios(split_ratios: Dict[str, float], n_items: 
     split_name_column = []
     for split_name, n_split_samples in samples_per_split.items():
         split_name_column.extend([split_name] * n_split_samples)
-    random.Random(seed).shuffle(split_name_column)  # Shuffle the split names
+    random.Random(seed).shuffle(split_name_column)  # noqa: S311 # Shuffle the split names
 
     return split_name_column
 

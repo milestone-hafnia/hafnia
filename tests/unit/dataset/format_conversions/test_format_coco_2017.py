@@ -148,7 +148,7 @@ def test_download_and_extract_coco_archive(tmp_path: Path) -> None:
     with zipfile.ZipFile(path_archive_source, "w") as zip_file:
         zip_file.writestr("annotations/instances_val2017.json", json.dumps({"images": []}))
 
-    md5 = hashlib.md5(path_archive_source.read_bytes()).hexdigest()
+    md5 = hashlib.md5(path_archive_source.read_bytes(), usedforsecurity=False).hexdigest()
     archive = CocoArchive(
         url=path_archive_source.as_uri(),
         extracted_paths=("annotations/instances_val2017.json",),
