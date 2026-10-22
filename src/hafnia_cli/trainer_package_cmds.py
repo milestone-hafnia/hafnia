@@ -73,24 +73,36 @@ def cmd_list_trainer_packages(
     show_default=True,
     help="Default command to run the trainer package.",
 )
+@click.option(
+    "--allow-blocked-files",
+    is_flag=True,
+    default=False,
+    help=consts.HELP_ALLOW_BLOCKED_FILES,
+)
 def cmd_create_trainer_package(
     cfg: Config,
     path: Path,
     cmd: Optional[str] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
+    allow_blocked_files: bool = False,
 ) -> Dict:
     """Create a trainer package on the platform"""
     from hafnia.platform.trainer_package import create_trainer_package
+    from hafnia.utils import TrainerPackageBlockedFilesError
 
     path_trainer = Path(path).resolve()
-    trainer_response = create_trainer_package(
-        source_dir=path_trainer,
-        name=name,
-        description=description,
-        cmd=cmd,
-        cfg=cfg,
-    )
+    try:
+        trainer_response = create_trainer_package(
+            source_dir=path_trainer,
+            name=name,
+            description=description,
+            cmd=cmd,
+            cfg=cfg,
+            allow_blocked_files=allow_blocked_files,
+        )
+    except TrainerPackageBlockedFilesError as e:
+        raise click.ClickException(str(e)) from e
 
     return trainer_response
 
@@ -107,6 +119,12 @@ def cmd_create_trainer_package(
 @click.option("-n", "--name", type=str, default=None, help="New name for the trainer package.")
 @click.option("-d", "--description", type=str, default=None, help="New description for the trainer package.")
 @click.option("--cmd", type=str, default=None, help="New default command to run the trainer package.")
+@click.option(
+    "--allow-blocked-files",
+    is_flag=True,
+    default=False,
+    help=consts.HELP_ALLOW_BLOCKED_FILES,
+)
 def cmd_update_trainer_package(
     cfg: Config,
     id: str,
@@ -114,25 +132,31 @@ def cmd_update_trainer_package(
     name: Optional[str] = None,
     description: Optional[str] = None,
     cmd: Optional[str] = None,
+    allow_blocked_files: bool = False,
 ) -> Dict:
     """Update an existing trainer package on the platform by id.
 
     All of `--path`, `--name`, `--description`, `--cmd` are optional, but at least one must be provided.
     """
     from hafnia.platform.trainer_package import update_trainer_package
+    from hafnia.utils import TrainerPackageBlockedFilesError
 
     if path is None and name is None and description is None and cmd is None:
         raise click.UsageError("Provide at least one of --path, --name, --description, or --cmd.")
 
     source_dir = Path(path).resolve() if path is not None else None
-    return update_trainer_package(
-        id=id,
-        source_dir=source_dir,
-        name=name,
-        description=description,
-        cmd=cmd,
-        cfg=cfg,
-    )
+    try:
+        return update_trainer_package(
+            id=id,
+            source_dir=source_dir,
+            name=name,
+            description=description,
+            cmd=cmd,
+            cfg=cfg,
+            allow_blocked_files=allow_blocked_files,
+        )
+    except TrainerPackageBlockedFilesError as e:
+        raise click.ClickException(str(e)) from e
 
 
 @trainer_package.command(name="create-zip")
@@ -144,17 +168,28 @@ def cmd_update_trainer_package(
     show_default=True,
     help="Output trainer package path.",
 )
-def cmd_create_trainer_package_zip(source: str, output: str) -> None:
+@click.option(
+    "--allow-blocked-files",
+    is_flag=True,
+    default=False,
+    help=consts.HELP_ALLOW_BLOCKED_FILES,
+)
+def cmd_create_trainer_package_zip(source: str, output: str, allow_blocked_files: bool = False) -> None:
     """Create Hafnia trainer package as zip-file from local path"""
 
-    from hafnia.utils import archive_dir
+    from hafnia.utils import TrainerPackageBlockedFilesError, create_trainer_package_zip_file
 
     path_output_zip = Path(output)
     if path_output_zip.suffix != ".zip":
         raise click.ClickException(consts.ERROR_TRAINER_PACKAGE_FILE_FORMAT)
 
     path_source = Path(source)
-    path_output_zip, _ = archive_dir(path_source, path_output_zip)
+    try:
+        path_output_zip, _ = create_trainer_package_zip_file(
+            path_source, path_output_zip, allow_blocked_files=allow_blocked_files
+        )
+    except TrainerPackageBlockedFilesError as e:
+        raise click.ClickException(str(e)) from e
 
 
 @trainer_package.command(name="view-zip")

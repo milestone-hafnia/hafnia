@@ -112,6 +112,16 @@ def default_experiment_run_name():
         "Defaults to the first environment returned by the platform (sorted by 'order')."
     ),
 )
+@click.option(
+    "--allow-blocked-files",
+    is_flag=True,
+    default=False,
+    help=(
+        "Allow files matching blocked patterns (e.g. '.venv/', 'tests/') in the trainer package created from "
+        "'--trainer-path'. Not recommended: such files slow down the platform's security scan and may trigger "
+        "false alarms."
+    ),
+)
 @click.pass_obj
 def cmd_create_experiment(
     cfg: Config,
@@ -123,6 +133,7 @@ def cmd_create_experiment(
     recipe: Optional[str],
     recipe_id: Optional[str],
     environment: Optional[str],
+    allow_blocked_files: bool = False,
 ) -> None:
     """
     Create and launch a new experiment run
@@ -155,7 +166,9 @@ def cmd_create_experiment(
     )
     recipe_id = dataset_recipe_response["id"]
 
-    trainer_id = get_trainer_package_by_identifiers(cfg=cfg, trainer_path=trainer_path, trainer_id=trainer_id)
+    trainer_id = get_trainer_package_by_identifiers(
+        cfg=cfg, trainer_path=trainer_path, trainer_id=trainer_id, allow_blocked_files=allow_blocked_files
+    )
 
     if environment is None:
         envs = get_environments(cfg=cfg)
@@ -233,9 +246,11 @@ def get_trainer_package_by_identifiers(
     cfg: Config,
     trainer_path: Optional[Path],
     trainer_id: Optional[str],
+    allow_blocked_files: bool = False,
 ) -> str:
     from hafnia.platform import get_trainer_package_by_id
     from hafnia.platform.trainer_package import create_trainer_package
+    from hafnia.utils import TrainerPackageBlockedFilesError
 
     if trainer_path is not None and trainer_id is not None:
         raise click.ClickException(
@@ -246,10 +261,14 @@ def get_trainer_package_by_identifiers(
         trainer_path = Path(trainer_path)
         if not trainer_path.exists():
             raise click.ClickException(f"Trainer package path '{trainer_path}' does not exist.")
-        response = create_trainer_package(
-            source_dir=trainer_path,
-            cfg=cfg,
-        )
+        try:
+            response = create_trainer_package(
+                source_dir=trainer_path,
+                cfg=cfg,
+                allow_blocked_files=allow_blocked_files,
+            )
+        except TrainerPackageBlockedFilesError as e:
+            raise click.ClickException(str(e)) from e
         return response["id"]
 
     if trainer_id:

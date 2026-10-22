@@ -62,7 +62,7 @@ new_dataset_splits = dataset.splits_by_ratios(split_ratios)
 dataset_ones = dataset.select_samples_by_class_name(name="1 - one", primitive=Classification)
 
 # Get access to a few full and public dataset through Hafnia (no login required)
-# Available datasets: "mnist", "caltech-101", "caltech-256", "cifar10", "cifar100"
+# Available datasets: "mnist", "caltech-101", "caltech-256", "cifar10", "cifar100", "coco-2017"
 public_dataset = HafniaDataset.from_name_public_dataset("mnist", n_samples=100)
 public_dataset.print_stats()
 

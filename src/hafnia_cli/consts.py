@@ -15,3 +15,8 @@ ERROR_TRAINER_PACKAGE_FILE_FORMAT: str = "Trainer package must be a '.zip' file"
 PROFILE_SWITCHED_SUCCESS: str = "Switched to profile:"
 PROFILE_REMOVED_SUCCESS: str = "Removed profile:"
 PROFILE_TABLE_HEADER: str = "Hafnia Platform Profile:"
+
+HELP_ALLOW_BLOCKED_FILES = (
+    "Allow files matching blocked patterns (e.g. '.venv/', 'tests/') in the trainer package. "
+    "Not recommended: such files slow down the platform's security scan and may trigger false alarms."
+)

@@ -48,6 +48,16 @@
             ],
         },
         {
+            "name": "cmd: 'hafnia trainer [X]'",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/hafnia_cli/__main__.py",
+            "args": [
+                "trainer",
+                "ls"
+            ]
+        },
+        {
             "name": "cmd: 'hafnia dataset [X]'",
             "type": "debugpy",
             "request": "launch",
