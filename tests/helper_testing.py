@@ -1,8 +1,8 @@
 import os
 from inspect import getmembers, isfunction, signature
 from pathlib import Path
-from types import FunctionType, NoneType, UnionType
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, Union, get_args, get_origin
+from types import FunctionType
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple, Union, get_origin
 
 import cv2
 import numpy as np
@@ -154,14 +154,6 @@ def annotation_as_string(annotation: Union[type, str]) -> str:
     """Convert type annotation to string."""
     if isinstance(annotation, str):
         return annotation.replace("'", "")
-    if get_origin(annotation) in (Union, UnionType):
-        # Python 3.14 prints 'Optional[X]' and 'Union[X, Y]' as 'X | None' and 'X | Y'.
-        # Render unions explicitly to match the (string) annotations used in function signatures.
-        args = get_args(annotation)
-        if len(args) == 2 and NoneType in args:
-            non_none_arg = args[0] if args[1] is NoneType else args[1]
-            return f"Optional[{annotation_as_string(non_none_arg)}]"
-        return f"Union[{', '.join(annotation_as_string(arg) for arg in args)}]"
     if is_typing_type(annotation):  # Is using typing types like List, Dict, etc.
         # This is a simple approach to remove typing annotations as demonstrated below:
         # "typing.List[str]" --> "List[str]"
