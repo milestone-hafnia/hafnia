@@ -1,3 +1,7 @@
+# Vulnerabilities accepted for release. The release gate in ci_cd.yaml and the scheduled
+# scan in security_scan.yaml skip IDs listed here.
+# Add one ID per line with a comment explaining why and when to revisit, e.g.:
+
 # Ignore 'CVE-2024-37059' issue https://avd.aquasec.com/nvd/2024/cve-2024-37059/
 # The vulnerability does not apply to our platform as models are not loaded on our platform.
 CVE-2024-37059

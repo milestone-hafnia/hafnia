@@ -516,7 +516,6 @@ class HafniaDataset:
         if len(dataset_split_to_be_divided) == 0:
             split_counts = dict(dataset.samples.select(pl.col(SampleField.SPLIT).value_counts()).iter_rows())
             raise ValueError(f"No samples in the '{split_name}' split to divide into multiple splits. {split_counts=}")
-        assert len(dataset_split_to_be_divided) > 0, f"No samples in the '{split_name}' split!"
         dataset_split_to_be_divided = dataset_split_to_be_divided.splits_by_ratios(split_ratios=split_ratios, seed=42)
 
         remaining_data = dataset.samples.filter(pl.col(SampleField.SPLIT).is_in([split_name]).not_())
@@ -558,7 +557,7 @@ class HafniaDataset:
         )
 
         # Add "sample" to tags column for the selected samples
-        is_sample_indices = Random(seed).sample(range(n_dataset_samples), n_samples)
+        is_sample_indices = Random(seed).sample(range(n_dataset_samples), n_samples)  # noqa: S311
         samples = samples.with_columns(
             pl.when(pl.int_range(len(samples)).is_in(is_sample_indices))
             .then(pl.col(SampleField.TAGS).list.concat(pl.lit([TAG_IS_SAMPLE])))

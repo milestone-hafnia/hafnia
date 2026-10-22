@@ -60,9 +60,16 @@ packages = ["src/hafnia_cli", "src/hafnia"]
 default-groups = ["test"]
 
 [tool.ruff]
-lint.select = ["I", "E", "F"]
-lint.ignore = ["E501"]
+lint.select = ["I", "E", "F", "S"]
+lint.ignore = [
+    "E501",
+    "S603", # subprocess call: flags every subprocess call. 'shell=True' is still caught by S602
+    "S607", # partial executable path: we intentionally rely on PATH for 'docker', 'git' and 's5cmd'
+]
 line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S108", "S311"]
 
 [tool.ruff.lint.isort]
 relative-imports-order = "closest-to-furthest"

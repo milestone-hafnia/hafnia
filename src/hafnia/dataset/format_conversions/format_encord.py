@@ -323,9 +323,10 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
     object_answers = label_row["object_answers"]
     classification_answers = label_row["classification_answers"]
     data_units = label_row["data_units"]
-    assert len(data_units) == 1, (
-        f"Expected one data item, but got {len(data_units)}. Investigate why there are multiple data items and adjust the code accordingly."
-    )
+    if len(data_units) != 1:
+        raise ValueError(
+            f"Expected one data item, but got {len(data_units)}. Investigate why there are multiple data items and adjust the code accordingly."
+        )
     data_unit_hash, data_item = next(iter(data_units.items()))
     classification_tasks = [t for t in tasks if issubclass(t.primitive, Classification)]
     object_tasks = {t.primitive: t for t in tasks if not issubclass(t.primitive, Classification)}
@@ -439,10 +440,11 @@ def _get_sample_from_encord_item(label_row: Dict, tasks: List[TaskInfo]) -> List
                     keypoints = [
                         Point(x=float(point["x"]), y=float(point["y"])) for point in encord_primitive_data.values()
                     ]
-                    assert len(keypoints) == 1, (
-                        f"Expected one point for the 'point' shape, but got {len(keypoints)}. "
-                        "Investigate why there are multiple points and adjust the code accordingly."
-                    )
+                    if len(keypoints) != 1:
+                        raise ValueError(
+                            f"Expected one point for the 'point' shape, but got {len(keypoints)}. "
+                            "Investigate why there are multiple points and adjust the code accordingly."
+                        )
                     sample.keypoints.append(
                         KeyPoint(
                             point=keypoints[0],

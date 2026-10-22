@@ -327,7 +327,7 @@ def is_matching_md5(path_file: Path, md5: Optional[str], chunk_size: int = 1024 
     """Check the MD5 checksum of a file. Files are accepted ('True') when no checksum is provided."""
     if md5 is None:
         return True
-    file_hash = hashlib.md5()
+    file_hash = hashlib.md5(usedforsecurity=False)
     with path_file.open("rb") as file:
         for chunk in iter(lambda: file.read(chunk_size), b""):
             file_hash.update(chunk)
