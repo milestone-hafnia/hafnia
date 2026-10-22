@@ -105,7 +105,7 @@ The `samples` field on `HafniaDataset` is a `polars.DataFrame` built from a `Lis
 
 ## CI/CD
 
-GitHub Actions on push/PR to `main`. Pipeline: lint → security scan (Trivy) → tests (Ubuntu + Windows matrix) → build → publish (PyPI + Docker to AWS ECR). Tests mount `HAFNIA_CONFIG` secret for integration tests.
+GitHub Actions on push/PR to `main`. Pipeline: lint → tests (Ubuntu + Windows matrix) → build → publish (PyPI + Docker to AWS ECR). Tests mount `HAFNIA_CONFIG` secret for integration tests.
 
 ## Default dependency group
 
