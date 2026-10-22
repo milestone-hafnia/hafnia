@@ -38,16 +38,14 @@ FILENAME_HAFNIAIGNORE = ".hafniaignore"
 # run the trainer, but they slow down the platform's trainer package security scanner and are a common source of
 # false alarms - which may block the trainer package from being used. Values describe why the pattern is blocked.
 BLOCKED_TRAINER_PACKAGE_PATTERNS: Dict[str, str] = {
-    ".venv/": "Virtual environment with third-party packages. Dependencies are installed on the platform instead.",
     ".git/": "Git history and objects.",
     ".data/": "Local datasets and experiment outputs.",
     "tests/": "Test code is not used for training.",
     "__pycache__/": "Compiled Python bytecode.",
     "*_cache/": "Tool caches (e.g. '.pytest_cache', '.mypy_cache', '.ruff_cache').",
     "**.egg-info/": "Python packaging metadata.",
+    ".venv/": "Virtual environment with third-party packages. Dependencies are installed on the platform instead.",
     "venv/": "Virtual environment with third-party packages. Dependencies are installed on the platform instead.",
-    ".env": "Environment file that commonly holds secrets (API keys, tokens, passwords).",
-    ".env.*": "Environment files (e.g. '.env.local', '.env.prod') that commonly hold secrets.",
     ".tox/": "tox test environments.",
     ".nox/": "nox test environments.",
     ".eggs/": "Python packaging build dependencies.",
@@ -64,11 +62,13 @@ BLOCKED_TRAINER_PACKAGE_PATTERNS: Dict[str, str] = {
 }
 DEFAULT_IGNORE_SPECIFICATION = [
     *BLOCKED_TRAINER_PACKAGE_PATTERNS,
-    "*.jpg",
-    "*.png",
-    "*.py[cod]",
-    ".vscode",
-    "trainer.zip",
+    "*.jpg",  # Common image formats that are large and unnecessary for training.
+    "*.png",  # Common image formats that are large and unnecessary for training.
+    "*.py[cod]",  # Compiled Python bytecode files.
+    ".vscode",  # VS Code settings folder that may contain secrets (e.g. API keys, tokens, passwords).
+    "trainer.zip",  # Trainer package itself in the trainer package.
+    ".env",  # Environment file that commonly holds secrets (API keys, tokens, passwords).
+    ".env.*",  # Environment files (e.g. '.env.local', '.env.prod') that commonly hold secrets.
 ]
 
 
