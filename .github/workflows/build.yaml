@@ -22,7 +22,7 @@ jobs:
       package-version: ${{ steps.extract-version.outputs.package_version }}
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-python@v7.0.0
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version-file: ${{ inputs.python-version-file }}
 
@@ -49,7 +49,7 @@ jobs:
         run: uv build
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: python-package
           path: dist/
