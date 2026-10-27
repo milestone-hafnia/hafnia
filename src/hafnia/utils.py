@@ -222,6 +222,19 @@ def create_trainer_package_zip_file(
     return recipe_zip_path, included_files
 
 
+def archive_dir(
+    recipe_path: Path,
+    output_path: Optional[Path] = None,
+    path_ignore_file: Optional[Path] = None,
+    allow_blocked_files: bool = False,
+) -> Tuple[Path, List[Path]]:
+    """Deprecated: Use 'create_trainer_package_zip_file' instead."""
+    raise RuntimeError(
+        "'archive_dir' has been renamed. Use 'create_trainer_package_zip_file' instead. "
+        "'archive_dir' will be removed in a future version of the SDK."
+    )
+
+
 def size_human_readable(size_bytes: int, suffix="B") -> str:
     size_value = float(size_bytes)
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):

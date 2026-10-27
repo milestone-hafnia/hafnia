@@ -8,6 +8,7 @@ from hafnia.utils import (
     BLOCKED_TRAINER_PACKAGE_PATTERNS,
     DEFAULT_IGNORE_SPECIFICATION,
     FILENAME_HAFNIAIGNORE,
+    archive_dir,
     create_trainer_package_zip_file,
 )
 
@@ -175,3 +176,9 @@ def test_zip_entry_names_use_forward_slashes(tmp_path: Path, project_with_files_
     zipped_files = ZipFile(path_zipped_trainer).namelist()
     backslash_entries = [e for e in zipped_files if "\\" in e]
     assert not backslash_entries, f"Backslash found in zip entry names: {backslash_entries}"
+
+
+def test_archive_dir_deprecated(tmp_path: Path) -> None:
+    """'archive_dir' is deprecated and points users to 'create_trainer_package_zip_file'."""
+    with pytest.raises(RuntimeError, match="create_trainer_package_zip_file"):
+        archive_dir(tmp_path)
