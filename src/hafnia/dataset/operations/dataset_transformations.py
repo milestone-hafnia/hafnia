@@ -551,6 +551,29 @@ def drop_samples_by_class_name(
     return HafniaDataset(info=dataset_info, samples=samples)
 
 
+def select_samples_by_dataset_name(
+    dataset: "HafniaDataset",
+    name: Union[List[str], str],
+) -> "HafniaDataset":
+    if isinstance(name, str):
+        name = [name]
+    names = list(name)
+
+    if SampleField.DATASET_NAME not in dataset.samples.columns:
+        raise ValueError(f"The samples table does not contain a '{SampleField.DATASET_NAME}' column.")
+
+    available_names = set(dataset.samples[SampleField.DATASET_NAME].drop_nulls().unique().to_list())
+    missing_names = set(names) - available_names
+    if len(missing_names) > 0:
+        raise ValueError(
+            f"The specified dataset names {sorted(missing_names)} have not been found in the samples. "
+            f"Available dataset names: {sorted(available_names)}"
+        )
+
+    samples = dataset.samples.filter(pl.col(SampleField.DATASET_NAME).is_in(names))
+    return dataset.update_samples(samples)
+
+
 def _validate_inputs_select_samples_by_class_name(
     dataset: "HafniaDataset",
     name: Union[List[str], str],

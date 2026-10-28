@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Callable
 
 import numpy as np
+import polars as pl
 import pytest
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, StorageFormat
@@ -283,6 +284,31 @@ def test_drop_samples_by_class_name():
     # Wrong class name (not found in any task)
     with pytest.raises(ValueError, match="The specified names"):
         dataset.drop_samples_by_class_name(name="NonExistingClass", primitive=Bbox)
+
+
+def test_select_samples_by_dataset_name():
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+    dataset_a = dataset.update_samples(
+        dataset.samples.with_columns(pl.lit("dataset-a").alias(SampleField.DATASET_NAME))
+    )
+    dataset_b = dataset.update_samples(
+        dataset.samples.with_columns(pl.lit("dataset-b").alias(SampleField.DATASET_NAME))
+    )
+    merged = HafniaDataset.from_merge(dataset0=dataset_a, dataset1=dataset_b)
+
+    # Use case 1: Select a single dataset name
+    selected = merged.select_samples_by_dataset_name(name="dataset-a")
+    assert len(selected) == len(dataset_a)
+    assert set(selected.samples[SampleField.DATASET_NAME].to_list()) == {"dataset-a"}
+
+    # Use case 2: Select multiple dataset names
+    selected = merged.select_samples_by_dataset_name(name=["dataset-a", "dataset-b"])
+    assert len(selected) == len(merged)
+
+    # Use case 3: Unknown dataset name
+    with pytest.raises(ValueError, match="The specified dataset names"):
+        merged.select_samples_by_dataset_name(name="non-existing-dataset")
 
 
 def test_get_task_info_from_task_name_and_primitive():

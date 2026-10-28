@@ -16,6 +16,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
     RenameTask,
     SelectSamples,
     SelectSamplesByClassName,
+    SelectSamplesByDatasetName,
     Shuffle,
     SplitIntoMultipleSplits,
     SplitsByRatios,
@@ -114,6 +115,11 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             ),
             as_python_code="drop_samples_by_class_name(name=['Person'], task_name=None, primitive=None, drop_classes_from_task_info=False)",  # noqa: E501
             short_name="DropSamplesByClassName",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=SelectSamplesByDatasetName(name=["coco-2017"]),
+            as_python_code="select_samples_by_dataset_name(name=['coco-2017'])",
+            short_name="SelectSamplesByDatasetName",
         ),
     ]
 

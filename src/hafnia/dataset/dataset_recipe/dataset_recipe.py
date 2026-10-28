@@ -520,6 +520,15 @@ class DatasetRecipe(Serializable):
         recipe.append_operation(operation)
         return recipe
 
+    def select_samples_by_dataset_name(recipe: DatasetRecipe, name: Union[List[str], str]) -> DatasetRecipe:
+        """Append an operation that keeps only samples originating from the named dataset(s).
+
+        Recipe equivalent of `HafniaDataset.select_samples_by_dataset_name`.
+        """
+        operation = recipe_transforms.SelectSamplesByDatasetName(name=name)
+        recipe.append_operation(operation)
+        return recipe
+
     ### Helper methods ###
     def get_dataset_names(self) -> List[str]:
         """Return every Hafnia-platform dataset name referenced in the recipe (recursively).

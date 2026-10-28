@@ -108,6 +108,14 @@ class SelectSamplesByClassName(RecipeTransform):
         return HafniaDataset.select_samples_by_class_name
 
 
+class SelectSamplesByDatasetName(RecipeTransform):
+    name: Union[List[str], str]
+
+    @staticmethod
+    def get_function() -> Callable[..., "HafniaDataset"]:
+        return HafniaDataset.select_samples_by_dataset_name
+
+
 class DropSamplesByClassName(RecipeTransform):
     name: Union[List[str], str]
     task_name: Optional[str] = None

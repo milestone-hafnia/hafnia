@@ -798,6 +798,20 @@ class HafniaDataset:
             drop_classes_from_task_info=drop_classes_from_task_info,
         )
 
+    def select_samples_by_dataset_name(
+        dataset: HafniaDataset,
+        name: Union[List[str], str],
+    ) -> HafniaDataset:
+        """Keep only samples whose `dataset_name` matches the specified dataset name(s).
+
+        Useful after merging datasets to recover the samples originating from one (or more) of the
+        source datasets. Raises if any of the given names is not present in the samples.
+
+        Args:
+            name: A dataset name or list of dataset names to filter on.
+        """
+        return dataset_transformations.select_samples_by_dataset_name(dataset=dataset, name=name)
+
     def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
         """Merge two `HafniaDataset` instances by concatenating samples and combining their `info`.
 
