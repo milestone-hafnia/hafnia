@@ -21,6 +21,7 @@ class SelectSamples(RecipeTransform):
     shuffle: bool = True
     seed: int = 42
     with_replacement: bool = False
+    raise_if_too_few_samples: bool = False
 
     @staticmethod
     def get_function() -> Callable[..., "HafniaDataset"]:
@@ -110,6 +111,7 @@ class SelectSamplesByClassName(RecipeTransform):
 
 class SelectSamplesByDatasetName(RecipeTransform):
     name: Union[List[str], str]
+    raise_if_missing: bool = False
 
     @staticmethod
     def get_function() -> Callable[..., "HafniaDataset"]:

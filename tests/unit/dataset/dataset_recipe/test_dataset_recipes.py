@@ -206,6 +206,15 @@ TEST_CASES = [
         .select_samples_by_class_name(name="odd"),
         short_name="Recipe(mnist,ClassMapper,RenameTask,SelectSamplesByClassName)",
     ),
+    IntegrationTestUseCase(
+        recipe=DatasetRecipe.from_merger(
+            recipes=[
+                DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
+                DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
+            ]
+        ).select_samples_by_dataset_name(name="mnist", raise_if_missing=True),
+        short_name="Recipe(Merger(mnist,'.data-datasets-mnist'),SelectSamplesByDatasetName)",
+    ),
 ]
 
 

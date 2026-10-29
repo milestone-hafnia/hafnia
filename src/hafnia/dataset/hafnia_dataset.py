@@ -460,19 +460,29 @@ class HafniaDataset:
         shuffle: bool = True,
         seed: int = 42,
         with_replacement: bool = False,
+        raise_if_too_few_samples: bool = False,
     ) -> "HafniaDataset":
         """Return a new dataset containing a random subset of `n_samples` samples.
 
         Args:
             n_samples: Number of samples to draw. When `with_replacement=False`, this is capped
-                to the dataset size.
+                to the dataset size and a warning is logged if the dataset has fewer samples.
             shuffle: If True, the drawn samples are shuffled in the returned dataset.
             seed: Random seed for deterministic sampling.
             with_replacement: If True, samples may be drawn more than once (useful for upsampling
                 small datasets).
+            raise_if_too_few_samples: If True, raise a `ValueError` instead of logging a warning when
+                `with_replacement=False` and the dataset has fewer than `n_samples` samples.
         """
-        if not with_replacement:
-            n_samples = min(n_samples, len(dataset))
+        if not with_replacement and n_samples > len(dataset):
+            msg = f"Requested {n_samples} samples, but the dataset only contains {len(dataset)} samples"
+            if raise_if_too_few_samples:
+                raise ValueError(f"{msg}. Set 'with_replacement=True' to upsample the dataset.")
+            user_logger.warning(
+                f"{msg}. Selecting all {len(dataset)} samples instead. "
+                "Set 'raise_if_too_few_samples=True' to raise an error instead."
+            )
+            n_samples = len(dataset)
         table = dataset.samples.sample(n=n_samples, with_replacement=with_replacement, seed=seed, shuffle=shuffle)
         return dataset.update_samples(table)
 
@@ -801,16 +811,26 @@ class HafniaDataset:
     def select_samples_by_dataset_name(
         dataset: HafniaDataset,
         name: Union[List[str], str],
+        raise_if_missing: bool = False,
     ) -> HafniaDataset:
         """Keep only samples whose `dataset_name` matches the specified dataset name(s).
 
-        Useful after merging datasets to recover the samples originating from one (or more) of the
-        source datasets. Raises if any of the given names is not present in the samples.
+        Useful after merging datasets to keep only the samples originating from one (or more) of the
+        source datasets. Only `samples` are filtered; `info` is kept as is, so after a merge
+        `info.dataset_name` stays the merged name (e.g. "A+B").
 
         Args:
-            name: A dataset name or list of dataset names to filter on.
+            name: A dataset name or list of dataset names to filter on. Use the bare dataset name as
+                stored in the `dataset_name` column (e.g. "mnist"), not "name:version". An empty list
+                removes all samples (a warning is logged).
+            raise_if_missing: If True, raise a `ValueError` when a specified name is not present in the
+                samples. By default, a warning is logged instead.
         """
-        return dataset_transformations.select_samples_by_dataset_name(dataset=dataset, name=name)
+        return dataset_transformations.select_samples_by_dataset_name(
+            dataset=dataset,
+            name=name,
+            raise_if_missing=raise_if_missing,
+        )
 
     def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
         """Merge two `HafniaDataset` instances by concatenating samples and combining their `info`.

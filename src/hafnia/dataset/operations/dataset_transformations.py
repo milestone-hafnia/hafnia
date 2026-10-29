@@ -554,10 +554,14 @@ def drop_samples_by_class_name(
 def select_samples_by_dataset_name(
     dataset: "HafniaDataset",
     name: Union[List[str], str],
+    raise_if_missing: bool = False,
 ) -> "HafniaDataset":
     if isinstance(name, str):
         name = [name]
     names = list(name)
+
+    if len(names) == 0:
+        user_logger.warning("No dataset names were specified. All samples are removed and the dataset is empty.")
 
     if SampleField.DATASET_NAME not in dataset.samples.columns:
         raise ValueError(f"The samples table does not contain a '{SampleField.DATASET_NAME}' column.")
@@ -565,10 +569,13 @@ def select_samples_by_dataset_name(
     available_names = set(dataset.samples[SampleField.DATASET_NAME].drop_nulls().unique().to_list())
     missing_names = set(names) - available_names
     if len(missing_names) > 0:
-        raise ValueError(
+        msg = (
             f"The specified dataset names {sorted(missing_names)} have not been found in the samples. "
             f"Available dataset names: {sorted(available_names)}"
         )
+        if raise_if_missing:
+            raise ValueError(msg)
+        user_logger.warning(f"{msg}. Set 'raise_if_missing=True' to raise an error instead.")
 
     samples = dataset.samples.filter(pl.col(SampleField.DATASET_NAME).is_in(names))
     return dataset.update_samples(samples)
