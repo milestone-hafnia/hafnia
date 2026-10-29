@@ -372,6 +372,7 @@ class DatasetRecipe(Serializable):
         shuffle: bool = True,
         seed: int = 42,
         with_replacement: bool = False,
+        raise_if_too_few_samples: bool = False,
     ) -> DatasetRecipe:
         """Append a "select N samples" operation to the recipe.
 
@@ -383,6 +384,7 @@ class DatasetRecipe(Serializable):
             shuffle=shuffle,
             seed=seed,
             with_replacement=with_replacement,
+            raise_if_too_few_samples=raise_if_too_few_samples,
         )
         recipe.append_operation(operation)
         return recipe
@@ -517,6 +519,20 @@ class DatasetRecipe(Serializable):
             primitive=primitive,
             drop_classes_from_task_info=drop_classes_from_task_info,
         )
+        recipe.append_operation(operation)
+        return recipe
+
+    def select_samples_by_dataset_name(
+        recipe: DatasetRecipe,
+        name: Union[List[str], str],
+        raise_if_missing: bool = False,
+    ) -> DatasetRecipe:
+        """Append an operation that keeps only samples originating from the named dataset(s).
+
+        Recipe equivalent of `HafniaDataset.select_samples_by_dataset_name`. Use bare dataset names
+        (e.g. "mnist"), not "name:version".
+        """
+        operation = recipe_transforms.SelectSamplesByDatasetName(name=name, raise_if_missing=raise_if_missing)
         recipe.append_operation(operation)
         return recipe
 

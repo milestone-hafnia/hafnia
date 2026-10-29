@@ -2,6 +2,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple, Type
+from unittest.mock import patch
 
 import polars as pl
 import pytest
@@ -16,6 +17,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
     RenameTask,
     SelectSamples,
     SelectSamplesByClassName,
+    SelectSamplesByDatasetName,
     Shuffle,
     SplitIntoMultipleSplits,
     SplitsByRatios,
@@ -60,7 +62,7 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
     return [
         TestCaseRecipeTransform(
             recipe_transform=SelectSamples(n_samples=10, shuffle=True, seed=42),
-            as_python_code="select_samples(n_samples=10, shuffle=True, seed=42, with_replacement=False)",
+            as_python_code="select_samples(n_samples=10, shuffle=True, seed=42, with_replacement=False, raise_if_too_few_samples=False)",  # noqa: E501
             short_name="SelectSamples",
         ),
         TestCaseRecipeTransform(
@@ -114,6 +116,11 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             ),
             as_python_code="drop_samples_by_class_name(name=['Person'], task_name=None, primitive=None, drop_classes_from_task_info=False)",  # noqa: E501
             short_name="DropSamplesByClassName",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=SelectSamplesByDatasetName(name=["coco-2017"]),
+            as_python_code="select_samples_by_dataset_name(name=['coco-2017'], raise_if_missing=False)",
+            short_name="SelectSamplesByDatasetName",
         ),
     ]
 
@@ -191,11 +198,17 @@ def test_sample_transformation_without_replacement():
     n_samples = 100  # A micro dataset is only 3 samples, so this should be capped to 3
     sample_transformation = SelectSamples(n_samples=n_samples, shuffle=True, seed=42, with_replacement=False)
 
-    new_dataset = sample_transformation.build(dataset)
+    with patch("hafnia.log.user_logger.warning") as mock_warning:
+        new_dataset = sample_transformation.build(dataset)
+    mock_warning.assert_called_once()
     assert isinstance(new_dataset, HafniaDataset), "Sampled dataset is not a HafniaDataset instance"
     assert len(new_dataset) == max_actual_number_of_samples, (
         f"Sampled dataset length {len(new_dataset)} does not match expected {max_actual_number_of_samples}"
     )
+
+    sample_transformation = SelectSamples(n_samples=n_samples, with_replacement=False, raise_if_too_few_samples=True)
+    with pytest.raises(ValueError, match="Requested 100 samples"):
+        sample_transformation.build(dataset)
 
 
 def test_sample_transformation_with_replacement():

@@ -226,6 +226,7 @@ def get_dummy_recipe() -> "DatasetRecipe":
         .class_mapper(get_strict_class_mapping_mnist())
         .rename_task(old_task_name=primitives.Classification.default_task_name(), new_task_name="digits")
         .select_samples_by_class_name(name=["odd"])
+        .select_samples_by_dataset_name(name="mnist")
     )
 
     return dataset_recipe

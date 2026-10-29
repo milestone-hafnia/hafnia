@@ -1,7 +1,9 @@
 from pathlib import Path
 from typing import Callable
+from unittest.mock import patch
 
 import numpy as np
+import polars as pl
 import pytest
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, StorageFormat
@@ -283,6 +285,51 @@ def test_drop_samples_by_class_name():
     # Wrong class name (not found in any task)
     with pytest.raises(ValueError, match="The specified names"):
         dataset.drop_samples_by_class_name(name="NonExistingClass", primitive=Bbox)
+
+
+def test_select_samples_by_dataset_name():
+    path_dataset = get_path_micro_hafnia_dataset(dataset_name="micro-tiny-dataset", force_update=False)
+    dataset = HafniaDataset.from_path(path_dataset)
+    dataset_a = dataset.update_samples(
+        dataset.samples.with_columns(pl.lit("dataset-a").alias(SampleField.DATASET_NAME))
+    )
+    dataset_b = dataset.update_samples(
+        dataset.samples.with_columns(pl.lit("dataset-b").alias(SampleField.DATASET_NAME))
+    )
+    merged = HafniaDataset.from_merge(dataset0=dataset_a, dataset1=dataset_b)
+
+    # Use case 1: Select a single dataset name
+    selected = merged.select_samples_by_dataset_name(name="dataset-a")
+    assert len(selected) == len(dataset_a)
+    assert set(selected.samples[SampleField.DATASET_NAME].to_list()) == {"dataset-a"}
+
+    # Use case 2: Select multiple dataset names
+    selected = merged.select_samples_by_dataset_name(name=["dataset-a", "dataset-b"])
+    assert len(selected) == len(merged)
+
+    assert set(selected.samples[SampleField.DATASET_NAME].to_list()) == {"dataset-a", "dataset-b"}
+
+    # Use case 3: Unknown dataset name warns by default and keeps the samples of the known names
+    with patch("hafnia.log.user_logger.warning") as mock_warning:
+        selected = merged.select_samples_by_dataset_name(name=["dataset-a", "non-existing-dataset"])
+    mock_warning.assert_called_once()
+    assert "non-existing-dataset" in mock_warning.call_args[0][0]
+    assert len(selected) == len(dataset_a)
+
+    # Use case 4: Unknown dataset name raises when 'raise_if_missing=True'
+    with pytest.raises(ValueError, match="The specified dataset names"):
+        merged.select_samples_by_dataset_name(name="non-existing-dataset", raise_if_missing=True)
+
+    # Use case 5: Empty list of names warns and returns an empty dataset
+    with patch("hafnia.log.user_logger.warning") as mock_warning:
+        selected = merged.select_samples_by_dataset_name(name=[])
+    mock_warning.assert_called_once()
+    assert len(selected) == 0
+
+    # Use case 6: Missing 'dataset_name' column raises
+    dataset_without_name = merged.update_samples(merged.samples.drop(SampleField.DATASET_NAME))
+    with pytest.raises(ValueError, match="does not contain a 'dataset_name' column"):
+        dataset_without_name.select_samples_by_dataset_name(name="dataset-a")
 
 
 def test_get_task_info_from_task_name_and_primitive():
