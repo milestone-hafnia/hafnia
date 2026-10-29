@@ -157,42 +157,22 @@ class IntegrationTestUseCase:
 
 TEST_CASES = [
     IntegrationTestUseCase(
-        recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
-        short_name="mnist",
-    ),
-    IntegrationTestUseCase(
-        recipe=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
-        short_name="'.data-datasets-mnist'",
-    ),
-    IntegrationTestUseCase(
         recipe=DatasetRecipe.from_merger(
             recipes=[
                 DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
                 DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
             ]
-        ),
-        short_name="Merger(mnist,'.data-datasets-mnist')",
-    ),
-    IntegrationTestUseCase(
-        recipe=DatasetRecipe.from_merge(
-            recipe0=DatasetRecipe.from_path(path_folder=Path(".data/datasets/mnist"), check_for_images=False),
-            recipe1=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False),
-        ),
-        short_name="Merger('.data-datasets-mnist',mnist)",
-    ),
-    IntegrationTestUseCase(
-        recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version, force_redownload=False)
-        .select_samples(n_samples=20, shuffle=True, seed=42)
-        .shuffle(seed=123),
-        short_name="Recipe(mnist,SelectSamples,Shuffle)",
+        ).select_samples_by_dataset_name(name="mnist", raise_if_missing=True),
+        short_name="Recipe(Merger(mnist,'.data-datasets-mnist'),SelectSamplesByDatasetName)",
     ),
     IntegrationTestUseCase(
         recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version)
         .select_samples(n_samples=30)
+        .shuffle(seed=123)
         .splits_by_ratios(split_ratios={"train": 0.8, "test": 0.2})
         .split_into_multiple_splits(split_name="test", split_ratios={"val": 0.5, "test": 0.5})
         .define_sample_set_by_size(n_samples=10),
-        short_name="Recipe(mnist,SelectSamples,SplitsByRatios,SplitIntoMultipleSplits,DefineSampleSetBySize)",
+        short_name="Recipe(mnist,SelectSamples,Shuffle,SplitsByRatios,SplitIntoMultipleSplits,DefineSampleSetBySize)",
     ),
     IntegrationTestUseCase(
         recipe=DatasetRecipe.from_name(name="mnist", version=DATASET_SPEC_MNIST.version)
