@@ -861,7 +861,7 @@ wheels = [
 
 [[package]]
 name = "hafnia"
-version = "0.8.6"
+version = "0.8.7"
 source = { editable = "." }
 dependencies = [
     { name = "boto3" },
