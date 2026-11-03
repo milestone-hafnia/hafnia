@@ -1,11 +1,47 @@
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from rich.progress import Progress
+from urllib3.exceptions import LocationParseError
+from urllib3.util import parse_url
 
 from hafnia.http import fetch
 from hafnia.log import sys_logger, user_logger
 from hafnia.platform.s5cmd_utils import ResourceCredentials
+
+
+def ensure_platform_origin(url: str, platform_url: str) -> None:
+    """
+    Raises ValueError unless `url` has the same scheme and host as the configured platform,
+    so that the API key is never sent anywhere else.
+    """
+    if not platform_url:
+        raise ValueError("platform_url is not configured; refusing to fetch credentials from an unverified origin.")
+    if _origin(url, "resource") != _origin(platform_url, "platform"):
+        raise ValueError(f"'{url}' is not on the configured platform '{platform_url}'.")
+
+
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _origin(url: str, name: str) -> Tuple[str, str, int]:
+    """
+    Return (scheme, host, port) for an absolute HTTP(S) URL, with the default port filled in when omitted.
+
+    Parsing is done with urllib3, the same parser `hafnia.http.fetch` uses to send the request, so that the host
+    checked here is the host the request goes to. `urllib.parse.urlsplit` disagrees with urllib3 on inputs such as
+    'https://attacker.example\\@api.hafnia.example/', which would let the API key leak to the attacker host.
+    """
+    try:
+        parts = parse_url(url)
+    except LocationParseError as e:
+        raise ValueError(f"The {name} URL could not be parsed: {e}") from e
+    if parts.scheme not in _DEFAULT_PORTS or not parts.host:
+        raise ValueError(f"The {name} URL must be an absolute HTTP(S) URL with a hostname, got '{url}'.")
+    if parts.auth is not None:
+        raise ValueError(f"The {name} URL must not contain credentials, got '{url}'.")
+    port = parts.port if parts.port is not None else _DEFAULT_PORTS[parts.scheme]
+    return parts.scheme, parts.host, port
 
 
 def get_resource_credentials(endpoint: str, api_key: str) -> ResourceCredentials:
@@ -45,8 +81,14 @@ def download_single_object(s3_client, bucket: str, object_key: str, output_dir: 
 
     Returns:
         Path: The local path where the file was saved.
+
+    Raises:
+        ValueError: If the object key does not resolve to a file inside `output_dir`.
     """
-    local_path = output_dir / object_key
+    output_dir = output_dir.resolve()
+    local_path = (output_dir / object_key).resolve()
+    if local_path == output_dir or not local_path.is_relative_to(output_dir):
+        raise ValueError(f"Object key '{object_key}' must resolve to a file inside the output directory.")
     local_path.parent.mkdir(parents=True, exist_ok=True)
     s3_client.download_file(bucket, object_key, local_path.as_posix())
     return local_path

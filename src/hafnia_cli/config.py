@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, List, Optional
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, field_validator
 
@@ -29,10 +30,25 @@ class SecretStr(str):
         return "********"
 
 
+def normalize_platform_url(value: str) -> str:
+    """Return `value` without a trailing slash, or raise ValueError if it is not an absolute HTTP(S) URL."""
+    value = value.strip().rstrip("/")
+    parts = urlsplit(value)
+    if parts.scheme not in {"http", "https"} or not parts.hostname:
+        raise ValueError(
+            f"Platform URL must be an absolute HTTP(S) URL such as '{consts.DEFAULT_API_URL}', got '{value}'."
+        )
+    return value
+
+
 class ConfigSchema(BaseModel):
-    platform_url: str = ""
+    platform_url: str = consts.DEFAULT_API_URL
     api_key: Optional[str] = None
     use_keychain: bool = False
+
+    @field_validator("platform_url")
+    def validate_platform_url(cls, value: str) -> str:
+        return normalize_platform_url(value)
 
     @field_validator("api_key")
     def validate_api_key(cls, value: Optional[str]) -> Optional[str]:
@@ -114,8 +130,7 @@ class Config:
 
     @platform_url.setter
     def platform_url(self, value: str) -> None:
-        base_url = value.rstrip("/")
-        self.config.platform_url = base_url
+        self.config.platform_url = normalize_platform_url(value)
 
     def __init__(self, config_path: Optional[Path] = None) -> None:
         self.config_path = self.resolve_config_path(config_path)

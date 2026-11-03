@@ -2,6 +2,7 @@ from hafnia.platform.datasets import get_dataset_id
 from hafnia.platform.download import (
     download_resource,
     download_single_object,
+    ensure_platform_origin,
     get_resource_credentials,
 )
 from hafnia.platform.experiment import (
@@ -25,6 +26,7 @@ __all__ = [
     "create_experiment",
     "download_resource",
     "download_single_object",
+    "ensure_platform_origin",
     "get_resource_credentials",
     "pretty_print_training_environments",
     "get_environments",
