@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from random import Random
@@ -65,6 +66,11 @@ if TYPE_CHECKING:
 # hits the memory used to parse the label file - 2.000 is at that point and keeps the number of
 # chunks (and thereby the concatenation cost) low.
 DEFAULT_SAMPLES_CHUNK_SIZE = 2_000
+
+ENV_TEST_SPLIT_POLICY = "HAFNIA_TEST_SPLIT_POLICY"
+META_PROTECTED_TEST_SPLIT = "protected_test_split"
+TEST_SPLIT_POLICY_WITHHOLD = "withhold"
+TEST_SPLIT_POLICY_SEPARATE = "separate"
 
 
 def samples_to_table(samples: Iterable, chunk_size: Optional[int] = DEFAULT_SAMPLES_CHUNK_SIZE) -> pl.DataFrame:
@@ -206,6 +212,8 @@ class HafniaDataset:
         Training-aaS, so the same call works in both environments. The sample dataset is cached
         under `.data/datasets/<name>/` and only re-downloaded when `force_redownload=True` or when
         `version` is ``None``/``"latest"`` (which always re-resolves the latest version).
+        In Hafnia cloud jobs, the test split of protected datasets is withheld (see
+        `apply_test_split_policy`).
 
         Args:
             name: Dataset name as registered on the platform. The ``"name:version"`` shorthand is
@@ -228,7 +236,8 @@ class HafniaDataset:
             force_redownload=force_redownload,
             download_files=download_files,
         )
-        return HafniaDataset.from_path(dataset_path, check_for_images=download_files)
+        dataset = HafniaDataset.from_path(dataset_path, check_for_images=download_files)
+        return apply_test_split_policy(dataset)
 
     @staticmethod
     def from_s3(
@@ -1250,6 +1259,46 @@ def select_version_from_available_versions(
     return available_versions[version_casted]
 
 
+def _test_split_policy() -> str:
+    raw_policy = os.getenv(ENV_TEST_SPLIT_POLICY, "")
+    policy = raw_policy.strip().lower()
+    if policy in ("", TEST_SPLIT_POLICY_WITHHOLD):
+        return TEST_SPLIT_POLICY_WITHHOLD
+    if policy == TEST_SPLIT_POLICY_SEPARATE:
+        return TEST_SPLIT_POLICY_SEPARATE
+    # Fail safe: an unknown value protects rather than exposes the test split
+    user_logger.warning(f"Unknown {ENV_TEST_SPLIT_POLICY}={raw_policy!r}. Using '{TEST_SPLIT_POLICY_WITHHOLD}'.")
+    return TEST_SPLIT_POLICY_WITHHOLD
+
+
+def apply_test_split_policy(dataset: HafniaDataset) -> HafniaDataset:
+    """Withhold the test split of a protected dataset in Hafnia cloud jobs.
+
+    Applies only when running as a Hafnia cloud job, the dataset's `info.meta` marks the test split
+    as protected, and the `HAFNIA_TEST_SPLIT_POLICY` environment variable is not ``"separate"``
+    (unset defaults to ``"withhold"``). Test samples are dropped, all other samples are kept.
+
+    Args:
+        dataset: Dataset as loaded from the platform, before any split or merge operation.
+    """
+    if not utils.is_hafnia_cloud_job():
+        return dataset
+    if not (dataset.info.meta or {}).get(META_PROTECTED_TEST_SPLIT):
+        return dataset
+    if _test_split_policy() == TEST_SPLIT_POLICY_SEPARATE:
+        return dataset
+
+    is_test = pl.col(SampleField.SPLIT) == SplitName.TEST
+    n_test_samples = dataset.samples.filter(is_test).height
+    if n_test_samples == 0:
+        return dataset
+    user_logger.warning(
+        f"The test split of '{dataset.info.dataset_name}' ({n_test_samples} samples) is reserved for "
+        "Hafnia benchmarks and was withheld from this cloud job."
+    )
+    return dataset.update_samples(dataset.samples.filter(~is_test))
+
+
 def download_meta_dataset_files_from_version(
     resource_credentials: ResourceCredentials,
     version: Optional[str],
@@ -1309,10 +1358,16 @@ def download_or_get_dataset_path(
         path_dataset=path_dataset,
     )
 
+    # The policy also rewrites the cached files, so other loaders of this folder (e.g. a 'FromPath'
+    # recipe leaf) and the file sync below never see withheld samples
+    dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
+    dataset_after_policy = apply_test_split_policy(dataset)
+    if len(dataset_after_policy) != len(dataset):
+        dataset_after_policy.write_annotations(path_folder=path_dataset)
+
     if not download_files:
         return path_dataset
 
-    dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
-    dataset = sync_files_from_platform(dataset, path_dataset, force_redownload=True)
+    dataset = sync_files_from_platform(dataset_after_policy, path_dataset, force_redownload=True)
     dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
     return path_dataset
