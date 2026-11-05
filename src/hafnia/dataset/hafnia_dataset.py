@@ -49,6 +49,7 @@ from hafnia.dataset.operations import (
 from hafnia.dataset.operations.adjust_mask import (
     adjust_bboxes_from_polygon_masks_dataset,
 )
+from hafnia.dataset.primitives import PRIMITIVE_COLUMN_NAMES
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
@@ -708,6 +709,22 @@ class HafniaDataset:
         return dataset_transformations.rename_task(
             dataset=dataset, old_task_name=old_task_name, new_task_name=new_task_name
         )
+
+    def without_annotations(dataset: "HafniaDataset") -> "HafniaDataset":
+        """Return a copy of the dataset with every annotation removed, e.g. as input for model inference.
+
+        Every primitive column (bboxes, classifications, polygons, ...) and the `tags` column become
+        empty lists, and the per-sample `meta` column becomes null, as tags and meta can describe a
+        sample's origin or conditions. The schema is unchanged. `info` (tasks and classes), the rows,
+        their order and `sample_index` are kept, so predictions can be joined back to the original
+        annotations on `sample_index`.
+        """
+        samples = dataset.samples
+        label_columns = [name for name in [*PRIMITIVE_COLUMN_NAMES, SampleField.TAGS] if name in samples.columns]
+        samples = samples.with_columns(pl.col(name).list.slice(0, 0) for name in label_columns)
+        if SampleField.META in samples.columns:
+            samples = samples.with_columns(pl.lit(None, dtype=samples.schema[SampleField.META]).alias(SampleField.META))
+        return dataset.update_samples(samples)
 
     def drop_task(
         dataset: "HafniaDataset",

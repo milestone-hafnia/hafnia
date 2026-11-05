@@ -33,7 +33,7 @@ class DatasetRecipe(Serializable):
     creation: RecipeCreation
     operations: Optional[List[RecipeTransform]] = None
 
-    def build(self, download_files: bool = True) -> HafniaDataset:
+    def build(self, download_files: bool = True, split: Optional[str] = None) -> HafniaDataset:
         """Materialize the recipe into a concrete `HafniaDataset`.
 
         Runs the creation step (e.g. `from_name`, `from_path`, `from_merge`, ...) and then applies
@@ -43,6 +43,8 @@ class DatasetRecipe(Serializable):
         Args:
             download_files: If True, download image files to disk during creation. Set to False to
                 materialize annotations only (e.g. for cache lookups or recipe inspection).
+            split: If set (e.g. ``"test"``), keep only the samples of this split, selected after all
+                operations of the recipe have run. Raises a `ValueError` if no sample of the split is left.
         """
         if hasattr(self.creation, "download_files"):
             self.creation.download_files = download_files
@@ -50,7 +52,15 @@ class DatasetRecipe(Serializable):
         if self.operations:
             for operation in self.operations:
                 dataset = operation.build(dataset)
-        return dataset
+        if split is None:
+            return dataset
+
+        # Only the outermost recipe filters: a nested recipe filtering before its parent's operations
+        # (e.g. a re-split) would change what those operations see
+        dataset_split = dataset.create_split_dataset(split)
+        if len(dataset_split) == 0:
+            raise ValueError(f"The recipe has no '{split}' samples ({len(dataset)} samples in other splits).")
+        return dataset_split
 
     def append_operation(self, operation: RecipeTransform) -> DatasetRecipe:
         """Append a `RecipeTransform` to the recipe's operations list and return the recipe.
