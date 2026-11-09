@@ -581,6 +581,34 @@ def select_samples_by_dataset_name(
     return dataset.update_samples(samples)
 
 
+def reindex_class_indices(dataset: "HafniaDataset") -> "HafniaDataset":
+    """Set the 'class_idx' of all primitives to the index of their 'class_name' in the class names of their task.
+
+    Each primitive is matched to a task in `dataset.info.tasks` by primitive type and task name, so multiple tasks
+    of the same primitive (e.g. several classification tasks) are reindexed independently (see
+    `update_class_indices`).
+
+    A task without annotations (missing or empty primitive column, or no annotations with the task name) is
+    skipped with a warning. Raises a `ValueError` if a class name of an annotation is not among the class names
+    of its task, or if a task with annotations has no class names.
+    """
+    samples = dataset.samples
+    for task in dataset.info.tasks:
+        column_name = task.primitive.column_name()
+        has_column = column_name in samples.columns and samples[column_name].dtype != pl.Null
+        has_annotations = (
+            has_column and (samples[column_name].explode().struct.field(PrimitiveField.TASK_NAME) == task.name).any()
+        )
+        if not has_annotations:
+            user_logger.warning(
+                f"Skipping reindexing of class indices for task '{task.name}' ({task.primitive.__name__}): "
+                f"no annotations found in column '{column_name}'."
+            )
+            continue
+        samples = update_class_indices(samples, task)
+    return dataset.update_samples(samples)
+
+
 def _validate_inputs_select_samples_by_class_name(
     dataset: "HafniaDataset",
     name: Union[List[str], str],

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable
+from typing import Callable, List, Type
 from unittest.mock import patch
 
 import numpy as np
@@ -8,12 +8,14 @@ import pytest
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, StorageFormat
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.hafnia_dataset_types import Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.operations.dataset_transformations import (
     expand_class_mapping,
     get_task_info_from_task_name_and_primitive,
 )
-from hafnia.dataset.primitives import Bbox, Classification
+from hafnia.dataset.primitives import Bbox, Classification, Polygon
+from hafnia.dataset.primitives.primitive import Primitive
+from hafnia.log import user_logger
 from tests.helper_testing import (
     get_path_micro_hafnia_dataset,
     get_strict_class_mapping_tiny_dataset,
@@ -501,3 +503,74 @@ def test_transform_image(tmp_path: Path, compare_to_expected_image: Callable) ->
     assert image[:10, :10, 0].sum() == expected_sum, (
         "The top-left corner of the image should be transformed to black (pixel value 0)"
     )
+
+
+REINDEX_TASKS = [
+    TaskInfo.from_class_names(name="Weather", class_names=["Sunny", "Rainy", "Foggy"], primitive=Classification),
+    TaskInfo.from_class_names(name="Time", class_names=["Day", "Night"], primitive=Classification),
+    TaskInfo.from_class_names(name="Objects", class_names=["Car", "Person"], primitive=Bbox),
+]
+
+
+def get_dataset_with_wrong_class_indices(tasks: List[TaskInfo]) -> HafniaDataset:
+    bbox = dict(height=0.1, width=0.1, top_left_x=0.1, top_left_y=0.1)
+    sample = Sample(
+        file_path="image0.jpg",
+        height=100,
+        width=200,
+        split="train",
+        # Class indices are deliberately wrong and must be derived from the class names
+        classifications=[
+            Classification(class_name="Foggy", class_idx=0, task_name="Weather"),
+            Classification(class_name="Night", class_idx=7, task_name="Time"),
+        ],
+        bboxes=[
+            Bbox(class_name="Person", class_idx=0, task_name="Objects", **bbox),
+            Bbox(class_name="Car", class_idx=1, task_name="Objects", **bbox),
+        ],
+    )
+    info = DatasetInfo(dataset_name="Sample Dataset", version="1.0.0", tasks=tasks)
+    return HafniaDataset.from_samples_list([sample], info=info)
+
+
+def get_class_indices(dataset: HafniaDataset, PrimitiveType: Type[Primitive]) -> List[int]:
+    return dataset.samples[PrimitiveType.column_name()].explode().struct.field(PrimitiveField.CLASS_IDX).to_list()
+
+
+def test_reindex_class_indices():
+    dataset = get_dataset_with_wrong_class_indices(REINDEX_TASKS)
+    with pytest.raises(ValueError, match="class index"):
+        dataset.check_dataset_tasks()
+
+    dataset_reindexed = dataset.reindex_class_indices()
+
+    # Multiple tasks of the same primitive ('Weather' and 'Time') are reindexed independently
+    assert get_class_indices(dataset_reindexed, Classification) == [2, 1]
+    assert get_class_indices(dataset_reindexed, Bbox) == [1, 0]
+    dataset_reindexed.check_dataset_tasks()
+
+
+def test_reindex_class_indices_raises_on_unknown_class_name():
+    task_time_missing_class = TaskInfo.from_class_names(name="Time", class_names=["Day"], primitive=Classification)
+    dataset = get_dataset_with_wrong_class_indices([REINDEX_TASKS[0], task_time_missing_class, REINDEX_TASKS[2]])
+
+    with pytest.raises(ValueError, match="missing class names: {'Night'}"):
+        dataset.reindex_class_indices()
+
+
+def test_reindex_class_indices_warns_for_tasks_without_annotations():
+    tasks_without_annotations = [
+        # Column exists, but has no annotations of the task
+        TaskInfo.from_class_names(name="Unused", class_names=["Class C"], primitive=Classification),
+        # Column is missing
+        TaskInfo.from_class_names(name="Shapes", class_names=["Class D"], primitive=Polygon),
+    ]
+    dataset = get_dataset_with_wrong_class_indices(REINDEX_TASKS + tasks_without_annotations)
+
+    with patch.object(user_logger, "warning") as mock_warning:
+        dataset_reindexed = dataset.reindex_class_indices()
+
+    warnings = [str(call.args[0]) for call in mock_warning.call_args_list]
+    assert len(warnings) == 2
+    assert "'Unused'" in warnings[0] and "'Shapes'" in warnings[1]
+    assert get_class_indices(dataset_reindexed, Classification) == [2, 1]

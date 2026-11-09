@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -194,6 +195,71 @@ class HafniaDataset:
         if check_for_images:
             table_transformations.check_image_paths(samples)
         return HafniaDataset(samples=samples, info=dataset_info)
+
+    @staticmethod
+    def from_paths(
+        sample_paths: List[Path],
+        dataset_info: Union[DatasetInfo, Path, str],
+        media_paths: Optional[List[Optional[Path]]] = None,
+        check_for_images: bool = True,
+        reindex_class_idx: bool = False,
+    ) -> "HafniaDataset":
+        """Load a `HafniaDataset` from a list of sample files, where each file holds one or more samples.
+
+        Each sample is serialized as a `Sample`. Supported file formats:
+            - JSONL ('.jsonl'): One sample per line.
+            - JSON ('.json'): A single sample object or a list of sample objects.
+
+        A file may hold multiple samples for the same media file - e.g. a sample per frame of a video,
+        or duplicate/independent annotations or predictions for a single image. Samples are kept as-is
+        and duplicates are not removed.
+
+        The media file (image or video) of a sample is taken from its 'file_path' field, which may be
+        overruled by passing a media file in `media_paths` - the media file is then used for all samples
+        in the sample file. A relative 'file_path' is resolved relative to the folder of the sample file.
+
+        Raises a `ValueError` if the annotations of the samples do not match the tasks of `dataset_info`
+        (see `check_dataset_tasks`).
+
+        Args:
+            sample_paths: Paths to '.json' or '.jsonl' sample files. Each file must contain at least one sample.
+            dataset_info: Dataset-level metadata as a `DatasetInfo` or a path to a `dataset_info.json` file.
+            media_paths: Optional media file for each sample file, overruling the 'file_path' of all samples
+                in the file. Must have the same length as `sample_paths`. Use 'None' to keep the 'file_path'
+                of the samples in a sample file.
+            check_for_images: If True, raise if any sample's media file is missing on disk.
+            reindex_class_idx: If True, the 'class_idx' of all primitives is derived from their 'class_name' and
+                the class names of the matching task in `dataset_info.tasks` (see `reindex_class_indices`).
+                Use this when the class indices of the samples do not match the class ordering of `dataset_info`.
+        """
+        sample_paths = [Path(path) for path in sample_paths]
+        if media_paths is None:
+            media_paths = [None] * len(sample_paths)
+        if len(media_paths) != len(sample_paths):
+            raise ValueError(
+                f"'media_paths' ({len(media_paths)}) must have the same length as 'sample_paths' ({len(sample_paths)})."
+            )
+        if not isinstance(dataset_info, DatasetInfo):
+            dataset_info = DatasetInfo.from_json_file(Path(dataset_info))
+
+        def iterate_samples() -> Iterable[Sample]:
+            for path_sample, path_media in zip(sample_paths, media_paths):
+                for sample in _read_sample_file(path_sample):
+                    if path_media is not None:
+                        sample.file_path = Path(path_media).absolute().as_posix()
+                    elif sample.file_path is not None and not Path(sample.file_path).is_absolute():
+                        sample.file_path = (path_sample.parent.absolute() / sample.file_path).as_posix()
+                    yield sample
+
+        dataset = HafniaDataset.from_samples_iterable(iterate_samples(), info=dataset_info)
+        if reindex_class_idx:
+            dataset = dataset.reindex_class_indices()
+
+        # Samples may be a subset of a dataset, so a task in 'dataset_info' may have no annotations
+        dataset.check_dataset_tasks(require_annotations_for_all_tasks=False)
+        if check_for_images:
+            table_transformations.check_image_paths(dataset.samples)
+        return dataset
 
     @staticmethod
     def from_name(
@@ -853,6 +919,19 @@ class HafniaDataset:
             raise_if_missing=raise_if_missing,
         )
 
+    def reindex_class_indices(dataset: HafniaDataset) -> HafniaDataset:
+        """Set the 'class_idx' of all primitives from their 'class_name' and the class names of their task.
+
+        Each primitive is matched to a task in `info.tasks` by primitive type and task name, and its
+        'class_idx' is set to the index of its 'class_name' in the class names of that task. Multiple tasks of
+        the same primitive (e.g. several classification tasks) are reindexed independently. Use this when the
+        class indices of the samples do not match the class ordering of `info.tasks`.
+
+        Tasks without annotations are skipped with a warning. Raises a `ValueError` if a class name of an
+        annotation is not among the class names of its task.
+        """
+        return dataset_transformations.reindex_class_indices(dataset=dataset)
+
     def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
         """Merge two `HafniaDataset` instances by concatenating samples and combining their `info`.
 
@@ -1224,6 +1303,28 @@ def _dataset_corrections(samples: pl.DataFrame, dataset_info: DatasetInfo) -> Tu
                     pl.col(SampleField.BITMASKS).list.eval(pl.element().struct.rename_fields(struct_names))
                 )
     return samples, dataset_info
+
+
+def _read_sample_file(path_sample: Path) -> List[Sample]:
+    """Read samples from a '.jsonl' (one sample per line) or '.json' (sample object or list of samples) file."""
+    if not path_sample.is_file():
+        raise FileNotFoundError(f"Sample file '{path_sample}' does not exist.")
+    suffix = path_sample.suffix.lower()
+    text = path_sample.read_text(encoding="utf-8")
+    try:
+        if suffix == ".jsonl":
+            samples = [Sample.model_validate_json(line) for line in text.splitlines() if line.strip()]
+        elif suffix == ".json":
+            content = json.loads(text)
+            sample_dicts = content if isinstance(content, list) else [content]
+            samples = [Sample.model_validate(sample_dict) for sample_dict in sample_dicts]
+        else:
+            raise ValueError(f"Unsupported file format '{suffix}'. Expected '.json' or '.jsonl'.")
+    except ValueError as e:
+        raise ValueError(f"Failed to read sample file '{path_sample}': {e}") from e
+    if len(samples) == 0:
+        raise ValueError(f"No samples found in sample file '{path_sample}'.")
+    return samples
 
 
 def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
