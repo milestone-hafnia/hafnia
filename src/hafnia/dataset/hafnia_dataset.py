@@ -921,7 +921,7 @@ class HafniaDataset:
         )
         return self.update_samples(table)
 
-    def create_split_dataset(self, split_name: Union[str | List[str]]) -> "HafniaDataset":
+    def create_split_dataset(dataset: "HafniaDataset", split_name: Union[str, List[str]]) -> "HafniaDataset":
         """Return a new dataset containing only samples whose `split` matches `split_name`.
 
         Args:
@@ -937,8 +937,8 @@ class HafniaDataset:
             if name not in SplitName.all_split_names():
                 raise ValueError(f"Invalid split name: {split_name}. Valid splits are: {SplitName.valid_splits()}")
 
-        filtered_dataset = self.samples.filter(pl.col(SampleField.SPLIT).is_in(split_names))
-        return self.update_samples(filtered_dataset)
+        filtered_dataset = dataset.samples.filter(pl.col(SampleField.SPLIT).is_in(split_names))
+        return dataset.update_samples(filtered_dataset)
 
     def update_samples(self, table: pl.DataFrame) -> "HafniaDataset":
         """Return a new `HafniaDataset` with the samples replaced by `table` and a deep-copied `info`.
@@ -1291,9 +1291,20 @@ def _test_split_policy() -> str:
 def apply_test_split_policy(dataset: HafniaDataset) -> HafniaDataset:
     """Withhold the test split of a protected dataset in Hafnia cloud jobs.
 
-    Applies only when running as a Hafnia cloud job, the dataset's `info.meta` marks the test split
-    as protected, and the `HAFNIA_TEST_SPLIT_POLICY` environment variable is not ``"separate"``
-    (unset defaults to ``"withhold"``). Test samples are dropped, all other samples are kept.
+    Why: the test split of some datasets is reserved for Hafnia benchmarks. Training on it would
+    inflate benchmark scores, so cloud training jobs must not receive it. The policy runs when a
+    dataset is loaded from the platform, before any recipe operation, so a recipe that re-splits
+    the dataset cannot move test samples into another split.
+
+    Cases:
+        - Not a Hafnia cloud job (`HAFNIA_CLOUD` is not ``"true"``): unchanged. Local use is not affected.
+        - The dataset's `info.meta` has no truthy ``"protected_test_split"``: unchanged.
+        - `HAFNIA_TEST_SPLIT_POLICY` is ``"separate"``: unchanged. Only Hafnia's benchmark pipeline
+          sets this, as it needs the test split to score models.
+        - Otherwise (the variable is unset, ``"withhold"`` or an unknown value): samples with
+          ``split == "test"`` are dropped and a warning is logged. All other samples are kept. Dropping
+          the samples, rather than emptying their labels, makes a missing test split fail loudly
+          instead of silently reporting zero test metrics.
 
     Args:
         dataset: Dataset as loaded from the platform, before any split or merge operation.
