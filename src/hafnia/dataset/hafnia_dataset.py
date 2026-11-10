@@ -1298,9 +1298,9 @@ def apply_test_split_policy(dataset: HafniaDataset) -> HafniaDataset:
 
     Cases:
         - Not a Hafnia cloud job (`HAFNIA_CLOUD` is not ``"true"``): unchanged. Local use is not affected.
-        - The dataset's `info.meta` has no truthy ``"protected_test_split"``: unchanged.
-        - `HAFNIA_TEST_SPLIT_POLICY` is ``"separate"``: unchanged. Only Hafnia's benchmark pipeline
-          sets this, as it needs the test split to score models.
+        - Only for some Hafnia datasets: Their `info.meta` has ``"protected_test_split"``. Other datasets are unchanged
+        - If `HAFNIA_TEST_SPLIT_POLICY` is ``"separate"``, the test split is kept. Only Hafnia's benchmark pipeline
+          sets this.
         - Otherwise (the variable is unset, ``"withhold"`` or an unknown value): samples with
           ``split == "test"`` are dropped and a warning is logged. All other samples are kept. Dropping
           the samples, rather than emptying their labels, makes a missing test split fail loudly
