@@ -3,7 +3,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import cv2
 import more_itertools
@@ -808,6 +808,57 @@ class Sample(BaseModel):
         description="Additional metadata, e.g., camera settings, GPS data, etc.",
     )
 
+    @staticmethod
+    def samples_from_file(path_sample: Path) -> List["Sample"]:
+        """Read samples from a '.jsonl' (one sample per line) or '.json' (sample object or list of samples) file."""
+        if not path_sample.is_file():
+            raise FileNotFoundError(f"Sample file '{path_sample}' does not exist.")
+        suffix = path_sample.suffix.lower()
+        text = path_sample.read_text(encoding="utf-8")
+        try:
+            if suffix == ".jsonl":
+                samples = [Sample.model_validate_json(line) for line in text.splitlines() if line.strip()]
+            elif suffix == ".json":
+                content = json.loads(text)
+                sample_dicts = content if isinstance(content, list) else [content]
+                samples = [Sample.model_validate(sample_dict) for sample_dict in sample_dicts]
+            else:
+                raise ValueError(f"Unsupported file format '{suffix}'. Expected '.json' or '.jsonl'.")
+        except ValueError as e:
+            raise ValueError(f"Failed to read sample file '{path_sample}': {e}") from e
+        if len(samples) == 0:
+            raise ValueError(f"No samples found in sample file '{path_sample}'.")
+        return samples
+
+    @staticmethod
+    def samples_from_files(
+        sample_paths: List[Path],
+        media_paths: Optional[List[Optional[Path]]] = None,
+        chunk_size: Optional[int] = None,
+    ) -> pl.DataFrame:
+        """Read samples from multiple '.json'/'.jsonl' sample files into a samples table.
+
+        Samples are read lazily file by file and converted into the table in chunks (see `samples_to_table`).
+        A relative 'file_path' of a sample is resolved relative to the folder of its sample file.
+
+        Args:
+            sample_paths: Paths to '.json' or '.jsonl' sample files. Each file must contain at least one sample.
+            media_paths: Optional media file for each sample file, overruling the 'file_path' of all samples
+                in the file. Must have the same length as `sample_paths`. Use 'None' to keep the 'file_path'
+                of the samples in a sample file.
+            chunk_size: Number of samples converted into a table at a time. Defaults to
+                'DEFAULT_SAMPLES_CHUNK_SIZE'.
+        """
+        sample_paths = [Path(path) for path in sample_paths]
+        if media_paths is None:
+            media_paths = [None] * len(sample_paths)
+        if len(media_paths) != len(sample_paths):
+            raise ValueError(
+                f"'media_paths' ({len(media_paths)}) must have the same length as 'sample_paths' ({len(sample_paths)})."
+            )
+        samples_iterable = iterate_samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
+        return samples_to_table(samples_iterable, chunk_size=chunk_size or DEFAULT_SAMPLES_CHUNK_SIZE)
+
     def get_primitives(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
         """
         Returns a list of all annotations (classifications, objects, bitmasks, polygons) for the sample.
@@ -891,6 +942,75 @@ class Sample(BaseModel):
         annotations = self.get_primitives()
         annotations_visualized = image_visualizations.draw_annotations(image=image, primitives=annotations, tasks=tasks)
         return annotations_visualized
+
+
+# Number of samples that are serialized and converted into a samples table at a time. Samples are
+# converted in chunks, as a sample and its serialized form use far more memory than the row it
+# becomes. Measured on the COCO 2017 conversion, a smaller chunk lowers the peak memory until it
+# hits the memory used to parse the label file - 2.000 is at that point and keeps the number of
+# chunks (and thereby the concatenation cost) low.
+DEFAULT_SAMPLES_CHUNK_SIZE = 2_000
+
+
+def samples_to_table(samples: Iterable, chunk_size: Optional[int] = DEFAULT_SAMPLES_CHUNK_SIZE) -> pl.DataFrame:
+    """Convert `Sample` objects (or sample dicts) into a samples table.
+
+    Samples are serialized and converted into a table in chunks of 'chunk_size' samples, so the
+    serialized form of the full dataset is never in memory at once. The chunks are concatenated
+    with 'vertical_relaxed', which reconciles the schemas of the chunks - a column is e.g. of the
+    'Null' type in a chunk where no sample has an annotation for it.
+
+    Args:
+        samples: Iterable of `Sample` instances or dicts matching the `Sample` schema.
+        chunk_size: Number of samples per chunk. 'None' converts all samples in one chunk.
+    """
+    tables = []
+    chunk: List[Dict] = []
+    for sample in samples:
+        if isinstance(sample, Sample):
+            sample = sample.model_dump(mode="json")
+        elif not isinstance(sample, dict):
+            raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
+        chunk.append(sample)
+
+        if chunk_size is not None and len(chunk) >= chunk_size:
+            tables.append(_samples_chunk_to_table(chunk))
+            chunk = []
+
+    if len(chunk) > 0:
+        tables.append(_samples_chunk_to_table(chunk))
+        chunk = []
+
+    if len(tables) == 0:
+        raise ValueError("No samples provided. Expected at least one sample to create a dataset.")
+    if len(tables) == 1:
+        return tables[0]
+    return pl.concat(tables, how="vertical_relaxed")
+
+
+def _samples_chunk_to_table(samples_chunk: List[Dict]) -> pl.DataFrame:
+    # To ensure that the 'file_path' column is of type string even if all samples have 'None' as file_path
+    schema_override = {
+        SampleField.FILE_PATH: pl.String,
+        SampleField.TAGS: pl.List(pl.String),
+    }
+    return pl.from_records(samples_chunk, schema_overrides=schema_override, infer_schema_length=None)
+
+
+def iterate_samples_from_files(sample_paths: List[Path], media_paths: List[Optional[Path]]) -> Iterable[Sample]:
+    """Yield samples from '.json'/'.jsonl' sample files one file at a time (see `Sample.samples_from_file`).
+
+    The 'file_path' of a sample is overruled by the matching media file in `media_paths` (if not 'None'),
+    otherwise a relative 'file_path' is resolved relative to the folder of the sample file.
+    """
+    for path_sample, path_media in zip(sample_paths, media_paths):
+        path_sample = Path(path_sample)
+        for sample in Sample.samples_from_file(path_sample):
+            if path_media is not None:
+                sample.file_path = Path(path_media).absolute().as_posix()
+            elif sample.file_path is not None and not Path(sample.file_path).is_absolute():
+                sample.file_path = (path_sample.parent.absolute() / sample.file_path).as_posix()
+            yield sample
 
 
 @dataclass

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,10 +35,12 @@ from hafnia.dataset.format_conversions import (
     format_yolo,
 )
 from hafnia.dataset.hafnia_dataset_types import (
+    DEFAULT_SAMPLES_CHUNK_SIZE,
     DatasetInfo,
     DatasetMetadataFilePaths,
     Sample,
     TaskInfo,
+    samples_to_table,
 )
 from hafnia.dataset.operations import (
     dataset_stats,
@@ -61,58 +62,6 @@ from hafnia_cli.config import Config
 
 if TYPE_CHECKING:
     import boto3
-
-# Number of samples that are serialized and converted into a samples table at a time. Samples are
-# converted in chunks, as a sample and its serialized form use far more memory than the row it
-# becomes. Measured on the COCO 2017 conversion, a smaller chunk lowers the peak memory until it
-# hits the memory used to parse the label file - 2.000 is at that point and keeps the number of
-# chunks (and thereby the concatenation cost) low.
-DEFAULT_SAMPLES_CHUNK_SIZE = 2_000
-
-
-def samples_to_table(samples: Iterable, chunk_size: Optional[int] = DEFAULT_SAMPLES_CHUNK_SIZE) -> pl.DataFrame:
-    """Convert `Sample` objects (or sample dicts) into a samples table.
-
-    Samples are serialized and converted into a table in chunks of 'chunk_size' samples, so the
-    serialized form of the full dataset is never in memory at once. The chunks are concatenated
-    with 'vertical_relaxed', which reconciles the schemas of the chunks - a column is e.g. of the
-    'Null' type in a chunk where no sample has an annotation for it.
-
-    Args:
-        samples: Iterable of `Sample` instances or dicts matching the `Sample` schema.
-        chunk_size: Number of samples per chunk. 'None' converts all samples in one chunk.
-    """
-    tables = []
-    chunk: List[Dict] = []
-    for sample in samples:
-        if isinstance(sample, Sample):
-            sample = sample.model_dump(mode="json")
-        elif not isinstance(sample, dict):
-            raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
-        chunk.append(sample)
-
-        if chunk_size is not None and len(chunk) >= chunk_size:
-            tables.append(_samples_chunk_to_table(chunk))
-            chunk = []
-
-    if len(chunk) > 0:
-        tables.append(_samples_chunk_to_table(chunk))
-        chunk = []
-
-    if len(tables) == 0:
-        raise ValueError("No samples provided. Expected at least one sample to create a dataset.")
-    if len(tables) == 1:
-        return tables[0]
-    return pl.concat(tables, how="vertical_relaxed")
-
-
-def _samples_chunk_to_table(samples_chunk: List[Dict]) -> pl.DataFrame:
-    # To ensure that the 'file_path' column is of type string even if all samples have 'None' as file_path
-    schema_override = {
-        SampleField.FILE_PATH: pl.String,
-        SampleField.TAGS: pl.List(pl.String),
-    }
-    return pl.from_records(samples_chunk, schema_overrides=schema_override, infer_schema_length=None)
 
 
 @dataclass
@@ -232,26 +181,11 @@ class HafniaDataset:
                 the class names of the matching task in `dataset_info.tasks` (see `reindex_class_indices`).
                 Use this when the class indices of the samples do not match the class ordering of `dataset_info`.
         """
-        sample_paths = [Path(path) for path in sample_paths]
-        if media_paths is None:
-            media_paths = [None] * len(sample_paths)
-        if len(media_paths) != len(sample_paths):
-            raise ValueError(
-                f"'media_paths' ({len(media_paths)}) must have the same length as 'sample_paths' ({len(sample_paths)})."
-            )
         if not isinstance(dataset_info, DatasetInfo):
             dataset_info = DatasetInfo.from_json_file(Path(dataset_info))
 
-        def iterate_samples() -> Iterable[Sample]:
-            for path_sample, path_media in zip(sample_paths, media_paths):
-                for sample in _read_sample_file(path_sample):
-                    if path_media is not None:
-                        sample.file_path = Path(path_media).absolute().as_posix()
-                    elif sample.file_path is not None and not Path(sample.file_path).is_absolute():
-                        sample.file_path = (path_sample.parent.absolute() / sample.file_path).as_posix()
-                    yield sample
-
-        dataset = HafniaDataset.from_samples_iterable(iterate_samples(), info=dataset_info)
+        table = Sample.samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
+        dataset = HafniaDataset.from_samples_table(table, info=dataset_info)
         if reindex_class_idx:
             dataset = dataset.reindex_class_indices()
 
@@ -1303,28 +1237,6 @@ def _dataset_corrections(samples: pl.DataFrame, dataset_info: DatasetInfo) -> Tu
                     pl.col(SampleField.BITMASKS).list.eval(pl.element().struct.rename_fields(struct_names))
                 )
     return samples, dataset_info
-
-
-def _read_sample_file(path_sample: Path) -> List[Sample]:
-    """Read samples from a '.jsonl' (one sample per line) or '.json' (sample object or list of samples) file."""
-    if not path_sample.is_file():
-        raise FileNotFoundError(f"Sample file '{path_sample}' does not exist.")
-    suffix = path_sample.suffix.lower()
-    text = path_sample.read_text(encoding="utf-8")
-    try:
-        if suffix == ".jsonl":
-            samples = [Sample.model_validate_json(line) for line in text.splitlines() if line.strip()]
-        elif suffix == ".json":
-            content = json.loads(text)
-            sample_dicts = content if isinstance(content, list) else [content]
-            samples = [Sample.model_validate(sample_dict) for sample_dict in sample_dicts]
-        else:
-            raise ValueError(f"Unsupported file format '{suffix}'. Expected '.json' or '.jsonl'.")
-    except ValueError as e:
-        raise ValueError(f"Failed to read sample file '{path_sample}': {e}") from e
-    if len(samples) == 0:
-        raise ValueError(f"No samples found in sample file '{path_sample}'.")
-    return samples
 
 
 def check_hafnia_dataset_from_path(path_dataset: Path) -> None:
