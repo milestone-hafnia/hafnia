@@ -68,11 +68,6 @@ if TYPE_CHECKING:
 # chunks (and thereby the concatenation cost) low.
 DEFAULT_SAMPLES_CHUNK_SIZE = 2_000
 
-ENV_TEST_SPLIT_POLICY = "HAFNIA_TEST_SPLIT_POLICY"
-META_PROTECTED_TEST_SPLIT = "protected_test_split"
-TEST_SPLIT_POLICY_WITHHOLD = "withhold"
-TEST_SPLIT_POLICY_SEPARATE = "separate"
-
 
 def samples_to_table(samples: Iterable, chunk_size: Optional[int] = DEFAULT_SAMPLES_CHUNK_SIZE) -> pl.DataFrame:
     """Convert `Sample` objects (or sample dicts) into a samples table.
@@ -1274,6 +1269,12 @@ def select_version_from_available_versions(
         raise ValueError(f"Selected version '{version}' not found in available versions: {available_versions}")
 
     return available_versions[version_casted]
+
+
+ENV_TEST_SPLIT_POLICY = "HAFNIA_TEST_SPLIT_POLICY"
+META_PROTECTED_TEST_SPLIT = "protected_test_split"
+TEST_SPLIT_POLICY_WITHHOLD = "withhold"
+TEST_SPLIT_POLICY_SEPARATE = "separate"
 
 
 def _test_split_policy() -> str:
