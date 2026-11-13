@@ -202,3 +202,7 @@ def test_dataset_without_skeleton_annotations(skeletons):
     dataset = HafniaDataset.from_samples_list([sample], info=DatasetInfo(dataset_name="empty", tasks=[task]))
 
     assert len(dataset) == 1
+    # A subset of a dataset may have no skeleton annotations. 'Null' columns are skipped instead of crashing
+    dataset.check_dataset_tasks(require_annotations_for_all_tasks=False)
+    # Reindexing skips the task without annotations instead of crashing
+    dataset.reindex_class_indices()

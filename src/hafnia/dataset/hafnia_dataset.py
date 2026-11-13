@@ -184,8 +184,8 @@ class HafniaDataset:
         if not isinstance(dataset_info, DatasetInfo):
             dataset_info = DatasetInfo.from_json_file(Path(dataset_info))
 
-        table = Sample.samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
-        dataset = HafniaDataset.from_samples_table(table, info=dataset_info)
+        samples = Sample.samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
+        dataset = HafniaDataset.from_samples_iterable(samples, info=dataset_info)
         if reindex_class_idx:
             dataset = dataset.reindex_class_indices()
 

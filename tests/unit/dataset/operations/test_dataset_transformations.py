@@ -550,6 +550,18 @@ def test_reindex_class_indices():
     dataset_reindexed.check_dataset_tasks()
 
 
+def test_check_dataset_tasks_raises_on_missing_class_idx():
+    dataset = get_dataset_with_wrong_class_indices(REINDEX_TASKS).reindex_class_indices()
+    samples = dataset.samples.with_columns(
+        pl.col(Bbox.column_name()).list.eval(
+            pl.element().struct.with_fields(pl.lit(None, dtype=pl.Int64).alias(PrimitiveField.CLASS_IDX))
+        )
+    )
+    dataset_updated = dataset.update_samples(samples)
+    with pytest.raises(ValueError, match="has class index 'None'"):
+        dataset_updated.check_dataset_tasks()
+
+
 def test_reindex_class_indices_raises_on_unknown_class_name():
     task_time_missing_class = TaskInfo.from_class_names(name="Time", class_names=["Day"], primitive=Classification)
     dataset = get_dataset_with_wrong_class_indices([REINDEX_TASKS[0], task_time_missing_class, REINDEX_TASKS[2]])

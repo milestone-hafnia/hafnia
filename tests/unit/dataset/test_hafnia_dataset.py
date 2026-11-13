@@ -190,6 +190,47 @@ def test_from_paths_validation_errors(tmp_path: Path):
         HafniaDataset.from_paths([path_invalid], dataset_info=dataset_info)
 
 
+def test_from_paths_read_errors(tmp_path: Path):
+    dataset_info, samples = _from_paths_test_setup(tmp_path)
+
+    # Invalid line in a '.jsonl' file is reported with file and line number
+    path_jsonl = tmp_path / "bad_line.jsonl"
+    path_jsonl.write_text(samples[0].model_dump_json() + "\n\n" + '{"height": 100}\n')
+    with pytest.raises(ValueError, match="line 3 of sample file '.*bad_line.jsonl'"):
+        HafniaDataset.from_paths([path_jsonl], dataset_info=dataset_info)
+
+    # A binary file (e.g. an image passed by mistake) gives a 'ValueError' naming the file
+    path_binary = tmp_path / "binary.jsonl"
+    path_binary.write_bytes(bytes([0xFF, 0xD8, 0xFF, 0xE0]) + b"\n")
+    with pytest.raises(ValueError, match="binary.jsonl"):
+        HafniaDataset.from_paths([path_binary], dataset_info=dataset_info)
+
+    # Unsupported formats are rejected before any file is read
+    path_image = tmp_path / "image0.jpg"
+    with pytest.raises(ValueError, match="Unsupported file format '.jpg'"):
+        Sample.samples_from_files([path_jsonl, path_image])
+
+    # A sample without 'file_path' and no media file override is rejected when checking for images
+    sample_without_path = samples[0].model_copy(update={"file_path": None})
+    sample_paths = _write_sample_files(tmp_path / "no_path", [sample_without_path])
+    with pytest.raises(ValueError, match="1 samples have no 'file_path'"):
+        HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info)
+
+
+def test_samples_from_files(tmp_path: Path):
+    _, samples = _from_paths_test_setup(tmp_path)
+    sample_paths = _write_sample_files(tmp_path, samples)
+
+    assert len(list(Sample.samples_from_file(sample_paths[0]))) == 1
+
+    samples_iterator = Sample.samples_from_files(sample_paths, media_paths=[tmp_path / "override.jpg", None])
+    file_paths = [sample.file_path for sample in samples_iterator]
+    assert file_paths == [(tmp_path / "override.jpg").as_posix(), (tmp_path / "image1.jpg").as_posix()]
+
+    with pytest.raises(FileNotFoundError):
+        Sample.samples_from_files(sample_paths + [tmp_path / "missing.jsonl"])
+
+
 def test_from_paths_multiple_samples_per_file(tmp_path: Path):
     dataset_info, samples = _from_paths_test_setup(tmp_path)
 

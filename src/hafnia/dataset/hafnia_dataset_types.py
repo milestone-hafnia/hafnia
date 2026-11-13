@@ -3,7 +3,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Type, Union
 
 import cv2
 import more_itertools
@@ -809,45 +809,37 @@ class Sample(BaseModel):
     )
 
     @staticmethod
-    def samples_from_file(path_sample: Path) -> List["Sample"]:
-        """Read samples from a '.jsonl' (one sample per line) or '.json' (sample object or list of samples) file."""
-        if not path_sample.is_file():
-            raise FileNotFoundError(f"Sample file '{path_sample}' does not exist.")
-        suffix = path_sample.suffix.lower()
-        text = path_sample.read_text(encoding="utf-8")
-        try:
-            if suffix == ".jsonl":
-                samples = [Sample.model_validate_json(line) for line in text.splitlines() if line.strip()]
-            elif suffix == ".json":
-                content = json.loads(text)
-                sample_dicts = content if isinstance(content, list) else [content]
-                samples = [Sample.model_validate(sample_dict) for sample_dict in sample_dicts]
-            else:
-                raise ValueError(f"Unsupported file format '{suffix}'. Expected '.json' or '.jsonl'.")
-        except ValueError as e:
-            raise ValueError(f"Failed to read sample file '{path_sample}': {e}") from e
-        if len(samples) == 0:
-            raise ValueError(f"No samples found in sample file '{path_sample}'.")
-        return samples
+    def samples_from_file(path_sample: Path) -> Iterator["Sample"]:
+        """Read samples from a '.jsonl' (one sample per line) or '.json' (sample object or list of samples) file.
+
+        The file path and format are checked when called, while the samples are read lazily when the returned
+        iterator is consumed. A '.jsonl' file is read line by line, so it is never fully held in memory. Raises a
+        `ValueError` naming the sample file (and line for '.jsonl') if a sample cannot be read, or if the file
+        has no samples.
+        """
+        path_sample = Path(path_sample)
+        _check_sample_file(path_sample)
+        return _iterate_samples_in_file(path_sample)
 
     @staticmethod
     def samples_from_files(
         sample_paths: List[Path],
         media_paths: Optional[List[Optional[Path]]] = None,
-        chunk_size: Optional[int] = None,
-    ) -> pl.DataFrame:
-        """Read samples from multiple '.json'/'.jsonl' sample files into a samples table.
+    ) -> Iterator["Sample"]:
+        """Read samples from multiple '.json'/'.jsonl' sample files (see `Sample.samples_from_file`).
 
-        Samples are read lazily file by file and converted into the table in chunks (see `samples_to_table`).
-        A relative 'file_path' of a sample is resolved relative to the folder of its sample file.
+        All file paths and formats are checked when called, while the samples are read lazily file by file
+        when the returned iterator is consumed - e.g. by `HafniaDataset.from_samples_iterable`.
+
+        The 'file_path' of a sample is overruled by the matching media file in `media_paths` (if not 'None'),
+        otherwise a relative 'file_path' is resolved relative to the folder of its sample file. A relative
+        media file in `media_paths` is resolved relative to the current working directory.
 
         Args:
             sample_paths: Paths to '.json' or '.jsonl' sample files. Each file must contain at least one sample.
             media_paths: Optional media file for each sample file, overruling the 'file_path' of all samples
                 in the file. Must have the same length as `sample_paths`. Use 'None' to keep the 'file_path'
                 of the samples in a sample file.
-            chunk_size: Number of samples converted into a table at a time. Defaults to
-                'DEFAULT_SAMPLES_CHUNK_SIZE'.
         """
         sample_paths = [Path(path) for path in sample_paths]
         if media_paths is None:
@@ -856,8 +848,9 @@ class Sample(BaseModel):
             raise ValueError(
                 f"'media_paths' ({len(media_paths)}) must have the same length as 'sample_paths' ({len(sample_paths)})."
             )
-        samples_iterable = iterate_samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
-        return samples_to_table(samples_iterable, chunk_size=chunk_size or DEFAULT_SAMPLES_CHUNK_SIZE)
+        for path_sample in sample_paths:
+            _check_sample_file(path_sample)
+        return _iterate_samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
 
     def get_primitives(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
         """
@@ -997,15 +990,50 @@ def _samples_chunk_to_table(samples_chunk: List[Dict]) -> pl.DataFrame:
     return pl.from_records(samples_chunk, schema_overrides=schema_override, infer_schema_length=None)
 
 
-def iterate_samples_from_files(sample_paths: List[Path], media_paths: List[Optional[Path]]) -> Iterable[Sample]:
-    """Yield samples from '.json'/'.jsonl' sample files one file at a time (see `Sample.samples_from_file`).
+SAMPLE_FILE_SUFFIXES = (".json", ".jsonl")
 
-    The 'file_path' of a sample is overruled by the matching media file in `media_paths` (if not 'None'),
-    otherwise a relative 'file_path' is resolved relative to the folder of the sample file.
-    """
+
+def _check_sample_file(path_sample: Path) -> None:
+    if not path_sample.is_file():
+        raise FileNotFoundError(f"Sample file '{path_sample}' does not exist.")
+    suffix = path_sample.suffix.lower()
+    if suffix not in SAMPLE_FILE_SUFFIXES:
+        raise ValueError(
+            f"Unsupported file format '{suffix}' of sample file '{path_sample}'. Expected one of {SAMPLE_FILE_SUFFIXES}."
+        )
+
+
+def _iterate_samples_in_file(path_sample: Path) -> Iterator[Sample]:
+    n_samples = 0
+    if path_sample.suffix.lower() == ".jsonl":
+        with path_sample.open(encoding="utf-8") as file:
+            line_number = 0
+            try:
+                for line_number, line in enumerate(file, start=1):
+                    if not line.strip():
+                        continue
+                    sample = Sample.model_validate_json(line)
+                    n_samples += 1
+                    yield sample
+            except ValueError as e:  # Includes 'UnicodeDecodeError' and pydantic's 'ValidationError'
+                raise ValueError(f"Failed to read line {line_number} of sample file '{path_sample}': {e}") from e
+    else:
+        try:
+            content = json.loads(path_sample.read_text(encoding="utf-8"))
+            sample_dicts = content if isinstance(content, list) else [content]
+            samples = [Sample.model_validate(sample_dict) for sample_dict in sample_dicts]
+        except ValueError as e:  # Includes 'UnicodeDecodeError', 'JSONDecodeError' and pydantic's 'ValidationError'
+            raise ValueError(f"Failed to read sample file '{path_sample}': {e}") from e
+        n_samples = len(samples)
+        yield from samples
+
+    if n_samples == 0:
+        raise ValueError(f"No samples found in sample file '{path_sample}'.")
+
+
+def _iterate_samples_from_files(sample_paths: List[Path], media_paths: List[Optional[Path]]) -> Iterator[Sample]:
     for path_sample, path_media in zip(sample_paths, media_paths):
-        path_sample = Path(path_sample)
-        for sample in Sample.samples_from_file(path_sample):
+        for sample in _iterate_samples_in_file(path_sample):
             if path_media is not None:
                 sample.file_path = Path(path_media).absolute().as_posix()
             elif sample.file_path is not None and not Path(sample.file_path).is_absolute():
