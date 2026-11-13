@@ -12,7 +12,7 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 # from data_management import utils
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.operations import dataset_stats, dataset_transformations
-from hafnia.dataset.primitives import Classification
+from hafnia.dataset.primitives import PRIMITIVE_COLUMN_NAMES, Classification
 from tests.helper_testing import (
     get_hafnia_functions_from_module,
     get_micro_hafnia_dataset,
@@ -238,3 +238,22 @@ def test_define_sample_set_by_size_validation_exceptions():
     # Use case 3: Tagging all samples of the dataset is allowed
     dataset_all_tagged = dataset.define_sample_set_by_size(n_samples=n_dataset_samples)
     assert len(dataset_all_tagged.create_sample_dataset()) == n_dataset_samples
+
+
+def test_without_annotations(tmp_path: Path):
+    dataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")
+    label_columns = [name for name in [*PRIMITIVE_COLUMN_NAMES, SampleField.TAGS] if name in dataset.samples.columns]
+    assert all(dataset.samples[name].list.len().sum() > 0 for name in label_columns)
+
+    label_free = dataset.without_annotations()
+
+    assert all(label_free.samples[name].list.len().sum() == 0 for name in label_columns)
+    assert label_free.samples[SampleField.META].null_count() == len(label_free)
+    assert label_free.samples.schema == dataset.samples.schema
+    assert label_free.info == dataset.info
+    assert label_free.samples[SampleField.SAMPLE_INDEX].equals(dataset.samples[SampleField.SAMPLE_INDEX])
+    assert dataset.samples[SampleField.BBOXES].list.len().sum() > 0  # The input is not modified
+
+    label_free.update_samples(label_free.samples.drop(SampleField.FILE_PATH)).write_annotations(path_folder=tmp_path)
+    reloaded = HafniaDataset.from_path(tmp_path, check_for_images=False)
+    assert reloaded.samples[SampleField.META].dtype == dataset.samples[SampleField.META].dtype

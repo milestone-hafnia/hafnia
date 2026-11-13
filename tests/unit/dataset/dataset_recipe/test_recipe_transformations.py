@@ -11,6 +11,7 @@ from hafnia.dataset.dataset_names import TAG_IS_SAMPLE, SampleField
 from hafnia.dataset.dataset_recipe.dataset_recipe import DatasetRecipe, FromName
 from hafnia.dataset.dataset_recipe.recipe_transforms import (
     ClassMapper,
+    CreateSplitDataset,
     DefineSampleSetBySize,
     DropSamplesByClassName,
     FlatteningBySpecification,
@@ -121,6 +122,11 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             recipe_transform=SelectSamplesByDatasetName(name=["coco-2017"]),
             as_python_code="select_samples_by_dataset_name(name=['coco-2017'], raise_if_missing=False)",
             short_name="SelectSamplesByDatasetName",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=CreateSplitDataset(split_name="test"),
+            as_python_code="create_split_dataset(split_name='test')",
+            short_name="CreateSplitDataset",
         ),
     ]
 
@@ -307,6 +313,15 @@ def test_splits_by_ratios_transformation():
     actual_split_counts = new_dataset.calculate_split_counts()
     expected_split_count = {name: int(ratio * len(dataset)) for name, ratio in split_ratios.items()}
     assert actual_split_counts == expected_split_count
+
+
+def test_create_split_dataset_transformation():
+    dataset: HafniaDataset = get_micro_hafnia_dataset(dataset_name="micro-tiny-dataset")  # type: ignore[annotation-unchecked]
+    split_dataset = CreateSplitDataset(split_name="train").build(dataset)
+
+    expected = dataset.samples.filter(pl.col(SampleField.SPLIT) == "train")
+    assert split_dataset.calculate_split_counts() == {"train": len(expected)}
+    assert split_dataset.samples[SampleField.SAMPLE_INDEX].equals(expected[SampleField.SAMPLE_INDEX])
 
 
 def test_define_sample_by_size_transformation():

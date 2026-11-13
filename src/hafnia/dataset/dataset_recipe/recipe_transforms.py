@@ -37,6 +37,14 @@ class SplitsByRatios(RecipeTransform):
         return HafniaDataset.splits_by_ratios
 
 
+class CreateSplitDataset(RecipeTransform):
+    split_name: Union[str, List[str]]
+
+    @staticmethod
+    def get_function() -> Callable[..., "HafniaDataset"]:
+        return HafniaDataset.create_split_dataset
+
+
 class SplitIntoMultipleSplits(RecipeTransform):
     split_name: str
     split_ratios: Dict[str, float]

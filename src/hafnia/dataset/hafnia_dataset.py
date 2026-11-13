@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from random import Random
@@ -48,6 +49,7 @@ from hafnia.dataset.operations import (
 from hafnia.dataset.operations.adjust_mask import (
     adjust_bboxes_from_polygon_masks_dataset,
 )
+from hafnia.dataset.primitives import PRIMITIVE_COLUMN_NAMES
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
 from hafnia.platform import s5cmd_utils
@@ -206,6 +208,8 @@ class HafniaDataset:
         Training-aaS, so the same call works in both environments. The sample dataset is cached
         under `.data/datasets/<name>/` and only re-downloaded when `force_redownload=True` or when
         `version` is ``None``/``"latest"`` (which always re-resolves the latest version).
+        In Hafnia cloud jobs, the test split of protected datasets is withheld (see
+        `apply_test_split_policy`).
 
         Args:
             name: Dataset name as registered on the platform. The ``"name:version"`` shorthand is
@@ -228,7 +232,8 @@ class HafniaDataset:
             force_redownload=force_redownload,
             download_files=download_files,
         )
-        return HafniaDataset.from_path(dataset_path, check_for_images=download_files)
+        dataset = HafniaDataset.from_path(dataset_path, check_for_images=download_files)
+        return apply_test_split_policy(dataset)
 
     @staticmethod
     def from_s3(
@@ -700,6 +705,22 @@ class HafniaDataset:
             dataset=dataset, old_task_name=old_task_name, new_task_name=new_task_name
         )
 
+    def without_annotations(dataset: "HafniaDataset") -> "HafniaDataset":
+        """Return a copy of the dataset with every annotation removed, e.g. as input for model inference.
+
+        Every primitive column (bboxes, classifications, polygons, ...) and the `tags` column become
+        empty lists, and the per-sample `meta` column becomes null, as tags and meta can describe a
+        sample's origin or conditions. The schema is unchanged. `info` (tasks and classes), the rows,
+        their order and `sample_index` are kept, so predictions can be joined back to the original
+        annotations on `sample_index`.
+        """
+        samples = dataset.samples
+        label_columns = [name for name in [*PRIMITIVE_COLUMN_NAMES, SampleField.TAGS] if name in samples.columns]
+        samples = samples.with_columns(pl.col(name).list.slice(0, 0) for name in label_columns)
+        if SampleField.META in samples.columns:
+            samples = samples.with_columns(pl.lit(None, dtype=samples.schema[SampleField.META]).alias(SampleField.META))
+        return dataset.update_samples(samples)
+
     def drop_task(
         dataset: "HafniaDataset",
         task_name: str,
@@ -895,7 +916,7 @@ class HafniaDataset:
         )
         return self.update_samples(table)
 
-    def create_split_dataset(self, split_name: Union[str | List[str]]) -> "HafniaDataset":
+    def create_split_dataset(dataset: "HafniaDataset", split_name: Union[str, List[str]]) -> "HafniaDataset":
         """Return a new dataset containing only samples whose `split` matches `split_name`.
 
         Args:
@@ -911,8 +932,8 @@ class HafniaDataset:
             if name not in SplitName.all_split_names():
                 raise ValueError(f"Invalid split name: {split_name}. Valid splits are: {SplitName.valid_splits()}")
 
-        filtered_dataset = self.samples.filter(pl.col(SampleField.SPLIT).is_in(split_names))
-        return self.update_samples(filtered_dataset)
+        filtered_dataset = dataset.samples.filter(pl.col(SampleField.SPLIT).is_in(split_names))
+        return dataset.update_samples(filtered_dataset)
 
     def update_samples(self, table: pl.DataFrame) -> "HafniaDataset":
         """Return a new `HafniaDataset` with the samples replaced by `table` and a deep-copied `info`.
@@ -1250,6 +1271,63 @@ def select_version_from_available_versions(
     return available_versions[version_casted]
 
 
+ENV_TEST_SPLIT_POLICY = "HAFNIA_TEST_SPLIT_POLICY"
+META_PROTECTED_TEST_SPLIT = "protected_test_split"
+TEST_SPLIT_POLICY_WITHHOLD = "withhold"
+TEST_SPLIT_POLICY_SEPARATE = "separate"
+
+
+def _test_split_policy() -> str:
+    raw_policy = os.getenv(ENV_TEST_SPLIT_POLICY, "")
+    policy = raw_policy.strip().lower()
+    if policy in ("", TEST_SPLIT_POLICY_WITHHOLD):
+        return TEST_SPLIT_POLICY_WITHHOLD
+    if policy == TEST_SPLIT_POLICY_SEPARATE:
+        return TEST_SPLIT_POLICY_SEPARATE
+    # Fail safe: an unknown value protects rather than exposes the test split
+    user_logger.warning(f"Unknown {ENV_TEST_SPLIT_POLICY}={raw_policy!r}. Using '{TEST_SPLIT_POLICY_WITHHOLD}'.")
+    return TEST_SPLIT_POLICY_WITHHOLD
+
+
+def apply_test_split_policy(dataset: HafniaDataset) -> HafniaDataset:
+    """Withhold the test split of a protected dataset in Hafnia cloud jobs.
+
+    Why: the test split of some datasets is reserved for Hafnia benchmarks. Training on it would
+    inflate benchmark scores, so cloud training jobs must not receive it. The policy runs when a
+    dataset is loaded from the platform, before any recipe operation, so a recipe that re-splits
+    the dataset cannot move test samples into another split.
+
+    Cases:
+        - Not a Hafnia cloud job (`HAFNIA_CLOUD` is not ``"true"``): unchanged. Local use is not affected.
+        - Only for some Hafnia datasets: Their `info.meta` has ``"protected_test_split"``. Other datasets are unchanged
+        - If `HAFNIA_TEST_SPLIT_POLICY` is ``"separate"``, the test split is kept. Only Hafnia's benchmark pipeline
+          sets this.
+        - Otherwise (the variable is unset, ``"withhold"`` or an unknown value): samples with
+          ``split == "test"`` are dropped and a warning is logged. All other samples are kept. Dropping
+          the samples, rather than emptying their labels, makes a missing test split fail loudly
+          instead of silently reporting zero test metrics.
+
+    Args:
+        dataset: Dataset as loaded from the platform, before any split or merge operation.
+    """
+    if not utils.is_hafnia_cloud_job():
+        return dataset
+    if not (dataset.info.meta or {}).get(META_PROTECTED_TEST_SPLIT):
+        return dataset
+    if _test_split_policy() == TEST_SPLIT_POLICY_SEPARATE:
+        return dataset
+
+    is_test = pl.col(SampleField.SPLIT) == SplitName.TEST
+    n_test_samples = dataset.samples.filter(is_test).height
+    if n_test_samples == 0:
+        return dataset
+    user_logger.warning(
+        f"The test split of '{dataset.info.dataset_name}' ({n_test_samples} samples) is reserved for "
+        "Hafnia benchmarks and was withheld from this cloud job."
+    )
+    return dataset.update_samples(dataset.samples.filter(~is_test))
+
+
 def download_meta_dataset_files_from_version(
     resource_credentials: ResourceCredentials,
     version: Optional[str],
@@ -1309,10 +1387,16 @@ def download_or_get_dataset_path(
         path_dataset=path_dataset,
     )
 
+    # The policy also rewrites the cached files, so other loaders of this folder (e.g. a 'FromPath'
+    # recipe leaf) and the file sync below never see withheld samples
+    dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
+    dataset_after_policy = apply_test_split_policy(dataset)
+    if len(dataset_after_policy) != len(dataset):
+        dataset_after_policy.write_annotations(path_folder=path_dataset)
+
     if not download_files:
         return path_dataset
 
-    dataset = HafniaDataset.from_path(path_dataset, check_for_images=False)
-    dataset = sync_files_from_platform(dataset, path_dataset, force_redownload=True)
+    dataset = sync_files_from_platform(dataset_after_policy, path_dataset, force_redownload=True)
     dataset.write_annotations(path_folder=path_dataset)  # Overwrite annotations as files have been re-downloaded
     return path_dataset

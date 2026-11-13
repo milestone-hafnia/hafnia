@@ -398,6 +398,15 @@ class DatasetRecipe(Serializable):
         recipe.append_operation(operation)
         return recipe
 
+    def create_split_dataset(recipe: DatasetRecipe, split_name: Union[str, List[str]]) -> DatasetRecipe:
+        """Append an operation that keeps only the samples of the given split(s).
+
+        Recipe equivalent of `HafniaDataset.create_split_dataset`.
+        """
+        operation = recipe_transforms.CreateSplitDataset(split_name=split_name)
+        recipe.append_operation(operation)
+        return recipe
+
     def split_into_multiple_splits(
         recipe: DatasetRecipe, split_name: str, split_ratios: Dict[str, float]
     ) -> DatasetRecipe:
