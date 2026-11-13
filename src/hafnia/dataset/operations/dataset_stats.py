@@ -9,7 +9,7 @@ from rich.table import Table
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, SplitName, VideoInfoField
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample
-from hafnia.dataset.operations.table_transformations import create_primitive_table
+from hafnia.dataset.operations.table_transformations import has_primitive_annotations
 from hafnia.dataset.primitives import PRIMITIVE_TYPES, Skeleton, SkeletonTemplate
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
@@ -290,8 +290,8 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
     """Run integrity checks on a dataset and raise on the first violation found.
 
     Verifies that the dataset name is non-empty, that `info.tasks` is consistent with the
-    primitive columns in `samples` (delegates to `check_dataset_tasks`), that skeleton
-    annotations match their skeleton template (delegates to `check_dataset_skeletons`), and — when
+    annotations in `samples` in both directions - including skeleton annotations matching their skeleton
+    template (delegates to `check_dataset_tasks`), and — when
     `check_splits=True` — that a sample subset exists and that every required split is present.
     Each `Sample` is also instantiated as a sanity check on the row schema.
 
@@ -316,27 +316,6 @@ def check_dataset(dataset: HafniaDataset, check_splits: bool = True):
             raise ValueError(f"Expected all splits '{required_splits}' in dataset, but got '{actual_splits}'. ")
 
     dataset.check_dataset_tasks()
-    dataset.check_dataset_skeletons()
-
-    expected_tasks = dataset.info.tasks
-    # Check that tasks found in the 'dataset.samples' matches the tasks defined in 'dataset.info.tasks'
-    for PrimitiveType in PRIMITIVE_TYPES:
-        column_name = PrimitiveType.column_name()
-        if column_name not in dataset.samples.columns:
-            continue
-        objects_df = create_primitive_table(dataset.samples, PrimitiveType=PrimitiveType, keep_sample_data=False)
-        if objects_df is None:
-            continue
-        for (task_name,), object_group in objects_df.group_by(PrimitiveField.TASK_NAME):
-            has_task = any([t for t in expected_tasks if t.name == task_name and t.primitive == PrimitiveType])
-            if has_task:
-                continue
-            class_names = object_group[PrimitiveField.CLASS_NAME].unique().to_list()
-            raise ValueError(
-                f"Task name '{task_name}' for the '{PrimitiveType.__name__}' primitive is missing in "
-                f"'dataset.info.tasks' for dataset '{dataset.info.dataset_name}'. Missing task has the following "
-                f"classes: {class_names}. "
-            )
 
     for sample_dict in progress_bar(dataset, description="Checking samples in dataset"):
         sample = Sample(**sample_dict)  # noqa: F841
@@ -379,8 +358,8 @@ def check_dataset_skeletons(dataset: HafniaDataset):
             templates[class_info.name] = template
 
         column_name = task.primitive.column_name()
-        if len(dataset) == 0 or column_name not in dataset.samples.columns:
-            continue  # Missing columns are reported by 'check_dataset_tasks'
+        if len(dataset) == 0 or not has_primitive_annotations(dataset.samples, column_name):
+            continue  # Missing columns and columns without annotations are reported by 'check_dataset_tasks'
 
         skeletons = (
             dataset.samples[column_name].explode().struct.unnest().filter(pl.col(PrimitiveField.TASK_NAME) == task.name)
@@ -439,65 +418,107 @@ def check_dataset_skeletons(dataset: HafniaDataset):
                 )
 
 
-def check_dataset_tasks(dataset: HafniaDataset):
-    """Verify that every task in `dataset.info.tasks` is consistent with the rows in `dataset.samples`.
+def check_dataset_tasks(dataset: HafniaDataset, require_annotations_for_all_tasks: bool = True):
+    """Verify that `dataset.info.tasks` is consistent with the annotations in `dataset.samples`.
 
-    For each task, the corresponding primitive column must exist in the samples table, contain at
-    least one annotation matching the task's name (for non-empty datasets), and use only class
-    names that are subsets of `task.class_names` with matching class indices. Also rejects
-    duplicate task names. Raises `ValueError` on the first violation found.
+    Checks both directions:
+        - Every annotation in the samples must belong to a task (same primitive and task name) in
+          `info.tasks`.
+        - For each task, the class names of its annotations must be a subset of `task.class_names`
+          with class indices matching the ordering of `task.class_names`.
+
+    Also rejects duplicate task names and checks skeleton annotations against their skeleton template
+    (delegates to `check_dataset_skeletons`). Raises `ValueError` on the first violation found.
+
+    Args:
+        require_annotations_for_all_tasks: If True, each task must have a primitive column in the
+            samples table with at least one annotation of the task (for non-empty datasets). Set to False
+            for a subset of the samples of a dataset, where a task may have no annotations.
     """
     dataset.info.check_for_duplicate_task_names()
+
+    # Unique task name, class name and class index combinations of annotations in the samples per primitive
+    annotations_per_primitive: Dict[Type[Primitive], pl.DataFrame] = {}
+    for PrimitiveType in PRIMITIVE_TYPES:
+        column_name = PrimitiveType.column_name()
+        if not has_primitive_annotations(dataset.samples, column_name):
+            continue
+        annotations_per_primitive[PrimitiveType] = (
+            dataset.samples.select(pl.col(column_name).explode().struct.unnest())
+            .select(PrimitiveField.TASK_NAME, PrimitiveField.CLASS_NAME, PrimitiveField.CLASS_IDX)
+            .filter(pl.col(PrimitiveField.TASK_NAME).is_not_null())
+            .unique(maintain_order=True)
+        )
 
     for task in dataset.info.tasks:
         primitive = task.primitive.__name__
         column_name = task.primitive.column_name()
-
-        if column_name not in dataset.samples.columns:
-            raise ValueError(
-                f"Column '{column_name}' for primitive '{primitive}' and task '{task.name}' is missing in 'dataset.samples' "
-                f"for dataset '{dataset.info.dataset_name}'. Please check the dataset."
-            )
-        primitive_column = dataset.samples[column_name]
         msg_something_wrong = (
             f"Something is wrong with the defined tasks ('info.tasks') in dataset '{dataset.info.dataset_name}'. \n"
             f"For '{primitive=}' and '{task.name=}' "
         )
-        if primitive_column.dtype == pl.Null:
-            raise ValueError(msg_something_wrong + "the column is 'Null'. Please check the dataset.")
+        annotations = annotations_per_primitive.get(task.primitive, None)
+        if require_annotations_for_all_tasks:
+            if column_name not in dataset.samples.columns:
+                raise ValueError(
+                    f"Column '{column_name}' for primitive '{primitive}' and task '{task.name}' is missing in "
+                    f"'dataset.samples' for dataset '{dataset.info.dataset_name}'. Please check the dataset."
+                )
+            if annotations is None:
+                raise ValueError(msg_something_wrong + "the column is 'Null'. Please check the dataset.")
 
-        if len(dataset) > 0:  # Check only performed for non-empty datasets
-            primitive_table = (
-                primitive_column.explode().struct.unnest().filter(pl.col(PrimitiveField.TASK_NAME) == task.name)
-            )
-            if primitive_table.is_empty():
+        if annotations is None:
+            continue
+        task_annotations = annotations.filter(pl.col(PrimitiveField.TASK_NAME) == task.name)
+        if task_annotations.is_empty():
+            if require_annotations_for_all_tasks and len(dataset) > 0:
                 raise ValueError(
                     msg_something_wrong
                     + f"the column '{column_name}' has no {task.name=} objects. Please check the dataset."
                 )
+            continue
 
-            actual_classes = set(primitive_table[PrimitiveField.CLASS_NAME].unique().to_list())
-            if task.get_class_names() is None:
-                raise ValueError(
-                    msg_something_wrong
-                    + f"the column '{column_name}' with {task.name=} has no defined classes. Please check the dataset."
-                )
-            defined_classes = set(task.get_class_names() or [])
-
-            if not actual_classes.issubset(defined_classes):
-                raise ValueError(
-                    msg_something_wrong
-                    + f"the column '{column_name}' with {task.name=} we expected the actual classes in the dataset to \n"
-                    f"to be a subset of the defined classes\n\t{actual_classes=} \n\t{defined_classes=}."
-                )
-            # Check class_indices
-            class_names = task.get_class_names() or []
-            mapped_indices = primitive_table[PrimitiveField.CLASS_NAME].map_elements(
-                lambda x: class_names.index(x), return_dtype=pl.Int64
+        class_names = task.get_class_names()
+        if class_names is None:
+            raise ValueError(
+                msg_something_wrong
+                + f"the column '{column_name}' with {task.name=} has no defined classes. Please check the dataset."
             )
-            table_indices = primitive_table[PrimitiveField.CLASS_IDX]
 
-            error_msg = msg_something_wrong + (
-                f"class indices in '{PrimitiveField.CLASS_IDX}' column does not match classes ordering in 'task.class_names'"
+        actual_classes = set(task_annotations[PrimitiveField.CLASS_NAME].to_list())
+        defined_classes = set(class_names)
+        if not actual_classes.issubset(defined_classes):
+            raise ValueError(
+                msg_something_wrong
+                + f"the column '{column_name}' with {task.name=} we expected the actual classes in the dataset to \n"
+                f"to be a subset of the defined classes\n\t{actual_classes=} \n\t{defined_classes=}."
             )
-            assert mapped_indices.equals(table_indices), error_msg
+
+        mismatched_indices = task_annotations.filter(
+            pl.col(PrimitiveField.CLASS_NAME)
+            .replace_strict(class_names, range(len(class_names)), return_dtype=pl.Int64)
+            .ne_missing(pl.col(PrimitiveField.CLASS_IDX))  # 'ne_missing' to also catch a missing 'class_idx'
+        )
+        if not mismatched_indices.is_empty():
+            row = mismatched_indices.row(0, named=True)
+            raise ValueError(
+                msg_something_wrong + f"class indices in '{PrimitiveField.CLASS_IDX}' column does not match classes "
+                f"ordering in 'task.class_names'. The class '{row[PrimitiveField.CLASS_NAME]}' has class index "
+                f"'{row[PrimitiveField.CLASS_IDX]}', but expected '{class_names.index(row[PrimitiveField.CLASS_NAME])}'. "
+                f"Defined classes: {class_names}."
+            )
+
+    # Check that tasks found in 'dataset.samples' are defined in 'dataset.info.tasks'
+    defined_tasks = {(task.primitive, task.name) for task in dataset.info.tasks}
+    for PrimitiveType, annotations in annotations_per_primitive.items():
+        for (task_name,), task_annotations in annotations.group_by(PrimitiveField.TASK_NAME, maintain_order=True):
+            if (PrimitiveType, task_name) in defined_tasks:
+                continue
+            class_names = task_annotations[PrimitiveField.CLASS_NAME].unique().to_list()
+            raise ValueError(
+                f"Task name '{task_name}' for the '{PrimitiveType.__name__}' primitive is missing in "
+                f"'dataset.info.tasks' for dataset '{dataset.info.dataset_name}'. Missing task has the following "
+                f"classes: {class_names}. "
+            )
+
+    dataset.check_dataset_skeletons()

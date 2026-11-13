@@ -254,7 +254,25 @@ def split_primitive_columns_by_task_name(
     return samples_table
 
 
+def has_primitive_annotations(samples: pl.DataFrame, column_name: str) -> bool:
+    """True if the primitive column exists and is of type 'List(Struct)'.
+
+    A primitive column without any annotations is of type 'Null' (no sample has the column) or 'List(Null)'
+    (all samples have an empty list), and has no struct fields to unnest.
+    """
+    if column_name not in samples.columns:
+        return False
+    dtype = samples[column_name].dtype
+    return isinstance(dtype, pl.List) and isinstance(dtype.inner, pl.Struct)
+
+
 def check_image_paths(table: pl.DataFrame) -> bool:
+    n_samples_without_path = table[SampleField.FILE_PATH].null_count()
+    if n_samples_without_path > 0:
+        raise ValueError(
+            f"{n_samples_without_path} samples have no '{SampleField.FILE_PATH}'. Each sample requires a media file."
+        )
+
     missing_files = []
     org_paths = table[SampleField.FILE_PATH].to_list()
     for org_path in progress_bar(org_paths, description="Check image paths"):

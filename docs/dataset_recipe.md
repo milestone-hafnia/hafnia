@@ -71,7 +71,7 @@ recipe = (
 
 Supported operations include `shuffle`, `select_samples`,
 `select_samples_by_class_name`, `drop_samples_by_class_name`, `select_samples_by_dataset_name`, `class_mapper`,
-`rename_task`, `splits_by_ratios`, and `split_into_multiple_splits`.
+`rename_task`, `reindex_class_indices`, `splits_by_ratios`, and `split_into_multiple_splits`.
 
 ## Merging datasets
 
