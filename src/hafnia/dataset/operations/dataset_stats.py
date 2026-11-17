@@ -9,7 +9,7 @@ from rich.table import Table
 
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, SplitName, VideoInfoField
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample
-from hafnia.dataset.operations.table_transformations import has_primitive_annotations
+from hafnia.dataset.operations.table_transformations import has_primitive_struct_column
 from hafnia.dataset.primitives import PRIMITIVE_TYPES, Skeleton, SkeletonTemplate
 from hafnia.log import user_logger
 from hafnia.utils import progress_bar
@@ -358,7 +358,7 @@ def check_dataset_skeletons(dataset: HafniaDataset):
             templates[class_info.name] = template
 
         column_name = task.primitive.column_name()
-        if len(dataset) == 0 or not has_primitive_annotations(dataset.samples, column_name):
+        if len(dataset) == 0 or not has_primitive_struct_column(dataset.samples, column_name):
             continue  # Missing columns and columns without annotations are reported by 'check_dataset_tasks'
 
         skeletons = (
@@ -441,7 +441,7 @@ def check_dataset_tasks(dataset: HafniaDataset, require_annotations_for_all_task
     annotations_per_primitive: Dict[Type[Primitive], pl.DataFrame] = {}
     for PrimitiveType in PRIMITIVE_TYPES:
         column_name = PrimitiveType.column_name()
-        if not has_primitive_annotations(dataset.samples, column_name):
+        if not has_primitive_struct_column(dataset.samples, column_name):
             continue
         annotations_per_primitive[PrimitiveType] = (
             dataset.samples.select(pl.col(column_name).explode().struct.unnest())

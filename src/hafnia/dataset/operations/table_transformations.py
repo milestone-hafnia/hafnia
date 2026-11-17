@@ -254,11 +254,12 @@ def split_primitive_columns_by_task_name(
     return samples_table
 
 
-def has_primitive_annotations(samples: pl.DataFrame, column_name: str) -> bool:
-    """True if the primitive column exists and is of type 'List(Struct)'.
+def has_primitive_struct_column(samples: pl.DataFrame, column_name: str) -> bool:
+    """True if the primitive column exists and is of type 'List(Struct)', so its struct fields can be unnested.
 
-    A primitive column without any annotations is of type 'Null' (no sample has the column) or 'List(Null)'
-    (all samples have an empty list), and has no struct fields to unnest.
+    A primitive column is of type 'Null' (no sample has the column) or 'List(Null)' (all samples have an empty
+    list) if no annotations were ever present, and has no struct fields to unnest. Note: A 'List(Struct)' column
+    may still have no annotations - e.g. after filtering samples, all lists may be empty.
     """
     if column_name not in samples.columns:
         return False
@@ -269,8 +270,20 @@ def has_primitive_annotations(samples: pl.DataFrame, column_name: str) -> bool:
 def check_image_paths(table: pl.DataFrame) -> bool:
     n_samples_without_path = table[SampleField.FILE_PATH].null_count()
     if n_samples_without_path > 0:
+        # Identify samples by 'sample_index' if available, otherwise by row number
+        id_column = SampleField.SAMPLE_INDEX if SampleField.SAMPLE_INDEX in table.columns else "row"
+        sample_ids = (
+            table.with_row_index("row")
+            .filter(pl.col(SampleField.FILE_PATH).is_null())
+            .get_column(id_column)
+            .head(5)
+            .to_list()
+        )
         raise ValueError(
-            f"{n_samples_without_path} samples have no '{SampleField.FILE_PATH}'. Each sample requires a media file."
+            f"Cannot check media files: {n_samples_without_path} of {len(table)} samples have no "
+            f"'{SampleField.FILE_PATH}' (first {len(sample_ids)} by '{id_column}': {sample_ids}). "
+            f"Set '{SampleField.FILE_PATH}' for all samples, or use 'check_for_images=False' to skip checking "
+            "media files."
         )
 
     missing_files = []

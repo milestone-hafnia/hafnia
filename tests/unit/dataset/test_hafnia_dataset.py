@@ -170,10 +170,10 @@ def test_from_paths_read_errors(tmp_path: Path):
     with pytest.raises(ValueError, match="line 3 of sample file '.*bad_line.jsonl'"):
         HafniaDataset.from_paths([path_jsonl], dataset_info=dataset_info)
 
-    # A binary file (e.g. an image passed by mistake) gives a 'ValueError' naming the file
+    # Binary content (e.g. an image passed by mistake) gives a 'ValueError' naming the file and the actual line
     path_binary = tmp_path / "binary.jsonl"
-    path_binary.write_bytes(bytes([0xFF, 0xD8, 0xFF, 0xE0]) + b"\n")
-    with pytest.raises(ValueError, match="binary.jsonl"):
+    path_binary.write_bytes(samples[0].model_dump_json().encode() + b"\n" + bytes([0xFF, 0xD8, 0xFF, 0xE0]) + b"\n")
+    with pytest.raises(ValueError, match="line 2 of sample file '.*binary.jsonl'"):
         HafniaDataset.from_paths([path_binary], dataset_info=dataset_info)
 
     # Unsupported formats are rejected before any file is read
@@ -184,7 +184,10 @@ def test_from_paths_read_errors(tmp_path: Path):
     # A sample without 'file_path' and no media file override is rejected when checking for images
     sample_without_path = samples[0].model_copy(update={"file_path": None})
     sample_paths = write_sample_files(tmp_path / "no_path", [sample_without_path])
-    with pytest.raises(ValueError, match="1 samples have no 'file_path'"):
+    with pytest.raises(
+        ValueError,
+        match=r"1 of 1 samples have no 'file_path' \(first 1 by 'sample_index': \[0\]\).*check_for_images=False",
+    ):
         HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info)
 
 

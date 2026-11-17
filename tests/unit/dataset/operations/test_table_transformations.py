@@ -206,3 +206,14 @@ def test_dataset_without_skeleton_annotations(skeletons):
     dataset.check_dataset_tasks(require_annotations_for_all_tasks=False)
     # Reindexing skips the task without annotations instead of crashing
     dataset.reindex_class_indices()
+
+
+def test_check_image_paths_raises_on_missing_file_path():
+    table = pl.DataFrame({SampleField.FILE_PATH: ["a.jpg", None, None]}, schema={SampleField.FILE_PATH: pl.String})
+    # Without a 'sample_index' column, samples are identified by row number
+    with pytest.raises(ValueError, match=r"2 of 3 samples have no 'file_path' \(first 2 by 'row': \[1, 2\]\)"):
+        table_transformations.check_image_paths(table)
+
+    table = table.with_columns(pl.Series(SampleField.SAMPLE_INDEX, [10, 11, 12]))
+    with pytest.raises(ValueError, match=r"by 'sample_index': \[11, 12\]"):
+        table_transformations.check_image_paths(table)

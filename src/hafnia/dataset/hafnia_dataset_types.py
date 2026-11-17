@@ -1072,17 +1072,18 @@ def _sample_file_path_with_suffix(path_sample: Path) -> Path:
 def _iterate_samples_in_file(path_sample: Path) -> Iterator[Sample]:
     n_samples = 0
     if path_sample.suffix.lower() == ".jsonl":
-        with path_sample.open(encoding="utf-8") as file:
-            line_number = 0
-            try:
-                for line_number, line in enumerate(file, start=1):
-                    if not line.strip():
-                        continue
+        # Read as bytes: Text mode decodes ahead of the current line, so a decoding error would be reported for the
+        # wrong line. Pydantic validates the bytes of a line directly, including invalid UTF-8.
+        with path_sample.open("rb") as file:
+            for line_number, line in enumerate(file, start=1):
+                if not line.strip():
+                    continue
+                try:
                     sample = Sample.model_validate_json(line)
-                    n_samples += 1
-                    yield sample
-            except ValueError as e:  # Includes 'UnicodeDecodeError' and pydantic's 'ValidationError'
-                raise ValueError(f"Failed to read line {line_number} of sample file '{path_sample}': {e}") from e
+                except ValueError as e:  # Includes pydantic's 'ValidationError'
+                    raise ValueError(f"Failed to read line {line_number} of sample file '{path_sample}': {e}") from e
+                n_samples += 1
+                yield sample
     else:
         try:
             content = json.loads(path_sample.read_text(encoding="utf-8"))

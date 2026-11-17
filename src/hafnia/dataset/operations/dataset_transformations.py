@@ -60,7 +60,7 @@ from hafnia.dataset.dataset_names import (
     StorageFormat,
 )
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample, TaskInfo
-from hafnia.dataset.operations.table_transformations import has_primitive_annotations, update_class_indices
+from hafnia.dataset.operations.table_transformations import has_primitive_struct_column, update_class_indices
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
@@ -595,9 +595,9 @@ def reindex_class_indices(dataset: "HafniaDataset") -> "HafniaDataset":
     samples = dataset.samples
     for task in dataset.info.tasks:
         column_name = task.primitive.column_name()
-        has_column = has_primitive_annotations(samples, column_name)
         has_annotations = (
-            has_column and (samples[column_name].explode().struct.field(PrimitiveField.TASK_NAME) == task.name).any()
+            has_primitive_struct_column(samples, column_name)
+            and (samples[column_name].explode().struct.field(PrimitiveField.TASK_NAME) == task.name).any()
         )
         if not has_annotations:
             user_logger.warning(
