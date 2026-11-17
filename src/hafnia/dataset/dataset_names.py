@@ -5,7 +5,6 @@ FILENAME_RECIPE_JSON = "recipe.json"
 FILENAME_DATASET_INFO = "dataset_info.json"
 FILENAME_ANNOTATIONS_JSONL = "annotations.jsonl"
 FILENAME_ANNOTATIONS_PARQUET = "annotations.parquet"
-FOLDER_NAME_DATA = "data"  # Sub-folder for media files (and sample files of 'HafniaDataset.to_paths')
 
 DATASET_FILENAMES_REQUIRED = [
     FILENAME_DATASET_INFO,

@@ -22,8 +22,6 @@ from hafnia.dataset.dataset_helpers import (
     version_from_string,
 )
 from hafnia.dataset.dataset_names import (
-    FILENAME_DATASET_INFO,
-    FOLDER_NAME_DATA,
     TAG_IS_SAMPLE,
     PrimitiveField,
     SampleField,
@@ -1056,80 +1054,12 @@ class HafniaDataset:
         for org_path in progress_bar(org_paths, description=description):
             new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
                 path_source=Path(org_path),
-                path_dataset_root=path_folder / FOLDER_NAME_DATA,
+                path_dataset_root=path_folder / "data",
                 storage_mode=storage_mode,
             )
             new_paths.append(new_path.as_posix())
         hafnia_dataset.samples = hafnia_dataset.samples.with_columns(pl.Series(new_paths).alias(SampleField.FILE_PATH))
         hafnia_dataset.write_annotations(path_folder=path_folder, drop_null_cols=drop_null_cols)
-
-    def to_paths(
-        self,
-        path_folder: Path,
-        include_media: bool = True,
-        storage_mode: Union[FileStorageMode, str] = FileStorageMode.COPY,
-        suffix: str = ".jsonl",
-    ) -> List[Path]:
-        """Write the dataset as independent sample files - the counterpart of `HafniaDataset.from_paths`.
-
-        Prefer `write` for storing a full dataset. Use `to_paths` for workflows that handle samples/media
-        files independently - e.g. annotating, filtering or distributing individual images.
-
-        Output structure:
-            path_folder/
-                dataset_info.json
-                data/
-                    <media_name>.jsonl  # Samples of a media file (e.g. all frames of a video)
-                    <media_name>.jpg    # Media file (only with 'include_media=True')
-
-        Samples are grouped into one sample file per media file (see `Sample.samples_to_files`). With
-        `include_media=True` the media files are stored in 'data/' renamed by content hash (as in `write`),
-        the sample file gets the same name stem as its media file and the 'file_path' of the samples is
-        stored relative to the sample file. With `include_media=False` the 'file_path' of the samples is
-        stored as-is (typically absolute) and sample files are named after their media file.
-
-        Read the dataset back with:
-            HafniaDataset.from_paths(sample_paths, dataset_info=path_folder / "dataset_info.json")
-
-        Args:
-            path_folder: Destination folder. Created if it does not exist.
-            include_media: If True (default), store the media files next to the sample files in 'data/'.
-            storage_mode: How media files are stored with `include_media=True`: `FileStorageMode.COPY`
-                (default) or `FileStorageMode.SYMLINK` (see `write`).
-            suffix: Format of the sample files: '.jsonl' (default) or '.json'.
-
-        Returns:
-            Paths of the written sample files.
-        """
-        user_logger.info(f"Writing dataset as sample files to {path_folder}...")
-        path_folder = Path(path_folder).absolute()
-        path_data = path_folder / FOLDER_NAME_DATA
-        path_data.mkdir(parents=True, exist_ok=True)
-
-        samples = self.samples
-        if include_media:
-            storage_mode = dataset_helpers.resolve_storage_mode(storage_mode, path_output=path_folder)
-            if SampleField.FILE_PATH not in samples.columns or samples[SampleField.FILE_PATH].null_count() > 0:
-                raise ValueError(
-                    f"All samples must have a '{SampleField.FILE_PATH}' to include media files. "
-                    "Use 'include_media=False' to only write sample files."
-                )
-            org_paths = samples[SampleField.FILE_PATH].unique(maintain_order=True).to_list()
-            description = "- Copy media" if storage_mode is FileStorageMode.COPY else "- Link media"
-            new_names = {}
-            for org_path in progress_bar(org_paths, description=description):
-                new_path = dataset_helpers.copy_and_rename_file_to_hash_value(
-                    path_source=Path(org_path), path_dataset_root=path_data, storage_mode=storage_mode
-                )
-                new_names[org_path] = new_path.relative_to(path_data).as_posix()  # Relative to the sample file
-            samples = samples.with_columns(
-                pl.col(SampleField.FILE_PATH).replace_strict(new_names, return_dtype=pl.String)
-            )
-
-        sample_objects = (Sample(**row) for row in samples.iter_rows(named=True))
-        sample_paths = Sample.samples_to_files(sample_objects, path_folder=path_data, suffix=suffix)
-        self.info.write_json(path_folder / FILENAME_DATASET_INFO)
-        return sample_paths
 
     def write_annotations(dataset: HafniaDataset, path_folder: Path, drop_null_cols: bool = True) -> None:
         """Write `dataset_info.json` and the annotations files (JSONL and Parquet) to disk.

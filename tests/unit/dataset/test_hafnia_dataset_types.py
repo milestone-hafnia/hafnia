@@ -98,22 +98,3 @@ def test_sample_to_file_and_samples_to_file(tmp_path: Path):
     with pytest.raises(ValueError, match="No samples to write"):
         Sample.samples_to_file([], tmp_path / "out" / "empty.jsonl")
     assert not (tmp_path / "out" / "empty.jsonl").exists()
-
-
-def test_samples_to_files_groups_by_media_file(tmp_path: Path):
-    _, samples = from_paths_test_setup(tmp_path)
-    frame = samples[1].model_copy(update={"collection_index": 1})  # Same media file as samples[1]
-    same_stem = samples[0].model_copy(update={"file_path": "other_folder/image0.jpg"})
-    no_media = samples[0].model_copy(update={"file_path": None})
-    all_samples = [samples[0], samples[1], frame, same_stem, no_media, no_media]
-
-    sample_paths = Sample.samples_to_files(all_samples, tmp_path / "out")
-
-    names = [path.name for path in sample_paths]
-    assert names == ["image0.jsonl", "image1.jsonl", "image0_1.jsonl", "sample.jsonl", "sample_1.jsonl"]
-    assert list(Sample.samples_from_file(sample_paths[1])) == [samples[1], frame]
-
-    sample_paths_json = Sample.samples_to_files(samples, tmp_path / "out_json", suffix="json")
-    assert [path.name for path in sample_paths_json] == ["image0.json", "image1.json"]
-    with pytest.raises(ValueError, match="Unsupported sample file format"):
-        Sample.samples_to_files(samples, tmp_path / "out_txt", suffix=".txt")

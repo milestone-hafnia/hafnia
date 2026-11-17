@@ -213,49 +213,6 @@ def test_from_paths_multiple_samples_per_file(tmp_path: Path):
     assert dataset.samples[SampleField.SAMPLE_INDEX].to_list() == list(range(6))
 
 
-@pytest.mark.parametrize("include_media", [True, False])
-def test_to_paths_round_trip(tmp_path: Path, include_media: bool):
-    path_source = tmp_path / "source"
-    path_source.mkdir()
-    dataset_info, samples = from_paths_test_setup(path_source)
-    (path_source / "image1.jpg").write_text("different content")  # Unique content hash per image
-    samples = [sample.model_copy(update={"file_path": str(path_source / sample.file_path)}) for sample in samples]
-    dataset = HafniaDataset.from_samples_list(samples, info=dataset_info)
-
-    path_output = tmp_path / "output"
-    sample_paths = dataset.to_paths(path_output, include_media=include_media)
-
-    assert (path_output / "dataset_info.json").exists()
-    assert len(sample_paths) == 2
-    assert all(path.parent == path_output / "data" for path in sample_paths)
-    media_files = [path for path in (path_output / "data").iterdir() if path.suffix == ".jpg"]
-    assert len(media_files) == (2 if include_media else 0)
-    if include_media:  # Media files are stored next to sample files with the same name stem
-        assert sorted(path.stem for path in media_files) == sorted(path.stem for path in sample_paths)
-
-    dataset_reloaded = HafniaDataset.from_paths(sample_paths, dataset_info=path_output / "dataset_info.json")
-    assert dataset_reloaded.info == dataset.info
-    assert len(dataset_reloaded) == len(dataset)
-    file_paths = dataset_reloaded.samples[SampleField.FILE_PATH].to_list()
-    if include_media:
-        assert all(Path(path).parent == path_output / "data" for path in file_paths)
-    else:
-        assert file_paths == dataset.samples[SampleField.FILE_PATH].to_list()
-    columns = [SampleField.SPLIT, SampleField.CLASSIFICATIONS, SampleField.HEIGHT, SampleField.WIDTH]
-    assert dataset_reloaded.samples.select(columns).equals(dataset.samples.select(columns))
-
-
-def test_to_paths_include_media_requires_file_path(tmp_path: Path):
-    dataset_info, samples = from_paths_test_setup(tmp_path)
-    samples = [sample.model_copy(update={"file_path": None}) for sample in samples]
-    dataset = HafniaDataset.from_samples_list(samples, info=dataset_info)
-
-    with pytest.raises(ValueError, match="include_media=False"):
-        dataset.to_paths(tmp_path / "output")
-    sample_paths = dataset.to_paths(tmp_path / "output", include_media=False)
-    assert len(sample_paths) == 2
-
-
 def test_write_annotations_stores_posix_paths(tmp_path: Path):
     task_info = TaskInfo.from_class_names(
         name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification

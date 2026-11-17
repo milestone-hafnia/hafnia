@@ -906,53 +906,6 @@ class Sample(BaseModel):
             raise ValueError(f"No samples to write to sample file '{path_sample}'.")
         return path_sample
 
-    @staticmethod
-    def samples_to_files(samples: Iterable["Sample"], path_folder: Path, suffix: str = ".jsonl") -> List[Path]:
-        """Write samples to `path_folder` with one sample file per media file - the counterpart of
-        `Sample.samples_from_files`.
-
-        Samples are grouped by their 'file_path', so all samples of the same media file (e.g. the frames
-        of a video, or multiple annotations/predictions of an image) are written to the same sample file.
-        A sample file is named after the stem of its media file (e.g. 'image0.jpg' -> 'image0.jsonl') with a
-        '_<n>' postfix if the name is already taken by another media file. Samples without a 'file_path'
-        are written to separate files named 'sample.jsonl', 'sample_1.jsonl', ...
-
-        The 'file_path' of the samples is written as-is - a relative 'file_path' is resolved relative to
-        `path_folder` when read with `Sample.samples_from_files`/`HafniaDataset.from_paths`.
-
-        Args:
-            samples: Samples to write. Note: All samples are held in memory to group them by media file.
-            path_folder: Destination folder. Created if it does not exist.
-            suffix: Format of the sample files: '.jsonl' (default) or '.json'.
-
-        Returns:
-            Paths of the written sample files in the order the media files first appear in `samples`.
-        """
-        suffix = suffix if suffix.startswith(".") else f".{suffix}"
-        if suffix.lower() not in SAMPLE_FILE_SUFFIXES:
-            raise ValueError(f"Unsupported sample file format '{suffix}'. Expected one of {SAMPLE_FILE_SUFFIXES}.")
-
-        groups: Dict[Any, List[Sample]] = {}
-        for i_sample, sample in enumerate(samples):
-            # Samples without a media file are written independently
-            group_key = sample.file_path if sample.file_path is not None else ("__no_file_path__", i_sample)
-            groups.setdefault(group_key, []).append(sample)
-
-        path_folder = Path(path_folder)
-        path_folder.mkdir(parents=True, exist_ok=True)
-        used_names: set = set()  # Lowercase to also avoid collisions on case-insensitive file systems
-        sample_paths = []
-        for group_key, group_samples in groups.items():
-            stem = Path(group_key).stem if isinstance(group_key, str) and Path(group_key).stem else "sample"
-            name = f"{stem}{suffix}"
-            n_postfix = 0
-            while name.lower() in used_names:
-                n_postfix += 1
-                name = f"{stem}_{n_postfix}{suffix}"
-            used_names.add(name.lower())
-            sample_paths.append(Sample.samples_to_file(group_samples, path_folder / name))
-        return sample_paths
-
     def get_primitives(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
         """
         Returns a list of all annotations (classifications, objects, bitmasks, polygons) for the sample.
