@@ -852,6 +852,107 @@ class Sample(BaseModel):
             _check_sample_file(path_sample)
         return _iterate_samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
 
+    def to_file(self, path_sample: Path) -> Path:
+        """Write the sample to a sample file - the counterpart of `Sample.samples_from_file`.
+
+        The format is given by the suffix of `path_sample`:
+            - JSONL ('.jsonl'): The sample on a single line. Used if `path_sample` has no suffix.
+            - JSON ('.json'): The sample as an indented JSON object.
+
+        The 'file_path' of the sample is written as-is. Parent folders are created if missing.
+
+        Returns:
+            Path of the written sample file.
+        """
+        path_sample = _sample_file_path_with_suffix(Path(path_sample))
+        path_sample.parent.mkdir(parents=True, exist_ok=True)
+        if path_sample.suffix.lower() == ".jsonl":
+            path_sample.write_text(self.model_dump_json() + "\n", encoding="utf-8")
+        else:
+            path_sample.write_text(self.model_dump_json(indent=4), encoding="utf-8")
+        return path_sample
+
+    @staticmethod
+    def samples_to_file(samples: Iterable["Sample"], path_sample: Path) -> Path:
+        """Write multiple samples to a single sample file - the counterpart of `Sample.samples_from_file`.
+
+        The format is given by the suffix of `path_sample`:
+            - JSONL ('.jsonl'): One sample per line. Samples are written one by one, so `samples` may be a
+              lazy iterator. Used if `path_sample` has no suffix.
+            - JSON ('.json'): An indented list of sample objects.
+
+        The 'file_path' of the samples is written as-is. Parent folders are created if missing. Raises a
+        `ValueError` if `samples` is empty, as a sample file without samples cannot be read.
+
+        Returns:
+            Path of the written sample file.
+        """
+        path_sample = _sample_file_path_with_suffix(Path(path_sample))
+        path_sample.parent.mkdir(parents=True, exist_ok=True)
+        n_samples = 0
+        if path_sample.suffix.lower() == ".jsonl":
+            with path_sample.open("w", encoding="utf-8") as file:
+                for sample in samples:
+                    file.write(sample.model_dump_json() + "\n")
+                    n_samples += 1
+        else:
+            sample_dicts = [sample.model_dump(mode="json") for sample in samples]
+            n_samples = len(sample_dicts)
+            if n_samples > 0:
+                path_sample.write_text(json.dumps(sample_dicts, indent=4), encoding="utf-8")
+
+        if n_samples == 0:
+            path_sample.unlink(missing_ok=True)
+            raise ValueError(f"No samples to write to sample file '{path_sample}'.")
+        return path_sample
+
+    @staticmethod
+    def samples_to_files(samples: Iterable["Sample"], path_folder: Path, suffix: str = ".jsonl") -> List[Path]:
+        """Write samples to `path_folder` with one sample file per media file - the counterpart of
+        `Sample.samples_from_files`.
+
+        Samples are grouped by their 'file_path', so all samples of the same media file (e.g. the frames
+        of a video, or multiple annotations/predictions of an image) are written to the same sample file.
+        A sample file is named after the stem of its media file (e.g. 'image0.jpg' -> 'image0.jsonl') with a
+        '_<n>' postfix if the name is already taken by another media file. Samples without a 'file_path'
+        are written to separate files named 'sample.jsonl', 'sample_1.jsonl', ...
+
+        The 'file_path' of the samples is written as-is - a relative 'file_path' is resolved relative to
+        `path_folder` when read with `Sample.samples_from_files`/`HafniaDataset.from_paths`.
+
+        Args:
+            samples: Samples to write. Note: All samples are held in memory to group them by media file.
+            path_folder: Destination folder. Created if it does not exist.
+            suffix: Format of the sample files: '.jsonl' (default) or '.json'.
+
+        Returns:
+            Paths of the written sample files in the order the media files first appear in `samples`.
+        """
+        suffix = suffix if suffix.startswith(".") else f".{suffix}"
+        if suffix.lower() not in SAMPLE_FILE_SUFFIXES:
+            raise ValueError(f"Unsupported sample file format '{suffix}'. Expected one of {SAMPLE_FILE_SUFFIXES}.")
+
+        groups: Dict[Any, List[Sample]] = {}
+        for i_sample, sample in enumerate(samples):
+            # Samples without a media file are written independently
+            group_key = sample.file_path if sample.file_path is not None else ("__no_file_path__", i_sample)
+            groups.setdefault(group_key, []).append(sample)
+
+        path_folder = Path(path_folder)
+        path_folder.mkdir(parents=True, exist_ok=True)
+        used_names: set = set()  # Lowercase to also avoid collisions on case-insensitive file systems
+        sample_paths = []
+        for group_key, group_samples in groups.items():
+            stem = Path(group_key).stem if isinstance(group_key, str) and Path(group_key).stem else "sample"
+            name = f"{stem}{suffix}"
+            n_postfix = 0
+            while name.lower() in used_names:
+                n_postfix += 1
+                name = f"{stem}_{n_postfix}{suffix}"
+            used_names.add(name.lower())
+            sample_paths.append(Sample.samples_to_file(group_samples, path_folder / name))
+        return sample_paths
+
     def get_primitives(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
         """
         Returns a list of all annotations (classifications, objects, bitmasks, polygons) for the sample.
@@ -1001,6 +1102,18 @@ def _check_sample_file(path_sample: Path) -> None:
         raise ValueError(
             f"Unsupported file format '{suffix}' of sample file '{path_sample}'. Expected one of {SAMPLE_FILE_SUFFIXES}."
         )
+
+
+def _sample_file_path_with_suffix(path_sample: Path) -> Path:
+    """Use '.jsonl' for a sample file path without a suffix and reject unsupported suffixes."""
+    if path_sample.suffix == "":
+        return path_sample.with_suffix(".jsonl")
+    if path_sample.suffix.lower() not in SAMPLE_FILE_SUFFIXES:
+        raise ValueError(
+            f"Unsupported file format '{path_sample.suffix}' of sample file '{path_sample}'. "
+            f"Expected one of {SAMPLE_FILE_SUFFIXES}."
+        )
+    return path_sample
 
 
 def _iterate_samples_in_file(path_sample: Path) -> Iterator[Sample]:
