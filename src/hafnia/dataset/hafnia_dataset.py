@@ -35,10 +35,12 @@ from hafnia.dataset.format_conversions import (
     format_yolo,
 )
 from hafnia.dataset.hafnia_dataset_types import (
+    DEFAULT_SAMPLES_CHUNK_SIZE,
     DatasetInfo,
     DatasetMetadataFilePaths,
     Sample,
     TaskInfo,
+    samples_to_table,
 )
 from hafnia.dataset.operations import (
     dataset_stats,
@@ -60,58 +62,6 @@ from hafnia_cli.config import Config
 
 if TYPE_CHECKING:
     import boto3
-
-# Number of samples that are serialized and converted into a samples table at a time. Samples are
-# converted in chunks, as a sample and its serialized form use far more memory than the row it
-# becomes. Measured on the COCO 2017 conversion, a smaller chunk lowers the peak memory until it
-# hits the memory used to parse the label file - 2.000 is at that point and keeps the number of
-# chunks (and thereby the concatenation cost) low.
-DEFAULT_SAMPLES_CHUNK_SIZE = 2_000
-
-
-def samples_to_table(samples: Iterable, chunk_size: Optional[int] = DEFAULT_SAMPLES_CHUNK_SIZE) -> pl.DataFrame:
-    """Convert `Sample` objects (or sample dicts) into a samples table.
-
-    Samples are serialized and converted into a table in chunks of 'chunk_size' samples, so the
-    serialized form of the full dataset is never in memory at once. The chunks are concatenated
-    with 'vertical_relaxed', which reconciles the schemas of the chunks - a column is e.g. of the
-    'Null' type in a chunk where no sample has an annotation for it.
-
-    Args:
-        samples: Iterable of `Sample` instances or dicts matching the `Sample` schema.
-        chunk_size: Number of samples per chunk. 'None' converts all samples in one chunk.
-    """
-    tables = []
-    chunk: List[Dict] = []
-    for sample in samples:
-        if isinstance(sample, Sample):
-            sample = sample.model_dump(mode="json")
-        elif not isinstance(sample, dict):
-            raise TypeError(f"Unsupported sample type: {type(sample)}. Expected Sample or dict.")
-        chunk.append(sample)
-
-        if chunk_size is not None and len(chunk) >= chunk_size:
-            tables.append(_samples_chunk_to_table(chunk))
-            chunk = []
-
-    if len(chunk) > 0:
-        tables.append(_samples_chunk_to_table(chunk))
-        chunk = []
-
-    if len(tables) == 0:
-        raise ValueError("No samples provided. Expected at least one sample to create a dataset.")
-    if len(tables) == 1:
-        return tables[0]
-    return pl.concat(tables, how="vertical_relaxed")
-
-
-def _samples_chunk_to_table(samples_chunk: List[Dict]) -> pl.DataFrame:
-    # To ensure that the 'file_path' column is of type string even if all samples have 'None' as file_path
-    schema_override = {
-        SampleField.FILE_PATH: pl.String,
-        SampleField.TAGS: pl.List(pl.String),
-    }
-    return pl.from_records(samples_chunk, schema_overrides=schema_override, infer_schema_length=None)
 
 
 @dataclass
@@ -194,6 +144,56 @@ class HafniaDataset:
         if check_for_images:
             table_transformations.check_image_paths(samples)
         return HafniaDataset(samples=samples, info=dataset_info)
+
+    @staticmethod
+    def from_paths(
+        sample_paths: List[Path],
+        dataset_info: Union[DatasetInfo, Path, str],
+        media_paths: Optional[List[Optional[Path]]] = None,
+        check_for_images: bool = True,
+        reindex_class_idx: bool = False,
+    ) -> "HafniaDataset":
+        """Load a `HafniaDataset` from a list of sample files, where each file holds one or more samples.
+
+        Each sample is serialized as a `Sample`. Supported file formats:
+            - JSONL ('.jsonl'): One sample per line.
+            - JSON ('.json'): A single sample object or a list of sample objects.
+
+        A file may hold multiple samples for the same media file - e.g. a sample per frame of a video,
+        or duplicate/independent annotations or predictions for a single image. Samples are kept as-is
+        and duplicates are not removed.
+
+        The media file (image or video) of a sample is taken from its 'file_path' field, which may be
+        overruled by passing a media file in `media_paths` - the media file is then used for all samples
+        in the sample file. A relative 'file_path' is resolved relative to the folder of the sample file.
+
+        Raises a `ValueError` if the annotations of the samples do not match the tasks of `dataset_info`
+        (see `check_dataset_tasks`).
+
+        Args:
+            sample_paths: Paths to '.json' or '.jsonl' sample files. Each file must contain at least one sample.
+            dataset_info: Dataset-level metadata as a `DatasetInfo` or a path to a `dataset_info.json` file.
+            media_paths: Optional media file for each sample file, overruling the 'file_path' of all samples
+                in the file. Must have the same length as `sample_paths`. Use 'None' to keep the 'file_path'
+                of the samples in a sample file.
+            check_for_images: If True, raise if any sample's media file is missing on disk.
+            reindex_class_idx: If True, the 'class_idx' of all primitives is derived from their 'class_name' and
+                the class names of the matching task in `dataset_info.tasks` (see `reindex_class_indices`).
+                Use this when the class indices of the samples do not match the class ordering of `dataset_info`.
+        """
+        if not isinstance(dataset_info, DatasetInfo):
+            dataset_info = DatasetInfo.from_json_file(Path(dataset_info))
+
+        samples = Sample.samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
+        dataset = HafniaDataset.from_samples_iterable(samples, info=dataset_info)
+        if reindex_class_idx:
+            dataset = dataset.reindex_class_indices()
+
+        # Samples may be a subset of a dataset, so a task in 'dataset_info' may have no annotations
+        dataset.check_dataset_tasks(require_annotations_for_all_tasks=False)
+        if check_for_images:
+            table_transformations.check_image_paths(dataset.samples)
+        return dataset
 
     @staticmethod
     def from_name(
@@ -852,6 +852,19 @@ class HafniaDataset:
             name=name,
             raise_if_missing=raise_if_missing,
         )
+
+    def reindex_class_indices(dataset: HafniaDataset) -> HafniaDataset:
+        """Set the 'class_idx' of all primitives from their 'class_name' and the class names of their task.
+
+        Each primitive is matched to a task in `info.tasks` by primitive type and task name, and its
+        'class_idx' is set to the index of its 'class_name' in the class names of that task. Multiple tasks of
+        the same primitive (e.g. several classification tasks) are reindexed independently. Use this when the
+        class indices of the samples do not match the class ordering of `info.tasks`.
+
+        Tasks without annotations are skipped with a warning. Raises a `ValueError` if a class name of an
+        annotation is not among the class names of its task.
+        """
+        return dataset_transformations.reindex_class_indices(dataset=dataset)
 
     def merge(dataset0: "HafniaDataset", dataset1: "HafniaDataset") -> "HafniaDataset":
         """Merge two `HafniaDataset` instances by concatenating samples and combining their `info`.

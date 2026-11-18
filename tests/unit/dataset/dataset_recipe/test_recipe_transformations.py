@@ -15,6 +15,7 @@ from hafnia.dataset.dataset_recipe.recipe_transforms import (
     DefineSampleSetBySize,
     DropSamplesByClassName,
     FlatteningBySpecification,
+    ReindexClassIndices,
     RenameTask,
     SelectSamples,
     SelectSamplesByClassName,
@@ -127,6 +128,11 @@ def get_test_cases() -> list[TestCaseRecipeTransform]:
             recipe_transform=CreateSplitDataset(split_name="test"),
             as_python_code="create_split_dataset(split_name='test')",
             short_name="CreateSplitDataset",
+        ),
+        TestCaseRecipeTransform(
+            recipe_transform=ReindexClassIndices(),
+            as_python_code="reindex_class_indices()",
+            short_name="ReindexClassIndices",
         ),
     ]
 

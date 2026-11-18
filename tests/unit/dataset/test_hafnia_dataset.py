@@ -17,6 +17,7 @@ from tests.helper_testing import (
     get_hafnia_functions_from_module,
     get_micro_hafnia_dataset,
 )
+from tests.helper_testing_datasets import from_paths_test_setup, write_sample_files
 
 
 def test_dataset_info_serializing_deserializing(tmp_path: Path):
@@ -69,6 +70,150 @@ def test_hafnia_dataset_save_and_load(tmp_path: Path):
     table_expected = dataset.samples.drop(SampleField.FILE_PATH)
     table_actual = dataset_reloaded.samples.drop(SampleField.FILE_PATH)
     assert table_expected.equals(table_actual), "The samples tables do not match after reloading the dataset."
+
+
+def test_from_paths(tmp_path: Path):
+    dataset_info, samples = from_paths_test_setup(tmp_path)
+    sample_paths = write_sample_files(tmp_path, samples)
+    path_dataset_info = tmp_path / "dataset_info.json"
+    dataset_info.write_json(path_dataset_info)
+
+    media_paths = [None, tmp_path / "override.jpg"]
+    dataset = HafniaDataset.from_paths(sample_paths, dataset_info=path_dataset_info, media_paths=media_paths)
+
+    assert len(dataset) == 2
+    assert dataset.info == dataset_info
+    file_paths = dataset.samples[SampleField.FILE_PATH].to_list()
+    assert file_paths == [(tmp_path / "image0.jpg").as_posix(), (tmp_path / "override.jpg").as_posix()]
+
+
+def test_from_paths_raises_on_dataset_info_mismatch(tmp_path: Path):
+    dataset_info, samples = from_paths_test_setup(tmp_path)
+    sample_paths = write_sample_files(tmp_path, samples)
+
+    dataset_info_other_task = dataset_info.model_copy(
+        update={
+            "tasks": [TaskInfo.from_class_names(name="Other Task", class_names=["Class B"], primitive=Classification)]
+        }
+    )
+    with pytest.raises(ValueError, match="Other Task|Sample Task"):
+        HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info_other_task)
+
+    dataset_info_other_classes = dataset_info.model_copy(
+        update={
+            "tasks": [TaskInfo.from_class_names(name="Sample Task", class_names=["Class A"], primitive=Classification)]
+        }
+    )
+    with pytest.raises(ValueError, match="Class B"):
+        HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info_other_classes)
+
+    dataset_info_other_order = dataset_info.model_copy(
+        update={
+            "tasks": [
+                TaskInfo.from_class_names(
+                    name="Sample Task", class_names=["Class B", "Class A"], primitive=Classification
+                )
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="class index"):
+        HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info_other_order)
+
+
+def test_from_paths_allows_tasks_without_annotations(tmp_path: Path):
+    dataset_info, samples = from_paths_test_setup(tmp_path)
+    sample_paths = write_sample_files(tmp_path, samples)
+    task_without_annotations = TaskInfo.from_class_names(
+        name="Unused Task", class_names=["Class C"], primitive=Classification
+    )
+    dataset_info = dataset_info.model_copy(update={"tasks": dataset_info.tasks + [task_without_annotations]})
+
+    dataset = HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info)
+
+    dataset.check_dataset_tasks(require_annotations_for_all_tasks=False)
+    with pytest.raises(ValueError, match="has no task.name='Unused Task' objects"):
+        dataset.check_dataset_tasks()
+
+
+def test_from_paths_validation_errors(tmp_path: Path):
+    dataset_info, samples = from_paths_test_setup(tmp_path)
+    sample_paths = write_sample_files(tmp_path, samples)
+
+    with pytest.raises(ValueError, match="same length"):
+        HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info, media_paths=[None])
+
+    with pytest.raises(FileNotFoundError):
+        HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info, media_paths=[None, tmp_path / "missing.jpg"])
+
+    path_empty = tmp_path / "empty.jsonl"
+    path_empty.write_text("\n")
+    with pytest.raises(ValueError, match="No samples found"):
+        HafniaDataset.from_paths([path_empty], dataset_info=dataset_info)
+
+    path_unsupported = tmp_path / "sample.txt"
+    path_unsupported.write_text(samples[0].model_dump_json())
+    with pytest.raises(ValueError, match="Unsupported file format"):
+        HafniaDataset.from_paths([path_unsupported], dataset_info=dataset_info)
+
+    path_invalid = tmp_path / "invalid.json"
+    path_invalid.write_text('{"height": 100}')
+    with pytest.raises(ValueError, match="invalid.json"):
+        HafniaDataset.from_paths([path_invalid], dataset_info=dataset_info)
+
+
+def test_from_paths_read_errors(tmp_path: Path):
+    dataset_info, samples = from_paths_test_setup(tmp_path)
+
+    # Invalid line in a '.jsonl' file is reported with file and line number
+    path_jsonl = tmp_path / "bad_line.jsonl"
+    path_jsonl.write_text(samples[0].model_dump_json() + "\n\n" + '{"height": 100}\n')
+    with pytest.raises(ValueError, match="line 3 of sample file '.*bad_line.jsonl'"):
+        HafniaDataset.from_paths([path_jsonl], dataset_info=dataset_info)
+
+    # Binary content (e.g. an image passed by mistake) gives a 'ValueError' naming the file and the actual line
+    path_binary = tmp_path / "binary.jsonl"
+    path_binary.write_bytes(samples[0].model_dump_json().encode() + b"\n" + bytes([0xFF, 0xD8, 0xFF, 0xE0]) + b"\n")
+    with pytest.raises(ValueError, match="line 2 of sample file '.*binary.jsonl'"):
+        HafniaDataset.from_paths([path_binary], dataset_info=dataset_info)
+
+    # Unsupported formats are rejected before any file is read
+    path_image = tmp_path / "image0.jpg"
+    with pytest.raises(ValueError, match="Unsupported file format '.jpg'"):
+        Sample.samples_from_files([path_jsonl, path_image])
+
+    # A sample without 'file_path' and no media file override is rejected when checking for images
+    sample_without_path = samples[0].model_copy(update={"file_path": None})
+    sample_paths = write_sample_files(tmp_path / "no_path", [sample_without_path])
+    with pytest.raises(
+        ValueError,
+        match=r"1 of 1 samples have no 'file_path' \(first 1 by 'sample_index': \[0\]\).*check_for_images=False",
+    ):
+        HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info)
+
+
+def test_from_paths_multiple_samples_per_file(tmp_path: Path):
+    dataset_info, samples = from_paths_test_setup(tmp_path)
+
+    # JSONL with multiple samples, including a duplicate (e.g. independent predictions for the same image)
+    path_jsonl = tmp_path / "multi.jsonl"
+    path_jsonl.write_text("\n".join(sample.model_dump_json() for sample in [samples[0], samples[1], samples[1]]))
+    # JSON with a list of samples and JSON with a single sample object
+    path_json_list = tmp_path / "list.json"
+    path_json_list.write_text(json.dumps([sample.model_dump(mode="json") for sample in samples]))
+    path_json_object = tmp_path / "object.json"
+    path_json_object.write_text(samples[0].model_dump_json())
+
+    media_paths = [None, tmp_path / "override.jpg", None]
+    dataset = HafniaDataset.from_paths(
+        [path_jsonl, path_json_list, path_json_object], dataset_info=dataset_info, media_paths=media_paths
+    )
+
+    path_image0, path_image1, path_override = [
+        (tmp_path / n).as_posix() for n in ["image0.jpg", "image1.jpg", "override.jpg"]
+    ]
+    expected_file_paths = [path_image0, path_image1, path_image1, path_override, path_override, path_image0]
+    assert dataset.samples[SampleField.FILE_PATH].to_list() == expected_file_paths
+    assert dataset.samples[SampleField.SAMPLE_INDEX].to_list() == list(range(6))
 
 
 def test_write_annotations_stores_posix_paths(tmp_path: Path):
