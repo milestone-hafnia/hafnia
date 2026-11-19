@@ -209,9 +209,12 @@ def test_dataset_without_skeleton_annotations(skeletons):
 
 
 def test_check_image_paths_raises_on_missing_file_path():
-    table = pl.DataFrame({SampleField.FILE_PATH: ["a.jpg", None, None]}, schema={SampleField.FILE_PATH: pl.String})
+    table = pl.DataFrame(
+        {SampleField.FILE_PATH: ["a.jpg", None, None], "row": ["x", "y", "z"]},  # A 'row' column must not clash
+        schema={SampleField.FILE_PATH: pl.String, "row": pl.String},
+    )
     # Without a 'sample_index' column, samples are identified by row number
-    with pytest.raises(ValueError, match=r"2 of 3 samples have no 'file_path' \(first 2 by 'row': \[1, 2\]\)"):
+    with pytest.raises(ValueError, match=r"2 of 3 samples have no 'file_path' \(first 2 by row number: \[1, 2\]\)"):
         table_transformations.check_image_paths(table)
 
     table = table.with_columns(pl.Series(SampleField.SAMPLE_INDEX, [10, 11, 12]))

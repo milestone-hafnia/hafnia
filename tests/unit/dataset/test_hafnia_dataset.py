@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from packaging.version import Version
@@ -13,6 +14,7 @@ from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
 from hafnia.dataset.operations import dataset_stats, dataset_transformations
 from hafnia.dataset.primitives import PRIMITIVE_COLUMN_NAMES, Classification
+from hafnia.log import user_logger
 from tests.helper_testing import (
     get_hafnia_functions_from_module,
     get_micro_hafnia_dataset,
@@ -133,6 +135,11 @@ def test_from_paths_allows_tasks_without_annotations(tmp_path: Path):
     dataset.check_dataset_tasks(require_annotations_for_all_tasks=False)
     with pytest.raises(ValueError, match="has no task.name='Unused Task' objects"):
         dataset.check_dataset_tasks()
+
+    # Reindexing does not warn about tasks without annotations, as they are expected for sample files
+    with patch.object(user_logger, "warning") as mock_warning:
+        HafniaDataset.from_paths(sample_paths, dataset_info=dataset_info, reindex_class_idx=True)
+    assert mock_warning.call_count == 0
 
 
 def test_from_paths_validation_errors(tmp_path: Path):

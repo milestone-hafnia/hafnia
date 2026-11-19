@@ -9,6 +9,7 @@ import pytest
 from hafnia.dataset.dataset_names import PrimitiveField, SampleField, StorageFormat
 from hafnia.dataset.hafnia_dataset import HafniaDataset
 from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
+from hafnia.dataset.operations import dataset_transformations
 from hafnia.dataset.operations.dataset_transformations import (
     expand_class_mapping,
     get_task_info_from_task_name_and_primitive,
@@ -583,6 +584,12 @@ def test_reindex_class_indices_warns_for_tasks_without_annotations():
         dataset_reindexed = dataset.reindex_class_indices()
 
     warnings = [str(call.args[0]) for call in mock_warning.call_args_list]
-    assert len(warnings) == 2
-    assert "'Unused'" in warnings[0] and "'Shapes'" in warnings[1]
+    assert len(warnings) == 1, "Skipped tasks are reported in a single message"
+    assert "'Unused' (Classification)" in warnings[0] and "'Shapes' (Polygon)" in warnings[0]
     assert get_class_indices(dataset_reindexed, Classification) == [2, 1]
+
+    # Tasks without annotations are expected for a subset of a dataset - reported as info instead
+    with patch.object(user_logger, "warning") as mock_warning, patch.object(user_logger, "info") as mock_info:
+        dataset_transformations.reindex_class_indices(dataset, warn_for_skipped_tasks=False)
+    assert mock_warning.call_count == 0
+    assert mock_info.call_count == 1 and "'Unused'" in str(mock_info.call_args.args[0])

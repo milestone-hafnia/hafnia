@@ -187,7 +187,8 @@ class HafniaDataset:
         samples = Sample.samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
         dataset = HafniaDataset.from_samples_iterable(samples, info=dataset_info)
         if reindex_class_idx:
-            dataset = dataset.reindex_class_indices()
+            # Sample files are often a subset of a dataset, so tasks without annotations are expected
+            dataset = dataset_transformations.reindex_class_indices(dataset, warn_for_skipped_tasks=False)
 
         # Samples may be a subset of a dataset, so a task in 'dataset_info' may have no annotations
         dataset.check_dataset_tasks(require_annotations_for_all_tasks=False)

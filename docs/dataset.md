@@ -46,6 +46,47 @@ dataset.write(".data/tmp/hafnia_dataset", storage_mode="symlink")  # Or FileStor
 `from_name` downloads the dataset to `.data/datasets/` on first call and
 caches it for subsequent calls.
 
+### Loading from sample files
+
+`from_path` reads a dataset folder written by `write`, with all annotations in a
+single annotations file. `from_paths` instead loads a dataset from a list of sample
+files located anywhere — e.g. one annotation or prediction file per image or video,
+which can be produced independently and in parallel:
+
+```
+my_annotations/
+├── dataset_info.json        # DatasetInfo (tasks, class names, ...)
+├── image0.json              # A single Sample ({"file_path": "image0.jpg", ...})
+├── image0.jpg
+├── image1.jsonl             # One Sample per line, e.g. multiple predictions for the same image
+├── image1.jpg
+├── video0.jsonl             # One Sample per frame of a video
+└── video0.mp4
+```
+
+```python
+from pathlib import Path
+
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+
+folder = Path("my_annotations")
+dataset = HafniaDataset.from_paths(
+    sample_paths=[folder / "image0.json", folder / "image1.jsonl", folder / "video0.jsonl"],
+    dataset_info=folder / "dataset_info.json",  # Or a 'DatasetInfo' object
+    media_paths=[None, None, folder / "video0.mp4"],  # Optional: overrules 'file_path' of all samples in a file
+    reindex_class_idx=True,  # Optional: derive 'class_idx' from 'class_name' and 'dataset_info.tasks'
+)
+```
+
+- A `.json` file holds a single `Sample` object or a list of samples; a `.jsonl` file holds one sample per line.
+- A relative `file_path` in a sample is resolved against the folder of its sample file.
+- The annotations are validated against `dataset_info`. As the sample files may be a subset of a dataset,
+  tasks in `dataset_info` without annotations are allowed.
+- Single sample files can be written with `Sample.to_file` / `Sample.samples_to_file` and read without
+  a `HafniaDataset` with `Sample.samples_from_file` / `Sample.samples_from_files`.
+
+Writing a full dataset as separate sample files is not supported — use `write` to store a full dataset.
+
 ## Iterating samples
 
 ```python

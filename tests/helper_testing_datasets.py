@@ -85,13 +85,7 @@ SUPPORTED_DATASETS = [
 
 
 def write_sample_files(path_folder: Path, samples: List[Sample]) -> List[Path]:
-    path_folder.mkdir(parents=True, exist_ok=True)
-    sample_paths = []
-    for i, sample in enumerate(samples):
-        path_sample = path_folder / f"sample{i}.jsonl"
-        path_sample.write_text(sample.model_dump_json() + "\n")
-        sample_paths.append(path_sample)
-    return sample_paths
+    return [sample.to_file(path_folder / f"sample{i}.jsonl") for i, sample in enumerate(samples)]
 
 
 def from_paths_test_setup(tmp_path: Path) -> Tuple[DatasetInfo, List[Sample]]:
