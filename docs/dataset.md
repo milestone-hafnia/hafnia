@@ -82,10 +82,28 @@ dataset = HafniaDataset.from_paths(
 - A relative `file_path` in a sample is resolved against the folder of its sample file.
 - The annotations are validated against `dataset_info`. As the sample files may be a subset of a dataset,
   tasks in `dataset_info` without annotations are allowed.
-- Single sample files can be written with `Sample.to_file` / `Sample.samples_to_file` and read without
-  a `HafniaDataset` with `Sample.samples_from_file` / `Sample.samples_from_files`.
+- Sample files can be read without a `HafniaDataset` with `Sample.samples_from_file` / `Sample.samples_from_files`.
 
-Writing a full dataset as separate sample files is not supported — use `write` to store a full dataset.
+`Sample.to_file` stores a sample together with its media file in a folder. As in `write`, both files are
+named by the hash of the media file content, and the stored `file_path` is relative to the sample file — so
+the folder can be moved as a whole:
+
+```python
+from hafnia.dataset.hafnia_dataset_types import Sample
+
+path_sample = sample.to_file("my_predictions")  # Or storage_mode="symlink" to not duplicate the media file
+# my_predictions/
+# ├── 3f9c...e1.jpg     # Media file
+# └── 3f9c...e1.jsonl   # Sample with "file_path": "3f9c...e1.jpg"
+
+# Multiple samples of the same media file (e.g. all frames of a video) go into a single sample file
+path_sample = Sample.samples_to_file(video_frames, "my_predictions")
+
+dataset = HafniaDataset.from_paths([path_sample], dataset_info=dataset_info)
+```
+
+A sample file holds the samples of a single media file, and writing samples of the same media file again
+overwrites its sample file. Use `write` to store a full dataset.
 
 ## Iterating samples
 

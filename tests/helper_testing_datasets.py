@@ -85,7 +85,14 @@ SUPPORTED_DATASETS = [
 
 
 def write_sample_files(path_folder: Path, samples: List[Sample]) -> List[Path]:
-    return [sample.to_file(path_folder / f"sample{i}.jsonl") for i, sample in enumerate(samples)]
+    """Write each sample as-is (no media file is stored) to 'sample<i>.jsonl' to test reading sample files."""
+    path_folder.mkdir(parents=True, exist_ok=True)
+    sample_paths = []
+    for i, sample in enumerate(samples):
+        path_sample = path_folder / f"sample{i}.jsonl"
+        path_sample.write_text(sample.model_dump_json() + "\n")
+        sample_paths.append(path_sample)
+    return sample_paths
 
 
 def from_paths_test_setup(tmp_path: Path) -> Tuple[DatasetInfo, List[Sample]]:

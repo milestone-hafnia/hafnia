@@ -816,10 +816,11 @@ class Sample(BaseModel):
         iterator is consumed. A '.jsonl' file is read line by line, so it is never fully held in memory. Raises a
         `ValueError` naming the sample file (and line for '.jsonl') if a sample cannot be read, or if the file
         has no samples.
+
+        A relative 'file_path' is resolved relative to the folder of the sample file (as in
+        `Sample.samples_from_files`).
         """
-        path_sample = Path(path_sample)
-        _check_sample_file(path_sample)
-        return _iterate_samples_in_file(path_sample)
+        return Sample.samples_from_files([path_sample])
 
     @staticmethod
     def samples_from_files(
@@ -852,58 +853,90 @@ class Sample(BaseModel):
             _check_sample_file(path_sample)
         return _iterate_samples_from_files(sample_paths=sample_paths, media_paths=media_paths)
 
-    def to_file(self, path_sample: Path) -> Path:
-        """Write the sample to a sample file - the counterpart of `Sample.samples_from_file`.
+    def to_file(
+        self,
+        path_folder: Path,
+        storage_mode: Union[dataset_helpers.FileStorageMode, str] = dataset_helpers.FileStorageMode.COPY,
+        suffix: str = ".jsonl",
+    ) -> Path:
+        """Store the sample and its media file in `path_folder` - the counterpart of `Sample.samples_from_file`.
 
-        The format is given by the suffix of `path_sample`:
-            - JSONL ('.jsonl'): The sample on a single line. Used if `path_sample` has no suffix.
-            - JSON ('.json'): The sample as an indented JSON object.
+        Both files are named by the hash of the media file content (as in `HafniaDataset.write`):
+            path_folder/
+                <hash>.jpg    # Media file (image or video) - copy or symbolic link (see `storage_mode`)
+                <hash>.jsonl  # Sample file with 'file_path' set to '<hash>.jpg' (relative to the sample file)
 
-        The 'file_path' of the sample is written as-is. Parent folders are created if missing.
+        Read the sample back with `Sample.samples_from_file` or `HafniaDataset.from_paths`. To store multiple
+        samples of the same media file (e.g. all frames of a video), use `Sample.samples_to_file`, as an existing
+        sample file of the same media file is overwritten.
+
+        Args:
+            path_folder: Destination folder for the sample and media file. Created if it does not exist.
+            storage_mode: `FileStorageMode.COPY` (default) stores a copy of the media file.
+                `FileStorageMode.SYMLINK` stores a symbolic link to the media file - no data is duplicated,
+                but the stored sample breaks if the original media file is moved or deleted.
+            suffix: Format of the sample file: '.jsonl' (default, sample on a single line) or '.json'
+                (indented sample object).
 
         Returns:
             Path of the written sample file.
         """
-        path_sample = _sample_file_path_with_suffix(Path(path_sample))
-        path_sample.parent.mkdir(parents=True, exist_ok=True)
-        if path_sample.suffix.lower() == ".jsonl":
-            path_sample.write_text(self.model_dump_json() + "\n", encoding="utf-8")
-        else:
-            path_sample.write_text(self.model_dump_json(indent=4), encoding="utf-8")
-        return path_sample
+        return Sample.samples_to_file([self], path_folder=path_folder, storage_mode=storage_mode, suffix=suffix)
 
     @staticmethod
-    def samples_to_file(samples: Iterable["Sample"], path_sample: Path) -> Path:
-        """Write multiple samples to a single sample file - the counterpart of `Sample.samples_from_file`.
+    def samples_to_file(
+        samples: Iterable["Sample"],
+        path_folder: Path,
+        storage_mode: Union[dataset_helpers.FileStorageMode, str] = dataset_helpers.FileStorageMode.COPY,
+        suffix: str = ".jsonl",
+    ) -> Path:
+        """Store multiple samples of the same media file and the media file in `path_folder`.
 
-        The format is given by the suffix of `path_sample`:
-            - JSONL ('.jsonl'): One sample per line. Samples are written one by one, so `samples` may be a
-              lazy iterator. Used if `path_sample` has no suffix.
-            - JSON ('.json'): An indented list of sample objects.
+        Use this for samples that share a media file - e.g. a sample per frame of a video, or multiple
+        annotations/predictions of an image. All samples must have the same 'file_path'. The media file is stored
+        once, and all samples are written to a single sample file - both named by the hash of the media file
+        content (see `Sample.to_file`). An existing sample file of the same media file is overwritten.
 
-        The 'file_path' of the samples is written as-is. Parent folders are created if missing. Raises a
-        `ValueError` if `samples` is empty, as a sample file without samples cannot be read.
+        Args:
+            samples: Samples sharing the same media file ('file_path'). A relative 'file_path' is resolved
+                relative to the current working directory.
+            path_folder: Destination folder for the sample and media file. Created if it does not exist.
+            storage_mode: `FileStorageMode.COPY` (default) or `FileStorageMode.SYMLINK` (see `Sample.to_file`).
+            suffix: Format of the sample file: '.jsonl' (default, one sample per line) or '.json' (indented list of
+                sample objects, or a single sample object for a single sample).
 
         Returns:
             Path of the written sample file.
         """
-        path_sample = _sample_file_path_with_suffix(Path(path_sample))
-        path_sample.parent.mkdir(parents=True, exist_ok=True)
-        n_samples = 0
-        if path_sample.suffix.lower() == ".jsonl":
-            with path_sample.open("w", encoding="utf-8") as file:
-                for sample in samples:
-                    file.write(sample.model_dump_json() + "\n")
-                    n_samples += 1
+        suffix = _normalize_sample_file_suffix(suffix)
+        storage_mode = dataset_helpers.FileStorageMode(storage_mode)
+        samples = list(samples)
+        if len(samples) == 0:
+            raise ValueError("No samples to write. Expected at least one sample.")
+        file_paths = {sample.file_path for sample in samples}
+        if None in file_paths:
+            raise ValueError(f"All samples must have a '{SampleField.FILE_PATH}' to store the media file.")
+        if len(file_paths) > 1:
+            raise ValueError(
+                f"All samples must have the same '{SampleField.FILE_PATH}' to be stored in a single sample file, "
+                f"but got {len(file_paths)} different media files: {sorted(str(path) for path in file_paths)[:5]}."
+            )
+
+        path_folder = Path(path_folder)
+        path_media = dataset_helpers.copy_and_rename_file_to_hash_value(
+            path_source=Path(str(samples[0].file_path)).absolute(),
+            path_dataset_root=path_folder,
+            storage_mode=storage_mode,
+        )
+        # 'file_path' is stored relative to the sample file, so the folder can be moved as a whole
+        samples = [sample.model_copy(update={"file_path": path_media.name}) for sample in samples]
+        path_sample = path_folder / f"{path_media.stem}{suffix}"
+        if suffix == ".jsonl":
+            content = "".join(sample.model_dump_json() + "\n" for sample in samples)
         else:
             sample_dicts = [sample.model_dump(mode="json") for sample in samples]
-            n_samples = len(sample_dicts)
-            if n_samples > 0:
-                path_sample.write_text(json.dumps(sample_dicts, indent=4), encoding="utf-8")
-
-        if n_samples == 0:
-            path_sample.unlink(missing_ok=True)
-            raise ValueError(f"No samples to write to sample file '{path_sample}'.")
+            content = json.dumps(sample_dicts[0] if len(sample_dicts) == 1 else sample_dicts, indent=4)
+        path_sample.write_text(content, encoding="utf-8")
         return path_sample
 
     def get_primitives(self, primitive_types: Optional[List[Type[Primitive]]] = None) -> List[Primitive]:
@@ -1057,16 +1090,12 @@ def _check_sample_file(path_sample: Path) -> None:
         )
 
 
-def _sample_file_path_with_suffix(path_sample: Path) -> Path:
-    """Use '.jsonl' for a sample file path without a suffix and reject unsupported suffixes."""
-    if path_sample.suffix == "":
-        return path_sample.with_suffix(".jsonl")
-    if path_sample.suffix.lower() not in SAMPLE_FILE_SUFFIXES:
-        raise ValueError(
-            f"Unsupported file format '{path_sample.suffix}' of sample file '{path_sample}'. "
-            f"Expected one of {SAMPLE_FILE_SUFFIXES}."
-        )
-    return path_sample
+def _normalize_sample_file_suffix(suffix: str) -> str:
+    """Return the sample file suffix in lowercase with a leading dot and reject unsupported suffixes."""
+    suffix = (suffix if suffix.startswith(".") else f".{suffix}").lower()
+    if suffix not in SAMPLE_FILE_SUFFIXES:
+        raise ValueError(f"Unsupported sample file format '{suffix}'. Expected one of {SAMPLE_FILE_SUFFIXES}.")
+    return suffix
 
 
 def _iterate_samples_in_file(path_sample: Path) -> Iterator[Sample]:
