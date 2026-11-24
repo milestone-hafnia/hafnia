@@ -79,6 +79,39 @@ Predictions are added as a new task with the suffix
 `/predictions` (controlled by `task_name_prediction_postfix`). The ground
 truth task is untouched, which makes side-by-side visualization easy.
 
+## Aligning prediction classes to the ground truth
+
+The metrics need the class names of a prediction task to match those of its
+ground-truth task, including their order. A model often has more classes than
+the dataset, e.g. a COCO model with 91 classes (including unused ids) on
+`coco-2017` with 80. Pass `auto_align_classes=True` to give each prediction
+task the ground truth's classes, in the ground truth's order. Predictions of
+other classes are removed:
+
+```python
+metrics, dataset_predictions = benchmark.run_benchmark(dataset=dataset, model=model, auto_align_classes=True)
+```
+
+Aligning runs after `recipe_transforms`. When the label spaces differ, i.e.
+the ground truth has classes the model doesn't predict, map the prediction
+classes first with a `ClassMapper` recipe transform on the prediction task:
+
+```python
+from hafnia.dataset.dataset_recipe.recipe_transforms import ClassMapper
+
+to_vehicle = ClassMapper(
+    class_mapping={"car": "Vehicle", "bus": "Vehicle", "truck": "Vehicle"},
+    method="remove_undefined",
+    task_name="object_detection/predictions",
+)
+metrics, dataset_predictions = benchmark.run_benchmark(
+    dataset=dataset, model=model, recipe_transforms=[to_vehicle], auto_align_classes=True
+)
+```
+
+Without `run_benchmark`, call `benchmark.align_prediction_classes(dataset_predictions)`
+before `metric_calculations`.
+
 ## Visualizing predictions
 
 Because predictions are stored as primitives on `Sample`, you can filter and

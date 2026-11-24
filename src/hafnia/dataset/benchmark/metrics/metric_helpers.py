@@ -43,7 +43,9 @@ def validate_matching_tasks(
         raise ValueError(
             f"Class names for ground-truth task '{task_name_ground_truth}' and prediction task "
             f"'{task_name_predictions}' do not match. "
-            f"Ground-truth class names: {gt_class_names}. Prediction class names: {pred_class_names}."
+            f"Ground-truth class names: {gt_class_names}. Prediction class names: {pred_class_names}. "
+            "If the predictions only have extra classes or another order, pass 'auto_align_classes=True' to "
+            "'run_benchmark' (or use 'align_prediction_classes')."
         )
 
     return gt_task, pred_task, gt_class_names

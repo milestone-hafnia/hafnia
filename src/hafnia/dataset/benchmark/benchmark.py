@@ -21,7 +21,17 @@ def run_benchmark(
     metric_calculators: Optional[Dict[str, Union[MetricsCalculator, Callable]]] = None,
     recipe_transforms: Optional[List[RecipeTransform]] = None,
     batch_size: int = 1,
+    auto_align_classes: bool = False,
 ) -> Tuple[dict[str, float], HafniaDataset]:
+    """Run 'model' on 'dataset' and compute the metrics of its tasks. Returns (metrics, dataset with predictions).
+
+    Args:
+        recipe_transforms: Transforms applied to the dataset with predictions before the metrics, e.g. a
+            'ClassMapper' that maps the prediction classes to the ground truth's label space.
+        auto_align_classes: Give each prediction task the class names of its ground-truth task, in the ground
+            truth's order, after 'recipe_transforms' (see 'align_prediction_classes'). Use it for models with
+            more classes than the dataset, e.g. a COCO model with 91 classes on a dataset with 80.
+    """
     dataset_predictions = run_inference_on_dataset(
         dataset=dataset,
         model=model,
@@ -33,12 +43,70 @@ def run_benchmark(
     for transform in recipe_transforms:
         dataset_predictions = transform.build(dataset_predictions)
 
+    if auto_align_classes:
+        dataset_predictions = align_prediction_classes(
+            dataset_predictions,
+            prediction_task_name_postfix=task_name_prediction_postfix,
+        )
+
     metrics = metric_calculations(
         prediction_dataset=dataset_predictions,
         metric_calculators=metric_calculators,
         prediction_task_name_postfix=task_name_prediction_postfix,
     )
     return metrics, dataset_predictions
+
+
+def align_prediction_classes(
+    dataset: HafniaDataset,
+    prediction_task_name_postfix: str = TASK_NAME_PREDICTIONS_POSTFIX,
+) -> HafniaDataset:
+    """Give each prediction task the class names of its ground-truth task, in the same order.
+
+    The metrics need the class names of a prediction task and its ground-truth task to match, including their
+    order. Models often have more classes than a dataset, e.g. a COCO model with 91 classes on a dataset with 80.
+    Aligning keeps the ground truth's classes and removes predictions of other classes.
+
+    A prediction task is named '<ground-truth task name><prediction_task_name_postfix>'. Prediction tasks without
+    a ground-truth task, and those whose class names already match, are unchanged.
+
+    Raises:
+        ValueError: When the ground truth has classes that the predictions don't. Then the label spaces differ,
+            and the classes need to be mapped first, e.g. with a 'ClassMapper' in 'run_benchmark's
+            'recipe_transforms'.
+    """
+    task_names = {task.name for task in dataset.info.tasks}
+    for prediction_task in list(dataset.info.tasks):
+        prediction_task_name = prediction_task.name
+        if prediction_task_name is None or not prediction_task_name.endswith(prediction_task_name_postfix):
+            continue
+        task_name_ground_truth = prediction_task_name.removesuffix(prediction_task_name_postfix)
+        if task_name_ground_truth == prediction_task_name or task_name_ground_truth not in task_names:
+            continue
+
+        gt_class_names = dataset.info.get_task_by_name(task_name_ground_truth).get_class_names() or []
+        prediction_class_names = prediction_task.get_class_names() or []
+        if not gt_class_names or gt_class_names == prediction_class_names:
+            continue
+
+        missing_class_names = [name for name in gt_class_names if name not in prediction_class_names]
+        if missing_class_names:
+            raise ValueError(
+                f"Prediction task '{prediction_task_name}' has no classes {missing_class_names}, which the "
+                f"ground-truth task '{task_name_ground_truth}' has. The label spaces differ: map the prediction "
+                "and/or ground-truth classes to a common label space first, e.g. with a 'ClassMapper' in "
+                "'recipe_transforms'."
+            )
+        user_logger.info(
+            f"Aligning the {len(prediction_class_names)} classes of prediction task '{prediction_task_name}' to "
+            f"the {len(gt_class_names)} classes of ground-truth task '{task_name_ground_truth}'."
+        )
+        dataset = dataset.class_mapper(
+            class_mapping={name: name for name in gt_class_names},
+            method="remove_undefined",
+            task_name=prediction_task_name,
+        )
+    return dataset
 
 
 def batched(iterable: Iterable, batch_size: int) -> Iterator[list]:

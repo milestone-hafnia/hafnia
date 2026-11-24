@@ -2,9 +2,15 @@ from typing import List, Optional
 
 import pytest
 
-from hafnia.dataset.benchmark.benchmark import batched, run_benchmark, run_inference_on_dataset
+from hafnia.dataset.benchmark.benchmark import (
+    align_prediction_classes,
+    batched,
+    run_benchmark,
+    run_inference_on_dataset,
+)
 from hafnia.dataset.hafnia_dataset import HafniaDataset
-from hafnia.dataset.primitives import Primitive
+from hafnia.dataset.hafnia_dataset_types import TaskInfo
+from hafnia.dataset.primitives import Bbox, Primitive
 from tests import helper_testing
 from tests.helper_testing_benchmark import FakeInferenceModel
 
@@ -29,6 +35,60 @@ def test_benchmark(dataset_name: str):
         assert model_task.name is not None, "Model task names cannot be None"
         prediction_task_name = model_task.name + task_name_prediction_postfix
         assert prediction_task_name in dataset_prediction_tasks
+
+
+EXTRA_CLASS_NAME = "extra_class"
+
+
+class ExtraClassInferenceModel(FakeInferenceModel):
+    """A 'FakeInferenceModel' that also predicts one box of a class the dataset doesn't have on each image."""
+
+    def predict(self, image, sample_dict=None) -> List[Primitive]:
+        predictions = super().predict(image, sample_dict=sample_dict)
+        if predictions:
+            extra_prediction = predictions[0].model_copy(deep=True)
+            extra_prediction.class_name = EXTRA_CLASS_NAME
+            extra_prediction.class_idx = 0
+            predictions.append(extra_prediction)
+        return predictions
+
+
+def detection_model_task(class_names: List[str]) -> TaskInfo:
+    return TaskInfo.from_class_names(primitive=Bbox, class_names=class_names, name="object_detection")
+
+
+def test_run_benchmark_auto_align_classes():
+    """A model with an extra class and another class order: aligned, it scores as the ground truth itself."""
+    gt_dataset = helper_testing.get_micro_hafnia_dataset("micro-coco-2017")
+    gt_class_names = gt_dataset.info.get_task_by_name("object_detection").get_class_names() or []
+    model_class_names = [EXTRA_CLASS_NAME, *reversed(gt_class_names)]
+    model = ExtraClassInferenceModel(fake_model_tasks=[detection_model_task(model_class_names)])
+
+    with pytest.raises(ValueError, match="auto_align_classes=True"):
+        run_benchmark(dataset=gt_dataset, model=model)
+    metrics, dataset_predictions = run_benchmark(dataset=gt_dataset, model=model, auto_align_classes=True)
+
+    prediction_task = dataset_predictions.info.get_task_by_name("object_detection/predictions")
+    assert prediction_task.get_class_names() == gt_class_names
+    predicted_class_names = {
+        bbox["class_name"] for bboxes in dataset_predictions.samples["bboxes"].to_list() for bbox in bboxes
+    }
+    assert EXTRA_CLASS_NAME not in predicted_class_names
+
+    reference_model = FakeInferenceModel(fake_model_tasks=[detection_model_task(gt_class_names)])
+    reference_metrics, reference_predictions = run_benchmark(dataset=gt_dataset, model=reference_model)
+    assert metrics == pytest.approx(reference_metrics)
+    assert align_prediction_classes(reference_predictions) is reference_predictions, "Matching classes are unchanged"
+
+
+def test_align_prediction_classes_raises_when_label_spaces_differ():
+    gt_dataset = helper_testing.get_micro_hafnia_dataset("micro-coco-2017")
+    gt_class_names = gt_dataset.info.get_task_by_name("object_detection").get_class_names() or []
+    model = FakeInferenceModel(fake_model_tasks=[detection_model_task(gt_class_names[1:])])
+
+    dataset_predictions = run_inference_on_dataset(dataset=gt_dataset, model=model)
+    with pytest.raises(ValueError, match=f"has no classes \\['{gt_class_names[0]}'\\]"):
+        align_prediction_classes(dataset_predictions)
 
 
 class BatchRecordingInferenceModel(FakeInferenceModel):
