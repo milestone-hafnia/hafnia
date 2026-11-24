@@ -60,7 +60,7 @@ from hafnia.dataset.dataset_names import (
     StorageFormat,
 )
 from hafnia.dataset.hafnia_dataset_types import ClassInfo, Sample, TaskInfo
-from hafnia.dataset.operations.table_transformations import update_class_indices
+from hafnia.dataset.operations.table_transformations import has_primitive_struct_column, update_class_indices
 from hafnia.dataset.primitives import get_primitive_type_from_string
 from hafnia.dataset.primitives.primitive import Primitive
 from hafnia.log import user_logger
@@ -578,6 +578,40 @@ def select_samples_by_dataset_name(
         user_logger.warning(f"{msg}. Set 'raise_if_missing=True' to raise an error instead.")
 
     samples = dataset.samples.filter(pl.col(SampleField.DATASET_NAME).is_in(names))
+    return dataset.update_samples(samples)
+
+
+def reindex_class_indices(dataset: "HafniaDataset", warn_for_skipped_tasks: bool = True) -> "HafniaDataset":
+    """Set the 'class_idx' of all primitives to the index of their 'class_name' in the class names of their task.
+
+    Each primitive is matched to a task in `dataset.info.tasks` by primitive type and task name, so multiple tasks
+    of the same primitive (e.g. several classification tasks) are reindexed independently (see
+    `update_class_indices`).
+
+    A task without annotations (missing or empty primitive column, or no annotations with the task name) is
+    skipped, and all skipped tasks are reported in a single message. Raises a `ValueError` if a class name of an
+    annotation is not among the class names of its task, or if a task with annotations has no class names.
+
+    Args:
+        warn_for_skipped_tasks: If True (default), skipped tasks are reported as a warning. Set to False when tasks
+            without annotations are expected - e.g. for a subset of a dataset - to report them as info instead.
+    """
+    samples = dataset.samples
+    skipped_tasks = []
+    for task in dataset.info.tasks:
+        column_name = task.primitive.column_name()
+        has_annotations = (
+            has_primitive_struct_column(samples, column_name)
+            and (samples[column_name].explode().struct.field(PrimitiveField.TASK_NAME) == task.name).any()
+        )
+        if not has_annotations:
+            skipped_tasks.append(f"'{task.name}' ({task.primitive.__name__})")
+            continue
+        samples = update_class_indices(samples, task)
+
+    if len(skipped_tasks) > 0:
+        log = user_logger.warning if warn_for_skipped_tasks else user_logger.info
+        log(f"Skipped reindexing of class indices for tasks without annotations: {', '.join(skipped_tasks)}.")
     return dataset.update_samples(samples)
 
 

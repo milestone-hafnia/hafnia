@@ -254,7 +254,36 @@ def split_primitive_columns_by_task_name(
     return samples_table
 
 
+def has_primitive_struct_column(samples: pl.DataFrame, column_name: str) -> bool:
+    """True if the primitive column exists and is of type 'List(Struct)', so its struct fields can be unnested.
+
+    A primitive column is of type 'Null' (no sample has the column) or 'List(Null)' (all samples have an empty
+    list) if no annotations were ever present, and has no struct fields to unnest. Note: A 'List(Struct)' column
+    may still have no annotations - e.g. after filtering samples, all lists may be empty.
+    """
+    if column_name not in samples.columns:
+        return False
+    dtype = samples[column_name].dtype
+    return isinstance(dtype, pl.List) and isinstance(dtype.inner, pl.Struct)
+
+
 def check_image_paths(table: pl.DataFrame) -> bool:
+    n_samples_without_path = table[SampleField.FILE_PATH].null_count()
+    if n_samples_without_path > 0:
+        # Identify samples by 'sample_index' if available, otherwise by row number
+        row_numbers = table[SampleField.FILE_PATH].is_null().arg_true()
+        if SampleField.SAMPLE_INDEX in table.columns:
+            id_label, sample_ids = f"'{SampleField.SAMPLE_INDEX}'", table[SampleField.SAMPLE_INDEX].gather(row_numbers)
+        else:
+            id_label, sample_ids = "row number", row_numbers
+        sample_ids_list = sample_ids.head(5).to_list()
+        raise ValueError(
+            f"Cannot check media files: {n_samples_without_path} of {len(table)} samples have no "
+            f"'{SampleField.FILE_PATH}' (first {len(sample_ids_list)} by {id_label}: {sample_ids_list}). "
+            f"Set '{SampleField.FILE_PATH}' for all samples, or use 'check_for_images=False' to skip checking "
+            "media files."
+        )
+
     missing_files = []
     org_paths = table[SampleField.FILE_PATH].to_list()
     for org_path in progress_bar(org_paths, description="Check image paths"):

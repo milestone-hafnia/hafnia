@@ -46,6 +46,65 @@ dataset.write(".data/tmp/hafnia_dataset", storage_mode="symlink")  # Or FileStor
 `from_name` downloads the dataset to `.data/datasets/` on first call and
 caches it for subsequent calls.
 
+### Loading from sample files
+
+`from_path` reads a dataset folder written by `write`, with all annotations in a
+single annotations file. `from_paths` instead loads a dataset from a list of sample
+files located anywhere — e.g. one annotation or prediction file per image or video,
+which can be produced independently and in parallel:
+
+```
+my_annotations/
+├── dataset_info.json        # DatasetInfo (tasks, class names, ...)
+├── image0.json              # A single Sample ({"file_path": "image0.jpg", ...})
+├── image0.jpg
+├── image1.jsonl             # One Sample per line, e.g. multiple predictions for the same image
+├── image1.jpg
+├── video0.jsonl             # One Sample per frame of a video
+└── video0.mp4
+```
+
+```python
+from pathlib import Path
+
+from hafnia.dataset.hafnia_dataset import HafniaDataset
+
+folder = Path("my_annotations")
+dataset = HafniaDataset.from_paths(
+    sample_paths=[folder / "image0.json", folder / "image1.jsonl", folder / "video0.jsonl"],
+    dataset_info=folder / "dataset_info.json",  # Or a 'DatasetInfo' object
+    media_paths=[None, None, folder / "video0.mp4"],  # Optional: overrules 'file_path' of all samples in a file
+    reindex_class_idx=True,  # Optional: derive 'class_idx' from 'class_name' and 'dataset_info.tasks'
+)
+```
+
+- A `.json` file holds a single `Sample` object or a list of samples; a `.jsonl` file holds one sample per line.
+- A relative `file_path` in a sample is resolved against the folder of its sample file.
+- The annotations are validated against `dataset_info`. As the sample files may be a subset of a dataset,
+  tasks in `dataset_info` without annotations are allowed.
+- Sample files can be read without a `HafniaDataset` with `Sample.samples_from_file` / `Sample.samples_from_files`.
+
+`Sample.to_file` stores a sample together with its media file in a folder. As in `write`, both files are
+named by the hash of the media file content, and the stored `file_path` is relative to the sample file — so
+the folder can be moved as a whole:
+
+```python
+from hafnia.dataset.hafnia_dataset_types import Sample
+
+path_sample = sample.to_file("my_predictions")  # Or storage_mode="symlink" to not duplicate the media file
+# my_predictions/
+# ├── 3f9c...e1.jpg     # Media file
+# └── 3f9c...e1.jsonl   # Sample with "file_path": "3f9c...e1.jpg"
+
+# Multiple samples of the same media file (e.g. all frames of a video) go into a single sample file
+path_sample = Sample.samples_to_file(video_frames, "my_predictions")
+
+dataset = HafniaDataset.from_paths([path_sample], dataset_info=dataset_info)
+```
+
+A sample file holds the samples of a single media file, and writing samples of the same media file again
+overwrites its sample file. Use `write` to store a full dataset.
+
 ## Iterating samples
 
 ```python

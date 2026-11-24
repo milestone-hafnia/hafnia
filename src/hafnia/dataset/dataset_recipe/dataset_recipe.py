@@ -545,6 +545,15 @@ class DatasetRecipe(Serializable):
         recipe.append_operation(operation)
         return recipe
 
+    def reindex_class_indices(recipe: DatasetRecipe) -> DatasetRecipe:
+        """Append an operation that sets the 'class_idx' of all primitives from their 'class_name'.
+
+        Recipe equivalent of `HafniaDataset.reindex_class_indices`.
+        """
+        operation = recipe_transforms.ReindexClassIndices()
+        recipe.append_operation(operation)
+        return recipe
+
     ### Helper methods ###
     def get_dataset_names(self) -> List[str]:
         """Return every Hafnia-platform dataset name referenced in the recipe (recursively).

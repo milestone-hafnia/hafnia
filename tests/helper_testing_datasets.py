@@ -1,5 +1,9 @@
 from dataclasses import dataclass
-from typing import Dict
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+from hafnia.dataset.hafnia_dataset_types import DatasetInfo, Sample, TaskInfo
+from hafnia.dataset.primitives import Classification
 
 
 @dataclass
@@ -78,3 +82,34 @@ SUPPORTED_DATASETS = [
     DATASET_SPEC_CIFAR100,
     DATASET_SPEC_COCO_2017,
 ]
+
+
+def write_sample_files(path_folder: Path, samples: List[Sample]) -> List[Path]:
+    """Write each sample as-is (no media file is stored) to 'sample<i>.jsonl' to test reading sample files."""
+    path_folder.mkdir(parents=True, exist_ok=True)
+    sample_paths = []
+    for i, sample in enumerate(samples):
+        path_sample = path_folder / f"sample{i}.jsonl"
+        path_sample.write_text(sample.model_dump_json() + "\n")
+        sample_paths.append(path_sample)
+    return sample_paths
+
+
+def from_paths_test_setup(tmp_path: Path) -> Tuple[DatasetInfo, List[Sample]]:
+    task_info = TaskInfo.from_class_names(
+        name="Sample Task", class_names=["Class A", "Class B"], primitive=Classification
+    )
+    dataset_info = DatasetInfo(dataset_name="Sample Dataset", version="1.0.0", tasks=[task_info])
+    for name in ["image0.jpg", "image1.jpg", "override.jpg"]:
+        (tmp_path / name).write_text("")
+    samples = [
+        Sample(
+            file_path=name,  # Relative to the folder of the sample file
+            height=100,
+            width=200,
+            split="train",
+            classifications=[Classification(class_name="Class B", class_idx=1, task_name="Sample Task")],
+        )
+        for name in ["image0.jpg", "image1.jpg"]
+    ]
+    return dataset_info, samples

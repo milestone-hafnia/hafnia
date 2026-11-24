@@ -16,7 +16,16 @@ from hafnia.utils import progress_bar
 if TYPE_CHECKING:  # Using 'TYPE_CHECKING' to avoid circular imports during type checking
     from hafnia.dataset.hafnia_dataset import HafniaDataset
 
-from hafnia.dataset.hafnia_dataset_types import Attribution, ClassInfo, DatasetInfo, License, Sample, TaskInfo
+from hafnia.dataset.hafnia_dataset_types import (
+    DEFAULT_SAMPLES_CHUNK_SIZE,
+    Attribution,
+    ClassInfo,
+    DatasetInfo,
+    License,
+    Sample,
+    TaskInfo,
+    samples_to_table,
+)
 from hafnia.dataset.primitives import Bbox, Bitmask, KeyPoint, Point, Skeleton, SkeletonEdge, SkeletonTemplate
 from hafnia.log import user_logger
 
@@ -181,8 +190,6 @@ def coco_format_folder_with_split_to_samples_table(
         chunk_size: Number of samples converted into the table at a time. Defaults to
             'DEFAULT_SAMPLES_CHUNK_SIZE'.
     """
-    from hafnia.dataset.hafnia_dataset import DEFAULT_SAMPLES_CHUNK_SIZE, samples_to_table
-
     chunk_size = chunk_size or DEFAULT_SAMPLES_CHUNK_SIZE
     if not path_label_file.exists():
         raise FileNotFoundError(f"Expected label file not found: {path_label_file}")
